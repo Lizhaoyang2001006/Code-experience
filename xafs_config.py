@@ -90,6 +90,8 @@ DEFAULTS: dict[str, Any] = {
     "phase_correct": False,
     "chi2_contour": False,
     "operando": False,
+    # ---- Phase V（B18-2）----
+    "s02": None,
     "self_absorption": {
         "formula": None,
         "thickness": None,

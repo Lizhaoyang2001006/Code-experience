@@ -1,6 +1,6 @@
 # XAFS 数据处理 / 结构识别 / CN 拟合管线
 
-> **项目最高级执行规范（Master Spec）**：当前对标 Athena / Artemis / Larch-WT 全功能补齐工程（Phase I：B1–B4 已验收 36 项回归基线；Phase II：B5–B8 进阶补齐至 45 项；Phase III：B9–B12 高阶能力已验收 60 项回归基线；**Phase IV：B13–B16 面向催化化学全面分析收官待执行 60 → 68 项**）的完整数学契约、函数签名、小模型防呆清单与旗舰模型终审标准，一律以 [`EXECUTION_MASTER_PLAN.md`](EXECUTION_MASTER_PLAN.md) 为唯一最高优先级准则。
+> **项目最高级执行规范（Master Spec）**：当前对标 Athena / Artemis / Larch-WT 全功能补齐工程（Phase I：B1–B4 已验收 36 项回归基线；Phase II：B5–B8 进阶补齐至 45 项；Phase III：B9–B12 高阶能力已验收 60 项回归基线；Phase IV：B13–B16 面向催化化学全面分析已验收 68 项回归基线；**Phase V：B17–B20 催化剂精细结构深度解析与实战完备化已验收 74 项回归基线**）的完整数学契约、函数签名、小模型防呆清单与旗舰模型终审标准，一律以 [`EXECUTION_MASTER_PLAN.md`](EXECUTION_MASTER_PLAN.md) 为唯一最高优先级准则。
 
 本仓库把「读数 → 合并 → E0 → 归一化 → Rbkg → χ(k) → FT → 小波 →
 结构识别 → 多壳层 CN 拟合 → 报告」串成一条可复现的 Python 管线。
@@ -72,7 +72,7 @@ python xafs_report.py
 | `larch_wt.py` | 连续小波变换 |
 | `calibrate_s02.py` | 金属箔标定 S₀²（新元素接入第 2 步，生产等效协议） |
 | `absorber.py` | 吸收元素配置表（边能量/S₀²/kmax），元素泛化唯一入口 |
-| `regression_test.py` | 60 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC） |
+| `regression_test.py` | 74 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测） |
 | `run_ci.py` | 跨平台 CI：编译 + 契约回归 + 可选压力测试，输出 ci_report.json/md |
 | `stress_test_{co,ni,cu,nio}.py` | 元素泛化/护栏/CN 回收压力测试 |
 | `xafs_config.py` | 配置文件支持（.yaml/.json）、批处理入口（--batch-dir） |
@@ -202,7 +202,7 @@ FT 内核嵌进页面，浏览器里拖 kmin/kmax/kweight/dk，实时看 `|χ(R)
 
 ### CI 自动化回归
 ```powershell
-python run_ci.py            # 编译 + 60 项契约回归
+python run_ci.py            # 编译 + 74 项契约回归
 python run_ci.py --stress   # 额外跑 Co/Ni/Cu/NiO 压力测试
 ```
 产物 `ci_report.json` / `ci_report.md`；任一步失败即非零退出。
@@ -305,7 +305,7 @@ rmax=3.5 回收 `1.808×10⁻⁴`（误差 3.08×10⁻⁵）。真实 LEPIDO
 
 ## Phase II 进阶补齐（B5–B8，2026-11）
 
-> 全部显式开启，默认路径不变。Phase II + III 合计 **60/60 回归 +
+> 全部显式开启，默认路径不变。Phase II–V 合计 **74/74 回归 +
 > 4 压力测试** 全绿（`ci_report.md`）。
 
 ### B5-1 复数小波与相位盲区
@@ -394,7 +394,7 @@ Gram-Charlier/Edgeworth 展开、非负截断与梯形重归一；C3=2.5e-4 时
 
 > 全部显式开启，默认路径零退化：LEPIDO 三扫描默认仍
 > `r_factor=0.027281059410161693`、第一壳 `N=6.348637726`、
-> `R=2.0019558445 Å`、7 列拟合表逐位不变。CI 实测 **60/60 回归 +
+> `R=2.0019558445 Å`、7 列拟合表逐位不变。CI 实测 **74/74 回归 +
 > 4 压力测试** 全绿。
 
 ### B9-1 配置全键同步 / C4 的 N_idp 降级 / g(R) 导出
@@ -502,6 +502,173 @@ Fe/Co/Ni/Cu/Pt 的标定 S₀² 逐位未改。
 `xafs_report.py`；B9–B12 其余增强通过 API 调用。
 `python run_xafs.py --help` / `python xafs_report.py --help` 可核对
 Phase I–III 全部开关。
+
+## Phase IV 催化化学全面分析收官（B13–B16，2026-11）
+
+> 全部新能力显式开启；不传新开关时默认路径零退化：LEPIDO 三扫描仍
+> `r_factor=0.027281059410161693`、第一壳 `N=6.348637726`、
+> `R=2.0019558445 Å`，7 列拟合表逐位不变。CI 实测 **74/74 回归 +
+> 4 压力测试** 全绿（`ci_report.md`）。
+
+### B13-1 SAC/DAC 动态 Motif 与 M₁–M₂ 金属键 F 检验
+`structure_lib.build_sac_motif` / `build_dac_motif` /
+`parse_catalytic_cluster_spec` 把 B12-2 的团簇构造器升级为可拟合
+Motif，FEFF 缓存固定在 `_structure_lib/_dynamic_cache/<hash>/`
+（不随临时目录退出而失效）。CLI `--catalytic-model
+"dac:Co@2.50,N4@2.00"` / `"sac:N4@2.00,axial=O@2.10,C@2.90"` 绕过
+晶相库搜索直接进入 S7。DAC 拟合完成后自动剔除 M₁–M₂ 路径、在同一
+窗口重跑纯配体壳层，用 Hamilton F-test 输出 `mm_bond_ftest`
+（`f_stat` / `p_value` / `significant` / `delta_r_factor`）：真
+Fe–Co 谱回收 R=2.50±0.03 Å、N≈1 且 p<0.01；纯 SAC 谱 p>0.05 不
+误报；SAC 轴向氧谱回收 N_N≈4、N_O≈1（误差 <0.5）。
+
+### B13-2 异核共占位双分支与 `path_links`
+`artemis.fit_r_space(..., path_links=[...])` 支持同一数据集内跨元素
+分支共享 ΔR/σ²（`share_deltar` / `share_sigma2`）并按 `degen_ratio`
+绑定 N；`xafs_fit.select_shell_paths(..., hetero_cocupancy=True)`
+（CLI `--hetero-cocupancy`）自动把共占位 CIF 拆成双元素分支并生成
+链接。Ti0.7Ru0.3 共占 N_geom=8：简并度 5.6/2.4，自由变量 7→5；
+合成谱回收两分支 N，ΔR/σ² 及其误差逐位相等，双分支 Rf 比单元素
+近似小 5 倍以上。
+
+### B14-1 Mini-GDS 化学计量约束
+`artemis.normalize_constraints` + `fit_r_space(..., constraints=...)`
+（CLI `--constraints`）支持 `N(Fe-O)+N(Fe-Cl)=6.0`、
+`N(Fe-Cl)=1.5*N(Fe-O)`、`dR(Fe-Cl)=dR(Fe-O)+0.02` 与逐参数边界
+覆盖；严格禁止 `eval`/`exec`，循环依赖或未知路径标签抛
+`XAFSConfigError`。n_sum 使自由变量真实减 1，N 之和逐位守恒，
+σ(N) 按系数严格传递。
+
+### B14-2 相移校正 FT/WT 与 χ² 置信椭圆
+`--phase-correct` 生成 `<stem>_ft_phase_corrected.csv/.png`（未校正
+vs 相移校正 |χ(R)|，并标注拟合 R₁ 竖线）；`--chi2-contour` 生成
+`<stem>_chi2_contour.csv/.png`（15×15 Δχ² 曲面 + 1σ/2σ/3σ 等高线
+及最优解星标）；`xafs_report.py` 把两张图内联进 HTML。LEPIDO 实测
+表观峰 1.4–1.7 Å，校正后与 S7 键长差 <0.06 Å；默认关闭时产物与
+耗时不变。
+
+### B14-3 关联 Debye 多数据集联合精修
+`artemis.fit_multi_datasets(..., debye_models=[...])` 用单个 Θ_D
+同时约束近壳与远壳、跨温度数据集，返回 `debye_results`。合成
+80/350 K 双温度数据回收 Θ_D 误差 <15 K、σ²_static 误差
+<5×10⁻⁴ Å²，同一温度下远壳 σ² 严格大于近壳，
+`global_r_factor < 1e-4`。
+
+### B15-1 Operando 时间序列一键解谱
+`xafs_lcf.run_operando_series`（≥3 条谱）串联 PCA 定组分 →
+SPOIL 筛标样 → LCF → MCR-ALS 盲解 → E₀/半高/白线/FT r₁ 轨迹；
+MCR 组分按主峰能量升序消除排列随机性。
+`xafs_diagnostics.write_operando_diagnostics` 输出
+`<stem>_operando_concentrations.csv`、`_components.csv` 与四宫格
+`_summary.png`。CLI `--operando` 已接入 `run_xafs.py` /
+`xafs_report.py`。实测零均值噪声伪标样 SPOIL≈16.95 判
+unacceptable 并被 `rejected_standards` 剔除；LCF 权重 RMSE<0.02，
+MCR 浓度随序号单调（|r|>0.98）。
+
+### B16-1 Athena 原生 Perl `.prj` 只读导入
+`xafs_io.read_athena_perl_prj(path_or_text, as_scans=False,
+include_derived=False)` 按行首 `[record]` 分块，解析 `@args` /
+`@x` / `@y` / `@i0` / `@signal`；默认过滤 `Ref ` 参比通道与
+`is_merge` 派生记录。`read_prj` 仅当文本同时含 `@args =` 与非空
+`@x`/`@y` 时才转发，任意 `$VAR1` Perl 片段仍抛
+`XAFSConfigError`（保护 #50）。仓库自带 `Fe_standards.prj` 默认
+解析 4 条主扫描、`include_derived=True` 共 10 条；`.100` 与原始
+文件 462 点逐点一致。
+
+### B16-2 Co/Ni/Cu/Pt 催化结构库扩充
+`_structure_lib/build_seed.py` 新增 `con4_planar`、`nin4_planar`、
+`cun4_planar`（平面 M–N₄ + 4×C 第二壳）、`cu2o_cuprite`
+（`P n -3 m:1`：Cu–O 2×1.849 + Cu–Cu 12×3.019）与 `ptcl4_square`
+（Pt–Cl 4×2.31 + 4×Cl@3.45）。全部可 `ensure_feff`。真实
+`Pt-L3-PlatinumChloride.xdi`（Sample.name=PtCl2）识别
+`status=confident`、top1=`ptcl4_square`（score=0.0864）、S7
+`Rf=0.0054`、第一壳 N=3.54、R=2.3099 Å。新增 Motif 第一壳
+1.85–2.31 Å 与金属箔 2.49–2.77 Å / NiO 2.95 Å 完全错开，
+Co/Ni/Cu/NiO 压力测试 top1 不变。
+
+## Phase V 催化剂精细结构深度解析（B17–B20，2026-11）
+
+> 全部新能力显式开启；不传新开关时默认路径零退化：LEPIDO 三扫描仍
+> `r_factor=0.027281059410161693`、第一壳 `N=6.348637726`、
+> `R=2.0019558445 Å`，7 列拟合表 SHA256
+> `E098D0ED…7532E760` 逐字节不变。CI 实测 **74/74 回归 + 4 压力测试**
+> 全绿（`ci_report.md`）。
+
+### B17-1 纳米颗粒尺寸效应反演
+`artemis.estimate_nanoparticle_size(n1, r1, n1_err=None, n2=None,
+lattice="fcc", shape="spherical")` 用 Calvin/Beale 球截断方程
+`N(r,d)=N_bulk[1−1.5u+0.5u³]`（`u=r/d`）经 `brentq` 反解粒径：
+`N₁≥0.99·N_bulk` 返回 `regime="bulk_limit"`（`diameter=inf`、
+`dispersion=0`）；否则输出 `diameter_nm/diameter_A/n_atoms/dispersion/
+n2_spherical_expected/shape_hint`。fcc/hcp 取 `N_bulk=12`、bcc 取
+`N_bulk=8`；第二壳显著低于球形预期（`n2<0.65·N₂,sphere`）判
+`raft_or_flattened`。S7 仅在拟合壳层全部为同核金属散射且
+`N₁<0.96·N_bulk` 时自动挂载 `out["nanoparticle_size"]`，体相箔保持
+`None`。实测 `N₁=8.0, r₁=2.774 Å` → `d=1.2270 nm`、`n_atoms=64.1`、
+`dispersion=0.9995`。
+
+### B17-2 双金属纳米合金与 Cowley 短程有序
+`structure_lib.build_alloy_motif(absorber, partner, x_partner=0.5,
+r_aa=None, r_ab=None, n_total=12, lattice="fcc")` 在 fcc 立方八面体
+12 方向（bcc 为 8 顶点方向）上按 `x_partner` 放置 A–A / A–B 两条
+路径，缓存固定为 `_structure_lib/_dynamic_cache/alloy_<hash12>`，
+不进入主库、默认识别零影响。`parse_catalytic_cluster_spec` 新增
+`alloy:` 字符串（`"alloy:Co@2.64,Pt@2.76,x=0.25,n=12"`）与
+`{"type":"alloy",...}` 字典。`artemis.compute_cowley_sro` 输出
+`alpha_cowley = 1 − p_AB/x_partner`、`alpha_err`、`alloying_extent_pct`
+与 `tendency`（`|α|≤0.15` 随机固溶体、`α<−0.15` 异核有序、
+`α>0.15` 同核团聚/偏析）。合成 PtCo 谱回收
+`N_Pt-Pt=5.915`、`N_Pt-Co=2.142`、`α=−0.0636`、`d=1.224 nm`。
+
+### B18-1 Rayleigh 分辨极限与轻元素 Z 简并护栏
+`artemis.check_shell_resolution_and_z_degeneracy(shells, kmin=3.0,
+kmax=12.0)` 按 `ΔR_Rayleigh = π/[2(kmax−kmin)]` 检查任意两壳；
+当 `|ΔZ|≤2` 且 `ΔR<ΔR_Rayleigh` 时给出
+`light_element_z_degeneracy`（重元素为 `sub_rayleigh_split`）告警并
+建议绑定 `shared_sigma2`/`constraints` 或 BVS 消歧。k∈[3,12] 时
+`ΔR_Rayleigh=0.17453 Å`；Fe–N@1.98 vs Fe–O@2.06 命中，Z 差大或
+ΔR 超限不误报。`fit_identified` 返回 `resolution_check` 与
+`flags.sub_rayleigh_z_degeneracy`，未绑定约束时追加物理告警。
+
+### B18-2 运行时 `--s02` 与 Au/Mo/Cr/Zn 金属箔解锁
+`structure_id.validate_s02_override` / `absorber_with_s02` 以
+`dataclasses.replace` 构造局部 `AbsorberConfig` 副本，合法区间
+`[0.4, 1.3]`，绝不修改 `absorber.py` 静态表（12 个未标定元素仍
+`s02=None`，#60 契约不变）。`--s02` 已同步接入 `structure_id`、
+`xafs_fit`、`xafs_config.DEFAULTS`、`run_xafs.py` 与
+`xafs_report.py`；`_structure_lib/build_seed.py` 新增 `au_fcc`、
+`mo_bcc`、`cr_bcc`、`zn_hcp` 与 `calibrate_s02.DEFAULT_MOTIF`。
+真实 Au 箔 `s02=0.82`（`rbkg=1.2`）：top1=`au_fcc` confident，
+N=12.259、R=2.8591 Å、Rf=0.0022；真实 Mo 箔 `s02=0.88`：
+top1=`mo_bcc`，N₁=7.47/R₁=2.7196 Å、N₂=6.20/R₂=3.1355 Å、
+Rf=0.0082。
+
+### B19-1 原位序列 EXAFS 联合精修
+`xafs_fit.run_operando_exafs_series(results, absorber_symbol, motif=None,
+catalytic_model=None, ..., share_sigma2_across_series=False)` 对 ≥3 个
+时间点共享单一全局 ΔE₀（`share_e0=True`），逐点放开 N/ΔR；
+`share_sigma2_across_series=True` 时同一壳层跨点共享 σ²。输出
+`trajectories[label] = {reff,N,N_err,R,R_err,sigma2,sigma2_err}`、
+`global_r_factor`、`shared_delta_e0` 与 `r_factors`。
+`xafs_diagnostics.write_operando_exafs_diagnostics` 落盘
+`<stem>_exafs_evolution.csv`（每点 N/R/σ²）与 `_exafs_evolution.png`
+（N(t)±σ_N、R(t)±σ_R）。合成 R=[2.02,1.99,1.96,1.93] Å、
+N=[4.0,4.6,5.3,6.0] 精确回收，`global_r_factor≈6e-21`。
+
+### B20-1 电催化氧化物/羟基氧化物库与真实标样盲测
+`_structure_lib/build_seed.py` 落盘 7 个 Motif：`coo_rocksalt`
+（Co–O 6×2.1306、Co–Co 12×3.0131）、`co3o4_tet`（Co–O 4×1.9323）、
+`co3o4_oct`（Co–O 6×1.9217、Co–Co 6×2.8581）、`co3o4_mixed`
+（`kind="mixture"`，tet:oct=1:2）、`ni_oh2_brucite`（Ni–O 6×2.0697、
+Ni–Ni 6×3.126）、`cuo_tenorite`（Cu–O 4×1.9558）、`pto2_beta`
+（Pt–O 6×2.0495、Pt–Pt 6×3.100）。真实 BMM 标样盲测：
+CoO top1=`coo_rocksalt`（score 0.033，confident，S7 Rf=0.0076）；
+Co₃O₄ top1=`co3o4_mixed`（score 0.0249，confident，无未解释峰）；
+Ni(OH)₂ top1=`ni_oh2_brucite`（score 0.1159，confident，S7 Rf=0.0387，
+Ni–O 6.67/2.0698 Å、Ni–Ni 7.64/3.1255 Å）；CuO top1=`cuo_tenorite`
+（score 0.0747；`uncovered_peaks=[2.056]` 故 status=partial，按 #74
+契约只要求 top1 与 score<0.10）。新增 Motif 第一壳 1.92–2.13 Å
+与金属箔 ≥2.49 Å 错开，Co/Ni/Cu/NiO 压力测试 top1/score 零退化。
 
 ## 科学边界（必须读）
 

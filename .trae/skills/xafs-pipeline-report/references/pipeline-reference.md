@@ -748,6 +748,210 @@ SAC：中心吸收原子不在返回列表；M–N₄+C 共 12 位点
 DAC：M1–M2 2.5 Å + 8×N。`absorber.py` 新增 12 元素全部
 `s02=None, calibrated=False`；Fe/Co/Ni/Cu/Pt 标定值逐位未改。
 
+## Phase IV（B13–B16）签名与判据
+
+### B13-1 SAC/DAC 动态 Motif
+```python
+structure_lib.build_sac_motif(absorber, ligand="N", n_coord=4,
+                              bond_m_ligand=2.00, axial=None,
+                              axial_bond=2.10, carbon_shell=True,
+                              ring_radius=2.90)
+structure_lib.build_dac_motif(absorber, partner, bond_length=2.50,
+                              ligand="N", n_coord=4, ligand_bond=2.00)
+structure_lib.parse_catalytic_cluster_spec(absorber, spec)
+# spec: "sac:N4@2.00,axial=O@2.10,C@2.90"
+#       "dac:Co@2.50,N4@2.00" 或等价 dict
+xafs_fit.fit_identified(..., catalytic_model=spec)
+# mm_bond_ftest = {partner, f_stat, p_value, significant,
+#                  delta_r_factor}
+```
+动态 Motif 的 FEFF 缓存固定为 `_structure_lib/_dynamic_cache/<hash>/`。
+DAC 的 M₁–M₂ 路径在 `fit_complex` 后自动剔除、同窗口重跑
+`fit_simple`；`significant = p_value < 0.05 且 N_MM > N_err`。
+合成验证：真 Fe–Co 2.50 Å/N≈1 判显著（p<0.01），纯 SAC 谱 p>0.05；
+SAC 轴向氧 N_N≈4、N_O≈1（误差 <0.5）。
+
+### B13-2 异核共占位 path_links
+```python
+artemis.fit_r_space(..., path_links=[
+    {"target": 1, "source": 0, "share_deltar": True,
+     "share_sigma2": True, "degen_ratio": None}])
+xafs_fit.select_shell_paths(..., hetero_cocupancy=True)
+```
+共享后 target 不再分配对应自由变量槽位；`degen_ratio=None` 时两分支
+N 独立拟合（可测固溶体局部掺杂比）。Ti0.7Ru0.3 共占 1b 位：
+N_geom=8、Ti/Ru 简并 5.6/2.4，变量 7→5，Rf<1e-4 且优于单元素近似
+5 倍以上。
+
+### B14-1 Mini-GDS 化学计量约束
+```python
+artemis.normalize_constraints(constraints, path_labels)
+# "N(Fe-O)+N(Fe-Cl)=6.0" / "N(Fe-Cl)=1.5*N(Fe-O)"
+# "dR(Fe-Cl)=dR(Fe-O)+0.02" / dict（n_sum/n_ratio/
+# deltar_offset/bounds）
+artemis.fit_r_space(..., constraints=...)
+```
+被约束 target 不分配独立 N 槽位；n_sum 自动收紧 source 上界；
+σ(N_target)=|coeff|·σ(N_source)。循环依赖/未知标签抛
+`XAFSConfigError`，禁止 `eval`/`exec`。
+
+### B14-2 相移校正 / χ² 等高线
+```python
+xafs_diagnostics.write_phase_corrected_diagnostics(res, fit_out, outdir,
+                                                   stem=None)
+xafs_diagnostics.write_chi2_contour_diagnostics(res, fit_out, outdir,
+                                                stem=None, n_grid=15)
+```
+相移诊断 CSV 列固定为 `R_A,mag_raw,real_raw,mag_phase_corrected,
+real_phase_corrected`；χ² 等高线含 1σ/2σ/3σ = Δχ²
+2.30/6.18/11.83，网格 (15,15)。CLI `--phase-correct` /
+`--chi2-contour` 默认关闭，开启时 HTML 内联两张图。
+
+### B14-3 debye_models
+```python
+artemis.fit_multi_datasets(datasets, debye_models=[{
+    "paths": [(ds_idx, path_idx), ...],
+    "mass_absorber": 55.845, "mass_scatterer": 15.999,
+    "theta_d_init": 400.0, "k_debye": None}])
+# 返回 debye_results[].theta_d / theta_d_err /
+# sigma2_static / sigma2_static_err
+```
+每个 Debye 组占 2 个全局变量；路径不再分配独立 σ² 槽位，与
+`einstein_models` / `shared_sigma2` 冲突时抛错。80/350 K 合成回收
+Θ_D 误差 <15 K、σ²_static <5e-4、global Rf<1e-4。
+
+### B15-1 Operando 序列
+```python
+xafs_lcf.run_operando_series(items, standards=None, n_components=None,
+                             mode="xanes", xmin=-20.0, xmax=60.0,
+                             closure=True, max_iter=800,
+                             spoil_good=3.0, spoil_poor=6.0)
+xafs_diagnostics.write_operando_diagnostics(op, outdir, stem="operando")
+```
+≥3 条谱；`n_components = max(2, min(PCA 99% 分量数, len(items)-1))`；
+SPOIL 仅保留 `rating != "unacceptable"`；MCR 组分按主峰能量升序。
+产物 `_operando_concentrations.csv` / `_components.csv` /
+`_operando_summary.png`。CLI `--operando`（与 `--batch-dir` 互斥）。
+
+### B16-1 Athena Perl .prj
+```python
+xafs_io.read_athena_perl_prj(path_or_text, as_scans=False,
+                             include_derived=False)
+xafs_io.read_prj(path, as_scans=False, include_derived=False)
+```
+合法性充要条件：同时含 `@args =` 与非空 `@x`/`@y`；否则
+`XAFSConfigError`（保护 #50）。默认过滤 `Ref ` / `d_Ref_` 与
+`is_merge∉{"", "0"}`。`Fe_standards.prj` 默认 4 条、
+`include_derived=True` 10 条；`.100` 与原始文件 462 点逐点一致。
+
+### B16-2 催化结构库
+```python
+structure_lib.load_library("Co"|"Ni"|"Cu"|"Pt")
+```
+新增 `con4_planar`（Co–N 4×1.96 + C 4×2.88）、`nin4_planar`
+（Ni–N 4×1.92 + C 4×2.85）、`cun4_planar`（Cu–N 4×1.95 +
+C 4×2.88）、`cu2o_cuprite`（`P n -3 m:1`，Cu–O 2×1.8488、
+Cu–Cu 12×3.0191）、`ptcl4_square`（Pt–Cl 4×2.31 + 4×Cl@3.45）。
+真实 PtCl2 标样：top1=`ptcl4_square`、confident、S7 Rf=0.0054、
+第一壳 N=3.54、R=2.3099 Å。新 Motif 第一壳与金属箔/NiO 错开，
+Co/Ni/Cu/NiO 4 项压力测试 top1 不变。
+
+## Phase V（B17–B20）签名与判据
+
+### B17-1 纳米颗粒尺寸反演
+```python
+artemis.estimate_nanoparticle_size(n1, r1, n1_err=None, n2=None,
+                                   lattice="fcc"|"hcp"|"bcc",
+                                   shape="spherical"|"hemispherical")
+# → {diameter_nm, diameter_A, diameter_nm_err, n_atoms, dispersion,
+#    lattice, n1_bulk, n2_spherical_expected, shape_hint, regime}
+```
+球截断 `N=N_bulk[1−1.5u+0.5u³]`（`u=r/d`）用 `brentq` 反解；
+`N₁≥0.99·N_bulk` → `regime="bulk_limit"`。`shape_hint`：
+`raft_or_flattened`（`n2<0.65·N₂,sphere`）/ `spherical_consistent` /
+`single_shell_only`。`fit_identified` 仅在同核金属壳且
+`N₁<0.96·N_bulk` 时自动写 `out["nanoparticle_size"]`；体相为 `None`。
+
+### B17-2 双金属合金 / Cowley SRO
+```python
+structure_lib.build_alloy_motif(absorber, partner, x_partner=0.5,
+                                r_aa=None, r_ab=None, n_total=12,
+                                lattice="fcc"|"hcp"|"bcc")
+structure_lib.parse_catalytic_cluster_spec(absorber, spec)
+# "alloy:Co@2.64,Pt@2.76,x=0.25,n=12"
+# "alloy:partner=Co,r_ab=2.64,r_aa=2.76,x=0.25"
+artemis.compute_cowley_sro(n_aa, n_ab, x_partner,
+                           n_aa_err=None, n_ab_err=None)
+# → {n_aa, n_ab, n_total, p_ab, x_partner, alpha_cowley,
+#    alpha_err, alloying_extent_pct, tendency}
+```
+动态合金缓存 `_structure_lib/_dynamic_cache/alloy_<hash12>`，不写入
+主库。`|α|≤0.15` 随机固溶体、`α<−0.15` 异核有序、`α>0.15` 同核
+团聚/偏析。合成 PtCo：N_Pt-Pt=5.915、N_Pt-Co=2.142、α=−0.0636、
+d=1.224 nm。
+
+### B18-1 Rayleigh / 轻元素 Z 简并
+```python
+artemis.check_shell_resolution_and_z_degeneracy(
+    shells=[{"label", "scatterer", "r"}, ...],
+    kmin=3.0, kmax=12.0)
+# → {rayleigh_limit_A, delta_k, resolvable, pair_warnings,
+#    recommendation}
+```
+`ΔR_Rayleigh=π/[2(kmax−kmin)]`；`|ΔZ|≤2` 且 `ΔR<ΔR_Rayleigh` 命中
+`light_element_z_degeneracy`（重元素 `sub_rayleigh_split`）。k 3–12
+时极限 0.17453 Å。`fit_identified` 输出 `resolution_check` 与
+`flags.sub_rayleigh_z_degeneracy`，未绑约束时追加告警。
+
+### B18-2 运行时 --s02（不改静态表）
+```python
+structure_id.validate_s02_override(s02)      # 0.4–1.3，否则报错
+structure_id.absorber_with_s02(symbol, s02)  # dataclasses.replace 副本
+xafs_fit.run(..., s02=0.82)
+xafs_fit.fit_identified(..., s02=...)
+structure_id.identify_result(..., s02=...)
+```
+`--s02` 同步在 `run_xafs.py` / `xafs_report.py` /
+`xafs_config.DEFAULTS`；`absorber.py` 12 个未标定元素保持
+`s02=None`。新增 `au_fcc`/`mo_bcc`/`cr_bcc`/`zn_hcp`。真实 Au 箔
+（rbkg=1.2）：top1=`au_fcc`、N=12.259、R=2.8591 Å、Rf=0.0022；
+Mo 箔：N₁=7.47/R₁=2.7196、N₂=6.20/R₂=3.1355、Rf=0.0082。
+
+### B19-1 原位 EXAFS 序列
+```python
+xafs_fit.run_operando_exafs_series(
+    results, absorber_symbol, motif=None, catalytic_model=None,
+    rmin=None, rmax=None, kmin=3.0, kmax=12.0, kweight=2,
+    s02=None, share_sigma2_across_series=False, names=None)
+# → {names, motif, shells, global_r_factor, shared_delta_e0,
+#    shared_delta_e0_err, r_factors,
+#    trajectories[label]={reff,N,N_err,R,R_err,sigma2,sigma2_err},
+#    multi_fit}
+xafs_diagnostics.write_operando_exafs_diagnostics(out, outdir,
+                                                  stem="operando_exafs")
+```
+≥3 点；全序列共享单一 ΔE₀（`share_e0=True`），逐点 N/ΔR；
+`share_sigma2_across_series=True` 时同壳跨点共享 σ²。产物
+`_exafs_evolution.csv`（每点 N/R/σ²）与 `_exafs_evolution.png`
+（N(t)±σ_N、R(t)±σ_R）。合成 R=[2.02,1.99,1.96,1.93] Å、
+N=[4.0,4.6,5.3,6.0] 精确回收，global Rf≈6e-21。
+
+### B20-1 电催化氧化物/羟基氧化物库
+```python
+structure_lib.load_library("Co")  # coo_rocksalt, co3o4_tet/oct/mixed
+structure_lib.load_library("Ni")  # ni_oh2_brucite
+structure_lib.load_library("Cu")  # cuo_tenorite
+structure_lib.load_library("Pt")  # pto2_beta
+```
+`co3o4_mixed` 为 `kind="mixture"`，tet:oct=1:2。真实 BMM 标样：
+CoO top1=`coo_rocksalt`（score 0.033、confident、S7 Rf=0.0076）；
+Co₃O₄ top1=`co3o4_mixed`（0.0249、confident、无未解释峰）；
+Ni(OH)₂ top1=`ni_oh2_brucite`（0.1159、confident、S7 Rf=0.0387，
+Ni–O 6.67/2.0698 Å、Ni–Ni 7.64/3.1255 Å）；CuO
+top1=`cuo_tenorite`（0.0747；status=partial，uncovered=[2.056]，
+#74 只要求 top1+score<0.10）。新 Motif 与金属箔/NiO 第一壳错开，
+4 项压力测试 top1/score 零退化。
+
 ### CLI 补齐（run_xafs / xafs_report 同源）
 `--fit-kweights 1,2,3`（B1-1）、`--include-ms`（B1-3）、
 `--lcf-standards`（B2-2）、`--deglitch` / `--deadtime`（B2-3）、
@@ -755,11 +959,14 @@ DAC：M1–M2 2.5 Å + 8×N。`absorber.py` 新增 12 元素全部
 `--reject-outlier-scans`（B6-1）、`--isotropic-deltar`（B7-1）、
 `--vary-c4 first|all`（B9-1）、`--mback` / `--chi-std` /
 `--clamp-lo` / `--clamp-hi`（B10-1）、`--fit-space r|q|wt`
-（B11-3）、`--bvs-target` / `--bvs-sigma` / `--bvs-b`（B11-2）。
+（B11-3）、`--bvs-target` / `--bvs-sigma` / `--bvs-b`（B11-2）、
+`--catalytic-model` / `--hetero-cocupancy` / `--constraints`（B13–B14）、
+`--phase-correct` / `--chi2-contour`（B14-2）、`--operando`（B15-1）、
+`--s02`（B18-2，0.4–1.3 运行时覆盖，不改静态标定表）。
 配置优先级：CLI > 配置文件 > 代码默认值。
 
 ### CI（run_ci.py + .github/workflows/xafs-ci.yml）
-`python run_ci.py` 执行 py_compile + 60 项契约回归，产物
+`python run_ci.py` 执行 py_compile + 74 项契约回归，产物
 `ci_report.json` / `ci_report.md`，失败非零退出；`--stress` 追加
 Co/Ni/Cu/NiO 压力测试。GitHub Actions 在 push/PR 自动运行。
 

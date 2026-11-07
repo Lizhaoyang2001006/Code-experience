@@ -57,7 +57,7 @@ Phase III（B9–B12）新增 15 项契约：
     - 相移校正 FT/WT；异核共占位双分支；关联 Debye；BVS 软约束
     - R/q/WT 多空间拟合；双吸收边 ΔE₀ 分组 + AIC/BIC；SAC/DAC 团簇
 
-当前共 60 项契约回归（B1-1 至 B12-2）。
+当前共 74 项契约回归（B1-1 至 B20-1）。
 
 运行:
     python regression_test.py
@@ -3392,6 +3392,485 @@ Ru1 Ru 0.5 0.5 0.5 0.3
         self.assertGreaterEqual(path.r, 2.26)
         self.assertLessEqual(path.r, 2.35)
         self.assertLess(fit.r_factor, 0.05)
+
+    # ------------------------------------------------------------
+    # B17-1 纳米颗粒尺寸效应反演
+    # ------------------------------------------------------------
+    def test_nanoparticle_size_and_dispersion_inversion(self):
+        """#69 B17-1：Calvin 球截断方程反解粒径、误差传播与形貌判据。
+
+        - N₁=8.0、r₁=2.774 Å 反解 u 精确满足截断方程（误差 <1e-9）；
+        - N₁ 增大时直径单调增大、分散度单调减小，N₁=12 为体相极限；
+        - 显著偏低的第二壳 N₂ 判为 raft_or_flattened。
+        """
+        est = artemis.estimate_nanoparticle_size(
+            n1=8.0, r1=2.774, n1_err=0.5, lattice="fcc")
+        u = 2.774 / est["diameter_A"]
+        residual = 12.0 * (1.0 - 1.5 * u + 0.5 * u ** 3) - 8.0
+        self.assertLess(abs(residual), 1e-9,
+                        f"球截断方程残差 {residual:.3e}")
+        self.assertGreaterEqual(est["diameter_nm"], 1.0)
+        self.assertLessEqual(est["diameter_nm"], 1.5)
+        self.assertGreater(est["diameter_nm_err"], 0.0)
+        self.assertGreater(est["dispersion"], 0.3)
+        self.assertLessEqual(est["dispersion"], 1.0)
+        self.assertEqual(est["shape_hint"], "single_shell_only")
+
+        diameters = [artemis.estimate_nanoparticle_size(
+            n1=n, r1=2.774)["diameter_nm"] for n in (6.0, 9.0, 11.0)]
+        self.assertLess(diameters[0], diameters[1])
+        self.assertLess(diameters[1], diameters[2])
+        dispersions = [artemis.estimate_nanoparticle_size(
+            n1=n, r1=2.774)["dispersion"] for n in (6.0, 9.0, 11.0)]
+        self.assertGreater(dispersions[0], dispersions[1])
+        self.assertGreater(dispersions[1], dispersions[2])
+
+        bulk = artemis.estimate_nanoparticle_size(n1=12.0, r1=2.774)
+        self.assertEqual(bulk["regime"], "bulk_limit")
+        self.assertEqual(bulk["dispersion"], 0.0)
+        self.assertEqual(bulk["diameter_nm"], float("inf"))
+
+        raft = artemis.estimate_nanoparticle_size(
+            n1=8.0, r1=2.774, n2=1.0)
+        self.assertGreater(raft["n2_spherical_expected"], 3.0)
+        self.assertEqual(raft["shape_hint"], "raft_or_flattened")
+        consistent = artemis.estimate_nanoparticle_size(
+            n1=8.0, r1=2.774, n2=raft["n2_spherical_expected"])
+        self.assertEqual(consistent["shape_hint"], "spherical_consistent")
+
+        bcc = artemis.estimate_nanoparticle_size(
+            n1=6.0, r1=2.48, lattice="bcc")
+        self.assertEqual(bcc["n1_bulk"], 8.0)
+        self.assertEqual(bcc["regime"], "nanoparticle")
+        with self.assertRaises(XAFSConfigError):
+            artemis.estimate_nanoparticle_size(8.0, 2.774, lattice="diamond")
+
+    # ------------------------------------------------------------
+    # B17-2 双金属合金动态 motif 与 Cowley 短程有序
+    # ------------------------------------------------------------
+    def test_bimetallic_alloy_motif_and_cowley_sro_pipeline(self):
+        """#70 B17-2：alloy: 动态建模 + Cowley SRO 端到端回收。
+
+        - α 对随机固溶体/核壳偏析/异核有序分别精确给出 0 / 0.6 / −1；
+        - PtCo 合金谱按真值 N_Pt-Pt=6、N_Pt-Co=2 合成后 S7 回收
+          误差 <0.5，α≈0、nanoparticle_size≈1.0–1.5 nm。
+        """
+        random_sro = artemis.compute_cowley_sro(9.0, 3.0, 0.25)
+        self.assertAlmostEqual(random_sro["alpha_cowley"], 0.0, places=12)
+        self.assertAlmostEqual(random_sro["alloying_extent_pct"], 100.0,
+                               places=12)
+        self.assertEqual(random_sro["tendency"], "random_solid_solution")
+
+        segregated = artemis.compute_cowley_sro(8.0, 2.0, 0.50)
+        self.assertAlmostEqual(segregated["alpha_cowley"], 0.60, places=12)
+        self.assertEqual(segregated["tendency"],
+                         "homoatomic_clustering_or_segregation")
+
+        ordered = artemis.compute_cowley_sro(6.0, 6.0, 0.25)
+        self.assertAlmostEqual(ordered["alpha_cowley"], -1.0, places=12)
+        self.assertEqual(ordered["tendency"], "heteroatomic_ordering")
+
+        sro_err = artemis.compute_cowley_sro(
+            9.0, 3.0, 0.25, n_aa_err=0.5, n_ab_err=0.3)
+        expected_err = float(np.hypot(3.0 * 0.5, 9.0 * 0.3)
+                             / (0.25 * 12.0 ** 2))
+        self.assertAlmostEqual(sro_err["alpha_err"], expected_err, places=12)
+
+        alloy = structure_lib.parse_catalytic_cluster_spec(
+            "Pt", "alloy:Co@2.64,Pt@2.76,x=0.25,n=12")
+        self.assertEqual(alloy.nuclearity, "alloy")
+        self.assertIn("_dynamic_cache", str(alloy.cache_dir))
+        counts = {sh["el"]: sh["n"] for sh in alloy.shell_expect}
+        self.assertEqual(counts.get("Co"), 3)
+        self.assertEqual(counts.get("Pt"), 9)
+        alloy_dict = structure_lib.parse_catalytic_cluster_spec(
+            "Pt", {"type": "alloy", "partner": "Co", "r_ab": 2.64,
+                   "r_aa": 2.76, "x_partner": 0.25, "n_total": 12})
+        self.assertEqual(alloy_dict.id, alloy.id)
+
+        from types import SimpleNamespace
+        from larch.xafs import feffpath
+
+        plan = xafs_fit.select_shell_paths(
+            alloy, edge="L3", rmin=1.6, rmax=3.2,
+            kmin=3.0, kmax=12.0)
+        truth = {"Co": 2.0, "Pt": 6.0}
+        k = np.arange(3.0, 12.0, 0.05)
+        plist = []
+        for sh, f in zip(plan["shells"], plan["files"]):
+            p = feffpath(str(f), s02=0.8075, sigma2=0.004, e0=2.0,
+                         deltar=0.0)
+            p.degen = truth[sh["scatterer"]]
+            p._calc_chi()
+            plist.append(p)
+        chi = artemis.exafs_model_k(plist, k)
+        rng = np.random.default_rng(11)
+        chi = chi + rng.normal(0.0, 1e-3, size=chi.shape)
+        chi_k = ChiK(k=k, chi=chi, background=np.zeros_like(k),
+                     mu_norm=np.ones_like(k), rbkg=1.0)
+        ft = athena.ft_to_r_space(k, chi, None, 3.0, 12.0, 2)
+        res = SimpleNamespace(
+            chi_k=chi_k, ft=ft, absorber_symbol="Pt", structure=None,
+            merged=None, norm=None, self_absorption=None)
+        out = xafs_fit.fit_identified(
+            res, absorber_symbol="Pt",
+            catalytic_model="alloy:Co@2.64,Pt@2.76,x=0.25,n=12",
+            rmin=1.6, rmax=3.2, shared_sigma2="all", verbose=False)
+        self.assertEqual(out["mode"], "motif")
+        by_scatterer = {}
+        for sh, p in zip(plan["shells"], out["fit"].paths):
+            by_scatterer[sh["scatterer"]] = p
+        self.assertLess(abs(by_scatterer["Pt"].degeneracy - 6.0), 0.5)
+        self.assertLess(abs(by_scatterer["Co"].degeneracy - 2.0), 0.5)
+        sro = out["alloy_sro"]
+        self.assertIsNotNone(sro)
+        self.assertEqual(sro["tendency"], "random_solid_solution")
+        self.assertLess(abs(sro["alpha_cowley"]), 0.10)
+        np_size = out["nanoparticle_size"]
+        self.assertIsNotNone(np_size)
+        self.assertGreaterEqual(np_size["diameter_nm"], 1.0)
+        self.assertLessEqual(np_size["diameter_nm"], 1.5)
+
+    # ------------------------------------------------------------
+    # B18-1 Rayleigh 分辨极限与轻元素 Z 简并
+    # ------------------------------------------------------------
+    def test_rayleigh_resolution_and_light_element_z_degeneracy_guard(self):
+        """#71 B18-1：π/(2Δk) 分辨率门禁与 SAC 近简并拆壳告警。
+
+        - k∈[3,12] 时 ΔR_Rayleigh = π/18 ≈ 0.17453 Å；
+        - Fe-N@1.98 vs Fe-O@2.06（ΔZ=1, ΔR=0.08）判 light_element_z_degeneracy；
+        - Z 差异大或 ΔR 超限时 resolvable=True；
+        - SAC N4@2.00 + axial O@2.10 拟合后 flags 置 True 并追加建议告警。
+        """
+        rayleigh = artemis.check_shell_resolution_and_z_degeneracy(
+            [{"label": "Fe-O@1.98", "scatterer": "O", "r": 1.98}],
+            kmin=3.0, kmax=12.0)
+        self.assertAlmostEqual(rayleigh["rayleigh_limit_A"],
+                               float(np.pi / 18.0), places=12)
+        self.assertTrue(rayleigh["resolvable"])
+
+        close = artemis.check_shell_resolution_and_z_degeneracy(
+            [{"label": "Fe-N@1.98", "scatterer": "N", "r": 1.98},
+             {"label": "Fe-O@2.06", "scatterer": "O", "r": 2.06}])
+        self.assertFalse(close["resolvable"])
+        self.assertEqual(len(close["pair_warnings"]), 1)
+        warning = close["pair_warnings"][0]
+        self.assertEqual(warning["kind"], "light_element_z_degeneracy")
+        self.assertEqual(warning["delta_z"], 1)
+        self.assertLess(warning["delta_r"], warning["rayleigh_limit_A"])
+
+        far_z = artemis.check_shell_resolution_and_z_degeneracy(
+            [{"label": "Fe-N@1.98", "scatterer": "N", "r": 1.98},
+             {"label": "Fe-Co@2.50", "scatterer": "Co", "r": 2.50}])
+        self.assertTrue(far_z["resolvable"])
+        self.assertEqual(far_z["pair_warnings"], [])
+
+        far_r = artemis.check_shell_resolution_and_z_degeneracy(
+            [{"label": "Fe-O@1.98", "scatterer": "O", "r": 1.98},
+             {"label": "Fe-O@2.25", "scatterer": "O", "r": 2.25}])
+        self.assertTrue(far_r["resolvable"])
+        self.assertEqual(far_r["pair_warnings"], [])
+
+        from types import SimpleNamespace
+        from larch.xafs import feffpath
+
+        motif = structure_lib.parse_catalytic_cluster_spec(
+            "Fe", "sac:N4@2.00,axial=O@2.10,C=none")
+        plan = xafs_fit.select_shell_paths(
+            motif, edge="K", rmin=1.0, rmax=2.6, kmin=3.0, kmax=12.0)
+        k = np.arange(3.0, 12.0, 0.05)
+        plist = []
+        for sh, f in zip(plan["shells"], plan["files"]):
+            p = feffpath(str(f), s02=0.803, sigma2=0.004, e0=2.0,
+                         deltar=0.0)
+            p.degen = float(sh["degen"])
+            p._calc_chi()
+            plist.append(p)
+        chi = artemis.exafs_model_k(plist, k)
+        rng = np.random.default_rng(7)
+        chi = chi + rng.normal(0.0, 1e-3, size=chi.shape)
+        chi_k = ChiK(k=k, chi=chi, background=np.zeros_like(k),
+                     mu_norm=np.ones_like(k), rbkg=1.0)
+        ft = athena.ft_to_r_space(k, chi, None, 3.0, 12.0, 2)
+        res = SimpleNamespace(
+            chi_k=chi_k, ft=ft, absorber_symbol="Fe", structure=None,
+            merged=None, norm=None, self_absorption=None)
+        out = xafs_fit.fit_identified(
+            res, absorber_symbol="Fe",
+            catalytic_model="sac:N4@2.00,axial=O@2.10,C=none",
+            rmin=1.0, rmax=2.6, verbose=False)
+        self.assertFalse(out["resolution_check"]["resolvable"])
+        self.assertTrue(out["flags"]["sub_rayleigh_z_degeneracy"])
+        self.assertIn("Rayleigh", out["warning"])
+
+    # ------------------------------------------------------------
+    # B18-2 运行时 --s02 覆盖与真实 Au/Mo 箔解锁
+    # ------------------------------------------------------------
+    def test_s02_runtime_override_and_real_au_mo_foil_calibration(self):
+        """#72 B18-2：运行时 S₀² 解锁未标定元素，静态表保持 #60 契约。
+
+        - 不传 s02 时 Au 识别仍抛 XAFSDataError，get_absorber("Au").s02=None；
+        - 真实 Au 箔 s02=0.82：top1=au_fcc confident，S7 N∈[11,13]、
+          R∈[2.83,2.90] Å、Rf<0.02，且全局静态表未被修改；
+        - 真实 Mo 箔 s02=0.88：top1=mo_bcc，双壳 N/R 回收在容差内；
+        - s02 越界抛 XAFSConfigError。
+        """
+        from xafs_core import XAFSDataError
+
+        au_file = (ROOT / "data" / "bmm_standards" / "Data" / "Au" /
+                   "Au-L3-GoldFoil.xdi")
+        mo_file = (ROOT / "data" / "bmm_standards" / "Data" / "Mo" /
+                   "Mo-K-MolybdenumFoil.xdi")
+        self.assertTrue(au_file.is_file())
+        self.assertTrue(mo_file.is_file())
+
+        # Rbkg=1.2：auto(1.0) 在 Au L3 白线后留下一个 1.66 Å 低 R
+        # 背景鼓包，会把覆盖率误判为 partial；1.2 的 1.66 Å 伪峰消失，
+        # 而第一壳 N/R 与 Rf 不受影响。
+        res_au = xafs_pipeline.process_sample(
+            [str(au_file)], absorber="Au", strict=False, rbkg=1.2,
+            verbose=False)
+        with self.assertRaises(XAFSDataError):
+            structure_id.identify_result(
+                res_au, absorber_symbol="Au", verbose=False)
+        self.assertIsNone(get_absorber("Au").s02)
+
+        out_au = xafs_fit.run(
+            res_au, identify=True, fit=True, absorber_symbol="Au",
+            s02=0.82, verbose=False)
+        sid = out_au["structure"]
+        self.assertEqual(sid["ranked"][0]["id"], "au_fcc")
+        self.assertEqual(sid["status"], "confident")
+        fout = out_au["fit"]
+        self.assertEqual(fout["mode"], "motif")
+        self.assertAlmostEqual(fout["s02"], 0.82, places=12)
+        fit = fout["fit"]
+        path = fit.paths[0]
+        self.assertGreaterEqual(path.degeneracy, 11.0)
+        self.assertLessEqual(path.degeneracy, 13.0)
+        self.assertGreaterEqual(path.r, 2.83)
+        self.assertLessEqual(path.r, 2.90)
+        self.assertLess(fit.r_factor, 0.02)
+        self.assertIsNone(get_absorber("Au").s02,
+                          "运行时 --s02 不得修改全局静态表")
+
+        res_mo = xafs_pipeline.process_sample(
+            [str(mo_file)], absorber="Mo", strict=False, verbose=False)
+        out_mo = xafs_fit.run(
+            res_mo, identify=True, fit=True, absorber_symbol="Mo",
+            s02=0.88, verbose=False)
+        self.assertEqual(out_mo["structure"]["ranked"][0]["id"], "mo_bcc")
+        fit_mo = out_mo["fit"]["fit"]
+        self.assertEqual(len(fit_mo.paths), 2)
+        p1, p2 = fit_mo.paths[0], fit_mo.paths[1]
+        self.assertGreaterEqual(p1.degeneracy, 6.8)
+        self.assertLessEqual(p1.degeneracy, 9.0)
+        self.assertGreaterEqual(p1.r, 2.69)
+        self.assertLessEqual(p1.r, 2.75)
+        self.assertGreaterEqual(p2.degeneracy, 5.0)
+        self.assertLessEqual(p2.degeneracy, 7.2)
+        self.assertGreaterEqual(p2.r, 3.11)
+        self.assertLessEqual(p2.r, 3.18)
+        self.assertLess(fit_mo.r_factor, 0.02)
+        self.assertIsNone(get_absorber("Mo").s02)
+
+        with self.assertRaises(XAFSConfigError):
+            xafs_fit.run(
+                res_au, identify=False, fit=True, absorber_symbol="Au",
+                s02=1.5, verbose=False)
+        self.assertIn("s02", xafs_config.DEFAULTS)
+
+    # ------------------------------------------------------------
+    # B19-1 原位序列 EXAFS 联合精修
+    # ------------------------------------------------------------
+    def test_operando_exafs_series_joint_e0_bond_and_cn_tracking(self):
+        """#73 B19-1：共享 ΔE₀ 的序列拟合回收 R(t)/N(t) 并导出 CSV/PNG。
+
+        真值 R=[2.02,1.99,1.96,1.93] Å、N=[4.0,4.6,5.3,6.0]，
+        全局 ΔE₀=+2.5 eV、σ²=0.004 Å²；共享 σ² 后键长误差 <0.005 Å、
+        配位数误差 <0.15，global_r_factor <1e-3。
+        """
+        from types import SimpleNamespace
+        from larch.xafs import feffpath
+
+        motif = structure_lib.parse_catalytic_cluster_spec(
+            "Fe", "sac:O4@1.98,C=none")
+        plan = xafs_fit.select_shell_paths(
+            motif, edge="K", rmin=1.2, rmax=2.4, kmin=3.0, kmax=12.0)
+        r_truth = [2.02, 1.99, 1.96, 1.93]
+        n_truth = [4.0, 4.6, 5.3, 6.0]
+        k = np.arange(2.5, 12.5, 0.05)
+        results = []
+        for r_t, n_t in zip(r_truth, n_truth):
+            p = feffpath(str(plan["files"][0]), s02=0.803,
+                         sigma2=0.004, e0=2.5, deltar=r_t - 1.98)
+            p.degen = n_t
+            p._calc_chi()
+            chi = artemis.exafs_model_k([p], k)
+            chi_k = ChiK(k=k, chi=chi, background=np.zeros_like(k),
+                         mu_norm=np.ones_like(k), rbkg=1.0)
+            ft = athena.ft_to_r_space(k, chi, None, 3.0, 12.0, 2)
+            results.append(SimpleNamespace(
+                chi_k=chi_k, ft=ft, absorber_symbol="Fe", structure=None,
+                merged=None, norm=None, self_absorption=None))
+
+        out = xafs_fit.run_operando_exafs_series(
+            results, "Fe", catalytic_model="sac:O4@1.98,C=none",
+            share_sigma2_across_series=True)
+        self.assertEqual(out["motif"], motif.id)
+        self.assertEqual(len(out["names"]), 4)
+        label = out["shells"][0]
+        traj = out["trajectories"][label]
+        self.assertLess(max(abs(a - b) for a, b in
+                            zip(traj["R"], r_truth)), 0.005)
+        self.assertLess(max(abs(a - b) for a, b in
+                            zip(traj["N"], n_truth)), 0.15)
+        self.assertTrue(all(np.diff(traj["R"]) < 0),
+                        f"R(t) 未严格单调递减: {traj['R']}")
+        self.assertTrue(all(np.diff(traj["N"]) > 0),
+                        f"N(t) 未严格单调递增: {traj['N']}")
+        self.assertLess(out["global_r_factor"], 1e-3)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            made = xafs_diagnostics.write_operando_exafs_diagnostics(
+                out, tmp, stem="operando_exafs")
+            csv_path = Path(made["csv"])
+            png_path = Path(made["png"])
+            self.assertTrue(csv_path.is_file())
+            self.assertTrue(png_path.is_file())
+            self.assertGreater(png_path.stat().st_size, 0)
+            lines = csv_path.read_text(encoding="utf-8-sig").splitlines()
+            self.assertEqual(len(lines), 5, "CSV 应为表头 + 4 个时间点")
+            self.assertIn(f"{label}_N", lines[0])
+            self.assertIn(f"{label}_R", lines[0])
+            self.assertIn("delta_e0", lines[0])
+
+    # ------------------------------------------------------------
+    # B20-1 电催化氧化物/羟基氧化物库与真实标准谱盲测
+    # ------------------------------------------------------------
+    def test_electrocatalysis_oxide_hydroxide_library_real_standards(self):
+        """#74 B20-1：7 个电催化 Motif 入库 + 4 条真实 BMM 标样盲测。
+
+        - CoO / Co3O4 / Ni(OH)2 / CuO / PtO2 几何指纹逐项核验；
+        - Co-K-CoO：top1=coo_rocksalt confident、score<0.06，S7 Rf<0.02；
+        - Co-K-Co3O4：top1=co3o4_mixed confident、score<0.05、无未解释峰；
+        - Ni-K-NickelHydroxide：top1=ni_oh2_brucite confident、score<0.14，
+          S7 Rf<0.05 且 Ni-O/Ni-Ni 键长落在窗口内；
+        - Cu-CuO：top1=cuo_tenorite、score<0.10。
+        """
+        co_lib = {m.id: m for m in structure_lib.load_library("Co")}
+        ni_lib = {m.id: m for m in structure_lib.load_library("Ni")}
+        cu_lib = {m.id: m for m in structure_lib.load_library("Cu")}
+        pt_lib = {m.id: m for m in structure_lib.load_library("Pt")}
+        for mid in ("coo_rocksalt", "co3o4_tet", "co3o4_oct", "co3o4_mixed"):
+            self.assertIn(mid, co_lib)
+        self.assertIn("ni_oh2_brucite", ni_lib)
+        self.assertIn("cuo_tenorite", cu_lib)
+        self.assertIn("pto2_beta", pt_lib)
+
+        def _shells(motif):
+            rows = motif.shell_expect or []
+            return [(s["el"], float(s["r"]), int(s["n"])) for s in rows]
+
+        coo = _shells(co_lib["coo_rocksalt"])
+        self.assertEqual(coo[0][0], "O")
+        self.assertAlmostEqual(coo[0][1], 2.1306, places=3)
+        self.assertEqual(coo[0][2], 6)
+        self.assertEqual(coo[1][0], "Co")
+        self.assertAlmostEqual(coo[1][1], 3.0131, places=3)
+        self.assertEqual(coo[1][2], 12)
+
+        tet = _shells(co_lib["co3o4_tet"])
+        self.assertEqual(tet[0][2], 4)
+        self.assertAlmostEqual(tet[0][1], 1.9323, places=3)
+        octa = _shells(co_lib["co3o4_oct"])
+        self.assertEqual(octa[0][2], 6)
+        self.assertAlmostEqual(octa[0][1], 1.9217, places=3)
+        self.assertEqual(octa[1][0], "Co")
+        self.assertAlmostEqual(octa[1][1], 2.8581, places=3)
+        self.assertEqual(octa[1][2], 6)
+        mixed = co_lib["co3o4_mixed"]
+        self.assertEqual(mixed.kind, "mixture")
+        weights = {c["id"]: float(c["weight"]) for c in mixed.components}
+        self.assertAlmostEqual(weights["co3o4_tet"], 1.0 / 3.0, places=12)
+        self.assertAlmostEqual(weights["co3o4_oct"], 2.0 / 3.0, places=12)
+
+        brucite = _shells(ni_lib["ni_oh2_brucite"])
+        self.assertEqual(brucite[0][0], "O")
+        self.assertAlmostEqual(brucite[0][1], 2.0697, places=3)
+        self.assertEqual(brucite[0][2], 6)
+        self.assertEqual(brucite[1][0], "Ni")
+        self.assertAlmostEqual(brucite[1][1], 3.126, places=3)
+        self.assertEqual(brucite[1][2], 6)
+
+        tenorite = _shells(cu_lib["cuo_tenorite"])
+        self.assertEqual(tenorite[0][0], "O")
+        self.assertAlmostEqual(tenorite[0][1], 1.9558, places=3)
+        self.assertEqual(tenorite[0][2], 4)
+
+        pto2 = _shells(pt_lib["pto2_beta"])
+        self.assertEqual(pto2[0][0], "O")
+        self.assertAlmostEqual(pto2[0][1], 2.0495, places=3)
+        self.assertEqual(pto2[0][2], 6)
+        self.assertEqual(pto2[1][0], "Pt")
+        self.assertAlmostEqual(pto2[1][1], 3.100, places=3)
+        self.assertEqual(pto2[1][2], 6)
+
+        data_dir = ROOT / "data" / "bmm_standards" / "Data"
+
+        def _identify(rel, absorber):
+            res = xafs_pipeline.process_sample(
+                [str(data_dir / rel)], absorber=absorber, strict=False,
+                verbose=False)
+            sid = structure_id.identify_result(
+                res, absorber_symbol=absorber, verbose=False)
+            return res, sid
+
+        # ---- CoO ----
+        res_coo, sid_coo = _identify("Co/Co-K-CoO.xdi", "Co")
+        self.assertEqual(sid_coo["ranked"][0]["id"], "coo_rocksalt")
+        self.assertEqual(sid_coo["status"], "confident")
+        self.assertLess(sid_coo["ranked"][0]["score"], 0.06)
+        out_coo = xafs_fit.run(
+            res_coo, identify=False, fit=True, absorber_symbol="Co",
+            verbose=False)
+        self.assertEqual(out_coo["fit"]["mode"], "motif")
+        self.assertEqual(out_coo["fit"]["motif"], "coo_rocksalt")
+        self.assertLess(out_coo["fit"]["fit"].r_factor, 0.02)
+
+        # ---- Co3O4（尖晶石双位点 mixture）----
+        _, sid_co3o4 = _identify("Co/Co-K-Co3O4.xdi", "Co")
+        self.assertEqual(sid_co3o4["ranked"][0]["id"], "co3o4_mixed")
+        self.assertEqual(sid_co3o4["status"], "confident")
+        self.assertLess(sid_co3o4["ranked"][0]["score"], 0.05)
+        self.assertEqual(sid_co3o4["uncovered_peaks"], [])
+
+        # ---- β-Ni(OH)2 ----
+        res_nioh, sid_nioh = _identify(
+            "Ni/Ni-K-NickelHydroxide.xdi", "Ni")
+        self.assertEqual(sid_nioh["ranked"][0]["id"], "ni_oh2_brucite")
+        self.assertEqual(sid_nioh["status"], "confident")
+        self.assertLess(sid_nioh["ranked"][0]["score"], 0.14)
+        out_nioh = xafs_fit.run(
+            res_nioh, identify=False, fit=True, absorber_symbol="Ni",
+            verbose=False)
+        self.assertEqual(out_nioh["fit"]["mode"], "motif")
+        fit_nioh = out_nioh["fit"]["fit"]
+        self.assertLess(fit_nioh.r_factor, 0.05)
+        by_label = {p.label: p for p in fit_nioh.paths}
+        ni_o = next(p for label, p in by_label.items()
+                    if label.startswith("Ni-O"))
+        ni_ni = next(p for label, p in by_label.items()
+                     if label.startswith("Ni-Ni"))
+        self.assertGreaterEqual(ni_o.r, 2.03)
+        self.assertLessEqual(ni_o.r, 2.11)
+        self.assertGreaterEqual(ni_ni.r, 3.08)
+        self.assertLessEqual(ni_ni.r, 3.17)
+
+        # ---- CuO ----
+        _, sid_cuo = _identify("Cu/Cu-CuO.xdi", "Cu")
+        self.assertEqual(sid_cuo["ranked"][0]["id"], "cuo_tenorite")
+        self.assertLess(sid_cuo["ranked"][0]["score"], 0.10)
 
 
 if __name__ == "__main__":

@@ -1078,3 +1078,80 @@ def write_operando_diagnostics(operando_out: dict, outdir,
             "components_csv": comp_csv,
             "png": png_path}
 
+
+def write_operando_exafs_diagnostics(exafs_series_out: dict, outdir,
+                                     stem: str = "operando_exafs") -> dict:
+    """B19-1：原位 EXAFS 序列 N(t)/R(t)/σ²(t) 轨迹落盘。
+
+    产物：
+      - ``<stem>_exafs_evolution.csv``：每个时间点一行，含各壳层
+        N/N_err/R/R_err/σ²；
+      - ``<stem>_exafs_evolution.png``：上 N(t)±σ_N、下 R(t)±σ_R。
+    """
+    _style()
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    names = list(exafs_series_out.get("names") or [])
+    shells = list(exafs_series_out.get("shells") or [])
+    traj = exafs_series_out.get("trajectories") or {}
+    r_factors = list(exafs_series_out.get("r_factors") or [])
+    n = len(names)
+    delta_e0 = exafs_series_out.get("shared_delta_e0")
+
+    csv_path = outdir / f"{stem}_exafs_evolution.csv"
+    header = ["index", "name", "r_factor", "delta_e0"]
+    for label in shells:
+        header += [f"{label}_N", f"{label}_N_err",
+                   f"{label}_R", f"{label}_R_err", f"{label}_sigma2"]
+    with open(csv_path, "w", newline="", encoding="utf-8-sig") as fh:
+        w = csv.writer(fh)
+        w.writerow(header)
+        for i in range(n):
+            rf = r_factors[i] if i < len(r_factors) else None
+            row = [i, names[i],
+                   "" if rf is None else f"{float(rf):.10g}",
+                   "" if delta_e0 is None else f"{float(delta_e0):.10g}"]
+            for label in shells:
+                t = traj.get(label) or {}
+
+                def _val(key):
+                    vals = t.get(key) or []
+                    if i >= len(vals) or vals[i] is None:
+                        return ""
+                    return f"{float(vals[i]):.10g}"
+
+                row += [_val("N"), _val("N_err"), _val("R"),
+                        _val("R_err"), _val("sigma2")]
+            w.writerow(row)
+
+    png_path = outdir / f"{stem}_exafs_evolution.png"
+    idx = np.arange(n)
+    fig, axes = plt.subplots(2, 1, figsize=(8.6, 7.0), sharex=True)
+    colors = ("#1b6ca8", "#d1495b", "#2a9d8f", "#e9c46a", "#6a4c93")
+    for j, label in enumerate(shells):
+        t = traj.get(label) or {}
+        c = colors[j % len(colors)]
+        nv = np.asarray([np.nan if v is None else float(v)
+                         for v in (t.get("N") or [])], dtype=float)
+        ne = np.asarray([0.0 if v is None else float(v)
+                         for v in (t.get("N_err") or [])], dtype=float)
+        rv = np.asarray([np.nan if v is None else float(v)
+                         for v in (t.get("R") or [])], dtype=float)
+        re = np.asarray([0.0 if v is None else float(v)
+                         for v in (t.get("R_err") or [])], dtype=float)
+        axes[0].errorbar(idx, nv, yerr=ne, marker="o", lw=1.3,
+                         color=c, capsize=2.5, label=label)
+        axes[1].errorbar(idx, rv, yerr=re, marker="s", lw=1.3,
+                         color=c, capsize=2.5, label=label)
+    axes[0].set_ylabel("N(t)")
+    axes[0].set_title("Operando EXAFS: coordination number evolution")
+    axes[0].legend(fontsize=8, frameon=False)
+    axes[1].set_xlabel("spectrum index")
+    axes[1].set_ylabel("R(t) (Å)")
+    axes[1].set_title("Operando EXAFS: bond length evolution")
+    axes[1].legend(fontsize=8, frameon=False)
+    fig.tight_layout()
+    fig.savefig(png_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return {"csv": csv_path, "png": png_path}
+

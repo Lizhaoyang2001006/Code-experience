@@ -5,7 +5,7 @@ description: Run the XAFS processing pipeline (athena/artemis/larch_wt modules) 
 
 # XAFS Pipeline & Report
 
-> **最高优先级工程规范（必读）**：涉及补齐 Athena / Artemis / Larch-WT 全功能（Phase I：B1–B4 已完成 36 项回归基线；Phase II：B5–B8 进阶补齐至 45 项；Phase III：B9–B12 高阶能力已完成 60 项回归基线；**Phase IV：B13–B16 面向催化化学全面分析收官待执行 60 → 68 项**）的小模型执行与旗舰模型批改验收任务，一律以仓库根目录 [`C:\Users\lizha\Desktop\Code-experience\EXECUTION_MASTER_PLAN.md`](../../../EXECUTION_MASTER_PLAN.md) 为唯一最高级准则。
+> **最高优先级工程规范（必读）**：涉及补齐 Athena / Artemis / Larch-WT 全功能（Phase I：B1–B4 已完成 36 项回归基线；Phase II：B5–B8 进阶补齐至 45 项；Phase III：B9–B12 高阶能力已完成 60 项回归基线；Phase IV：B13–B16 面向催化化学全面分析已验收 68 项；**Phase V：B17–B20 催化剂精细结构深度解析与实战完备化已验收 74 项回归基线**）的小模型执行与旗舰模型批改验收任务，一律以仓库根目录 [`C:\Users\lizha\Desktop\Code-experience\EXECUTION_MASTER_PLAN.md`](../../../EXECUTION_MASTER_PLAN.md) 为唯一最高级准则。
 
 目标：任何模型按本 skill 操作，都能从原始 XAFS 数据稳定产出
 ①五联图（μ(E)/XANES/k²χ(k)/|χ(R)|/WT）②EXAFS CN 拟合参数表（Table S 风格）。

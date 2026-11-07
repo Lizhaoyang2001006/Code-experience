@@ -737,6 +737,7 @@ def fit_identified(res, motif_id: str | None = None,
                    catalytic_model=None,
                    hetero_cocupancy: bool = False,
                    constraints=None,
+                   s02: float | None = None,
                    verbose: bool = True) -> dict:
     """对识别结果做 S7 拟合；未 confident 时返回 L1 第一壳结果。
 
@@ -764,7 +765,8 @@ def fit_identified(res, motif_id: str | None = None,
     if not absorber_symbol:
         raise XAFSConfigError(
             "FIT", "缺少吸收元素：给 absorber_symbol 或 --absorber")
-    absorber = get_absorber(absorber_symbol)
+    absorber = (get_absorber(absorber_symbol) if s02 is None
+                else structure_id.absorber_with_s02(absorber_symbol, s02))
     if absorber.s02 is None:
         raise XAFSConfigError(
             "FIT", f"{absorber.symbol} 未标定 S₀²，拒绝 CN 定量；"
@@ -807,7 +809,8 @@ def fit_identified(res, motif_id: str | None = None,
             sid = structure_id.identify_result(
                 res, absorber_symbol=absorber_symbol,
                 l1_ligand=l1_ligand, l1_geometry=l1_geometry,
-                vary_c3=vary_c3, fit_space=fit_space, verbose=verbose)
+                vary_c3=vary_c3, fit_space=fit_space, s02=s02,
+                verbose=verbose)
 
     if catalytic_model is None and motif_id is None:
         status = sid.get("status")
@@ -1116,6 +1119,81 @@ def fit_identified(res, motif_id: str | None = None,
         "c4_bound_shells": [p.label for p in fit.paths if p.c4_at_bound],
     }
 
+    # ---- B17 催化剂精细结构反演：纳米粒径 / 合金短程有序 ----
+    nanoparticle_size = None
+    alloy_sro = None
+    metal_shells = [sh for sh in plan["shells"] if sh.get("scatterer")]
+    if (not fit_weights and metal_shells
+            and len(metal_shells) == len(plan["shells"])
+            and all(sh["scatterer"] == absorber.symbol
+                    for sh in metal_shells)):
+        lat = ("bcc" if motif.id in ("fe_bcc", "mo_bcc", "cr_bcc")
+               else "hcp" if motif.id in ("co_hcp", "zn_hcp") else "fcc")
+        n1_bulk = {"fcc": 12.0, "hcp": 12.0, "bcc": 8.0}[lat]
+        if float(fit.paths[0].degeneracy) < 0.96 * n1_bulk:
+            n2_val = None
+            if (len(fit.paths) > 1
+                    and plan["shells"][1]["scatterer"] == absorber.symbol):
+                n2_val = float(fit.paths[1].degeneracy)
+            est = artemis.estimate_nanoparticle_size(
+                n1=float(fit.paths[0].degeneracy),
+                r1=float(fit.paths[0].r),
+                n1_err=(None if fit.paths[0].n_err is None
+                        else float(fit.paths[0].n_err)),
+                n2=n2_val, lattice=lat)
+            if est.get("regime") != "bulk_limit":
+                nanoparticle_size = est
+    if (str(getattr(motif, "nuclearity", "")) == "alloy"
+            and not fit_weights):
+        partner = str((motif.source or {}).get("partner") or "")
+        aa_paths, ab_paths = [], []
+        for sh, p in zip(plan["shells"], fit.paths):
+            if sh["scatterer"] == absorber.symbol:
+                aa_paths.append(p)
+            elif partner and sh["scatterer"] == partner:
+                ab_paths.append(p)
+        if partner and (aa_paths or ab_paths):
+            n_aa = float(sum(p.degeneracy for p in aa_paths))
+            n_ab = float(sum(p.degeneracy for p in ab_paths))
+
+            def _quad_err(paths):
+                errs = [p.n_err for p in paths if p.n_err is not None]
+                if len(errs) != len(paths):
+                    return None
+                return float(np.sqrt(sum(float(e) ** 2 for e in errs)))
+
+            alloy_sro = artemis.compute_cowley_sro(
+                n_aa=n_aa, n_ab=n_ab,
+                x_partner=float((motif.source or {}).get("x_partner", 0.5)),
+                n_aa_err=_quad_err(aa_paths),
+                n_ab_err=_quad_err(ab_paths))
+            n_total = n_aa + n_ab
+            if n_total < 11.5:
+                r_vals = [(float(p.degeneracy), float(p.r))
+                          for p in aa_paths + ab_paths]
+                r_mean = (sum(n * r for n, r in r_vals) / n_total
+                          if n_total > 0 else None)
+                if r_mean is not None:
+                    est = artemis.estimate_nanoparticle_size(
+                        n1=n_total, r1=r_mean,
+                        n1_err=_quad_err(aa_paths + ab_paths),
+                        lattice=str((motif.source or {}).get(
+                            "lattice", "fcc")))
+                    if est.get("regime") != "bulk_limit":
+                        nanoparticle_size = est
+
+    # ---- B18-1 Rayleigh 分辨极限与轻元素 Z 简并门禁 ----
+    res_shells = []
+    for pi, p in enumerate(fit.paths):
+        sh = plan["shells"][pi] if pi < len(plan["shells"]) else {}
+        res_shells.append({"label": p.label,
+                           "scatterer": sh.get("scatterer", ""),
+                           "r": float(p.r)})
+    resolution_check = artemis.check_shell_resolution_and_z_degeneracy(
+        res_shells, kmin=res.ft.kmin, kmax=res.ft.kmax)
+    flags["sub_rayleigh_z_degeneracy"] = bool(
+        not resolution_check["resolvable"])
+
     # ---- B4-1 增减壳层 F-test：同一 R 窗，仅保留第 1 壳的对照拟合 ----
     # 必须用**同一数据窗口**，否则 χ² 求和的 R 区间不同，F 不成立。
     # 权重拟合与相分数不是配位数问题，不纳入壳层 F-test。
@@ -1155,6 +1233,9 @@ def fit_identified(res, motif_id: str | None = None,
            "path_links": plan.get("path_links") or [],
            "hetero_cocupancy": bool(hetero_cocupancy),
            "hetero_shells": plan.get("hetero_shells") or [],
+           "nanoparticle_size": nanoparticle_size,
+           "alloy_sro": alloy_sro,
+           "resolution_check": resolution_check,
            "mm_bond_ftest": mm_bond_ftest,
            "shell_f_test": shell_f_test,
            "c3_dropped_by_nidp": bool(c3_dropped_by_nidp),
@@ -1192,6 +1273,10 @@ def fit_identified(res, motif_id: str | None = None,
     if plan["truncated"]:
         out["warning"] += ("；受 N_idp 限制，自动拟合截断了远壳层 "
                            + ", ".join(t["label"] for t in plan["truncated"]))
+    if (flags["sub_rayleigh_z_degeneracy"]
+            and shared_sigma2 is None and constraints is None):
+        out["warning"] += ("；壳层间距低于 Rayleigh 极限且散射元素近简并，"
+                           "建议绑定 shared_sigma2/constraints 或用 BVS 消歧")
     if c3_dropped_by_nidp:
         out["warning"] += ("；开启 C3 后自由变量数 ≥ N_idp，"
                            "已按 c3_dropped_by_nidp 自动降级/关闭 C3")
@@ -1299,8 +1384,13 @@ def run(res, identify: bool = True, fit: bool = False,
         catalytic_model=None,
         hetero_cocupancy: bool = False,
         constraints=None,
+        s02: float | None = None,
         verbose: bool = True) -> dict:
-    """S6.5（可选 S7）的唯一入口；结果回填 res.structure / res.fit。"""
+    """S6.5（可选 S7）的唯一入口；结果回填 res.structure / res.fit。
+
+    ``s02``（B18-2）为运行时 S₀² 覆盖：仅构造局部 AbsorberConfig 副本，
+    不修改 ``absorber.ABSORBERS``；未标定元素需显式给出该值。
+    """
     out: dict = {}
     if identify or fit:
         # 显式催化模型不需要先跑库搜索：fit_identified 会自建状态。
@@ -1308,7 +1398,8 @@ def run(res, identify: bool = True, fit: bool = False,
             out["structure"] = structure_id.identify_result(
                 res, absorber_symbol=absorber_symbol,
                 l1_ligand=l1_ligand, l1_geometry=l1_geometry,
-                vary_c3=vary_c3, fit_space=fit_space, verbose=verbose)
+                vary_c3=vary_c3, fit_space=fit_space, s02=s02,
+                verbose=verbose)
             res.structure = out["structure"]
     if fit:
         out["fit"] = fit_identified(
@@ -1324,6 +1415,133 @@ def run(res, identify: bool = True, fit: bool = False,
             catalytic_model=catalytic_model,
             hetero_cocupancy=hetero_cocupancy,
             constraints=constraints,
+            s02=s02,
             verbose=verbose)
         res.fit = out["fit"]
     return out
+
+
+def run_operando_exafs_series(
+    results: list,
+    absorber_symbol: str,
+    motif: str | structure_lib.Motif | None = None,
+    catalytic_model=None,
+    rmin: float | None = None,
+    rmax: float | None = None,
+    kmin: float = 3.0,
+    kmax: float = 12.0,
+    kweight: int = 2,
+    s02: float | None = None,
+    share_sigma2_across_series: bool = False,
+    names: list[str] | None = None,
+) -> dict:
+    """B19-1：原位序列 EXAFS 联合精修与 N(t)/R(t)/σ²(t) 轨迹。
+
+    全序列共享**单一全局 ΔE₀**（``share_e0=True``），消除逐点 ΔE₀
+    漂移经 ΔE₀–ΔR 相关转化成的虚假键长抖动；每个时间点独立放开
+    各壳层 N/ΔR。``share_sigma2_across_series=True`` 时同一壳层在
+    全序列共享 σ²，显著压低单点 N(t) 的形式误差。
+    """
+    if not results or len(results) < 3:
+        raise XAFSConfigError(
+            "OPERANDO", f"run_operando_exafs_series 至少需要 3 个时间点，"
+                        f"收到 {0 if not results else len(results)}")
+    if names is not None and len(names) != len(results):
+        raise XAFSConfigError(
+            "OPERANDO", f"names 长度 {len(names)} != 时间点数 {len(results)}")
+
+    absorber = (get_absorber(absorber_symbol) if s02 is None
+                else structure_id.absorber_with_s02(absorber_symbol, s02))
+    if absorber.s02 is None:
+        raise XAFSConfigError(
+            "OPERANDO",
+            f"{absorber.symbol} 未标定 S₀²；原位 EXAFS 序列联合精修需要 "
+            f"显式 s02（0.4–1.3）")
+
+    if catalytic_model is not None:
+        target = structure_lib.parse_catalytic_cluster_spec(
+            absorber.symbol, catalytic_model)
+    elif motif is not None:
+        if isinstance(motif, structure_lib.Motif):
+            target = motif
+            if str(target.absorber).capitalize() != absorber.symbol.capitalize():
+                raise XAFSConfigError(
+                    "OPERANDO", f"motif 吸收元素 {target.absorber!r} 与 "
+                                f"absorber_symbol {absorber.symbol!r} 不一致")
+        else:
+            target = _find_motif(absorber.symbol, str(motif))
+    else:
+        sid = structure_id.identify_result(
+            results[0], absorber_symbol=absorber.symbol, s02=s02,
+            verbose=False)
+        target = _find_motif(absorber.symbol, sid["ranked"][0]["id"])
+
+    plan = select_shell_paths(
+        target, edge=absorber.edge, rmin=rmin, rmax=rmax,
+        kmin=kmin, kmax=kmax)
+    labels = list(plan["labels"])
+    n_points = len(results)
+    names_list = (list(names) if names is not None
+                  else [f"point{i}" for i in range(n_points)])
+
+    datasets = []
+    for di, res in enumerate(results):
+        datasets.append({
+            "name": names_list[di],
+            "chi_k": res.chi_k,
+            "ft": res.ft,
+            "datfiles": list(plan["files"]),
+            "rmin": float(plan["rmin"]),
+            "rmax": float(plan["rmax"]),
+            "kmin": float(kmin),
+            "kmax": float(kmax),
+            "kweight": int(kweight),
+            "s02": float(absorber.s02),
+            "vary_n": True,
+            "path_degen": list(plan["degens"]),
+            "path_labels": labels,
+        })
+
+    shared_bonds = None
+    if share_sigma2_across_series:
+        shared_bonds = []
+        for pi in range(len(plan["files"])):
+            for di in range(1, n_points):
+                shared_bonds.append({
+                    "target": (di, pi),
+                    "source": (0, pi),
+                    "share_deltar": False,
+                    "share_sigma2": True,
+                    "degen_ratio": None,
+                })
+
+    multi_out = artemis.fit_multi_datasets(
+        datasets, shared_bonds=shared_bonds, share_e0=True)
+
+    trajectories = {}
+    for pi, label in enumerate(labels):
+        trajectories[label] = {
+            "reff": float(plan["shells"][pi]["reff"]),
+            "N": [float(f.paths[pi].degeneracy)
+                  for f in multi_out["datasets"]],
+            "N_err": [f.paths[pi].n_err for f in multi_out["datasets"]],
+            "R": [float(f.paths[pi].r) for f in multi_out["datasets"]],
+            "R_err": [f.paths[pi].delta_r_err
+                      for f in multi_out["datasets"]],
+            "sigma2": [float(f.paths[pi].sigma2)
+                       for f in multi_out["datasets"]],
+            "sigma2_err": [f.paths[pi].sigma2_err
+                           for f in multi_out["datasets"]],
+        }
+
+    return {
+        "names": names_list,
+        "motif": target.id,
+        "shells": labels,
+        "global_r_factor": float(multi_out["global_r_factor"]),
+        "shared_delta_e0": float(multi_out["datasets"][0].delta_e0),
+        "shared_delta_e0_err": multi_out["datasets"][0].delta_e0_err,
+        "r_factors": [float(f.r_factor) for f in multi_out["datasets"]],
+        "trajectories": trajectories,
+        "multi_fit": multi_out,
+    }

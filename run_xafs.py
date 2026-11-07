@@ -141,6 +141,7 @@ def process_sample(paths, outdir, align: bool = False,
                    catalytic_model=None,
                    hetero_cocupancy: bool = False,
                    constraints=None,
+                   s02: float | None = None,
                    phase_correct: bool = False,
                    chi2_contour: bool = False,
                    self_absorption_formula: str | None = None,
@@ -209,6 +210,7 @@ def process_sample(paths, outdir, align: bool = False,
             catalytic_model=catalytic_model,
             hetero_cocupancy=hetero_cocupancy,
             constraints=constraints,
+            s02=s02,
             verbose=verbose)
 
     # ---- 落盘 ----
@@ -346,6 +348,10 @@ def main():
                         help="B13-1 显式催化位点模型：'sac:N4@2.00,axial=O@2.10,"
                              "C@2.90' 或 'dac:Co@2.50,N4@2.00'，或 JSON 字典；"
                              "绕过结构库搜索直接做 S7（需 --fit）")
+    parser.add_argument("--s02", type=float, default=None,
+                        help="B18-2 运行时覆盖 S₀²（0.4–1.3）：解锁 absorber.py "
+                             "未标定元素（Au/Mo/Cr/Zn 等）的 S6.5/S7，"
+                             "不修改静态标定表")
     parser.add_argument("--hetero-cocupancy", action="store_true",
                         help="B13-2 异核共占位双分支精修：对 motif.cif_file 中"
                              "occ<1 的异核位点拆成逐元素路径并共享 ΔR/σ²"
@@ -509,6 +515,8 @@ def main():
         args.despike = True
     if args.catalytic_model is None and config.get("catalytic_model") is not None:
         args.catalytic_model = config["catalytic_model"]
+    if args.s02 is None and config.get("s02") is not None:
+        args.s02 = float(config["s02"])
     if args.constraints is None and config.get("constraints") is not None:
         args.constraints = config["constraints"]
 
@@ -612,6 +620,8 @@ def main():
 
     if args.fit_weights and not args.fit:
         parser.error("--fit-weights 需要同时给 --fit（否则不会运行 S7）")
+    if args.s02 is not None and not (0.4 <= args.s02 <= 1.3):
+        parser.error("--s02 必须在 [0.4, 1.3] 内")
     for _flag, _label in (("catalytic_model", "--catalytic-model"),
                           ("hetero_cocupancy", "--hetero-cocupancy"),
                           ("constraints", "--constraints")):
@@ -692,6 +702,7 @@ def main():
                 self_absorption_density=args.self_absorption_density,
                 self_absorption_angles=sa_angles,
                 self_absorption_line=args.self_absorption_line,
+                s02=args.s02,
                 verbose=False))
         std_scans = None
         if lcf_standards:
@@ -755,6 +766,7 @@ def main():
                     catalytic_model=args.catalytic_model,
                     hetero_cocupancy=args.hetero_cocupancy,
                     constraints=constraints,
+                    s02=args.s02,
                     phase_correct=args.phase_correct,
                     chi2_contour=args.chi2_contour,
                     self_absorption_formula=args.self_absorption_formula,
@@ -798,6 +810,7 @@ def main():
         catalytic_model=args.catalytic_model,
         hetero_cocupancy=args.hetero_cocupancy,
         constraints=constraints,
+        s02=args.s02,
         phase_correct=args.phase_correct,
         chi2_contour=args.chi2_contour,
         self_absorption_formula=args.self_absorption_formula,

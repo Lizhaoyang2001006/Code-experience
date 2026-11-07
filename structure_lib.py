@@ -515,7 +515,22 @@ _CATALYTIC_DICT_KEYS = {
             "axial_bond", "carbon_shell", "ring_radius"},
     "dac": {"type", "partner", "bond_length", "ligand", "n_coord",
             "ligand_bond"},
+    "alloy": {"type", "partner", "x_partner", "r_aa", "r_ab",
+              "n_total", "lattice"},
 }
+
+# 第一配位壳方向（单位向量）。fcc/hcp 用立方八面体 12 方向，
+# bcc 用立方体 8 个顶点方向——与体相第一壳配位数一致。
+_FCC12_DIRS = [
+    (1.0, 1.0, 0.0), (1.0, -1.0, 0.0), (-1.0, 1.0, 0.0), (-1.0, -1.0, 0.0),
+    (1.0, 0.0, 1.0), (1.0, 0.0, -1.0), (-1.0, 0.0, 1.0), (-1.0, 0.0, -1.0),
+    (0.0, 1.0, 1.0), (0.0, 1.0, -1.0), (0.0, -1.0, 1.0), (0.0, -1.0, -1.0),
+]
+_BCC8_DIRS = [
+    (1.0, 1.0, 1.0), (1.0, 1.0, -1.0), (1.0, -1.0, 1.0), (1.0, -1.0, -1.0),
+    (-1.0, 1.0, 1.0), (-1.0, 1.0, -1.0), (-1.0, -1.0, 1.0),
+    (-1.0, -1.0, -1.0),
+]
 
 
 def _dynamic_cache_dir(payload: dict) -> Path:
@@ -626,6 +641,99 @@ def build_dac_motif(
     return _finalize_dynamic_motif(motif, payload)
 
 
+def build_alloy_motif(
+    absorber: str,
+    partner: str,
+    x_partner: float = 0.5,
+    r_aa: float | None = None,
+    r_ab: float | None = None,
+    n_total: int = 12,
+    lattice: str = "fcc",
+) -> Motif:
+    """B17-2 构建双金属纳米合金动态 motif（免 CIF）。
+
+    第一配位壳按 fcc 立方八面体 12 方向（bcc 用 8 顶点方向）放置：
+    前 ``n_ab`` 个方向放 partner、其余放 absorber，形成同核 A–A 与
+    异核 A–B 两条可拟合路径。缓存落 ``_dynamic_cache/alloy_<hash>``，
+    不进入主结构库，默认识别排序零影响。
+    """
+    sym = str(absorber).capitalize()
+    par = str(partner).capitalize()
+    lat = str(lattice).strip().lower()
+    if sym not in artemis.ATOMIC_NUMBER:
+        raise XAFSConfigError("ALLOY", f"未知吸收元素 {absorber!r}")
+    if par not in artemis.ATOMIC_NUMBER:
+        raise XAFSConfigError("ALLOY", f"未知 partner 元素 {partner!r}")
+    if sym == par:
+        raise XAFSConfigError(
+            "ALLOY", "absorber 与 partner 不能相同（同核请用晶体 motif）")
+    if lat not in ("fcc", "hcp", "bcc"):
+        raise XAFSConfigError(
+            "ALLOY", f"lattice={lattice!r} 只支持 'fcc' / 'hcp' / 'bcc'")
+    xb = float(x_partner)
+    if not (np.isfinite(xb) and 0.0 < xb < 1.0):
+        raise XAFSConfigError(
+            "ALLOY", f"x_partner={x_partner!r} 必须在 (0, 1) 内")
+    n_tot = int(n_total)
+    if n_tot < 2:
+        raise XAFSConfigError("ALLOY", f"n_total={n_total!r} 必须 ≥ 2")
+
+    dirs = _BCC8_DIRS if lat == "bcc" else _FCC12_DIRS
+    if n_tot > len(dirs):
+        raise XAFSConfigError(
+            "ALLOY", f"n_total={n_tot} 超过 {lat} 第一壳方向数 {len(dirs)}")
+    dirs = [np.asarray(d, dtype=float) / np.linalg.norm(d) for d in dirs[:n_tot]]
+
+    r_cov_a = artemis.COVALENT_RADII.get(sym)
+    r_cov_b = artemis.COVALENT_RADII.get(par)
+    if r_cov_a is None or r_cov_b is None:
+        raise XAFSConfigError(
+            "ALLOY", f"缺少共价半径：{sym}={r_cov_a!r}, {par}={r_cov_b!r}")
+    raa = 2.0 * float(r_cov_a) if r_aa is None else float(r_aa)
+    rab = (float(r_cov_a) + float(r_cov_b)
+           if r_ab is None else float(r_ab))
+    for name, val in (("r_aa", raa), ("r_ab", rab)):
+        if not (np.isfinite(val) and val > 0.0):
+            raise XAFSConfigError(
+                "ALLOY", f"{name}={val!r} 必须是有限正数")
+    # 两距离小于 0.01 Å 时视为同一壳层：用平均值强制精确相等。
+    if abs(raa - rab) < 0.01:
+        same = 0.5 * (raa + rab)
+        raa = rab = same
+
+    n_ab = max(1, min(n_tot - 1, int(round(n_tot * xb))))
+    n_aa = n_tot - n_ab
+    sites = []
+    for i, u in enumerate(dirs):
+        if i < n_ab:
+            sites.append([float(u[0] * rab), float(u[1] * rab),
+                          float(u[2] * rab), par])
+        else:
+            sites.append([float(u[0] * raa), float(u[1] * raa),
+                          float(u[2] * raa), sym])
+
+    import hashlib
+
+    payload = {"type": "alloy", "absorber": sym, "partner": par,
+               "x_partner": xb, "r_aa": raa, "r_ab": rab,
+               "n_total": n_tot, "lattice": lat}
+    key = hashlib.md5(
+        json.dumps(payload, sort_keys=True, default=str).encode()
+    ).hexdigest()
+    motif = Motif(
+        id=f"alloy_{sym.lower()}_{par.lower()}_{key[:8]}",
+        absorber=sym, kind="cluster", nuclearity="alloy",
+        source={"type": "dynamic_alloy", "partner": par,
+                "x_partner": xb, "r_aa": raa, "r_ab": rab,
+                "n_total": n_tot, "lattice": lat},
+        sites=sites,
+        notes=(f"动态双金属合金假设：{sym}–{sym} {raa:.3f} Å ×{n_aa}，"
+               f"{sym}–{par} {rab:.3f} Å ×{n_ab}（x_{par}={xb:.3f}，"
+               f"{lat} 第一壳 {n_tot} 方向）；"
+               "无序/有序/偏析由 Cowley 参数判定。"))
+    return _finalize_dynamic_motif(motif, payload)
+
+
 def parse_catalytic_cluster_spec(absorber: str, spec) -> Motif:
     """B13-1 把 ``str`` / ``dict`` / 现成 ``Motif`` 统一成动态催化 motif。
 
@@ -634,8 +742,11 @@ def parse_catalytic_cluster_spec(absorber: str, spec) -> Motif:
         SAC: "sac:N4@2.00,axial=O@2.10,C@2.90"
              "sac:N4@2.00,axial=O@2.10,C=none"
         DAC: "dac:Co@2.50,N4@2.00"
+        合金: "alloy:Co@2.64,Pt@2.76,x=0.25,n=12"
+             "alloy:partner=Co,r_ab=2.64,r_aa=2.76,x=0.25"
 
-    字典语法见 ``build_sac_motif`` / ``build_dac_motif`` 的参数名。
+    字典语法见 ``build_sac_motif`` / ``build_dac_motif`` /
+    ``build_alloy_motif`` 的参数名。
     """
     if isinstance(spec, Motif):
         if str(spec.absorber).capitalize() != str(absorber).capitalize():
@@ -646,7 +757,8 @@ def parse_catalytic_cluster_spec(absorber: str, spec) -> Motif:
     if isinstance(spec, dict):
         return _catalytic_from_dict(absorber, spec)
     if isinstance(spec, str):
-        return _catalytic_from_dict(absorber, _parse_catalytic_string(spec))
+        return _catalytic_from_dict(
+            absorber, _parse_catalytic_string(spec, absorber))
     raise XAFSConfigError(
         "motif", f"无法解析催化模型 {spec!r}：需 str / dict / Motif")
 
@@ -655,13 +767,25 @@ def _catalytic_from_dict(absorber: str, spec: dict) -> Motif:
     if not isinstance(spec, dict):
         raise XAFSConfigError("motif", f"催化模型必须是字典，收到 {type(spec).__name__}")
     kind = str(spec.get("type", "sac")).strip().lower()
-    if kind not in ("sac", "dac"):
-        raise XAFSConfigError("motif", f"催化模型 type={kind!r} 只支持 sac / dac")
+    if kind not in ("sac", "dac", "alloy"):
+        raise XAFSConfigError(
+            "motif", f"催化模型 type={kind!r} 只支持 sac / dac / alloy")
     unknown = set(spec) - _CATALYTIC_DICT_KEYS[kind]
     if unknown:
         raise XAFSConfigError(
             "motif", f"{kind} 规格含未知键 {sorted(unknown)}；"
                      f"允许 {sorted(_CATALYTIC_DICT_KEYS[kind])}")
+    if kind == "alloy":
+        if spec.get("partner") is None:
+            raise XAFSConfigError(
+                "motif", "alloy 规格必须给 partner（第二金属元素）")
+        return build_alloy_motif(
+            absorber, str(spec["partner"]),
+            x_partner=float(spec.get("x_partner", 0.5)),
+            r_aa=(None if spec.get("r_aa") is None else float(spec["r_aa"])),
+            r_ab=(None if spec.get("r_ab") is None else float(spec["r_ab"])),
+            n_total=int(spec.get("n_total", 12)),
+            lattice=str(spec.get("lattice", "fcc")))
     if kind == "sac":
         axial = spec.get("axial")
         return build_sac_motif(
@@ -682,8 +806,8 @@ def _catalytic_from_dict(absorber: str, spec: dict) -> Motif:
         ligand_bond=float(spec.get("ligand_bond", 2.00)))
 
 
-def _parse_catalytic_string(spec: str) -> dict:
-    """解析 SAC/DAC 精简字符串（不使用 eval/exec）。"""
+def _parse_catalytic_string(spec: str, absorber: str | None = None) -> dict:
+    """解析 SAC/DAC/合金精简字符串（不使用 eval/exec）。"""
     import re
 
     text = str(spec).strip()
@@ -692,9 +816,12 @@ def _parse_catalytic_string(spec: str) -> dict:
         kind, body = "sac", text[4:]
     elif low.startswith("dac:"):
         kind, body = "dac", text[4:]
+    elif low.startswith("alloy:"):
+        return _parse_alloy_string(absorber, text[6:], spec)
     else:
         raise XAFSConfigError(
-            "motif", f"催化模型字符串必须以 'sac:' 或 'dac:' 开头，收到 {spec!r}")
+            "motif", "催化模型字符串必须以 'sac:' / 'dac:' / 'alloy:' "
+                     f"开头，收到 {spec!r}")
     out: dict = {"type": kind}
     tokens = [t.strip() for t in body.split(",") if t.strip()]
     if not tokens:
@@ -754,6 +881,62 @@ def _parse_catalytic_string(spec: str) -> dict:
     if kind == "dac" and "partner" not in out:
         raise XAFSConfigError(
             "motif", f"DAC 字符串缺少金属 partner（示例 'dac:Co@2.50,N4@2.00'）: {spec!r}")
+    return out
+
+
+def _parse_alloy_string(absorber: str | None, body: str, original) -> dict:
+    """解析 ``alloy:Co@2.64,Pt@2.76,x=0.25,n=12`` 形式（无 eval/exec）。"""
+    import re
+
+    out: dict = {"type": "alloy"}
+    sym = (str(absorber).capitalize() if absorber is not None else None)
+    tokens = [t.strip() for t in str(body).split(",") if t.strip()]
+    if not tokens:
+        raise XAFSConfigError(
+            "motif", f"合金字符串缺少几何参数: {original!r}")
+    for tok in tokens:
+        m = re.fullmatch(r"(?:x|x_partner)\s*=\s*([0-9.]+)", tok, re.I)
+        if m:
+            out["x_partner"] = float(m.group(1))
+            continue
+        m = re.fullmatch(r"(?:n|n_total)\s*=\s*(\d+)", tok, re.I)
+        if m:
+            out["n_total"] = int(m.group(1))
+            continue
+        m = re.fullmatch(r"partner\s*=\s*([A-Za-z]{1,2})", tok, re.I)
+        if m:
+            out["partner"] = m.group(1).capitalize()
+            continue
+        m = re.fullmatch(r"(r_aa|r_ab)\s*=\s*([0-9.]+)", tok, re.I)
+        if m:
+            out[m.group(1).lower()] = float(m.group(2))
+            continue
+        m = re.fullmatch(r"lattice\s*=\s*(fcc|hcp|bcc)", tok, re.I)
+        if m:
+            out["lattice"] = m.group(1).lower()
+            continue
+        m = re.fullmatch(r"([A-Za-z]{1,2})\s*@\s*([0-9.]+)", tok)
+        if not m:
+            raise XAFSConfigError(
+                "motif", f"无法解析合金模型片段 {tok!r}（示例 "
+                         f"'alloy:Co@2.64,Pt@2.76,x=0.25,n=12'）")
+        el = m.group(1).capitalize()
+        dist = float(m.group(2))
+        if el not in artemis.ATOMIC_NUMBER:
+            raise XAFSConfigError("motif", f"未知元素 {el!r}（片段 {tok!r}）")
+        if sym is not None and el == sym:
+            out["r_aa"] = dist
+            continue
+        if "partner" in out and out["partner"] != el:
+            raise XAFSConfigError(
+                "motif", f"合金模型只能有一个 partner，收到 "
+                         f"{out['partner']} 与 {el}")
+        out["partner"] = el
+        out["r_ab"] = dist
+    if "partner" not in out:
+        raise XAFSConfigError(
+            "motif", f"合金字符串缺少 partner（示例 "
+                     f"'alloy:Co@2.64,Pt@2.76,x=0.25,n=12'）: {original!r}")
     return out
 
 

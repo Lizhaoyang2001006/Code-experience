@@ -72,6 +72,30 @@ L1_TRIGGER = CONFIDENT_SCORE  # 兼容旧接口；新逻辑见 status
 
 C_K2E = 0.2625         # k²[Å⁻²] = C · (E−E0)[eV]
 
+S02_MIN = 0.4          # B18-2：运行时 S₀² 覆盖的合法区间
+S02_MAX = 1.3
+
+
+def validate_s02_override(s02) -> float:
+    """校验运行时 S₀² 覆盖值（0.4–1.3），绝不改 absorber.py 静态表。"""
+    try:
+        val = float(s02)
+    except (TypeError, ValueError) as exc:
+        raise XAFSConfigError(
+            "structure_id", f"s02={s02!r} 必须是数值") from exc
+    if not np.isfinite(val) or not (S02_MIN <= val <= S02_MAX):
+        raise XAFSConfigError(
+            "structure_id",
+            f"s02={s02!r} 超出合法区间 [{S02_MIN}, {S02_MAX}]")
+    return val
+
+
+def absorber_with_s02(symbol: str, s02) -> object:
+    """返回带运行时 S₀² 的 AbsorberConfig 副本（dataclasses.replace）。"""
+    import dataclasses
+    return dataclasses.replace(
+        get_absorber(symbol), s02=validate_s02_override(s02))
+
 
 def theory_chi(motif, k, absorber, sigma2=0.003):
     """motif → FEFF 理论 χ(k)（含 MS，nleg≤4，自然简并度，求和一次）。
@@ -194,12 +218,15 @@ def complex_score(exp_chi_r, th_chi_r, mask):
 
 def identify(ft, k, absorber_symbol: str | None = None, kmin: float = 3.0,
              kmax: float = 12.0, kweight: int = 2, fit_r=FIT_R,
-             verbose: bool = True) -> dict:
+             verbose: bool = True, s02: float | None = None) -> dict:
     """
     对实验 ft（FourierTransform）跑全库指纹匹配。
 
     k 必须与 ft 同源（同一 χ(k) 网格）——理论谱在此网格上计算，
     保证比较严格同窗口、同网格。
+
+    ``s02``（B18-2）：运行时覆盖 S₀²（0.4–1.3），用于未标定元素的
+    显式解锁；不修改全局 ``absorber.ABSORBERS`` 静态表。
 
     返回 dict:
         ranked            按 score 升序的候选表
@@ -213,7 +240,8 @@ def identify(ft, k, absorber_symbol: str | None = None, kmin: float = 3.0,
         raise XAFSConfigError(
             "structure_id", "未指定吸收元素——S6.5 需要它选 motif 库与 S₀²；"
                             "用 process_sample(absorber=...) 或 --absorber 提供")
-    absorber = get_absorber(absorber_symbol)
+    absorber = (get_absorber(absorber_symbol) if s02 is None
+                else absorber_with_s02(absorber_symbol, s02))
     if not absorber.calibrated:
         raise XAFSDataError(
             "structure_id", f"{absorber.symbol} 未标定 S₀²，"
@@ -369,10 +397,11 @@ def identify_result(res, absorber_symbol: str | None = None, **kw):
     l1_geometry = kw.pop("l1_geometry", "oct")
     vary_c3 = kw.pop("vary_c3", False)
     fit_space = kw.pop("fit_space", "r")
+    s02 = kw.pop("s02", None)
     absorber_symbol = absorber_symbol or getattr(res, "absorber_symbol", None)
     out = identify(res.ft, res.chi_k.k, absorber_symbol=absorber_symbol,
                    kmin=res.ft.kmin, kmax=res.ft.kmax,
-                   kweight=res.ft.kweight, **kw)
+                   kweight=res.ft.kweight, s02=s02, **kw)
     # L1 降级：库内无相似候选或候选不可分辨时，合成团簇只拟第一壳——
     # 弱结晶/非晶/库外体系唯一诚实的定量路径（长程不可知）。
     if out["status"] != "confident":
@@ -380,7 +409,7 @@ def identify_result(res, absorber_symbol: str | None = None, **kw):
             out["l1_first_shell"] = l1_first_shell_fit(
                 res, absorber_symbol=absorber_symbol,
                 ligand=l1_ligand, geometry=l1_geometry,
-                vary_c3=vary_c3, fit_space=fit_space,
+                vary_c3=vary_c3, fit_space=fit_space, s02=s02,
                 verbose=kw.get("verbose", True))
             margin = out["confidence"]["margin"]
             margin_txt = "n/a" if margin is None else f"{margin:.3f}"
@@ -458,6 +487,7 @@ def l1_first_shell_fit(res, absorber_symbol: str | None = None,
                        r0: float | None = None,
                        vary_c3: bool | list | str = False,
                        fit_space: str = "r",
+                       s02: float | None = None,
                        verbose: bool = True) -> dict:
     """
     无结构第一壳拟合：合成团簇的 SS 路径拟 N/R/σ²/ΔE0。
@@ -477,7 +507,8 @@ def l1_first_shell_fit(res, absorber_symbol: str | None = None,
     if not absorber_symbol:
         raise XAFSConfigError("structure_id",
                               "L1 第一壳拟合需要吸收元素（--absorber）以取 S₀²")
-    absorber = get_absorber(absorber_symbol)
+    absorber = (get_absorber(absorber_symbol) if s02 is None
+                else absorber_with_s02(absorber_symbol, s02))
     ligand = ligand.strip().capitalize()
     if ligand not in artemis.ATOMIC_NUMBER:
         raise XAFSConfigError(

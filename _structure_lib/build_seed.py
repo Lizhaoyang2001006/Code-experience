@@ -288,6 +288,159 @@ def main():
                     "第一壳 Pt-Pt 2.774×12，第二壳 3.924×6。")
     made.append(register(m, overwrite=True))
 
+    # ---- B18-2：Au / Mo / Cr / Zn 金属箔种子（运行时 --s02 标定用）----
+    # 静态 absorber.py 保持 s02=None（#60 契约）；S₀² 只经 --s02 运行时
+    # 覆盖，标定逻辑与 Fe/Co/Ni/Cu/Pt 完全同构。
+    m = Motif(id="au_fcc", absorber="Au", kind="crystal", nuclearity="crystal",
+              source={"type": "manual",
+                      "ref": "a=4.0782 Å, Fm-3m (#225), 室温 Au 箔"},
+              cell={"a": 4.0782}, spacegroup="Fm-3m",
+              asym_sites=[{"el": "Au", "x": 0.0, "y": 0.0, "z": 0.0,
+                           "wyckoff": "4a"}],
+              notes="金属 Au。第一壳 Au-Au 2.8837×12，第二壳 4.0782×6。")
+    made.append(register(m, overwrite=True))
+
+    m = Motif(id="mo_bcc", absorber="Mo", kind="crystal", nuclearity="crystal",
+              source={"type": "manual",
+                      "ref": "a=3.1470 Å, Im-3m (#229), 室温 Mo 箔"},
+              cell={"a": 3.1470}, spacegroup="Im-3m",
+              asym_sites=[{"el": "Mo", "x": 0.0, "y": 0.0, "z": 0.0,
+                           "wyckoff": "2a"}],
+              notes="金属 Mo（bcc，N₁=8）。第一壳 Mo-Mo 2.7254×8，"
+                    "第二壳 3.1470×6。")
+    made.append(register(m, overwrite=True))
+
+    m = Motif(id="cr_bcc", absorber="Cr", kind="crystal", nuclearity="crystal",
+              source={"type": "manual",
+                      "ref": "a=2.8846 Å, Im-3m (#229), 室温 Cr 箔"},
+              cell={"a": 2.8846}, spacegroup="Im-3m",
+              asym_sites=[{"el": "Cr", "x": 0.0, "y": 0.0, "z": 0.0,
+                           "wyckoff": "2a"}],
+              notes="金属 Cr（bcc）。第一壳 Cr-Cr 2.4981×8。")
+    made.append(register(m, overwrite=True))
+
+    m = Motif(id="zn_hcp", absorber="Zn", kind="crystal", nuclearity="crystal",
+              source={"type": "manual",
+                      "ref": "a=2.6649 c=4.9468 Å, P63/mmc (#194), 室温 Zn"},
+              cell={"a": 2.6649, "b": 2.6649, "c": 4.9468,
+                    "alpha": 90, "beta": 90, "gamma": 120},
+              spacegroup="P 63/m m c",
+              asym_sites=[{"el": "Zn", "x": 1.0 / 3.0, "y": 2.0 / 3.0,
+                           "z": 0.25, "wyckoff": "2c"}],
+              notes="金属 Zn（hcp）。面内 Zn-Zn 2.6649×6，"
+                    "面外 2.9131×6（c/a=1.856 非理想）。")
+    made.append(register(m, overwrite=True))
+
+    # ---- B20-1：电催化核心氧化物 / 羟基氧化物 ----
+    # 全部用仓库真实 BMM 标准谱预验证过的晶体学参数；第一壳落在
+    # 1.92–2.13 Å，与金属箔（≥2.49 Å）错开，不抢金属 top1。
+
+    # CoO 岩盐（Fm-3m）：Co-O 6×2.1306，Co-Co 12×3.0131。
+    m = Motif(id="coo_rocksalt", absorber="Co", kind="crystal",
+              nuclearity="crystal",
+              source={"type": "manual",
+                      "ref": "Fm-3m (#225), a=4.2612 Å"},
+              cell={"a": 4.2612}, spacegroup="Fm-3m",
+              asym_sites=[
+                  {"el": "Co", "x": 0.0, "y": 0.0, "z": 0.0,
+                   "wyckoff": "4a"},
+                  {"el": "O", "x": 0.5, "y": 0.5, "z": 0.5,
+                   "wyckoff": "4b"}],
+              notes="CoO 岩盐氧化物。第一壳 Co-O 6×2.131 Å、"
+                    "第二壳 Co-Co 12×3.013 Å；Co-K-CoO 标样基准相。")
+    made.append(register(m, overwrite=True))
+
+    # Co3O4 尖晶石双位点：8a 四面体（1/3）+ 16d 八面体（2/3）。
+    co3o4_asym = [
+        {"el": "Co", "x": 0.125, "y": 0.125, "z": 0.125,
+         "wyckoff": "8a"},
+        {"el": "Co", "x": 0.5, "y": 0.5, "z": 0.5,
+         "wyckoff": "16d"},
+        {"el": "O", "x": 0.263, "y": 0.263, "z": 0.263,
+         "wyckoff": "32e"}]
+    m = Motif(id="co3o4_tet", absorber="Co", kind="crystal",
+              nuclearity="crystal",
+              source={"type": "manual",
+                      "ref": "Fd-3m:2 (#227 origin 2), a=8.084 Å"},
+              cell={"a": 8.084}, spacegroup="F d -3 m:2",
+              asym_sites=co3o4_asym, absorber_fract=[0.125, 0.125, 0.125],
+              notes="Co3O4 四面体 8a 位（占 Co 的 1/3）。"
+                    "第一壳 Co-O 4×1.932 Å；与八面体位共同构成混合谱。")
+    made.append(register(m, overwrite=True))
+
+    m = Motif(id="co3o4_oct", absorber="Co", kind="crystal",
+              nuclearity="crystal",
+              source={"type": "manual",
+                      "ref": "Fd-3m:2 (#227 origin 2), a=8.084 Å"},
+              cell={"a": 8.084}, spacegroup="F d -3 m:2",
+              asym_sites=co3o4_asym, absorber_fract=[0.5, 0.5, 0.5],
+              notes="Co3O4 八面体 16d 位（占 Co 的 2/3）。"
+                    "第一壳 Co-O 6×1.922 Å、第二壳 Co-Co 6×2.858 Å。")
+    made.append(register(m, overwrite=True))
+
+    m = Motif(id="co3o4_mixed", absorber="Co", kind="mixture",
+              nuclearity="mixed-site",
+              source={"type": "manual",
+                      "ref": "Co3O4 尖晶石 8a:16d = 1:2 位点加权"},
+              components=[{"id": "co3o4_tet", "weight": 1.0 / 3.0},
+                          {"id": "co3o4_oct", "weight": 2.0 / 3.0}],
+              notes="Co3O4 多位点联合：χ=(1/3)χ_tet+(2/3)χ_oct。"
+                    "真实 Co-K-Co3O4 标样盲测 top1（score≈0.025）。")
+    made.append(register(m, overwrite=True))
+
+    # β-Ni(OH)2 水镁石（P-3m1）：Ni-O 6×2.070，Ni-Ni 6×3.126。
+    m = Motif(id="ni_oh2_brucite", absorber="Ni", kind="crystal",
+              nuclearity="crystal",
+              source={"type": "manual",
+                      "ref": "P-3m1 (#164), a=3.126 c=4.605 Å"},
+              cell={"a": 3.126, "b": 3.126, "c": 4.605,
+                    "alpha": 90, "beta": 90, "gamma": 120},
+              spacegroup="P -3 m 1",
+              asym_sites=[
+                  {"el": "Ni", "x": 0.0, "y": 0.0, "z": 0.0,
+                   "wyckoff": "1a"},
+                  {"el": "O", "x": 1.0 / 3.0, "y": 2.0 / 3.0, "z": 0.22,
+                   "wyckoff": "2d"}],
+              notes="β-Ni(OH)2 水镁石层状氢氧化物。第一壳 Ni-O 6×2.070、"
+                    "第二壳 Ni-Ni 6×3.126；H 未入模（背散射可忽略）。")
+    made.append(register(m, overwrite=True))
+
+    # CuO 单斜黑铜矿（C2/c）：Cu-O 4×1.956。
+    m = Motif(id="cuo_tenorite", absorber="Cu", kind="crystal",
+              nuclearity="crystal",
+              source={"type": "manual",
+                      "ref": "C2/c (#15), a=4.6837 b=3.4226 c=5.1288 Å, "
+                             "beta=99.54°"},
+              cell={"a": 4.6837, "b": 3.4226, "c": 5.1288,
+                    "alpha": 90, "beta": 99.54, "gamma": 90},
+              spacegroup="C 1 2/c 1",
+              asym_sites=[
+                  {"el": "Cu", "x": 0.25, "y": 0.25, "z": 0.0,
+                   "wyckoff": "4c"},
+                  {"el": "O", "x": 0.0, "y": 0.4184, "z": 0.25,
+                   "wyckoff": "4e"}],
+              absorber_fract=[0.25, 0.25, 0.0],
+              notes="CuO 黑铜矿。第一壳 Cu-O 4×1.956 Å（畸变平面四方），"
+                    "Cu-Cu 2.900/3.083 Å；Cu-CuO 标样基准相。")
+    made.append(register(m, overwrite=True))
+
+    # β-PtO2 层状六方参照相（P-3m1）：Pt-O 6×2.047，Pt-Pt 6×3.100。
+    m = Motif(id="pto2_beta", absorber="Pt", kind="crystal",
+              nuclearity="crystal",
+              source={"type": "manual",
+                      "ref": "P-3m1 (#164), a=3.100 c=4.161 Å"},
+              cell={"a": 3.100, "b": 3.100, "c": 4.161,
+                    "alpha": 90, "beta": 90, "gamma": 120},
+              spacegroup="P -3 m 1",
+              asym_sites=[
+                  {"el": "Pt", "x": 0.0, "y": 0.0, "z": 0.0,
+                   "wyckoff": "1a"},
+                  {"el": "O", "x": 1.0 / 3.0, "y": 2.0 / 3.0, "z": 0.24,
+                   "wyckoff": "2d"}],
+              notes="β-PtO2 层状六方参照相。第一壳 Pt-O 6×2.047、"
+                    "第二壳 Pt-Pt 6×3.100；用于 Pt 氧化物/氢氧化物鉴别。")
+    made.append(register(m, overwrite=True))
+
     print("已注册 motif:")
     for p in made:
         try:

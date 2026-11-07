@@ -15,8 +15,8 @@
    - 诊断层：`xafs_pipeline` ← `xafs_diagnostics`
    - **严禁**在 `larch_wt.py` 中顶层 `import artemis`；**严禁**在 `athena.py` 中 `import xafs_pipeline`。
 2. **零退化铁律**：
-   - 第一至第三阶段（Phase I–III：B1–B12）已完成 **60 项契约回归 + 4 项压力测试**（全部锁死为基线）。
-   - 第四阶段（Phase IV：B13–B16，**当前最高优先级执行任务：面向催化化学全面分析收官**）每完成一个子项，必须立即运行 `python run_ci.py --stress`，确保既有 60 项回归 + 4 项压力测试 **100% exit=0**，且新增回归全部通过（最终达到 **68 项契约回归**）。
+   - 第一至第四阶段（Phase I–IV：B1–B16）已完成 **68 项契约回归 + 4 项压力测试**（全部锁死为基线）。
+   - 第五阶段（Phase V：B17–B20，**当前最高优先级执行任务：催化剂精细结构深度解析与电催化/多相催化实战完备化**）每完成一个子项，必须立即运行 `python run_ci.py --stress`，确保既有 68 项回归 + 4 项压力测试 **100% exit=0**，且新增回归全部通过（最终达到 **74 项契约回归**）。
 3. **向后兼容铁律**：
    - 所有新增函数参数与 CLI 开关**默认关闭或取向后兼容默认值**；
    - 不传新标志跑默认 `LEPIDO` 三扫描时，必须保持 `r_factor ≈ 0.0273`、第一壳 `N ≈ 6.35`、`R ≈ 2.002 Å` 逐位不变；默认拟合表仍为 7 列。
@@ -961,3 +961,324 @@
 6. **B16 存量生态与多元素库**：`read_prj` 直接读通真实 `Fe_standards.prj` 且不破坏 #50；Co/Ni/Cu/Pt 催化 Motif 全部入库，`Pt-L3-PlatinumChloride.xdi` 命中 `ptcl4_square`，通过 #67–#68。
 7. **CLI 与配置镜像**：`run_xafs.py --help`、`xafs_report.py --help` 与 `xafs_config.DEFAULTS` 完整包含 `--catalytic-model`、`--hetero-cocupancy`、`--constraints`、`--phase-correct`、`--chi2-contour`、`--operando`。
 8. **物理诚实铁律**：`absorber.py` 五元素标定 $S_0^2$ 值未改动；一切新增约束与扩展均真实减少/核算自由度 $N_{\text{var}}$ 与 $N_{\text{idp}}$，绝不伪造数据或放宽 `cn_reliable` 门禁。
+
+---
+
+## 第五阶段（Phase V：B17–B20）最高优先级执行计划：催化剂精细结构深度解析与实战完备化（回归 68 → 74 项）
+
+> **战略定位**：
+> - 第四阶段（Phase IV，68 项回归）已打通 SAC/DAC、共占位固溶体、Mini-GDS、相移/等高线诊断与原位 XANES 时间序列。
+> - 第五阶段（Phase V：B17–B20）聚焦真实催化剂结构解析中最核心的 **6 个深水区痛点**：
+>   1. **负载型纳米颗粒尺寸效应**：从第一/二壳金属配位数 $(N_1, N_2)$ 定量反演团簇粒径 $d\ (\text{nm})$、原子总数、分散度 $D$ 及筏状平铺形貌判据；
+>   2. **双金属纳米合金（如 PtCo / PtRu / CuAg）**：动态构建无需 CIF 的双金属合金 Motif（`alloy:...`），并定量计算 **Cowley 短程有序参数 $\alpha_{\text{Cowley}}$ 与合金度 $J$**（区分均匀固溶体、有序金属间化合物与核壳相分离）；
+>   3. **轻元素（C/N/O）近简并壳层 Rayleigh 分辨极限护栏**：自动拦截 $\Delta R < \frac{\pi}{2\Delta k}$ 且 $|\Delta Z| \le 2$ 的过拟合拆壳并给出物理告警；
+>   4. **多元素运行时 `--s02` 覆盖与真实 Au/Mo/Cr/Zn 金属箔解锁**：在不改动 `absorber.py` 静态表（严守 #60 契约）的前提下，让全部 17 个元素支持显式 `--s02` 跑通 S6.5/S7；
+>   5. **原位（*Operando*）序列 EXAFS 壳层参数联合追踪**：全序列共享 $\Delta E_0$ 消除键长漂移伪影，批量导出 $N(t), R(t), \sigma^2(t)$ 演化曲线；
+>   6. **电催化核心氧化物/羟基氧化物库完备化**：补齐 $\text{CoO}$、$\text{Co}_3\text{O}_4$（尖晶石双位点 `mixture`）、$\beta\text{-Ni(OH)}_2$、$\text{CuO}$、$\text{PtO}_2$，并在仓库真实实验标样上全盲测通过。
+
+### 全局执行顺序总览（Phase V）
+
+| 批次 | 编号 | 催化分析核心模块 | 修改文件 | 新增回归测试（`regression_test.py`） |
+|---|---|---|---|---|
+| **第十七批** | **B17-1** | 负载型金属纳米颗粒尺寸效应反演 `estimate_nanoparticle_size`（粒径 $d_{\text{nm}}$、分散度 $D$、球形 vs 筏状平铺判据）与 S7 自动挂载 | `artemis.py`, `xafs_fit.py` | `test_nanoparticle_size_and_dispersion_inversion` (#69) |
+| **第十七批** | **B17-2** | 双金属纳米合金动态建模 `build_alloy_motif`（`alloy:...`）与 Cowley 短程有序参数 `compute_cowley_sro` | `structure_lib.py`, `artemis.py`, `xafs_fit.py` | `test_bimetallic_alloy_motif_and_cowley_sro_pipeline` (#70) |
+| **第十八批** | **B18-1** | 轻元素（C/N/O）近简并壳层与 Rayleigh 径向分辨极限门禁 `check_shell_resolution_and_z_degeneracy` | `artemis.py`, `xafs_fit.py` | `test_rayleigh_resolution_and_light_element_z_degeneracy_guard` (#71) |
+| **第十八批** | **B18-2** | 运行时 `--s02` 覆盖解锁未标定催化元素 + `au_fcc`/`mo_bcc`/`cr_bcc`/`zn_hcp` 入库与真实 Au/Mo 箔 S7 验证（严守 #60） | `structure_id.py`, `xafs_fit.py`, `xafs_config.py`, `run_xafs.py`, `xafs_report.py`, `_structure_lib/build_seed.py`, `calibrate_s02.py` | `test_s02_runtime_override_and_real_au_mo_foil_calibration` (#72) |
+| **第十九批** | **B19-1** | 原位（*Operando*）序列 EXAFS 联合精修与 $N(t)/R(t)/\sigma^2(t)$ 轨迹导出 `run_operando_exafs_series` + `write_operando_exafs_diagnostics` | `xafs_fit.py`, `xafs_diagnostics.py` | `test_operando_exafs_series_joint_e0_bond_and_cn_tracking` (#73) |
+| **第二十批** | **B20-1** | 电催化氧化物/羟基氧化物库完备化（`coo_rocksalt`, `co3o4_tet/oct/mixed`, `ni_oh2_brucite`, `cuo_tenorite`, `pto2_beta`）与真实标准谱盲测 | `_structure_lib/build_seed.py` | `test_electrocatalysis_oxide_hydroxide_library_real_standards` (#74) |
+
+---
+
+## 第十七批（B17）：负载型金属纳米颗粒尺寸反演与双金属纳米合金短程有序（CSRO）
+
+### B17-1 负载型金属纳米颗粒尺寸效应与形貌/分散度反演（`estimate_nanoparticle_size`）
+
+#### 1. 催化痛点与数学契约
+- **痛点**：负载型金属催化剂（Pt/C、Cu/ZnO、Ni/Al₂O₃ 等）因表面原子配位不饱和，第一壳金属配位数 $N_1 < N_{1,\text{bulk}}$（fcc/hcp 为 12，bcc 为 8）。S7 拟合目前仅给出 $N_1$，缺少从 $(N_1, R_1, N_2)$ 反推纳米颗粒等效直径 $d\ (\text{nm})$、表面分散度 $D$ 以及区分“三维球形颗粒”与“载体强相互作用下的二维筏状/扁平团簇（raft）”的定量模块。
+- **数学公式与接口契约**：
+  1. 在 `artemis.py` 新增函数：
+     ```python
+     def estimate_nanoparticle_size(
+         n1: float,
+         r1: float,
+         n1_err: float | None = None,
+         n2: float | None = None,
+         lattice: str = "fcc",
+         shape: str = "spherical",
+     ) -> dict
+     ```
+     - 支持 `lattice in ("fcc", "hcp", "bcc")`（其余抛 `XAFSConfigError`）：
+       - `fcc` / `hcp`：$N_{1,\text{bulk}} = 12.0, N_{2,\text{bulk}} = 6.0, r_2 = \sqrt{2} r_1$，原子体积填充因子 $\eta = \frac{\pi}{3\sqrt{2}} \approx 0.74048$；
+       - `bcc`：$N_{1,\text{bulk}} = 8.0, N_{2,\text{bulk}} = 6.0, r_2 = \frac{2}{\sqrt{3}} r_1$，填充因子 $\eta = \frac{\sqrt{3}\pi}{8} \approx 0.68017$；
+     - **球形团簇解析截断方程**（Calvin / Beale 对关联球截断公式）：
+       对于直径 $d$（单位 Å）的球形纳米颗粒，距离 $r$ 壳层的平均配位数为：
+       $$N(r, d) = N_{\text{bulk}} \left[ 1 - \frac{3}{2} u + \frac{1}{2} u^3 \right], \quad u = \frac{r}{d} \in (0, 1]$$
+       - 当 $N_1 \ge 0.99 \cdot N_{1,\text{bulk}}$ 时：返回体相极限 `regime = "bulk_limit"`，`diameter_A = float("inf")`，`diameter_nm = float("inf")`，`diameter_nm_err = None`，`n_atoms = float("inf")`，`dispersion = 0.0`；
+       - 当 $0 < N_1 < 0.99 \cdot N_{1,\text{bulk}}$ 时：令 $f = \text{clip}(N_1 / N_{1,\text{bulk}}, 0.05, 0.99)$，在 $u \in (0, 1]$ 上用 `scipy.optimize.brentq` 精确求解 $1 - \frac{3}{2}u + \frac{1}{2}u^3 - f = 0$，得到球形直径 $d_{\text{Å}} = r_1 / u$（若 `shape == "hemispherical"`，基底直径乘以 $2^{1/3}$），并换算为纳米：
+         $$\text{diameter\_nm} = \frac{d_{\text{Å}}}{10.0}$$
+       - **形式误差传播**：由隐函数求导 $\frac{\partial f}{\partial u} = -\frac{3}{2}(1 - u^2)$，$\frac{\partial d_{\text{Å}}}{\partial N_1} = -\frac{r_1}{u^2 N_{1,\text{bulk}} (\partial f / \partial u)} = \frac{2 r_1}{3 u^2 (1 - u^2) N_{1,\text{bulk}}}$，当 `n1_err` 非空时计算：
+         $$\text{diameter\_nm\_err} = \frac{1}{10.0} \left|\frac{\partial d_{\text{Å}}}{\partial N_1}\right| \cdot \sigma(N_1)$$
+       - **原子总数与表面分散度**：
+         - 单原子体积 $V_{\text{atom}} = \frac{4\pi}{3} \left(\frac{r_1}{2}\right)^3 / \eta$，颗粒内原子总数 $N_{\text{atoms}} = \max\left(2.0, \eta \left(\frac{d_{\text{Å}}}{r_1}\right)^3\right)$；
+         - 表面分散度估计 $D = \text{clip}\left(\frac{4.0}{N_{\text{atoms}}^{1/3}}, 0.0, 1.0\right)$；
+       - **第二壳形貌自洽检验（球形 vs 二维筏状）**：
+         - 计算直径 $d_{\text{Å}}$ 下的球形理论第二壳配位数：若 $d_{\text{Å}} \le r_2$ 则 $N_{2,\text{sphere}} = 0.0$，否则 $N_{2,\text{sphere}} = N_{2,\text{bulk}} \left[1 - \frac{3}{2}(r_2/d_{\text{Å}}) + \frac{1}{2}(r_2/d_{\text{Å}})^3\right]$；
+         - 若传入了 `n2 is not None`：当 $N_{2,\text{sphere}} > 0.5$ 且 $n_2 < 0.65 \cdot N_{2,\text{sphere}}$ 时，置 `"shape_hint": "raft_or_flattened"`（第二壳显著低于球形预期，提示二维平铺/筏状团簇），否则 `"spherical_consistent"`；未传 `n2` 时置 `"single_shell_only"`。
+     - 返回字典必须包含：`{"diameter_nm": float, "diameter_A": float, "diameter_nm_err": float | None, "n_atoms": float, "dispersion": float, "lattice": str, "n1_bulk": float, "n2_spherical_expected": float, "shape_hint": str, "regime": str}`。
+  2. 在 `xafs_fit.fit_identified` 中：当拟合出的壳层全部为同核金属散射体（`all(sh["scatterer"] == absorber.symbol for sh in plan["shells"])`）且第一壳拟合 $N_1 < 0.96 \cdot N_{1,\text{bulk}}$ 时，自动根据 Motif 晶格（`fe_bcc`/`mo_bcc`/`cr_bcc` 取 `"bcc"`，`co_hcp`/`zn_hcp` 取 `"hcp"`，其余取 `"fcc"`）调用 `artemis.estimate_nanoparticle_size` 并写入返回字典顶层 `out["nanoparticle_size"]`（体相金属箔 $N_1 \ge 0.96 \cdot N_{1,\text{bulk}}$ 时 `out["nanoparticle_size"] = None`，保持默认输出干净）。
+
+#### 2. 验收标准（新增回归 #69：`test_nanoparticle_size_and_dispersion_inversion`）
+1. 验证 `artemis.estimate_nanoparticle_size(n1=8.0, r1=2.774, n1_err=0.5, lattice="fcc")`：精确反解得 $u = r_1 / d_{\text{Å}}$ 满足 $N_{\text{bulk}}(1 - 1.5u + 0.5u^3) = 8.0$（误差 $< 10^{-9}$），`diameter_nm` 在 $[1.0, 1.5]\ \text{nm}$ 之间，`diameter_nm_err > 0`，`0.3 < dispersion <= 1.0`；
+2. 验证当 $N_1$ 从 $6.0 \to 9.0 \to 11.0$ 增大时，`diameter_nm` 严格单调递增而 `dispersion` 严格单调递减；当 $N_1 = 12.0$ 时返回 `regime == "bulk_limit"` 且 `dispersion == 0.0`；
+3. 验证传入显著偏低的第二壳 `n2=1.0`（球形预期 $>3.0$）时，`shape_hint == "raft_or_flattened"`；传入与球形一致的 `n2` 时为 `"spherical_consistent"`。
+
+---
+
+### B17-2 双金属纳米合金动态建模（`build_alloy_motif`）与 Cowley 短程有序参数（`compute_cowley_sro`）
+
+#### 1. 催化痛点与数学契约
+- **痛点**：双金属纳米合金催化剂（PtCo、PtRu、PdAu、CuNi）需要同时拟合同核金属路径 $A\text{–}A$ 与异核金属路径 $A\text{–}B$，并用 **Cowley 短程有序参数 $\alpha_{\text{Cowley}}$** 判断合金内部是均匀随机固溶体、有序金属间化合物还是核壳相分离。此前用户必须手工造共占位 CIF 才能跑双金属拟合。
+- **数学公式与接口契约**：
+  1. 在 `structure_lib.py` 新增动态双金属合金团簇构造函数：
+     ```python
+     def build_alloy_motif(
+         absorber: str,
+         partner: str,
+         x_partner: float = 0.5,
+         r_aa: float | None = None,
+         r_ab: float | None = None,
+         n_total: int = 12,
+         lattice: str = "fcc",
+     ) -> Motif
+     ```
+     - 参数校验：`absorber != partner`，$0.0 < x_{\text{partner}} < 1.0$，`n_total >= 2`（否则抛 `XAFSConfigError`）；
+     - 缺省键长：若 `r_aa is None` 取 $2 \cdot R_{\text{cov}}(\text{absorber})$，若 `r_ab is None` 取 $R_{\text{cov}}(\text{absorber}) + R_{\text{cov}}(\text{partner})$；若 $|r_{aa} - r_{ab}| < 0.01\ \text{Å}$，将两距离设成精确相等以代表同壳层；
+     - 在第一配位壳的 `n_total` 个立方八面体（fcc 12 方向 `(±1, ±1, 0) / √2` 等）方向上：前 $n_{ab} = \max(1, \min(n_{\text{total}} - 1, \text{ int}(\text{round}(n_{\text{total}} \cdot x_{\text{partner}}))))$ 个方向放距离为 `r_ab` 的 `partner` 原子，其余 $n_{aa} = n_{\text{total}} - n_{ab}$ 个方向放距离为 `r_aa` 的 `absorber` 原子；
+     - 构造 `Motif(id=f"alloy_{absorber.lower()}_{partner.lower()}_{hash8}", absorber=absorber, kind="cluster", nuclearity="alloy", source={"type": "dynamic_alloy", "partner": partner, "x_partner": float(x_partner), "r_aa": float(r_aa), "r_ab": float(r_ab), "n_total": int(n_total)}, sites=..., shell_expect=..., cache_dir=str(DYNAMIC_CACHE_ROOT / f"alloy_{hash12}"))`；
+     - 扩展 `structure_lib.parse_catalytic_cluster_spec(absorber, spec)`：当字符串以 `"alloy:"` 开头（如 `"alloy:Co@2.65,Pt@2.77,x=0.25,n=12"` 或 `"alloy:partner=Co,r_ab=2.65,r_aa=2.77,x=0.25"`）或字典 `spec.get("type") == "alloy"` 时，调用 `build_alloy_motif` 返回该 Motif。
+  2. 在 `artemis.py` 新增 Cowley 短程有序参数计算函数：
+     ```python
+     def compute_cowley_sro(
+         n_aa: float,
+         n_ab: float,
+         x_partner: float,
+         n_aa_err: float | None = None,
+         n_ab_err: float | None = None,
+     ) -> dict
+     ```
+     - 校验 $0.0 < x_{\text{partner}} < 1.0$ 且 $N_{AA} \ge 0, N_{AB} \ge 0, N_{AA} + N_{AB} > 0$（否则抛 `XAFSConfigError`）；
+     - 计算总金属配位数 $N_{\text{total}} = N_{AA} + N_{AB}$，异核配位分数 $p_{AB} = \frac{N_{AB}}{N_{\text{total}}}$，**Cowley 短程有序参数**：
+       $$\alpha_{\text{Cowley}} = 1.0 - \frac{p_{AB}}{x_{\text{partner}}}$$
+       以及合金化程度百分比 $J_{\text{alloy}} = \frac{p_{AB}}{x_{\text{partner}}} \times 100.0$；
+     - 误差传播：当 `n_aa_err` 与 `n_ab_err` 非空时，按偏导数
+       $$\sigma(\alpha) = \frac{1}{x_{\text{partner}} N_{\text{total}}^2} \sqrt{(N_{AB} \cdot \sigma_{N_{AA}})^2 + (N_{AA} \cdot \sigma_{N_{AB}})^2}$$
+       计算 `alpha_err`；
+     - 局域化学有序趋势 `tendency`：
+       - $\alpha_{\text{Cowley}} < -0.15$：`"heteroatomic_ordering"`；
+       - $|\alpha_{\text{Cowley}}| \le 0.15$：`"random_solid_solution"`；
+       - $\alpha_{\text{Cowley}} > 0.15$：`"homoatomic_clustering_or_segregation"`；
+     - 返回 `{"n_aa": float, "n_ab": float, "n_total": float, "p_ab": float, "x_partner": float, "alpha_cowley": float, "alpha_err": float | None, "alloying_extent_pct": float, "tendency": str}`。
+  3. 在 `xafs_fit.fit_identified` 中：当 `motif.nuclearity == "alloy"` 时，从拟合出的路径中提取同核路径 $N_{AA}$ 与异核路径 $N_{AB}$，自动调用 `artemis.compute_cowley_sro` 写入返回字典顶层 `out["alloy_sro"]`（同时若 $N_{\text{total}} < 11.5$ 也自动计算 `out["nanoparticle_size"]`）。
+
+#### 2. 验收标准（新增回归 #70：`test_bimetallic_alloy_motif_and_cowley_sro_pipeline`）
+1. 验证 `compute_cowley_sro` 对三种典型情形的精确数学判别：
+   - 随机固溶体（$x_B = 0.25, N_{AA} = 9.0, N_{AB} = 3.0$）：`alpha_cowley == 0.0`、`alloying_extent_pct == 100.0`、`tendency == "random_solid_solution"`；
+   - 核壳偏析/同核团聚（$x_B = 0.50, N_{AA} = 8.0, N_{AB} = 2.0$）：`alpha_cowley == 0.60`、`tendency == "homoatomic_clustering_or_segregation"`；
+   - 异核有序（$x_B = 0.25, N_{AA} = 6.0, N_{AB} = 6.0$）：`alpha_cowley == -1.0`、`tendency == "heteroatomic_ordering"`；
+2. 用 `parse_catalytic_cluster_spec("Pt", "alloy:Co@2.64,Pt@2.76,x=0.25,n=12")` 生成动态合金 Motif，取其两条 FEFF 路径按真值 $N_{\text{Pt-Pt}} = 6.0, N_{\text{Pt-Co}} = 2.0$（对应总配位数 $N_{\text{total}} = 8.0$ 的约 $1.2\ \text{nm}$ 随机固溶体合金颗粒，$x_{\text{Co}} = 0.25, \alpha_{\text{true}} = 0.0$）合成 $\chi(k)$，调用 `xafs_fit.fit_identified(..., catalytic_model="alloy:Co@2.64,Pt@2.76,x=0.25,n=12", shared_sigma2="all")`：
+   - 验证回收 $|N_{\text{Pt-Pt}} - 6.0| < 0.5$、$|N_{\text{Pt-Co}} - 2.0| < 0.5$；
+   - 验证 `out["alloy_sro"]["tendency"] == "random_solid_solution"` 且 $|\alpha_{\text{Cowley}}| < 0.10$；
+   - 验证 `out["nanoparticle_size"]["diameter_nm"]` 在 $[1.0, 1.5]\ \text{nm}$ 之间。
+
+---
+
+## 第十八批（B18）：轻元素近简并 Rayleigh 分辨极限门禁与 17 元素 `--s02` 运行时解锁
+
+### B18-1 轻元素（C/N/O）近简并壳层与 Rayleigh 分辨率门禁（`check_shell_resolution_and_z_degeneracy`）
+
+#### 1. 催化痛点与数学契约
+- **痛点**：EXAFS 在有限 $k$ 窗口 $[k_{\min}, k_{\max}]$ 内对同元素/近邻元素双壳层的最小可分辨距离由 Rayleigh 判据给出：
+  $$\Delta R_{\text{Rayleigh}} = \frac{\pi}{2 (k_{\max} - k_{\min})}$$
+  当 $|\Delta Z| \le 2$（如 C/N/O，背散射振幅包络与相移函数几乎重合）且两壳层距离差 $|\Delta R| < \Delta R_{\text{Rayleigh}}$ 时，若不加约束地同时拟合两条路径，极易发生反相干涉抵消，产生毫无物理意义的配位数。
+- **接口与数学契约**：
+  1. 在 `artemis.py` 新增函数：
+     ```python
+     def check_shell_resolution_and_z_degeneracy(
+         shells: list[dict],
+         kmin: float = 3.0,
+         kmax: float = 12.0,
+     ) -> dict
+     ```
+     - 输入 `shells`：每个元素为含 `{"label": str, "scatterer": str, "r": float (或 "reff": float)}` 的字典（兼容 `select_shell_paths` 的 `plan["shells"]` 与 `FitResult.paths` 转换）；
+     - 计算 $\Delta k = \max(float(k_{\max}) - float(k_{\min}), 10^{-6})$ 与 $\Delta R_{\text{rayleigh}} = \frac{\pi}{2 \Delta k}$；
+     - 对所有路径对 $(i < j)$：
+       - 用 `absorber.ATOMIC_NUMBERS`（或内置元素周期表映射）查散射元素原子序数 $Z_i, Z_j$；
+       - 计算 $\Delta Z = |Z_i - Z_j|$ 与 $\Delta R = |R_i - R_j|$；
+       - 若 $\Delta Z \le 2$ 且 $\Delta R < \Delta R_{\text{rayleigh}}$，加入 `pair_warnings`：
+         ```python
+         {
+             "path_a": label_i,
+             "path_b": label_j,
+             "scatterer_a": el_i,
+             "scatterer_b": el_j,
+             "delta_z": int(delta_z),
+             "delta_r": float(delta_r),
+             "rayleigh_limit_A": float(rayleigh_limit),
+             "kind": ("light_element_z_degeneracy" if max(z_i, z_j) <= 10 else "sub_rayleigh_split"),
+         }
+         ```
+     - 返回 `{"rayleigh_limit_A": float, "delta_k": float, "resolvable": len(pair_warnings) == 0, "pair_warnings": pair_warnings, "recommendation": str}`。
+  2. 在 `xafs_fit.fit_identified` 中：根据拟合后各路径的实际键长 `p.r` 与散射元素调用 `artemis.check_shell_resolution_and_z_degeneracy`，将结果存入 `out["resolution_check"]`，并在 `out["flags"]["sub_rayleigh_z_degeneracy"] = not res_check["resolvable"]`；若触发且 `shared_sigma2 is None and constraints is None`，在 `out["warning"]` 中追加 `"壳层间距低于 Rayleigh 极限且散射元素近简并，建议绑定 shared_sigma2/constraints 或用 BVS 消歧"`。
+
+#### 2. 验收标准（新增回归 #71：`test_rayleigh_resolution_and_light_element_z_degeneracy_guard`）
+1. 验证 $k \in [3.0, 12.0]\ \text{Å}^{-1}$ 时 `rayleigh_limit_A` 精确等于 $\pi / 18 \approx 0.17453\ \text{Å}$；
+2. 对 `Fe-N@1.98` 与 `Fe-O@2.06`（$\Delta Z = 1, \Delta R = 0.08 < 0.1745\ \text{Å}$），验证 `resolvable is False`、`pair_warnings[0]["kind"] == "light_element_z_degeneracy"`；
+3. 对 `Fe-N@1.98` 与 `Fe-Co@2.50`（$\Delta Z = 20, \Delta R = 0.52\ \text{Å}$）或 `Fe-O@1.98` 与 `Fe-O@2.25`（$\Delta R = 0.27 > 0.1745\ \text{Å}$），验证 `resolvable is True`、`pair_warnings == []`；
+4. 验证 `fit_identified` 在拟合含近简并 `Fe-N@2.00` + `Fe-O@2.10` 的 SAC 模型时，`out["resolution_check"]["resolvable"] is False` 且 `out["flags"]["sub_rayleigh_z_degeneracy"] is True`。
+
+---
+
+### B18-2 17 元素全表运行时 `--s02` 覆盖与真实 Au / Mo 金属箔全链解锁（严守 #60）
+
+#### 1. 核心防呆陷阱与接口契约
+- **防呆红线（必读）**：
+  - `regression_test.py:2726`（回归 #60）显式断言 `absorber.py` 中 `("Cr", "Mn", "Zn", "Mo", "Ru", "Rh", "Pd", "Ag", "Ir", "Au", "Ce", "U")` 共 12 个元素的静态配置 `get_absorber(sym).s02 is None` 且 `calibrated is False`！
+  - **绝对禁止**直接把 `absorber.py` 静态字典里这 12 个元素的 `s02` 改成浮点数！
+- **解锁机制与接口契约**：
+  1. 在 `_structure_lib/build_seed.py` 新增并落盘 4 个高对称性催化金属单质种子 Motif（供 `calibrate_s02.py` 与 S6.5/S7 使用）：
+     - **Au**：`au_fcc`（`absorber="Au"`, `kind="crystal"`, `spacegroup="Fm-3m"`, `cell={"a": 4.0782}`，`Au(0,0,0)`，第一壳 Au–Au $12 \times 2.8837\ \text{Å}$）；
+     - **Mo**：`mo_bcc`（`absorber="Mo"`, `kind="crystal"`, `spacegroup="Im-3m"`, `cell={"a": 3.1470}`，`Mo(0,0,0)`，第一壳 Mo–Mo $8 \times 2.7254\ \text{Å}$，第二壳 $6 \times 3.1470\ \text{Å}$）；
+     - **Cr**：`cr_bcc`（`absorber="Cr"`, `kind="crystal"`, `spacegroup="Im-3m"`, `cell={"a": 2.8846}`，`Cr(0,0,0)`，第一壳 Cr–Cr $8 \times 2.4981\ \text{Å}$）；
+     - **Zn**：`zn_hcp`（`absorber="Zn"`, `kind="crystal"`, `spacegroup="P 63/m m c"`, `cell={"a": 2.6649, "b": 2.6649, "c": 4.9468, "alpha": 90, "beta": 90, "gamma": 120}`，`Zn(1/3, 2/3, 0.25)`）；
+     - 在 `calibrate_s02.DEFAULT_MOTIF` 同步加入 `"Au": "au_fcc", "Mo": "mo_bcc", "Cr": "cr_bcc", "Zn": "zn_hcp"`。
+  2. 在 `structure_id.identify_result`、`xafs_fit.fit_identified`、`xafs_fit.run` 新增可选参数 `s02: float | None = None`；在 `xafs_config.DEFAULTS` 新增 `"s02": None`；在 `run_xafs.py` 与 `xafs_report.py` 新增 CLI 参数 `--s02`（`type=float, default=None`）：
+     - 当 `s02 is not None` 时：校验 $0.4 \le \text{float}(s02) \le 1.3$（越界抛 `XAFSConfigError`），用 `dataclasses.replace(get_absorber(absorber_symbol), s02=float(s02))` 构造运行时已标定 `AbsorberConfig` 实例（不修改全局 `absorber.ABSORBERS` 字典！），使 `identify_result` 与 `fit_identified` 直接放行并使用该 `s02` 完成识别与拟合；
+     - 当 `s02 is None` 时：保持原有逻辑不变（未标定元素依然抛 `XAFSDataError`）。
+
+#### 2. 验收标准（新增回归 #72：`test_s02_runtime_override_and_real_au_mo_foil_calibration`）
+1. 验证不传 `s02` 时，对 `"Au"` 调用 `structure_id.identify_result` 仍抛 `XAFSDataError`（且 `get_absorber("Au").s02 is None`）；
+2. 对仓库真实实验谱 `data/bmm_standards/Data/Au/Au-L3-GoldFoil.xdi` 传入 `s02=0.82` 运行 `xafs_fit.run(res_au, identify=True, fit=True, absorber_symbol="Au", s02=0.82)`：
+   - 验证 `out["structure"]["ranked"][0]["id"] == "au_fcc"` 且 `status == "confident"`；
+   - 验证 S7 第一壳拟合回收 $N \in [11.0, 13.0]$、$R \in [2.83, 2.90]\ \text{Å}$、`r_factor < 0.02`；
+3. 对仓库真实实验谱 `data/bmm_standards/Data/Mo/Mo-K-MolybdenumFoil.xdi` 传入 `s02=0.88` 运行 `xafs_fit.run(res_mo, identify=True, fit=True, absorber_symbol="Mo", s02=0.88)`：
+   - 验证 `out["structure"]["ranked"][0]["id"] == "mo_bcc"`；
+   - 验证 S7 双壳拟合回收第一壳 $N_1 \in [6.8, 9.0]$、$R_1 \in [2.69, 2.75]\ \text{Å}$ 及第二壳 $N_2 \in [5.0, 7.2]$、$R_2 \in [3.11, 3.18]\ \text{Å}$、`r_factor < 0.02`。
+
+---
+
+## 第十九批（B19）：原位（*Operando*）序列 EXAFS 壳层参数联合追踪
+
+### B19-1 原位时间序列 EXAFS 联合精修与键长/配位数轨迹导出（`run_operando_exafs_series`）
+
+#### 1. 催化痛点与数学契约
+- **痛点**：原位催化过程中，研究者不仅要看 XANES 的价态/组分变化（B15-1），更要定量追踪**活性位点键长 $R(t)$ 的伸缩（如电催化 OER 中高价金属–氧键缩短 $0.05\ \text{Å}$）与配位数 $N(t)$ 的演变**。若逐条谱独立跑 S7，$\Delta E_0$ 的随机涨落会通过 $\Delta E_0\text{–}\Delta R$ 强相关性转化为虚假的键长抖动。
+- **数学与接口契约**：
+  1. 在 `xafs_fit.py` 新增函数：
+     ```python
+     def run_operando_exafs_series(
+         results: list,
+         absorber_symbol: str,
+         motif: str | Motif | None = None,
+         catalytic_model: str | dict | Motif | None = None,
+         rmin: float | None = None,
+         rmax: float | None = None,
+         kmin: float = 3.0,
+         kmax: float = 12.0,
+         kweight: int = 2,
+         s02: float | None = None,
+         share_sigma2_across_series: bool = False,
+         names: list[str] | None = None,
+     ) -> dict
+     ```
+     - 输入 `results`：至少 3 个 `PipelineResult`（或含 `chi_k, ft` 的对象，`<3` 抛 `XAFSConfigError`）；
+     - 解析目标 `Motif`：优先用 `catalytic_model`（调 `parse_catalytic_cluster_spec`），其次用显式 `motif`（id 或 `Motif` 对象），否则对 `results[0]` 调用 `structure_id.identify_result` 取 `ranked[0]["id"]`；
+     - 调用 `select_shell_paths(target_motif, edge=absorber.edge, rmin=rmin, rmax=rmax, kmin=kmin, kmax=kmax)` 获得统一的壳层路径文件 `plan["files"]`、标签 `plan["labels"]` 与初始简并度 `plan["degens"]`；
+     - 构造 `datasets` 列表并调用 `artemis.fit_multi_datasets(datasets, shared_bonds=shared_bonds, share_e0=True)`：
+       - **全序列共享单一全局 $\Delta E_0$**（`share_e0=True`，彻底消除时间点间 $\Delta E_0$ 漂移造成的键长伪波动）；
+       - 每个时间点独立放开各壳层的 $N_{d,p}$ 与 $\Delta R_{d,p}$；
+       - 当 `share_sigma2_across_series=True` 时，为每个壳层 $p$ 构造一条 `shared_bonds` 项：`{"paths": [(d, p) for d in range(len(results))], "share_deltar": False, "share_sigma2": True, "share_n": False}`，使同一壳层在全序列共享同一个 $\sigma^2_p$，显著压低单点 $N(t)$ 误差；
+     - 组装返回字典：
+       ```python
+       {
+           "names": names_list,
+           "motif": target_motif.id,
+           "shells": [sh["label"] for sh in plan["shells"]],
+           "global_r_factor": float(multi_out["global_r_factor"]),
+           "shared_delta_e0": float(multi_out["datasets"][0].delta_e0),
+           "shared_delta_e0_err": multi_out["datasets"][0].delta_e0_err,
+           "r_factors": [float(f.r_factor) for f in multi_out["datasets"]],
+           "trajectories": {
+               label: {
+                   "reff": float(plan["shells"][pi]["reff"]),
+                   "N": [float(f.paths[pi].degeneracy) for f in multi_out["datasets"]],
+                   "N_err": [f.paths[pi].n_err for f in multi_out["datasets"]],
+                   "R": [float(f.paths[pi].r) for f in multi_out["datasets"]],
+                   "R_err": [f.paths[pi].delta_r_err for f in multi_out["datasets"]],
+                   "sigma2": [float(f.paths[pi].sigma2) for f in multi_out["datasets"]],
+                   "sigma2_err": [f.paths[pi].sigma2_err for f in multi_out["datasets"]],
+               }
+               for pi, label in enumerate(plan["labels"])
+           },
+           "multi_fit": multi_out,
+       }
+       ```
+  2. 在 `xafs_diagnostics.py` 新增诊断落盘函数：
+     ```python
+     def write_operando_exafs_diagnostics(
+         exafs_series_out: dict,
+         outdir,
+         stem: str = "operando_exafs",
+     ) -> dict
+     ```
+     - 导出 `<stem>_exafs_evolution.csv`（表头：`index,name,r_factor,delta_e0` + 每个壳层的 `<label>_N,<label>_N_err,<label>_R,<label>_R_err,<label>_sigma2`）；
+     - 导出双面板图 `<stem>_exafs_evolution.png`（上图：各壳层 $N(t) \pm \sigma_N$ 随时间点演化；下图：各壳层真实键长 $R(t) \pm \sigma_R$ 随时间点演化）；
+     - 返回 `{"csv": str(csv_path), "png": str(png_path)}`。
+
+#### 2. 验收标准（新增回归 #73：`test_operando_exafs_series_joint_e0_bond_and_cn_tracking`）
+- 用 `Fe–O` 第一壳 FEFF 路径（$R_{\text{eff}} \approx 1.98\ \text{Å}$）合成 4 个原位电位点的序列谱（模拟 OER 氧化过程：真值键长从 $2.02 \to 1.99 \to 1.96 \to 1.93\ \text{Å}$ 线性缩短，配位数从 $4.0 \to 4.6 \to 5.3 \to 6.0$ 单调增加，全局 $\Delta E_0 = +2.5\ \text{eV}, \sigma^2 = 0.004\ \text{Å}^2$）：
+  1. 调用 `xafs_fit.run_operando_exafs_series(results, absorber_symbol="Fe", catalytic_model="sac:O4@1.98,C=none", share_sigma2_across_series=True)`；
+  2. 验证回收的 4 个时间点键长 `traj["R"]` 与真值 `[2.02, 1.99, 1.96, 1.93]` 的最大绝对误差 `< 0.005 Å`（严格单调递减），配位数 `traj["N"]` 与真值最大绝对误差 `< 0.15`（严格单调递增），`global_r_factor < 1e-3`；
+  3. 验证 `write_operando_exafs_diagnostics` 生成非空的 `_exafs_evolution.csv`（5 行：表头 + 4 个时间点）与 `_exafs_evolution.png`。
+
+---
+
+## 第二十批（B20）：电催化核心氧化物/羟基氧化物库完备化与真实标准谱盲测
+
+### B20-1 Co / Ni / Cu / Pt 电催化核心氧化物与尖晶石双位点入库
+
+#### 1. 扩充清单与晶体学契约（已用仓库真实 BMM 标准谱预验证）
+- 在 `_structure_lib/build_seed.py` 新增并运行落盘以下 7 个电催化核心 Motif：
+  1. **Co 岩盐氧化物 `coo_rocksalt`**：
+     - `absorber="Co"`, `kind="crystal"`, `spacegroup="Fm-3m"`, `cell={"a": 4.2612}`，`asym_sites`: $\text{Co}(0,0,0), \text{O}(0.5,0.5,0.5)$（第一壳 $\text{Co–O}\times 6 @ 2.1306\ \text{Å}$、第二壳 $\text{Co–Co}\times 12 @ 3.0131\ \text{Å}$）。
+  2. **Co 尖晶石 $\text{Co}_3\text{O}_4$ 双位点体系（`co3o4_tet` + `co3o4_oct` + `co3o4_mixed`）**：
+     - 晶体骨架：`spacegroup="F d -3 m:2"`, `cell={"a": 8.084}`，`asym_sites`: $\text{Co}_{8a}(0.125, 0.125, 0.125)$, $\text{Co}_{16d}(0.5, 0.5, 0.5)$, $\text{O}_{32e}(0.263, 0.263, 0.263)$；
+     - `co3o4_tet`：`absorber_fract=[0.125, 0.125, 0.125]`（四面体位，占 $1/3$，第一壳 $\text{Co–O}\times 4 @ 1.932\ \text{Å}$）；
+     - `co3o4_oct`：`absorber_fract=[0.5, 0.5, 0.5]`（八面体位，占 $2/3$，第一壳 $\text{Co–O}\times 6 @ 1.922\ \text{Å}$、第二壳 $\text{Co–Co}\times 6 @ 2.858\ \text{Å}$）；
+     - `co3o4_mixed`：`kind="mixture"`, `nuclearity="mixed-site"`, `components=[{"id": "co3o4_tet", "weight": 1.0/3.0}, {"id": "co3o4_oct", "weight": 2.0/3.0}]`。
+  3. **Ni 氢氧化镍 `ni_oh2_brucite`（$\beta\text{-Ni(OH)}_2$）**：
+     - `absorber="Ni"`, `kind="crystal"`, `spacegroup="P -3 m 1"`, `cell={"a": 3.126, "b": 3.126, "c": 4.605, "alpha": 90, "beta": 90, "gamma": 120}`，`asym_sites`: $\text{Ni}(0,0,0), \text{O}(1/3, 2/3, 0.22)$（第一壳 $\text{Ni–O}\times 6 @ 2.070\ \text{Å}$、第二壳 $\text{Ni–Ni}\times 6 @ 3.126\ \text{Å}$）。
+  4. **Cu 单斜氧化铜 `cuo_tenorite`（$\text{CuO}$）**：
+     - `absorber="Cu"`, `kind="crystal"`, `spacegroup="C 1 2/c 1"`, `cell={"a": 4.6837, "b": 3.4226, "c": 5.1288, "alpha": 90, "beta": 99.54, "gamma": 90}`，`asym_sites`: $\text{Cu}(0.25, 0.25, 0.0), \text{O}(0.0, 0.4184, 0.25)$，`absorber_fract=[0.25, 0.25, 0.0]`（第一壳 $\text{Cu–O}\times 4 @ 1.956\ \text{Å}$）。
+  5. **Pt 氧化物 `pto2_beta`（$\alpha/\beta\text{-PtO}_2$ 层状六方参照相）**：
+     - `absorber="Pt"`, `kind="crystal"`, `spacegroup="P -3 m 1"`, `cell={"a": 3.100, "b": 3.100, "c": 4.161, "alpha": 90, "beta": 90, "gamma": 120}`，`asym_sites`: $\text{Pt}(0,0,0), \text{O}(1/3, 2/3, 0.24)$（第一壳 $\text{Pt–O}\times 6 @ 2.047\ \text{Å}$、第二壳 $\text{Pt–Pt}\times 6 @ 3.100\ \text{Å}$）。
+
+#### 2. 验收标准（新增回归 #74：`test_electrocatalysis_oxide_hydroxide_library_real_standards`）
+1. 验证仓库 4 条真实电催化标准实验谱在 `structure_id.identify_result` / `xafs_fit.run` 下的盲测表现：
+   - `data/bmm_standards/Data/Co/Co-K-CoO.xdi`：`ranked[0]["id"] == "coo_rocksalt"`、`status == "confident"`（`score < 0.06`），S7 拟合 `r_factor < 0.02`；
+   - `data/bmm_standards/Data/Co/Co-K-Co3O4.xdi`：`ranked[0]["id"] == "co3o4_mixed"`、`status == "confident"`（`score < 0.05`，`uncovered_peaks == []`）；
+   - `data/bmm_standards/Data/Ni/Ni-K-NickelHydroxide.xdi`：`ranked[0]["id"] == "ni_oh2_brucite"`、`status == "confident"`（`score < 0.14`），S7 拟合 `r_factor < 0.05` 且第一壳 $R \in [2.03, 2.11]\ \text{Å}$、第二壳 $R \in [3.08, 3.17]\ \text{Å}$；
+   - `data/bmm_standards/Data/Cu/Cu-CuO.xdi`：`ranked[0]["id"] == "cuo_tenorite"`（`score < 0.10`）；
+2. 运行 `stress_test_{co,ni,cu,nio}.py`，验证 4 项压力测试 100% 通过（金属箔与 NiO 的 `top1` 零退化）。
+
+---
+
+## 第五阶段终审验收 Checklist（Phase I–V 全量判分，8 条硬指标）
+
+1. **全量 CI 门禁**：`python run_ci.py --stress` 中 `py_compile` 退出码 0、`regression_test.py` **74 项全绿**、4 项压力测试退出码 0。
+2. **默认零退化**：不传新开关跑默认 `LEPIDO` 三扫描，`r_factor ≈ 0.0273`、第一壳 `N ≈ 6.35`、`R ≈ 2.002 Å`、7 列拟合表逐字节不变。
+3. **B17 纳米粒径与双金属合金**：`estimate_nanoparticle_size`、动态合金 `build_alloy_motif`（`alloy:...`）与 `compute_cowley_sro` 全部通过 #69–#70。
+4. **B18 分辨率护栏与多元素 `--s02` 解锁**：`check_shell_resolution_and_z_degeneracy` 准确拦截亚 Rayleigh 近简并拆壳；`--s02` 解锁真实 `Au-L3-GoldFoil.xdi` 与 `Mo-K-MolybdenumFoil.xdi` 全链 S6.5/S7 且不破坏 #60，通过 #71–#72。
+5. **B19 原位 EXAFS 序列追踪**：`run_operando_exafs_series` 全序列共享 $\Delta E_0$ 准确回收 $R(t), N(t)$ 单调演变并导出 CSV/PNG，通过 #73。
+6. **B20 电催化氧化物/羟基氧化物库**：`CoO`、`Co3O4`（双位点 `mixture`）、`Ni(OH)2`、`CuO`、`PtO2` 入库并在 4 条真实 BMM 氧化物标准谱上盲测命中，通过 #74。
+7. **CLI 与配置同步**：`--s02` 同步接入 `run_xafs.py`、`xafs_report.py` 与 `xafs_config.DEFAULTS`。
+8. **文档与清理**：`README.md` 与 `.trae/skills/xafs-pipeline-report/references/pipeline-reference.md` 同步更新至 **74 项契约回归**与 Phase V 接口说明；工作区无残留 `_scratch_*.py`。

@@ -61,7 +61,8 @@ DELTAR_LIM_CAL = (-0.03, 0.03)   # 箔 RT 热膨胀 << 0.03 Å；防 ΔR–ΔE�
 
 DEFAULT_MOTIF = {
     "Fe": "fe_bcc", "Co": "co_hcp", "Ni": "ni_fcc", "Cu": "cu_fcc",
-    "Pt": "pt_fcc",
+    "Pt": "pt_fcc", "Au": "au_fcc", "Mo": "mo_bcc", "Cr": "cr_bcc",
+    "Zn": "zn_hcp",
 }
 
 

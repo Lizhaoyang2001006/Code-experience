@@ -1102,6 +1102,276 @@ def r_factor(data_chi_r, model_chi_r, mask) -> float:
 
 
 # ================================================================
+# 4b. 催化剂精细结构反演（B17）
+# ================================================================
+
+# fcc/hcp 与 bcc 的体相第一壳配位数、第二壳几何与堆积因子。
+_LATTICE_BULK = {
+    "fcc": {"n1": 12.0, "n2": 6.0, "r2_over_r1": float(np.sqrt(2.0)),
+            "eta": float(np.pi / (3.0 * np.sqrt(2.0)))},
+    "hcp": {"n1": 12.0, "n2": 6.0, "r2_over_r1": float(np.sqrt(2.0)),
+            "eta": float(np.pi / (3.0 * np.sqrt(2.0)))},
+    "bcc": {"n1": 8.0, "n2": 6.0,
+            "r2_over_r1": float(2.0 / np.sqrt(3.0)),
+            "eta": float(np.sqrt(3.0) * np.pi / 8.0)},
+}
+
+
+def estimate_nanoparticle_size(
+    n1: float,
+    r1: float,
+    n1_err: float | None = None,
+    n2: float | None = None,
+    lattice: str = "fcc",
+    shape: str = "spherical",
+) -> dict:
+    """B17-1：由第一壳金属配位数反演纳米颗粒粒径、原子数与分散度。
+
+    球截断（Calvin / Beale）平均配位数：
+
+        N(r, d) = N_bulk · [1 − 1.5·u + 0.5·u³],  u = r/d ∈ (0, 1]
+
+    由拟合 N₁ 反解 u 后 d = r₁/u（Å）。``shape="hemispherical"`` 时
+    半球/筏状基底直径乘 2^(1/3)（同体积球等效）。
+    """
+    lat = str(lattice).strip().lower()
+    if lat not in _LATTICE_BULK:
+        raise XAFSConfigError(
+            "NP", f"lattice={lattice!r} 只支持 'fcc' / 'hcp' / 'bcc'")
+    shp = str(shape).strip().lower()
+    if shp not in ("spherical", "hemispherical"):
+        raise XAFSConfigError(
+            "NP", f"shape={shape!r} 只支持 'spherical' / 'hemispherical'")
+    try:
+        n1v = float(n1)
+        r1v = float(r1)
+    except (TypeError, ValueError) as exc:
+        raise XAFSConfigError("NP", "n1 / r1 必须是数值") from exc
+    if not np.isfinite(n1v) or n1v <= 0.0:
+        raise XAFSConfigError("NP", f"n1={n1!r} 必须是有限正数")
+    if not np.isfinite(r1v) or r1v <= 0.0:
+        raise XAFSConfigError("NP", f"r1={r1!r} 必须是有限正数")
+    err1 = None
+    if n1_err is not None:
+        err1 = float(n1_err)
+        if not np.isfinite(err1) or err1 < 0.0:
+            raise XAFSConfigError(
+                "NP", f"n1_err={n1_err!r} 必须是非负有限数")
+
+    bulk = _LATTICE_BULK[lat]
+    n1_bulk = bulk["n1"]
+    n2_bulk = bulk["n2"]
+    r2 = bulk["r2_over_r1"] * r1v
+    eta = bulk["eta"]
+    scale = 2.0 ** (1.0 / 3.0) if shp == "hemispherical" else 1.0
+
+    def _shape_hint(diameter_A: float, n2_sphere: float) -> str:
+        if n2 is None:
+            return "single_shell_only"
+        if n2_sphere > 0.5 and float(n2) < 0.65 * n2_sphere:
+            return "raft_or_flattened"
+        return "spherical_consistent"
+
+    # ---- 体相极限：不再有尺寸信息 ----
+    if n1v >= 0.99 * n1_bulk:
+        n2_sphere = float(n2_bulk)
+        return {
+            "diameter_nm": float("inf"),
+            "diameter_A": float("inf"),
+            "diameter_nm_err": None,
+            "n_atoms": float("inf"),
+            "dispersion": 0.0,
+            "lattice": lat,
+            "n1_bulk": float(n1_bulk),
+            "n2_spherical_expected": n2_sphere,
+            "shape_hint": _shape_hint(float("inf"), n2_sphere),
+            "regime": "bulk_limit",
+        }
+
+    # ---- 球截断方程反解 u ----
+    from scipy.optimize import brentq
+
+    f = float(np.clip(n1v / n1_bulk, 0.05, 0.99))
+
+    def _trunc(u):
+        return 1.0 - 1.5 * u + 0.5 * u ** 3 - f
+
+    u = float(brentq(_trunc, 1e-9, 1.0, xtol=1e-14, rtol=1e-14))
+    d_A = float(r1v / u) * scale
+    diameter_nm = d_A / 10.0
+
+    # 隐函数求导：dd/dN = 2·r1 / [3·u²·(1−u²)·N_bulk]
+    dd_dn = (2.0 * r1v
+             / (3.0 * u ** 2 * (1.0 - u ** 2) * n1_bulk)) * scale
+    diameter_nm_err = None if err1 is None else abs(dd_dn) * err1 / 10.0
+
+    n_atoms = max(2.0, float(eta * (d_A / r1v) ** 3))
+    dispersion = float(np.clip(4.0 / n_atoms ** (1.0 / 3.0), 0.0, 1.0))
+
+    # ---- 第二壳形貌自洽检验 ----
+    if d_A <= r2:
+        n2_sphere = 0.0
+    else:
+        v = r2 / d_A
+        n2_sphere = float(n2_bulk * (1.0 - 1.5 * v + 0.5 * v ** 3))
+
+    return {
+        "diameter_nm": diameter_nm,
+        "diameter_A": d_A,
+        "diameter_nm_err": (None if diameter_nm_err is None
+                            else float(diameter_nm_err)),
+        "n_atoms": n_atoms,
+        "dispersion": dispersion,
+        "lattice": lat,
+        "n1_bulk": float(n1_bulk),
+        "n2_spherical_expected": n2_sphere,
+        "shape_hint": _shape_hint(d_A, n2_sphere),
+        "regime": "nanoparticle",
+    }
+
+
+def compute_cowley_sro(
+    n_aa: float,
+    n_ab: float,
+    x_partner: float,
+    n_aa_err: float | None = None,
+    n_ab_err: float | None = None,
+) -> dict:
+    """B17-2：由同核/异核配位数计算 Cowley 短程有序参数。
+
+        α_Cowley = 1 − p_AB / x_B,  p_AB = N_AB / (N_AA + N_AB)
+
+    α≈0 随机固溶体；α<0 异核有序（金属间化合物）；α>0 同核团聚/偏析。
+    """
+    try:
+        aa = float(n_aa)
+        ab = float(n_ab)
+        xb = float(x_partner)
+    except (TypeError, ValueError) as exc:
+        raise XAFSConfigError("SRO", "n_aa / n_ab / x_partner 必须是数值") from exc
+    if not (np.isfinite(xb) and 0.0 < xb < 1.0):
+        raise XAFSConfigError(
+            "SRO", f"x_partner={x_partner!r} 必须在 (0, 1) 内")
+    if not (np.isfinite(aa) and np.isfinite(ab)) or aa < 0.0 or ab < 0.0:
+        raise XAFSConfigError(
+            "SRO", f"N_AA={n_aa!r} / N_AB={n_ab!r} 必须是非负有限数")
+    total = aa + ab
+    if total <= 0.0:
+        raise XAFSConfigError("SRO", "N_AA + N_AB 必须 > 0")
+
+    p_ab = ab / total
+    alpha = 1.0 - p_ab / xb
+    alloy_pct = p_ab / xb * 100.0
+
+    alpha_err = None
+    if n_aa_err is not None and n_ab_err is not None:
+        ea = float(n_aa_err)
+        eb = float(n_ab_err)
+        if not (np.isfinite(ea) and np.isfinite(eb)
+                and ea >= 0.0 and eb >= 0.0):
+            raise XAFSConfigError(
+                "SRO", "n_aa_err / n_ab_err 必须是非负有限数")
+        alpha_err = float(
+            np.sqrt((ab * ea) ** 2 + (aa * eb) ** 2)
+            / (xb * total ** 2))
+
+    if alpha < -0.15:
+        tendency = "heteroatomic_ordering"
+    elif alpha > 0.15:
+        tendency = "homoatomic_clustering_or_segregation"
+    else:
+        tendency = "random_solid_solution"
+
+    return {
+        "n_aa": aa,
+        "n_ab": ab,
+        "n_total": float(total),
+        "p_ab": float(p_ab),
+        "x_partner": xb,
+        "alpha_cowley": float(alpha),
+        "alpha_err": alpha_err,
+        "alloying_extent_pct": float(alloy_pct),
+        "tendency": tendency,
+    }
+
+
+def check_shell_resolution_and_z_degeneracy(
+    shells: list[dict],
+    kmin: float = 3.0,
+    kmax: float = 12.0,
+) -> dict:
+    """B18-1：Rayleigh 径向分辨极限与轻元素 Z 简并门禁。
+
+    有限 k 窗口能分辨的最小壳层间距：
+
+        ΔR_Rayleigh = π / (2·(k_max − k_min))
+
+    当两壳 ΔZ ≤ 2（C/N/O 等轻元素相移/振幅几乎重合）且
+    ΔR < ΔR_Rayleigh 时，同时放开两条路径的 N/ΔR/σ² 会发生反相
+    干涉抵消，配位数无物理意义。这里只诊断并给出建议，不擅自删壳。
+    """
+    try:
+        lo = float(kmin)
+        hi = float(kmax)
+    except (TypeError, ValueError) as exc:
+        raise XAFSConfigError("RES", "kmin / kmax 必须是数值") from exc
+    delta_k = max(hi - lo, 1e-6)
+    rayleigh = float(np.pi / (2.0 * delta_k))
+
+    rows = []
+    for i, sh in enumerate(shells or []):
+        label = str(sh.get("label") or f"shell{i}")
+        el = str(sh.get("scatterer") or "").capitalize()
+        if el not in ATOMIC_NUMBER:
+            raise XAFSConfigError(
+                "RES", f"{label}: 未知散射元素 {sh.get('scatterer')!r}")
+        r_val = sh.get("r", sh.get("reff"))
+        if r_val is None:
+            raise XAFSConfigError("RES", f"{label}: 缺少 r / reff")
+        rv = float(r_val)
+        if not np.isfinite(rv):
+            raise XAFSConfigError("RES", f"{label}: r 非有限值")
+        rows.append({"label": label, "el": el,
+                     "z": int(ATOMIC_NUMBER[el]), "r": rv})
+
+    warnings = []
+    for i in range(len(rows)):
+        for j in range(i + 1, len(rows)):
+            a, b = rows[i], rows[j]
+            dz = abs(a["z"] - b["z"])
+            dr = abs(a["r"] - b["r"])
+            if dz <= 2 and dr < rayleigh:
+                warnings.append({
+                    "path_a": a["label"],
+                    "path_b": b["label"],
+                    "scatterer_a": a["el"],
+                    "scatterer_b": b["el"],
+                    "delta_z": int(dz),
+                    "delta_r": float(dr),
+                    "rayleigh_limit_A": float(rayleigh),
+                    "kind": ("light_element_z_degeneracy"
+                             if max(a["z"], b["z"]) <= 10
+                             else "sub_rayleigh_split"),
+                })
+
+    resolvable = len(warnings) == 0
+    if resolvable:
+        recommendation = ("所有壳层间距 ≥ Rayleigh 极限或散射元素 Z 差异"
+                          "足够大，可独立拟合。")
+    else:
+        recommendation = ("检测到亚 Rayleigh 近简并壳层：建议绑定 "
+                          "shared_sigma2/constraints，或用 BVS/化学计量"
+                          "消歧；不要同时放开近简并拆壳的 N/ΔR/σ²。")
+    return {
+        "rayleigh_limit_A": rayleigh,
+        "delta_k": float(delta_k),
+        "resolvable": resolvable,
+        "pair_warnings": warnings,
+        "recommendation": recommendation,
+    }
+
+
+# ================================================================
 # 5. R 空间最小二乘拟合
 # ================================================================
 

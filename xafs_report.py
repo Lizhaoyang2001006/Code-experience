@@ -1419,6 +1419,9 @@ def main(argv=None):
                         help="强制指定 motif（跳过识别歧义）")
     parser.add_argument("--catalytic-model", default=None,
                         help="B13-1 显式催化位点模型（SAC/DAC 字符串或 JSON 字典）")
+    parser.add_argument("--s02", type=float, default=None,
+                        help="B18-2 运行时覆盖 S₀²（0.4–1.3），解锁未标定元素；"
+                             "不修改 absorber.py 静态标定表")
     parser.add_argument("--hetero-cocupancy", action="store_true",
                         help="B13-2 异核共占位双分支精修（需含占据度 CIF motif）")
     parser.add_argument("--constraints", default=None,
@@ -1561,6 +1564,8 @@ def main(argv=None):
         args.despike = True
     if args.catalytic_model is None and config.get("catalytic_model") is not None:
         args.catalytic_model = config["catalytic_model"]
+    if args.s02 is None and config.get("s02") is not None:
+        args.s02 = float(config["s02"])
     if args.constraints is None and config.get("constraints") is not None:
         args.constraints = config["constraints"]
 
@@ -1656,6 +1661,8 @@ def main(argv=None):
 
     if args.fit_weights and args.no_fit:
         parser.error("--fit-weights 需要运行 S7，不能与 --no-fit 同用")
+    if args.s02 is not None and not (0.4 <= args.s02 <= 1.3):
+        parser.error("--s02 必须在 [0.4, 1.3] 内")
     if args.no_fit:
         for _flag, _label in (("catalytic_model", "--catalytic-model"),
                               ("hetero_cocupancy", "--hetero-cocupancy"),
@@ -1815,6 +1822,7 @@ def main(argv=None):
         catalytic_model=args.catalytic_model,
         hetero_cocupancy=args.hetero_cocupancy,
         constraints=constraints,
+        s02=args.s02,
         verbose=True)
     sid = out_fit["structure"]
     fout = out_fit.get("fit")
@@ -1829,7 +1837,8 @@ def main(argv=None):
     print(f"  → {out / f'{stem}_structure_id.json'}")
     print(f"  → {out / f'{stem}_fit.json'}")
 
-    s02 = (fout or {}).get("s02", abs_cfg.s02)
+    s02 = (fout or {}).get(
+        "s02", args.s02 if args.s02 is not None else abs_cfg.s02)
     edge_label = f"{args.absorber} {abs_cfg.edge}-edge"
     shells = (parse_shell_spec(args.shells)
               or shells_from_fit(fout, absorber_symbol=args.absorber))

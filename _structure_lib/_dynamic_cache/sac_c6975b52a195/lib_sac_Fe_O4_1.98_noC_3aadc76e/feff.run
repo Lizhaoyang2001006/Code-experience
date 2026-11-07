@@ -1,0 +1,41 @@
+ Feff 6L.02
+ sac_Fe_O4_1.98_noC
+ Calculating potentials and phases...
+     free atom potential and density for atom type    0
+     free atom potential and density for atom type    1
+     overlapped potential and density for unique potential    0
+     overlapped potential and density for unique potential    1
+     muffin tin radii and interstitial parameters
+     phase shifts for unique potential    0
+     phase shifts for unique potential    1
+ Preparing plane wave scattering amplitudes...
+   nncrit in prcrit       9
+ Searching for paths...
+    WARNING in PATHS Module:
+       rmax > distance to most distant atom.
+       Some paths may be missing.
+   rmax, ratx      6.00000     1.98000
+     Rmax  6.0000  keep and heap limits   0.0000000   0.0000000
+    Preparing neighbor table
+     nfound  nheap  nheapx  nsc    r
+     Paths found      228   (nheapx, nbx      68   6)
+ Eliminating path degeneracies...
+     Plane wave chi amplitude filter   2.50%
+     Unique paths     11,  total paths      64
+ Calculating EXAFS parameters...
+     Curved wave chi amplitude ratio   4.00%
+     Discard feff.dat for paths with cw ratio <   2.67%
+     path  cw ratio     deg    nleg  reff
+       1   100.000     4.000     2   1.9800
+       2     9.253     8.000     3   3.3801
+       3    16.031     4.000     3   3.9600
+       4    11.174     4.000     4   3.9600
+       5     5.237     4.000     4   3.9600
+       6     6.982     8.000     4   4.7801
+       7     2.751     4.000     4   5.9400
+       8     1.132     8.000     6   5.9400 neglected
+       9     1.644     8.000     5   5.9400 neglected
+      10     3.353     8.000     5   5.9400
+      11     1.229     4.000     6   5.9400 neglected
+     8 paths kept,   11 examined.
+ Feff done.  Have a nice day.
