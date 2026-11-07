@@ -57,6 +57,7 @@ sys.path.insert(0, str(ROOT))
 
 import artemis          # noqa: E402
 import athena           # noqa: E402
+import cn_table          # noqa: E402
 import larch_wt         # noqa: E402
 import xafs_config      # noqa: E402
 import xafs_diagnostics # noqa: E402
@@ -1437,6 +1438,9 @@ def main(argv=None):
     parser.add_argument("--l1-geometry", default="oct", choices=["oct", "tet"])
     parser.add_argument("--no-fit", action="store_true",
                         help="只做 S1–S6.5，不跑 S7")
+    parser.add_argument("--formal-cn", action="store_true",
+                        help="P0a 正式 CN 链：无合格结构来源时写拒绝行到 "
+                             "cn_table.csv；诊断拟合照常输出（需拟合）")
     parser.add_argument("--diagnostics", action="store_true",
                         help="额外输出 S1–S8 阶段诊断图（含 WT 多 kweight/σ 对比）")
     parser.add_argument("--phase-correct", action="store_true",
@@ -1562,6 +1566,8 @@ def main(argv=None):
                 setattr(args, _key, _cfg_val)
     if not args.despike and config.get("despike"):
         args.despike = True
+    if not args.formal_cn and config.get("formal_cn"):
+        args.formal_cn = True
     if args.catalytic_model is None and config.get("catalytic_model") is not None:
         args.catalytic_model = config["catalytic_model"]
     if args.s02 is None and config.get("s02") is not None:
@@ -1661,6 +1667,8 @@ def main(argv=None):
 
     if args.fit_weights and args.no_fit:
         parser.error("--fit-weights 需要运行 S7，不能与 --no-fit 同用")
+    if args.formal_cn and args.no_fit:
+        parser.error("--formal-cn 需要运行 S7，不能与 --no-fit 同用")
     if args.s02 is not None and not (0.4 <= args.s02 <= 1.3):
         parser.error("--s02 必须在 [0.4, 1.3] 内")
     if args.no_fit:
@@ -1823,6 +1831,7 @@ def main(argv=None):
         hetero_cocupancy=args.hetero_cocupancy,
         constraints=constraints,
         s02=args.s02,
+        formal_cn=args.formal_cn,
         verbose=True)
     sid = out_fit["structure"]
     fout = out_fit.get("fit")
@@ -1839,6 +1848,29 @@ def main(argv=None):
 
     s02 = (fout or {}).get(
         "s02", args.s02 if args.s02 is not None else abs_cfg.s02)
+    if args.formal_cn:
+        formal = (fout or {}).get("formal_cn") or {}
+        rows = list(formal.get("rows") or [])
+        model = formal.get("model") or {}
+        if not rows:
+            reason = formal.get("reject_reason") or "未生成正式 CN"
+            rows = [cn_table.refusal_row(
+                formal.get("status", "no_cif"), reason,
+                phase_id=model.get("model_id", ""),
+                model_level=model.get("model_level", ""),
+                source_type=model.get("source_type", ""),
+                source_ref=model.get("source_ref", ""),
+                source_cif_sha256=model.get("source_cif_sha256", ""),
+                absorber_site=model.get("absorber_site", ""),
+                s02=s02 if s02 is not None else "",
+                kmin=args.kmin, kmax=args.kmax,
+                kweight=int(st["result"].ft.kweight),
+                rmin=(fout or {}).get("rmin", ""),
+                rmax=(fout or {}).get("rmax", ""),
+            )]
+        cn_table.write_cn_table(out / "cn_table.csv", rows)
+        print(f"  → {out / 'cn_table.csv'} "
+              f"（formal CN status={formal.get('status', 'no_cif')}）")
     edge_label = f"{args.absorber} {abs_cfg.edge}-edge"
     shells = (parse_shell_spec(args.shells)
               or shells_from_fit(fout, absorber_symbol=args.absorber))

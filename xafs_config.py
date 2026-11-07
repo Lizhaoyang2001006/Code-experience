@@ -92,6 +92,8 @@ DEFAULTS: dict[str, Any] = {
     "operando": False,
     # ---- Phase V（B18-2）----
     "s02": None,
+    # P0a：正式 CN 双轨开关；默认关闭，保持诊断输出零退化。
+    "formal_cn": False,
     "self_absorption": {
         "formula": None,
         "thickness": None,

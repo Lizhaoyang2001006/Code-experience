@@ -76,9 +76,11 @@ sys.path.insert(0, str(ROOT))
 
 import artemis                        # noqa: E402
 import athena                         # noqa: E402
+import cn_table                       # noqa: E402
 import larch_wt                       # noqa: E402
 import structure_id                   # noqa: E402
 import structure_lib                  # noqa: E402
+import structure_model                # noqa: E402
 import xafs_config                    # noqa: E402
 import xafs_diagnostics               # noqa: E402
 import xafs_fit                       # noqa: E402
@@ -3871,6 +3873,104 @@ Ru1 Ru 0.5 0.5 0.5 0.3
         _, sid_cuo = _identify("Cu/Cu-CuO.xdi", "Cu")
         self.assertEqual(sid_cuo["ranked"][0]["id"], "cuo_tenorite")
         self.assertLess(sid_cuo["ranked"][0]["score"], 0.10)
+
+    # ------------------------------------------------------------
+    # 75–78. P0a：正式 CN / 诊断拟合双轨
+    # ------------------------------------------------------------
+    def test_formal_cn_refusal_without_model(self):
+        """#75 P0a：无结构模型时正式 CN 拒绝，诊断拟合保留。"""
+        self.assertTrue(self.lep_fit["fit"].get("diagnostic_only"))
+        self.assertEqual(self.lep_fit["fit"].get("cn_status"),
+                         "diagnostic_only")
+        out = xafs_fit.run(
+            self.lep, identify=True, fit=True, absorber_symbol="Fe",
+            formal_cn=True, verbose=False)
+        fit_out = out["fit"]
+        self.assertEqual(fit_out["mode"], "motif")
+        self.assertIsNotNone(fit_out.get("fit"))
+        formal = fit_out["formal_cn"]
+        self.assertEqual(formal["status"], "no_cif")
+        self.assertEqual(formal["rows"], [])
+        self.assertTrue(formal["reject_reason"])
+        self.assertEqual(out["formal_cn"]["status"], "no_cif")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "cn_table.csv"
+            cn_table.write_cn_table(
+                path, [cn_table.refusal_row(
+                    formal["status"], formal["reject_reason"],
+                    phase_id="lepidocrocite")])
+            rows = cn_table.read_cn_table(path)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["gate_status"], "no_cif")
+        self.assertEqual(rows[0]["n_fit"], "")
+        self.assertTrue(rows[0]["reject_reason"])
+
+    def test_formal_cn_l1_not_in_table(self):
+        """#76 P0a：L1 只做诊断，不得进入正式 CN 表。"""
+        res = xafs_pipeline.process_sample(
+            [FERRIHYDRITE], absorber="Fe", strict=False, verbose=False)
+        out = xafs_fit.run(
+            res, identify=True, fit=True, absorber_symbol="Fe",
+            formal_cn=True, verbose=False)
+        fit_out = out["fit"]
+        self.assertEqual(fit_out["mode"], "l1_first_shell")
+        formal = fit_out["formal_cn"]
+        self.assertEqual(formal["status"], "l1_diagnostic_only")
+        self.assertEqual(formal["rows"], [])
+        row = cn_table.refusal_row(formal["status"], formal["reject_reason"])
+        self.assertEqual(row["n_fit"], "")
+        self.assertEqual(row["cn_label"], "none")
+
+    def test_occupancy_scale_failure_hard_fail(self):
+        """#77 P0a：占据度展开失败硬报错，不按满占据继续。"""
+        import dataclasses
+        from unittest.mock import patch
+
+        lep = [m for m in structure_lib.load_library("Fe")
+               if m.id == "lepidocrocite"][0]
+        cache = structure_lib.ensure_feff(lep, edge="K")
+        with tempfile.TemporaryDirectory() as tmp:
+            cif = Path(tmp) / "fake.cif"
+            cif.write_text("data_fake\n", encoding="utf-8")
+            motif = dataclasses.replace(
+                lep, id="_p0a_occ_fail", cif_path=str(cif))
+            with patch.object(structure_lib, "ensure_feff",
+                              return_value=cache), \
+                 patch.object(artemis, "cif_shell_occupancy_scale",
+                              side_effect=XAFSError("FIT", "boom")):
+                with self.assertRaises(structure_model.CNError) as ctx:
+                    xafs_fit._ss_rows(motif, edge="K")
+        self.assertEqual(ctx.exception.code, "occupancy_scale_failed")
+        self.assertIn("occupancy_scale_failed", str(ctx.exception))
+
+    def test_cn_table_schema_and_refusal_row(self):
+        """#78 P0a：CN 表列顺序与拒绝行写读往返。"""
+        expected = [
+            "phase_id", "model_level", "source_type", "source_ref",
+            "source_cif_sha256", "absorber_site", "shell_group", "shell_label",
+            "scatterer", "r_cif", "n0", "n0_members", "n_fit", "n_status",
+            "n_ratio", "n_err_formal", "n_err_systematic", "delta_r", "sigma2",
+            "delta_e0", "rf", "s02", "s02_source", "s02_calibrated",
+            "kmin", "kmax", "kweight", "rmin", "rmax", "n_idp", "n_variables",
+            "cn_label", "gate_status", "reject_reason", "flags", "assumptions",
+            "data_sha256", "software_version",
+        ]
+        self.assertEqual(cn_table.CN_TABLE_COLUMNS, expected)
+        row = cn_table.refusal_row("no_cif", "no source", phase_id="x")
+        self.assertEqual(row["gate_status"], "no_cif")
+        self.assertEqual(row["n_fit"], "")
+        self.assertTrue(row["reject_reason"])
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "cn_table.csv"
+            cn_table.write_cn_table(path, [row])
+            rows = cn_table.read_cn_table(path)
+        self.assertEqual(len(rows), 1)
+        for key in expected:
+            self.assertIn(key, rows[0])
+        self.assertEqual(rows[0]["phase_id"], "x")
+        self.assertEqual(rows[0]["n_fit"], "")
+        self.assertEqual(rows[0]["gate_status"], "no_cif")
+        self.assertTrue(rows[0]["reject_reason"])
 
 
 if __name__ == "__main__":

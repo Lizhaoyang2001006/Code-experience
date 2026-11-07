@@ -37,6 +37,7 @@ from pathlib import Path
 
 import numpy as np
 
+import cn_table
 import xafs_config
 import xafs_diagnostics
 import xafs_fit
@@ -149,7 +150,8 @@ def process_sample(paths, outdir, align: bool = False,
                    self_absorption_density: float | None = None,
                    self_absorption_angles: tuple = (45.0, 45.0),
                    self_absorption_line: str | None = None,
-                   verbose: bool = True):
+                   verbose: bool = True,
+                   formal_cn: bool = False):
     """
     跑完 S1–S6 并落盘。返回 PipelineResult。
 
@@ -211,7 +213,8 @@ def process_sample(paths, outdir, align: bool = False,
             hetero_cocupancy=hetero_cocupancy,
             constraints=constraints,
             s02=s02,
-            verbose=verbose)
+            verbose=verbose,
+            formal_cn=formal_cn)
 
     # ---- 落盘 ----
     stem, norm, chi_k, ft, wave_map = (result.stem, result.norm, result.chi_k,
@@ -274,6 +277,27 @@ def process_sample(paths, outdir, align: bool = False,
             meta["structure_id"]["l1_error"] = result.structure["l1_error"]
     if result.fit:
         meta["fit"] = _fit_outputs(result.fit, outdir, stem)
+        if formal_cn:
+            formal = result.fit.get("formal_cn") or {}
+            rows = list(formal.get("rows") or [])
+            model = formal.get("model") or {}
+            if not rows:
+                reason = formal.get("reject_reason") or "未生成正式 CN"
+                rows = [cn_table.refusal_row(
+                    formal.get("status", "no_cif"), reason,
+                    phase_id=model.get("model_id", ""),
+                    model_level=model.get("model_level", ""),
+                    source_type=model.get("source_type", ""),
+                    source_ref=model.get("source_ref", ""),
+                    source_cif_sha256=model.get("source_cif_sha256", ""),
+                    absorber_site=model.get("absorber_site", ""),
+                    s02=result.fit.get("s02", ""),
+                    kmin=kmin, kmax=kmax, kweight=kweight,
+                    rmin=result.fit.get("rmin", ""),
+                    rmax=result.fit.get("rmax", ""),
+                )]
+            cn_table.write_cn_table(outdir / "cn_table.csv", rows)
+            meta["formal_cn"] = formal
         # B9-1：只有真正放开 C3/C4 才重构非高斯 g(R)，不凭空造分布。
         fit_obj = result.fit.get("fit")
         if fit_obj is not None:
@@ -342,6 +366,9 @@ def main():
                         help="追加 S7 拟合：confident 时自动多壳层 CN，"
                              "partial/ambiguous/no_match 时 L1 第一壳；"
                              "需要 --absorber 且 S₀² 已标定")
+    parser.add_argument("--formal-cn", action="store_true",
+                        help="P0a 正式 CN 链：无合格结构来源时写拒绝行到 "
+                             "cn_table.csv；诊断拟合照常输出（需 --fit）")
     parser.add_argument("--fit-motif", default=None,
                         help="强制用指定 motif 做 S7（跳过识别歧义）")
     parser.add_argument("--catalytic-model", default=None,
@@ -513,6 +540,8 @@ def main():
                 setattr(args, _key, _cfg_val)
     if not args.despike and config.get("despike"):
         args.despike = True
+    if not args.formal_cn and config.get("formal_cn"):
+        args.formal_cn = True
     if args.catalytic_model is None and config.get("catalytic_model") is not None:
         args.catalytic_model = config["catalytic_model"]
     if args.s02 is None and config.get("s02") is not None:
@@ -620,6 +649,8 @@ def main():
 
     if args.fit_weights and not args.fit:
         parser.error("--fit-weights 需要同时给 --fit（否则不会运行 S7）")
+    if args.formal_cn and not args.fit:
+        parser.error("--formal-cn 需要同时给 --fit（正式 CN 依赖 S7 拟合结果）")
     if args.s02 is not None and not (0.4 <= args.s02 <= 1.3):
         parser.error("--s02 必须在 [0.4, 1.3] 内")
     for _flag, _label in (("catalytic_model", "--catalytic-model"),
@@ -774,7 +805,8 @@ def main():
                     self_absorption_density=args.self_absorption_density,
                     self_absorption_angles=sa_angles,
                     self_absorption_line=args.self_absorption_line,
-                    verbose=False)
+                    verbose=False,
+                    formal_cn=args.formal_cn)
             except Exception as exc:  # 批处理：单个失败不中断整批
                 errors.append({"file": fpath, "error": str(exc)})
                 print(f"  ❌ 失败: {exc}")
@@ -817,7 +849,8 @@ def main():
         self_absorption_thickness=args.self_absorption_thickness,
         self_absorption_density=args.self_absorption_density,
         self_absorption_angles=sa_angles,
-        self_absorption_line=args.self_absorption_line)
+        self_absorption_line=args.self_absorption_line,
+        formal_cn=args.formal_cn)
 
     print("-" * 66)
     for f in sorted(result.outdir.glob(f"{result.stem}*")):

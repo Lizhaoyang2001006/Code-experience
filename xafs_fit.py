@@ -28,6 +28,7 @@ import artemis
 import structure_id
 import structure_lib
 from absorber import get_absorber
+from structure_model import CNError, StructureModel, validate_formal
 from xafs_core import XAFSConfigError, XAFSDataError, XAFSError
 
 # 形式误差 ≠ 绝对精度。N 的误差棒只来自最小二乘协方差，
@@ -221,8 +222,15 @@ def _ss_rows(motif: structure_lib.Motif, edge: str) -> list:
         try:
             scale = artemis.cif_shell_occupancy_scale(
                 structure_lib._cif_path(motif), motif.absorber, rmax=6.0)
-        except XAFSError:
-            scale = []
+        except XAFSError as exc:
+            raise CNError(
+                "occupancy_scale_failed",
+                f"{motif.id}: 无法展开 CIF 占据度；拒绝按满占据继续"
+                f"（{getattr(exc, 'message', str(exc))}）") from exc
+        if not scale:
+            raise CNError(
+                "occupancy_scale_failed",
+                f"{motif.id}: CIF 占据度展开为空；拒绝按满占据继续")
         for r in rows:
             matches = [occ for (dist, el, occ) in scale
                        if el == r["scatterer"]
@@ -720,6 +728,47 @@ def write_rdf_csv(path, rdf: dict):
     return path
 
 
+def _formal_cn_meta(formal_cn: bool, structure_model: StructureModel | None,
+                    status_override: str | None = None,
+                    reason_override: str | None = None) -> dict:
+    """给拟合结果附加诊断/正式双轨标记。
+
+    P0a 只负责“拒绝或挂起”，绝不产生 ``n_fit`` 点值：
+    - ``formal_cn=False``：仅标记 diagnostic_only；
+    - 无模型：``no_cif``；
+    - L1：``l1_diagnostic_only``；
+    - 模型来源合格：``pending_consistency``（固定 N 一致性属于 P2b）；
+    - 模型来源不合格：返回 ``validate_formal`` 的拒绝码。
+    """
+    if not formal_cn:
+        return {"diagnostic_only": True, "cn_status": "diagnostic_only"}
+    if status_override:
+        status = status_override
+        reason = reason_override
+    elif structure_model is None:
+        status = "no_cif"
+        reason = "未提供 StructureModel（无合格结构来源）"
+    else:
+        verdict = validate_formal(structure_model)
+        if verdict["ok"]:
+            status = "pending_consistency"
+            reason = "P0a 尚未实现固定 N 一致性检验；正式 CN 从 P3 开始"
+        else:
+            status = verdict["code"] or "unverified_source"
+            reason = verdict["reason"]
+    return {
+        "diagnostic_only": True,
+        "cn_status": status,
+        "formal_cn": {
+            "status": status,
+            "rows": [],
+            "reject_reason": reason,
+            "model": (structure_model.to_json()
+                      if structure_model is not None else None),
+        },
+    }
+
+
 def fit_identified(res, motif_id: str | None = None,
                    absorber_symbol: str | None = None,
                    rmin: float | None = None, rmax: float | None = None,
@@ -738,7 +787,9 @@ def fit_identified(res, motif_id: str | None = None,
                    hetero_cocupancy: bool = False,
                    constraints=None,
                    s02: float | None = None,
-                   verbose: bool = True) -> dict:
+                   verbose: bool = True,
+                   formal_cn: bool = False,
+                   structure_model: StructureModel | None = None) -> dict:
     """对识别结果做 S7 拟合；未 confident 时返回 L1 第一壳结果。
 
     ``fit_weights=True`` 仅对 mixture（多位点吸收）生效：固定每条路径的
@@ -859,6 +910,11 @@ def fit_identified(res, motif_id: str | None = None,
             if fit_weights:
                 out["warning"] += ("；识别状态不是 confident，"
                                    "--fit-weights 未执行（返回 L1 第一壳）")
+            out.update(_formal_cn_meta(
+                formal_cn, structure_model,
+                status_override=("l1_diagnostic_only" if formal_cn else None),
+                reason_override=("L1 合成团簇只做诊断，不进入正式 CN 表"
+                                 if formal_cn else None)))
             return out
 
     motif = (catalytic_motif if catalytic_motif is not None
@@ -1365,6 +1421,7 @@ def fit_identified(res, motif_id: str | None = None,
             print(f"       ⚠ 相分数不可靠：{'、'.join(reasons)}")
         elif not cn_reliable:
             print(f"       ⚠ CN 不可靠：{'、'.join(reasons)}")
+    out.update(_formal_cn_meta(formal_cn, structure_model))
     return out
 
 
@@ -1385,7 +1442,9 @@ def run(res, identify: bool = True, fit: bool = False,
         hetero_cocupancy: bool = False,
         constraints=None,
         s02: float | None = None,
-        verbose: bool = True) -> dict:
+        verbose: bool = True,
+        formal_cn: bool = False,
+        structure_model: StructureModel | None = None) -> dict:
     """S6.5（可选 S7）的唯一入口；结果回填 res.structure / res.fit。
 
     ``s02``（B18-2）为运行时 S₀² 覆盖：仅构造局部 AbsorberConfig 副本，
@@ -1402,7 +1461,7 @@ def run(res, identify: bool = True, fit: bool = False,
                 verbose=verbose)
             res.structure = out["structure"]
     if fit:
-        out["fit"] = fit_identified(
+        fit_out = fit_identified(
             res, motif_id=fit_motif, absorber_symbol=absorber_symbol,
             rmin=fit_rmin, rmax=fit_rmax,
             allow_ambiguous=allow_ambiguous,
@@ -1416,8 +1475,25 @@ def run(res, identify: bool = True, fit: bool = False,
             hetero_cocupancy=hetero_cocupancy,
             constraints=constraints,
             s02=s02,
-            verbose=verbose)
-        res.fit = out["fit"]
+            verbose=verbose,
+            formal_cn=formal_cn,
+            structure_model=structure_model)
+        out["fit"] = fit_out
+        res.fit = fit_out
+        out["diagnostic_only"] = True
+        out["cn_status"] = fit_out.get("cn_status", "diagnostic_only")
+        if formal_cn:
+            out["formal_cn"] = fit_out.get("formal_cn")
+    elif formal_cn:
+        out["formal_cn"] = {
+            "status": "no_cif",
+            "rows": [],
+            "reject_reason": "未运行 S7 拟合（fit=False）",
+            "model": (structure_model.to_json()
+                      if structure_model is not None else None),
+        }
+        out["diagnostic_only"] = True
+        out["cn_status"] = "no_cif"
     return out
 
 
