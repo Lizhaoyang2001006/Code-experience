@@ -1,0 +1,5 @@
+ test_hetero_Ru_3.55                                    Feff 6L.02  potph 4.12
+ Abs   Z=26 Rmt= 1.741 Rnm= 2.470 K shell
+ Pot 1 Z=44 Rmt= 1.809 Rnm= 2.567
+ Gam_ch=1.325E+00 H-L exch
+ Mu=-3.365E+00 kf=8.142E-01 Vint=-5.891E+00 Rs_int= 4.454

@@ -1,0 +1,8 @@
+ test_hetero_Ti_3.55
+ Rmax  4.4000,  keep limit  0.000, heap limit  0.000    Feff 6L.02  paths 3.05
+ Plane wave chi amplitude filter   2.50%
+ -------------------------------------------------------------------------------
+     1    2   1.000  index, nleg, degeneracy, r=  3.5507
+      x           y           z     ipot  label      rleg      beta        eta
+    3.550700    0.000000    0.000000   1 'Ti    '     3.5507  180.0000    0.0000
+    0.000000    0.000000    0.000000   0 'Fe    '     3.5507  180.0000    0.0000

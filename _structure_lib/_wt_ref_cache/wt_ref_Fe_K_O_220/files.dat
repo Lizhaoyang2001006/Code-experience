@@ -1,0 +1,9 @@
+ wt_ref_Fe_O                                            Feff 6L.02  potph 4.12
+ Abs   Z=26 Rmt= 1.136 Rnm= 1.518 K shell
+ Pot 1 Z= 8 Rmt= 1.064 Rnm= 1.422
+ Gam_ch=1.325E+00 H-L exch
+ Mu=-2.738E+00 kf=1.528E+00 Vint=-1.163E+01 Rs_int= 2.373
+ -------------------------------------------------------------------------------
+    file        sig2   amp ratio    deg    nlegs  r effective
+ feff0001.dat 0.00000   100.000     6.000     2   2.2000
+ feff0002.dat 0.00000    16.350    24.000     3   3.7556

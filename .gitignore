@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+xafs_out/
+xafs_out_batch/
+_feff_cache/
+ci_report.json
+ci_report.md
+data/练手数据/Examples.zip

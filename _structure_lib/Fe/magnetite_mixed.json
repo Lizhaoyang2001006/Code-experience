@@ -1,0 +1,22 @@
+{
+  "id": "magnetite_mixed",
+  "absorber": "Fe",
+  "kind": "mixture",
+  "nuclearity": "mixed-site",
+  "source": {
+    "type": "composite",
+    "ref": "8a(1/3) + 16d(2/3) 位点联合；多位点吸收的关键是权重=位点占据，与化学式一致"
+  },
+  "components": [
+    {
+      "id": "magnetite_tet",
+      "weight": 0.3333333333333333
+    },
+    {
+      "id": "magnetite_oct",
+      "weight": 0.6666666666666666
+    }
+  ],
+  "notes": "多位点吸收：实验 χ(R) = 两个吸收位点 χ 的线性组合。各位点共用 S₀²/σ²/ΔE₀（指纹级近似）；定量拟合时Fe-O 子壳层 1.886/2.060 分开给 N。",
+  "version": 1
+}

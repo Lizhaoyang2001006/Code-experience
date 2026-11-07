@@ -1,0 +1,34 @@
+
+======== running Feff module C:\Users\lizha\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\larch\bin\win64\feff6l.exe ========
+ Feff 6L.02
+ wt_ref_Fe_O
+ Calculating potentials and phases...
+     free atom potential and density for atom type    0
+     free atom potential and density for atom type    1
+     overlapped potential and density for unique potential    0
+     overlapped potential and density for unique potential    1
+     muffin tin radii and interstitial parameters
+     phase shifts for unique potential    0
+     phase shifts for unique potential    1
+ Preparing plane wave scattering amplitudes...
+   nncrit in prcrit       9
+ Searching for paths...
+    WARNING in PATHS Module:
+       rmax > distance to most distant atom.
+       Some paths may be missing.
+   rmax, ratx      4.00000     2.20000
+     Rmax  4.0000  keep and heap limits   0.0000000   0.0000000
+    Preparing neighbor table
+     nfound  nheap  nheapx  nsc    r
+     Paths found       30   (nheapx, nbx       9   3)
+ Eliminating path degeneracies...
+     Plane wave chi amplitude filter   2.50%
+     Unique paths      2,  total paths      30
+ Calculating EXAFS parameters...
+     Curved wave chi amplitude ratio   4.00%
+     Discard feff.dat for paths with cw ratio <   2.67%
+     path  cw ratio     deg    nleg  reff
+       1   100.000     6.000     2   2.2000
+       2    16.350    24.000     3   3.7556
+     2 paths kept,    2 examined.
+ Feff done.  Have a nice day.

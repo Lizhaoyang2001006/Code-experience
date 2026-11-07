@@ -1,0 +1,83 @@
+
+======== running Feff module C:\Users\lizha\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\larch\bin\win64\feff6l.exe ========
+ Feff 6L.02
+ Fe foil bcc
+ Calculating potentials and phases...
+     free atom potential and density for atom type    0
+     free atom potential and density for atom type    1
+     overlapped potential and density for unique potential    0
+     overlapped potential and density for unique potential    1
+     muffin tin radii and interstitial parameters
+     phase shifts for unique potential    0
+     phase shifts for unique potential    1
+ Preparing plane wave scattering amplitudes...
+   nncrit in prcrit       9
+ Searching for paths...
+    WARNING in PATHS Module:
+       rmax > distance to most distant atom.
+       Some paths may be missing.
+   rmax, ratx      6.00000     5.73200
+     Rmax  6.0000  keep and heap limits   0.0000000   0.0000000
+    Preparing neighbor table
+     nfound  nheap  nheapx  nsc    r
+       1000    412     462   4    5.3480
+       2000    297     462   4    5.9416
+       3000     81     462   4    5.9416
+     Paths found     3220   (nheapx, nbx     462   4)
+ Eliminating path degeneracies...
+     Plane wave chi amplitude filter   2.50%
+     Unique paths     48,  total paths    1924
+ Calculating EXAFS parameters...
+     Curved wave chi amplitude ratio   4.00%
+     Discard feff.dat for paths with cw ratio <   2.67%
+     path  cw ratio     deg    nleg  reff
+       1   100.000     8.000     2   2.4820
+       2    55.117     6.000     2   2.8660
+       3     4.986    24.000     3   3.9150
+       4    19.318    48.000     3   3.9150
+       5    48.986    12.000     2   4.0531
+       6     6.933    24.000     3   4.5086
+       7    20.905    48.000     3   4.5086
+       8    65.370    24.000     2   4.7527
+       9     9.901    48.000     3   4.8926
+      10    19.443     8.000     2   4.9641
+      11     9.116     8.000     3   4.9641
+      12    54.244    16.000     3   4.9641
+      13    11.397     8.000     4   4.9641
+      14     4.329     8.000     4   4.9641
+      15    44.682     8.000     4   4.9641
+      16     3.870    24.000     4   4.9641
+      17     2.545    24.000     4   4.9641 neglected
+      18     2.546    48.000     4   4.9641 neglected
+      19    15.132    48.000     3   5.0504
+      20    21.831    48.000     3   5.0504
+      21    22.572    48.000     3   5.0504
+      22     4.134    48.000     4   5.3480
+      23     5.110    48.000     4   5.3480
+      24     2.101    24.000     4   5.3480 neglected
+      25     3.272    24.000     4   5.3480
+      26     2.199    24.000     4   5.3480 neglected
+      27     3.502    24.000     4   5.3480
+      28     2.635    96.000     4   5.3480 neglected
+      29     4.712    48.000     4   5.3480
+      30     5.818    48.000     4   5.3480
+      31     6.185    96.000     3   5.6439
+      32    13.299    96.000     3   5.6439
+      33    14.710    96.000     3   5.6439
+      34     9.900     6.000     2   5.7320
+      35     4.063     6.000     3   5.7320
+      36    24.808    12.000     3   5.7320
+      37     4.458     6.000     4   5.7320
+      38     1.641     6.000     4   5.7320 neglected
+      39    18.266     6.000     4   5.7320
+      40     4.867    48.000     3   5.9416
+      41     4.900    48.000     3   5.9416
+      42     2.967    96.000     4   5.9416
+      43     3.947    96.000     4   5.9416
+      44     5.780    48.000     4   5.9416
+      45     2.215    96.000     4   5.9416 neglected
+      46     6.201    48.000     4   5.9416
+      47     2.708    96.000     4   5.9416
+      48     3.890    96.000     4   5.9416
+    41 paths kept,   48 examined.
+ Feff done.  Have a nice day.

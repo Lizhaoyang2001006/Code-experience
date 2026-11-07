@@ -1,0 +1,816 @@
+# -*- coding: utf-8 -*-
+"""
+run_xafs.py — 命令行入口：解析参数、调 xafs_pipeline、落盘
+================================================================
+本文件只做三件事：解析参数、调用 xafs_pipeline.process_sample、写文件。
+**不含任何物理计算**——数学在 athena / artemis / larch_wt，
+编排在 xafs_pipeline，诊断图在 xafs_diagnostics。
+
+用法:
+    python run_xafs.py <数据文件...> [--absorber Fe] [-o 输出目录] [--align]
+                        [--identify] [--fit] [--fit-motif ID]
+                        [--fit-rmin A] [--fit-rmax A] [--allow-ambiguous]
+                        [--fit-weights]
+                        [--l1-ligand O] [--l1-geometry oct]
+                        [--strict/--no-strict] [--diagnostics]
+    python run_xafs.py                     # 缺参数时跑内置示例（Fe 标样）
+
+    --fit 在识别 confident 时自动做多壳层 CN；partial/ambiguous/no_match
+    时只做 L1 第一壳。S₀² 未标定的元素一律拒绝 CN 定量。
+
+处理链（xafs_pipeline.process_sample 内部）:
+    S1   xafs_io.read_scan          → RawScan
+    S1.5 athena.merge_scans         → 合并（可选 align_by_reference）
+    S2   athena.determine_e0        → E0
+    S3   athena.normalize_absorption→ NormalizedScan
+    S4   athena.optimize_rbkg       → Rbkg
+    S5   athena.extract_chi_k / ft_to_r_space → ChiK / FourierTransform
+    S6   larch_wt.continuous_wavelet_transform → WaveletMap
+"""
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import sys
+from pathlib import Path
+
+import numpy as np
+
+import xafs_config
+import xafs_diagnostics
+import xafs_fit
+import xafs_io
+import xafs_lcf
+import xafs_pipeline
+
+# Windows 控制台默认 GBK；帮助文本含 Å/σ²/S₀²/α 等字符，
+# 不重配会在 --help 时抛 UnicodeEncodeError。改 UTF-8 + replace
+# 只影响控制台，不改任何数据文件编码。
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+
+def _fit_outputs(fit_out, outdir: Path, stem: str) -> dict:
+    """把 S7 结果写成 CSV + JSON，返回可并入 meta 的摘要。"""
+    mode = fit_out["mode"]
+    if mode == "l1_first_shell":
+        l1 = fit_out["l1"]
+        rows = [[l1.get("ligand", ""), l1.get("N"), l1.get("N_err"),
+                 l1.get("R"), l1.get("R_err"), l1.get("sigma2"), "",
+                 l1.get("r0"), l1.get("delta_e0"), l1.get("rf"),
+                 l1.get("n_independent"), l1.get("n_variables")]]
+        meta = {k: v for k, v in fit_out.items() if k != "structure"}
+    else:
+        fit = fit_out["fit"]
+        rows = []
+        for p in fit.paths:
+            rows.append([p.label, p.degeneracy, p.n_err, p.r, p.delta_r_err,
+                         p.sigma2, p.sigma2_err, p.reff, fit.delta_e0,
+                         fit.r_factor, fit.n_independent, fit.n_variables])
+        meta = {k: v for k, v in fit_out.items() if k != "structure"}
+        meta["fit"] = {
+            "delta_e0": fit.delta_e0, "delta_e0_err": fit.delta_e0_err,
+            "r_factor": fit.r_factor, "n_independent": fit.n_independent,
+            "n_variables": fit.n_variables, "overfit": fit.overfit,
+            "rmin": fit.rmin, "rmax": fit.rmax,
+            "kmin": fit.kmin, "kmax": fit.kmax, "s02": fit.s02,
+            "kweights": list(fit.kweights or ()),
+            "r_factors_by_kweight": (fit.r_factors_by_kweight or {}),
+            "epsilon_r": fit.epsilon_r,
+            "chi_square": fit.chi_square,
+            "reduced_chi_square": fit.reduced_chi_square,
+            "mixture_weights": fit.mixture_weights,
+            "parameter_names": fit.parameter_names,
+            "correlation": ([[round(float(v), 5) for v in row]
+                             for row in fit.correlation]
+                            if fit.correlation is not None else None),
+            "paths": [{"label": p.label, "reff": p.reff,
+                       "N": p.degeneracy, "N_err": p.n_err,
+                       "R": p.r, "R_err": p.delta_r_err,
+                       "sigma2": p.sigma2, "sigma2_err": p.sigma2_err,
+                       "sigma2_at_bound": p.sigma2_at_bound}
+                      for p in fit.paths]}
+    header = ["shell", "N", "N_err", "R_A", "R_err", "sigma2",
+              "sigma2_err", "Reff_A", "delta_e0", "R_factor",
+              "N_independent", "N_variables"]
+    with open(outdir / f"{stem}_fit.csv", "w", newline="",
+              encoding="utf-8-sig") as fh:
+        w = csv.writer(fh)
+        w.writerow(header)
+        for row in rows:
+            w.writerow(["" if v is None else
+                        (f"{v:.6g}" if isinstance(v, float) else v)
+                        for v in row])
+    xafs_io.write_json(outdir / f"{stem}_fit.json", meta)
+    return meta
+
+
+def process_sample(paths, outdir, align: bool = False,
+                   absorber: str | None = None,
+                   edge_energy: float | None = None,
+                   e0_method: str = "derivative", manual_e0: float | None = None,
+                   rbkg: float | None = None, kmin: float = 3.0, kmax: float = 12.0,
+                   kweight: int = 2, post_window=(150, 600),
+                   strict: bool = True,
+                   diagnostics: bool = False, identify: bool = False,
+                   fit: bool = False, fit_motif: str | None = None,
+                   fit_rmin: float | None = None, fit_rmax: float | None = None,
+                   allow_ambiguous: bool = False,
+                   l1_ligand: str = "O", l1_geometry: str = "oct",
+                   fit_weights: bool = False,
+                   fit_kweights: tuple | None = None,
+                   include_ms: bool = False,
+                   despike: bool = False,
+                   deglitch: list[tuple[float, float]] | None = None,
+                   deadtime: bool = False,
+                   reject_outlier_scans: bool = False,
+                   lcf_standards: list[str] | None = None,
+                   vary_c3: bool | list | None = None,
+                   vary_c4: bool | list | None = None,
+                   isotropic_deltar: bool = False,
+                   shared_sigma2: str | list | None = None,
+                   mback: bool = False,
+                   chi_std=None, chi_std_k=None,
+                   clamp_lo: float | None = None,
+                   clamp_hi: float | None = None,
+                   fit_space: str = "r",
+                   bvs_restraint: dict | None = None,
+                   catalytic_model=None,
+                   hetero_cocupancy: bool = False,
+                   constraints=None,
+                   phase_correct: bool = False,
+                   chi2_contour: bool = False,
+                   self_absorption_formula: str | None = None,
+                   self_absorption_thickness: float | None = None,
+                   self_absorption_density: float | None = None,
+                   self_absorption_angles: tuple = (45.0, 45.0),
+                   self_absorption_line: str | None = None,
+                   verbose: bool = True):
+    """
+    跑完 S1–S6 并落盘。返回 PipelineResult。
+
+    Rbkg 默认由 optimize_rbkg 自动判定；显式给 rbkg 时跳过寻优。
+    diagnostics=True 时在 <outdir>/diagnostics/ 下画各阶段诊断图。
+    identify=True 时经 xafs_fit 追加 S6.5 结构识别（拟合链唯一触发点）。
+    """
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    result = xafs_pipeline.process_sample(
+        paths, align=align, absorber=absorber, edge_energy=edge_energy,
+        e0_method=e0_method, manual_e0=manual_e0, rbkg=rbkg,
+        kmin=kmin, kmax=kmax, kweight=kweight,
+        post_window=post_window, strict=strict,
+        despike=despike, deglitch=deglitch, deadtime=deadtime,
+        reject_outlier_scans=reject_outlier_scans,
+        mback=mback, chi_std=chi_std, chi_std_k=chi_std_k,
+        clamp_lo=clamp_lo, clamp_hi=clamp_hi,
+        self_absorption_formula=self_absorption_formula,
+        self_absorption_thickness=self_absorption_thickness,
+        self_absorption_density=self_absorption_density,
+        self_absorption_angles=self_absorption_angles,
+        self_absorption_line=self_absorption_line,
+        verbose=verbose)
+    result.outdir = outdir
+    result.stem = Path(paths[0]).stem
+
+    # ---- B2-2 XANES LCF（可选；端元文件先各自走 S1–S3）----
+    if lcf_standards:
+        std_norms = {}
+        for std_path in lcf_standards:
+            std_res = xafs_pipeline.process_sample(
+                [std_path], absorber=absorber, strict=False, verbose=False)
+            std_norms[Path(std_path).stem] = std_res.norm
+        lcf_res = xafs_lcf.lcf_from_scans(
+            result.norm, std_norms, mode="xanes")
+        xafs_io.write_json(outdir / f"{result.stem}_lcf.json",
+                           xafs_lcf.lcf_summary(lcf_res))
+        if verbose:
+            w = ", ".join(f"{k}={v:.3f}" for k, v in
+                          lcf_res["weights"].items())
+            print(f"  [B2-2] XANES LCF: {w}   Rf={lcf_res['r_factor']:.2e}")
+
+    # S6.5/S7 只经拟合链编排触发（入口 → xafs_fit → structure_id，线性无环）
+    if identify or fit:
+        xafs_fit.run(
+            result, identify=identify or fit, fit=fit,
+            absorber_symbol=absorber, fit_motif=fit_motif,
+            fit_rmin=fit_rmin, fit_rmax=fit_rmax,
+            allow_ambiguous=allow_ambiguous,
+            l1_ligand=l1_ligand, l1_geometry=l1_geometry,
+            fit_weights=fit_weights,
+            shared_sigma2=shared_sigma2, kweights=fit_kweights,
+            include_ms=include_ms, vary_c3=vary_c3, vary_c4=vary_c4,
+            isotropic_deltar=isotropic_deltar,
+            fit_space=fit_space, bvs_restraint=bvs_restraint,
+            catalytic_model=catalytic_model,
+            hetero_cocupancy=hetero_cocupancy,
+            constraints=constraints,
+            verbose=verbose)
+
+    # ---- 落盘 ----
+    stem, norm, chi_k, ft, wave_map = (result.stem, result.norm, result.chi_k,
+                                       result.ft, result.wt)
+    best, r1, r_wt = result.rbkg, result.r1, result.r_wt
+    xafs_io.write_columns(
+        outdir / f"{stem}_mu.dat",
+        f"# {stem}   E0={norm.e0:.2f} eV   edge_step={norm.edge_step:.4f}",
+        [norm.energy, norm.mu, norm.mu_norm]
+        + ([result.merged.sigma_mu] if result.merged.sigma_mu is not None else []),
+        ["E(eV)", "mu", "mu_norm"]
+        + (["sigma_mu"] if result.merged.sigma_mu is not None else []))
+    xafs_io.write_columns(
+        outdir / f"{stem}_chi.dat",
+        f"# Rbkg={best['rbkg']:.2f} A   kmin/kmax={kmin}/{kmax}   kweight={kweight}",
+        [chi_k.k, chi_k.chi, chi_k.k ** kweight * chi_k.chi],
+        ["k(A^-1)", "chi", f"k{kweight}chi"])
+    xafs_io.write_columns(
+        outdir / f"{stem}_ft.dat",
+        f"# R(A)  FT kmin={kmin} kmax={kmax}",
+        [ft.r, ft.real, ft.imag, ft.magnitude],
+        ["R(A)", "Re", "Im", "|chi(R)|"])
+    with open(outdir / f"{stem}_wt.dat", "w", encoding="utf-8") as f:
+        f.write(f"# CWT sigma={wave_map.sigma}  row=k, col=R\n")
+        f.write("# k \\ R  " + "  ".join(f"{v:.2f}" for v in wave_map.r) + "\n")
+        for i, kc in enumerate(wave_map.k_centers):
+            f.write(f"{kc:.2f}  "
+                    + "  ".join(f"{v:.4f}" for v in wave_map.magnitude[i]) + "\n")
+    meta = {
+        "source": result.merged.meta,
+        "absorber": result.absorber_symbol,
+        "e0": result.e0,
+        "normalization": {
+            "edge_step": norm.edge_step, "plateau": norm.plateau,
+            "plateau_ok": bool(0.85 <= norm.plateau <= 1.15),
+            "strict": bool(strict)},
+        "rbkg": {"selected": best["rbkg"], "confidence": best.get("confidence"),
+                 "table": result.rbkg_table},
+        "ft": {"kmin": kmin, "kmax": kmax, "kweight": kweight,
+               "r_first_peak": r1},
+        "wt": {"sigma": wave_map.sigma, "r_first_peak": r_wt,
+               "k_at_peak": result.k_wt},
+        "self_absorption": result.self_absorption,
+    }
+    if result.structure:
+        meta["structure_id"] = {
+            "status": result.structure.get("status"),
+            "confidence": result.structure.get("confidence"),
+            "top3": result.structure["ranked"][:3],
+            "indistinguishable": result.structure["indistinguishable"],
+            "uncovered_peaks": result.structure["uncovered_peaks"],
+            "coverage_ok": result.structure.get("coverage_ok"),
+        }
+        if result.structure.get("warning"):
+            meta["structure_id"]["warning"] = result.structure["warning"]
+        if result.structure.get("l1_first_shell"):
+            meta["structure_id"]["l1_first_shell"] = \
+                result.structure["l1_first_shell"]
+        if result.structure.get("l1_error"):
+            meta["structure_id"]["l1_error"] = result.structure["l1_error"]
+    if result.fit:
+        meta["fit"] = _fit_outputs(result.fit, outdir, stem)
+        # B9-1：只有真正放开 C3/C4 才重构非高斯 g(R)，不凭空造分布。
+        fit_obj = result.fit.get("fit")
+        if fit_obj is not None:
+            rdf_tab = xafs_fit.rdf_table(fit_obj)
+            if rdf_tab["rows"]:
+                xafs_fit.write_rdf_csv(outdir / f"{stem}_rdf.csv", rdf_tab)
+                meta["rdf"] = rdf_tab["summary"]
+    xafs_io.write_json(outdir / f"{stem}_meta.json", meta)
+
+    if diagnostics:
+        made = xafs_diagnostics.write_diagnostics(result,
+                                                  outdir / "diagnostics")
+        if verbose:
+            print(f"  [诊断] {len(made)} 张阶段图 → {outdir / 'diagnostics'}")
+
+    # ---- B14-2 审稿级诊断：相移校正真键长 / 二维 χ² 等高线 ----
+    if phase_correct or chi2_contour:
+        diag_dir = outdir / "diagnostics"
+        diag_dir.mkdir(parents=True, exist_ok=True)
+        payload = result.fit
+        if payload is None and result.structure:
+            payload = {"l1": result.structure.get("l1_first_shell"),
+                       "absorber": result.absorber_symbol}
+        if phase_correct:
+            pc = xafs_diagnostics.write_phase_corrected_diagnostics(
+                result, payload, diag_dir, stem=result.stem)
+            if verbose:
+                print(f"  [B14-2] 相移校正：R_raw={pc['r_peak_raw']:.3f} → "
+                      f"R_true={pc['r_peak_corrected']:.3f} Å "
+                      f"（拟合 R={pc['r_fit']:.3f}）")
+        if chi2_contour:
+            cc = xafs_diagnostics.write_chi2_contour_diagnostics(
+                result, payload, diag_dir, stem=result.stem)
+            if verbose and cc is not None:
+                print(f"  [B14-2] χ² 等高线：min_chi2={cc['min_chi2']:.3f} "
+                      f"→ {cc['png']}")
+
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="XAFS 自动处理：μ(E) → 归一化 → χ(k) → |χ(R)| → 小波")
+    parser.add_argument("files", nargs="*", help="原始数据文件（可多个扫描）")
+    parser.add_argument("-o", "--outdir", default="./xafs_out", help="输出目录")
+    parser.add_argument("--align", action="store_true", help="用参考通道做能量对齐")
+    parser.add_argument("--strict", action=argparse.BooleanOptionalAction,
+                        default=True,
+                        help="边后平台不在 0.85–1.15 时是否中断（默认中断；"
+                             "--no-strict 降级为警告，供已知厚样/标样使用）")
+    parser.add_argument("--diagnostics", action="store_true",
+                        help="输出 S1–S6 各阶段诊断图（<outdir>/diagnostics/）")
+    parser.add_argument("--phase-correct", action="store_true",
+                        help="B14-2 相移校正真键长 FT/WT 诊断"
+                             "（默认关闭；需 --identify 或 --fit）")
+    parser.add_argument("--chi2-contour", action="store_true",
+                        help="B14-2 第一壳 N–σ² 二维 χ² 置信椭圆"
+                             "（默认关闭；需 --fit）")
+    parser.add_argument("--operando", action="store_true",
+                        help="B15-1 原位序列模式：每个文件视为一个时间点"
+                             "（至少 3 个），输出 PCA/SPOIL/LCF/MCR-ALS "
+                             "演变总表与四宫格图")
+    parser.add_argument("--identify", action="store_true",
+                        help="追加 S6.5 结构识别（motif 库指纹匹配）")
+    parser.add_argument("--fit", action="store_true",
+                        help="追加 S7 拟合：confident 时自动多壳层 CN，"
+                             "partial/ambiguous/no_match 时 L1 第一壳；"
+                             "需要 --absorber 且 S₀² 已标定")
+    parser.add_argument("--fit-motif", default=None,
+                        help="强制用指定 motif 做 S7（跳过识别歧义）")
+    parser.add_argument("--catalytic-model", default=None,
+                        help="B13-1 显式催化位点模型：'sac:N4@2.00,axial=O@2.10,"
+                             "C@2.90' 或 'dac:Co@2.50,N4@2.00'，或 JSON 字典；"
+                             "绕过结构库搜索直接做 S7（需 --fit）")
+    parser.add_argument("--hetero-cocupancy", action="store_true",
+                        help="B13-2 异核共占位双分支精修：对 motif.cif_file 中"
+                             "occ<1 的异核位点拆成逐元素路径并共享 ΔR/σ²"
+                             "（需 --fit 与含占据度的 CIF motif）")
+    parser.add_argument("--constraints", default=None,
+                        help="B14-1 化学计量约束：'N(Fe-O)+N(Fe-Cl)=6.0' 或 "
+                             "JSON 字典列表；被约束的 N 不再作为自由变量")
+    parser.add_argument("--fit-rmin", type=float, default=None,
+                        help="S7 拟合 R 下限（默认按路径自动）")
+    parser.add_argument("--fit-rmax", type=float, default=None,
+                        help="S7 拟合 R 上限（默认按路径自动）")
+    parser.add_argument("--allow-ambiguous", action="store_true",
+                        help="识别 ambiguous/partial 时仍用 Top-1 拟合"
+                             "（默认只用 L1）")
+    parser.add_argument("--fit-weights", action="store_true",
+                        help="mixture 多位点模型：放开各组分权重做相分数拟合"
+                             "（N 列变为有效简并度 N_crystal·w，不是配位数）")
+    parser.add_argument("--l1-ligand", default="O",
+                        help="L1 降级的第一壳配体元素（默认 O）")
+    parser.add_argument("--l1-geometry", default="oct", choices=["oct", "tet"],
+                        help="L1 降级的第一壳几何（默认 oct）")
+    parser.add_argument("--absorber", default=None,
+                        help="吸收元素符号（如 Fe/Co/Pt）——S6.5 识别与 S₀² 查表必需")
+    parser.add_argument("--edge-energy", type=float, default=None,
+                        help="参考边能量（eV）；缺省按 --absorber 查表（对齐时需要）")
+    parser.add_argument("--e0-method", default="derivative",
+                        choices=["derivative", "half_height", "manual"])
+    parser.add_argument("--manual-e0", type=float, default=None)
+    parser.add_argument("--rbkg", type=float, default=None, help="指定 Rbkg，跳过寻优")
+    parser.add_argument("--self-absorption-formula", default=None,
+                        help="荧光自吸收校正的样品总化学式（如 Fe3O4）；"
+                             "仅荧光模式，且必须同时给厚度/密度")
+    parser.add_argument("--self-absorption-thickness", type=float, default=None,
+                        help="样品厚度（μm）；Booth 校正必填")
+    parser.add_argument("--self-absorption-density", type=float, default=None,
+                        help="有效密度（g/cm³）；粉末压片用几何密度，Booth 校正必填")
+    parser.add_argument("--self-absorption-angles", default="45,45",
+                        help="入射角,出射角（相对样品表面，度；默认 45,45）")
+    parser.add_argument("--self-absorption-line", default=None,
+                        help="荧光线（默认 K→Ka、L3→La；可显式 Kb/Lb1 等）")
+    parser.add_argument("--kmin", type=float, default=3.0)
+    parser.add_argument("--kmax", type=float, default=12.0)
+    parser.add_argument("--kweight", type=int, default=2)
+    parser.add_argument("--shared-sigma2", default=None,
+                        help="σ² 共享组（对标 Artemis 路径约束）：'all' 让所有路径共享一个 σ²；"
+                             "或 JSON 列表如 '[[0,1],[2]]' 显式分组；默认每条路径独立 σ²")
+    parser.add_argument("--fit-kweights", default=None,
+                        help="多 k 权重联合拟合（对标 Artemis），如 '1,2,3'；"
+                             "默认沿用单权 --kweight（2）")
+    parser.add_argument("--include-ms", action="store_true",
+                        help="S7 纳入近共线多散射路径（nleg=3/4），参数由母壳层"
+                             "几何比例约束，不新增自由变量（默认关闭）")
+    parser.add_argument("--vary-c3", default=None,
+                        choices=["first", "all"],
+                        help="放开三阶累积量 C3（非谐）：first=仅第一壳，"
+                             "all=全部壳层；N_idp 不足时自动降级/关闭")
+    parser.add_argument("--vary-c4", default=None,
+                        choices=["first", "all"],
+                        help="放开四阶累积量 C4（非高斯展宽）：first=仅第一壳，"
+                             "all=全部壳层；N_idp 不足时自动降级/关闭")
+    parser.add_argument("--mback", action="store_true",
+                        help="用理论截面（Cromer–Liberman）做 MBACK 归一化，"
+                             "适用于边后窗口仅 60–150 eV 的短谱")
+    parser.add_argument("--chi-std", default=None,
+                        help="AUTOBK 先验标准谱文件（两列 k,chi(k)），"
+                             "用于保护低 R 真实信号")
+    parser.add_argument("--clamp-lo", type=float, default=None,
+                        help="AUTOBK 低 k 端钳制权重（0–1）")
+    parser.add_argument("--clamp-hi", type=float, default=None,
+                        help="AUTOBK 高 k 端钳制权重（0–1）")
+    parser.add_argument("--fit-space", default=None,
+                        choices=["r", "q", "wt"],
+                        help="S7 拟合空间：r=R 空间（默认，历史口径）/ "
+                             "q=R 窗反 FT 的波数空间 / wt=二维小波空间")
+    parser.add_argument("--bvs-target", type=float, default=None,
+                        help="键价和（BVS）软约束目标，如 Fe³⁺=3.0；"
+                             "只增加一行约束、不增加自由变量")
+    parser.add_argument("--bvs-sigma", type=float, default=0.1,
+                        help="BVS 软约束标准误差（默认 0.1 价单位）")
+    parser.add_argument("--bvs-b", type=float, default=0.37,
+                        help="BVS 键价参数 b（Å，默认 0.37，Brown & Altermatt）")
+    parser.add_argument("--isotropic-deltar", action="store_true",
+                        help="各向同性晶格膨胀约束：多壳层 ΔR 合并为唯一全局 "
+                             "α（ΔR_i=α·Reff_i），省 M−1 个自由变量")
+    parser.add_argument("--config", default=None,
+                        help="配置文件（.yaml/.json），CLI 参数优先级高于配置文件")
+    parser.add_argument("--despike", action="store_true",
+                        help="启用去毛刺（S1.5–S3 之间，中值滑窗+标准差门禁，默认关闭）")
+    parser.add_argument("--deglitch", default=None,
+                        help="显式能量区间去 glitch，如 '7250:7262,7410:7415'；"
+                             "直接删点，不插值（默认关闭）")
+    parser.add_argument("--deadtime", action="store_true",
+                        help="按 dtime 列做荧光探测器死时间校正（默认关闭）")
+    parser.add_argument("--reject-outlier-scans", action="store_true",
+                        help="多扫描合并前按中位谱 RMS+MAD 剔除离群扫描，"
+                             "至少保留 2 条（默认关闭；默认均值逐位兼容）")
+    parser.add_argument("--lcf-standards", default=None,
+                        help="XANES LCF 端元文件（逗号分隔），输出 <stem>_lcf.json")
+    parser.add_argument("--batch-dir", default=None,
+                        help="批处理目录：对该目录下所有匹配的数据文件循环处理，"
+                             "失败隔离到 batch_errors.json，与 files 互斥；"
+                             "输出目录用 -o 指定（否则取配置 batch.outdir）")
+    args = parser.parse_args()
+
+    # ---- 解析 --shared-sigma2（'all' 或 JSON 列表如 '[[0,1],[2]]'）----
+    shared_sigma2 = None
+    if args.shared_sigma2 is not None:
+        s = args.shared_sigma2.strip()
+        if s == "all":
+            shared_sigma2 = "all"
+        else:
+            try:
+                shared_sigma2 = json.loads(s)
+                if not isinstance(shared_sigma2, list):
+                    parser.error("--shared-sigma2 必须是 'all' 或 JSON 路径下标列表")
+            except json.JSONDecodeError:
+                parser.error("--shared-sigma2 格式无效：用 'all' 或 JSON 列表如 '[[0,1],[2]]'")
+
+    try:
+        fit_kweights = xafs_config.parse_kweights(args.fit_kweights)
+    except ValueError as exc:
+        parser.error(str(exc))
+    try:
+        deglitch = xafs_config.parse_deglitch(args.deglitch)
+    except ValueError as exc:
+        parser.error(str(exc))
+    lcf_standards = None
+    if args.lcf_standards:
+        lcf_standards = [s.strip() for s in args.lcf_standards.split(",")
+                         if s.strip()]
+        if not lcf_standards:
+            parser.error("--lcf-standards 至少需要一个端元文件")
+    vary_c3 = (None if args.vary_c3 is None
+               else ([0] if args.vary_c3 == "first" else True))
+    vary_c4 = (None if args.vary_c4 is None
+               else ([0] if args.vary_c4 == "first" else True))
+
+    # ---- 配置文件加载与 CLI 合并（CLI 显式给出的优先；仅代码默认值时被覆盖）----
+    config = xafs_config.load_config(args.config)
+    _cli_defaults = {
+        "kmin": 3.0, "kmax": 12.0, "kweight": 2,
+        "strict": True, "rbkg": None, "wt_sigma": 1.5,
+        "self_absorption_formula": None,
+        "self_absorption_thickness": None,
+        "self_absorption_density": None,
+        "self_absorption_angles": "45,45",
+        "self_absorption_line": None,
+    }
+    for _key, _default in _cli_defaults.items():
+        if getattr(args, _key, None) == _default:
+            if _key.startswith("self_absorption_"):
+                _sub = _key[len("self_absorption_"):]
+                _cfg_val = config.get("self_absorption", {}).get(_sub)
+                if _key == "self_absorption_angles" and _cfg_val:
+                    _cfg_val = ",".join(str(a) for a in _cfg_val)
+            else:
+                _cfg_val = config.get(_key)
+            if _cfg_val is not None:
+                setattr(args, _key, _cfg_val)
+    if not args.despike and config.get("despike"):
+        args.despike = True
+    if args.catalytic_model is None and config.get("catalytic_model") is not None:
+        args.catalytic_model = config["catalytic_model"]
+    if args.constraints is None and config.get("constraints") is not None:
+        args.constraints = config["constraints"]
+
+    # ---- Phase I–III 开关：CLI 显式 > 配置文件 > 默认 ----
+    for _key in ("deadtime", "reject_outlier_scans", "include_ms",
+                 "isotropic_deltar", "mback", "hetero_cocupancy",
+                 "phase_correct", "chi2_contour", "operando"):
+        if not getattr(args, _key, False) and config.get(_key):
+            setattr(args, _key, True)
+    if args.deglitch is None and config.get("deglitch") is not None:
+        args.deglitch = config["deglitch"]
+    if args.fit_kweights is None and config.get("fit_kweights") is not None:
+        args.fit_kweights = config["fit_kweights"]
+    if args.shared_sigma2 is None and config.get("shared_sigma2") is not None:
+        args.shared_sigma2 = config["shared_sigma2"]
+    if args.lcf_standards is None and config.get("lcf_standards") is not None:
+        args.lcf_standards = config["lcf_standards"]
+    if args.vary_c3 is None and config.get("vary_c3") is not None:
+        args.vary_c3 = config["vary_c3"]
+    if args.vary_c4 is None and config.get("vary_c4") is not None:
+        args.vary_c4 = config["vary_c4"]
+    if args.chi_std is None and config.get("chi_std") is not None:
+        args.chi_std = config["chi_std"]
+    if args.clamp_lo is None and config.get("clamp_lo") is not None:
+        args.clamp_lo = config["clamp_lo"]
+    if args.clamp_hi is None and config.get("clamp_hi") is not None:
+        args.clamp_hi = config["clamp_hi"]
+    if args.fit_space is None:
+        args.fit_space = str(config.get("fit_space") or "r").strip().lower()
+    if args.fit_space not in ("r", "q", "wt"):
+        parser.error(f"--fit-space 只支持 r/q/wt，收到 {args.fit_space!r}")
+    try:
+        fit_kweights = xafs_config.parse_kweights(args.fit_kweights) \
+            if not isinstance(args.fit_kweights, (list, tuple)) \
+            else tuple(args.fit_kweights)
+    except ValueError as exc:
+        parser.error(str(exc))
+    try:
+        deglitch = xafs_config.parse_deglitch(args.deglitch) \
+            if not isinstance(args.deglitch, (list, tuple)) \
+            else xafs_config._coerce_config_value("deglitch", args.deglitch)
+    except ValueError as exc:
+        parser.error(str(exc))
+    if isinstance(args.lcf_standards, str):
+        lcf_standards = [s.strip() for s in args.lcf_standards.split(",")
+                         if s.strip()] or None
+    else:
+        lcf_standards = args.lcf_standards
+    if isinstance(args.shared_sigma2, str) and args.shared_sigma2.strip() == "all":
+        shared_sigma2 = "all"
+    elif isinstance(args.shared_sigma2, str) and args.shared_sigma2:
+        try:
+            shared_sigma2 = json.loads(args.shared_sigma2)
+        except json.JSONDecodeError:
+            parser.error("--shared-sigma2 格式无效：用 'all' 或 JSON 列表如 '[[0,1],[2]]'")
+    else:
+        shared_sigma2 = args.shared_sigma2
+    vary_c3 = xafs_config.normalize_cumulant_switch(args.vary_c3)
+    vary_c4 = xafs_config.normalize_cumulant_switch(args.vary_c4)
+
+    # ---- B10-1 chi_std 先验谱：两列 k, chi(k) ----
+    chi_std = chi_std_k = None
+    if args.chi_std:
+        std_path = Path(args.chi_std)
+        if not std_path.is_file():
+            parser.error(f"--chi-std 文件不存在: {std_path}")
+        try:
+            std_arr = np.loadtxt(std_path, comments=("#", ";"), ndmin=2)
+        except Exception as exc:  # noqa: BLE001 - 输入格式必须可解释
+            parser.error(f"--chi-std 读取失败: {exc}")
+        if std_arr.shape[1] < 2:
+            parser.error("--chi-std 需要至少两列：k(Å⁻¹), chi(k)")
+        chi_std_k = np.asarray(std_arr[:, 0], dtype=float)
+        chi_std = np.asarray(std_arr[:, 1], dtype=float)
+        order = np.argsort(chi_std_k)
+        chi_std_k, chi_std = chi_std_k[order], chi_std[order]
+    for _name in ("clamp_lo", "clamp_hi"):
+        _val = getattr(args, _name)
+        if _val is not None and not (0.0 <= float(_val) <= 1.0):
+            parser.error(f"--{_name.replace('_', '-')} 必须在 0–1 之间")
+
+    # ---- B11-2 BVS 软约束：CLI 显式 target 覆盖配置文件 ----
+    bvs_restraint = config.get("bvs_restraint")
+    if bvs_restraint is not None and not isinstance(bvs_restraint, dict):
+        parser.error("配置里的 bvs_restraint 必须是字典 "
+                     "{target, sigma, r0_table?, b?}")
+    if args.bvs_target is not None:
+        if not np.isfinite(args.bvs_target):
+            parser.error("--bvs-target 必须是有限数")
+        if not np.isfinite(args.bvs_sigma) or args.bvs_sigma <= 0:
+            parser.error("--bvs-sigma 必须 > 0")
+        if not np.isfinite(args.bvs_b) or args.bvs_b <= 0:
+            parser.error("--bvs-b 必须 > 0")
+        bvs_restraint = {"target": float(args.bvs_target),
+                         "sigma": float(args.bvs_sigma),
+                         "b": float(args.bvs_b),
+                         "absorber": (args.absorber or
+                                      (config.get("absorber") or "Fe"))}
+    if bvs_restraint is not None and not args.fit:
+        parser.error("BVS 软约束只在 S7 拟合中有意义，请同时给 --fit")
+
+    if args.fit_weights and not args.fit:
+        parser.error("--fit-weights 需要同时给 --fit（否则不会运行 S7）")
+    for _flag, _label in (("catalytic_model", "--catalytic-model"),
+                          ("hetero_cocupancy", "--hetero-cocupancy"),
+                          ("constraints", "--constraints")):
+        if getattr(args, _flag, None) and not args.fit:
+            parser.error(f"{_label} 需要同时给 --fit（否则不会运行 S7）")
+    constraints = args.constraints
+    if isinstance(constraints, str):
+        _c = constraints.strip()
+        if _c.startswith("[") or _c.startswith("{"):
+            try:
+                constraints = json.loads(_c)
+            except json.JSONDecodeError as exc:
+                parser.error(f"--constraints JSON 解析失败: {exc}")
+        else:
+            constraints = _c
+    if args.phase_correct and not (args.identify or args.fit):
+        parser.error("--phase-correct 需要 --identify 或 --fit（要第一壳路径）")
+    if args.chi2_contour and not args.fit:
+        parser.error("--chi2-contour 需要 --fit（要 S7 最优参数）")
+    try:
+        sa_angles = tuple(float(x) for x in
+                          args.self_absorption_angles.replace(" ", "").split(","))
+    except ValueError:
+        parser.error("--self-absorption-angles 格式为 入射,出射（度），如 45,45")
+    if len(sa_angles) != 2:
+        parser.error("--self-absorption-angles 需要两个角度：入射,出射")
+    if args.self_absorption_formula:
+        if (args.self_absorption_thickness is None
+                or args.self_absorption_density is None):
+            parser.error("Booth 自吸收校正需要 --self-absorption-thickness "
+                         "与 --self-absorption-density")
+    elif (args.self_absorption_thickness is not None
+          or args.self_absorption_density is not None
+          or args.self_absorption_line is not None):
+        parser.error("厚度/密度/荧光线只在给 --self-absorption-formula 时使用")
+    # 文件来源：--batch-dir 与 files 互斥
+    if args.batch_dir and args.files:
+        parser.error("--batch-dir 与 files 互斥，请二选一")
+    if args.batch_dir:
+        batch_dir = Path(args.batch_dir)
+        if not batch_dir.is_dir():
+            parser.error(f"--batch-dir 不是目录: {batch_dir}")
+        pattern = config.get("batch", {}).get("pattern", "*.xdi")
+        files = sorted(str(p) for p in batch_dir.glob(pattern))
+        if not files:
+            parser.error(f"--batch-dir {batch_dir} 下未匹配到 {pattern}")
+    elif args.files:
+        files = args.files
+    else:   # 内置演示 = Fe 标样，元素已知
+        files = [str(Path(__file__).resolve().parent / "data" / "练手数据" /
+                     "02_Fe_standards" / "Fe_lepidocrocite.000")]
+        args.absorber = args.absorber or "Fe"
+
+    xafs_pipeline.configure_console()
+
+    # ---- B15-1 原位序列：每个文件=一个时间点，不合并 ----
+    if args.operando:
+        if args.batch_dir:
+            parser.error("--operando 与 --batch-dir 不能同时使用")
+        if len(files) < 3:
+            parser.error("--operando 至少需要 3 个样品文件")
+        results = []
+        for i, fpath in enumerate(files, 1):
+            print(f"[operando {i}/{len(files)}] {Path(fpath).name}")
+            results.append(process_sample(
+                [fpath], Path(args.outdir) / f"scan_{i - 1:02d}",
+                align=args.align, absorber=args.absorber,
+                edge_energy=args.edge_energy, e0_method=args.e0_method,
+                manual_e0=args.manual_e0, rbkg=args.rbkg, kmin=args.kmin,
+                kmax=args.kmax, kweight=args.kweight, strict=args.strict,
+                despike=args.despike,
+                deadtime=args.deadtime,
+                reject_outlier_scans=args.reject_outlier_scans,
+                mback=args.mback, chi_std=chi_std, chi_std_k=chi_std_k,
+                clamp_lo=args.clamp_lo, clamp_hi=args.clamp_hi,
+                self_absorption_formula=args.self_absorption_formula,
+                self_absorption_thickness=args.self_absorption_thickness,
+                self_absorption_density=args.self_absorption_density,
+                self_absorption_angles=sa_angles,
+                self_absorption_line=args.self_absorption_line,
+                verbose=False))
+        std_scans = None
+        if lcf_standards:
+            std_scans = {}
+            for p in lcf_standards:
+                std = xafs_pipeline.process_sample(
+                    [p], absorber=args.absorber, strict=False, verbose=False)
+                std_scans[Path(p).stem] = std.norm
+        op = xafs_lcf.run_operando_series(results, standards=std_scans)
+        op_dir = Path(args.outdir) / "operando"
+        made = xafs_diagnostics.write_operando_diagnostics(
+            op, op_dir, stem="operando")
+        print(f"原位序列：{len(results)} 条谱，n_components="
+              f"{op['n_components']}，accepted="
+              f"{op['accepted_standards']}，rejected="
+              f"{op['rejected_standards']}")
+        for key, path in made.items():
+            print(f"  → {path}")
+        return
+
+    is_batch = args.batch_dir is not None
+    if is_batch:
+        # 输出目录优先级：显式 -o > 配置文件 batch.outdir > 默认 xafs_out_batch
+        if args.outdir and args.outdir != parser.get_default("outdir"):
+            batch_out = Path(args.outdir)
+        else:
+            batch_out = Path(config.get("batch", {}).get("outdir",
+                                                         "xafs_out_batch"))
+        batch_out.mkdir(parents=True, exist_ok=True)
+        errors = []
+        print("=" * 66)
+        print(f"批处理 {len(files)} 个文件 → {batch_out}")
+        print("=" * 66)
+        for i, fpath in enumerate(files, 1):
+            stem = Path(fpath).stem
+            sub_out = batch_out / stem
+            print(f"\n[{i}/{len(files)}] {Path(fpath).name}")
+            try:
+                process_sample(
+                    [fpath], sub_out, align=args.align, absorber=args.absorber,
+                    edge_energy=args.edge_energy, e0_method=args.e0_method,
+                    manual_e0=args.manual_e0, rbkg=args.rbkg, kmin=args.kmin,
+                    kmax=args.kmax, kweight=args.kweight, strict=args.strict,
+                    diagnostics=args.diagnostics, identify=args.identify,
+                    fit=args.fit, fit_motif=args.fit_motif,
+                    fit_rmin=args.fit_rmin, fit_rmax=args.fit_rmax,
+                    allow_ambiguous=args.allow_ambiguous,
+                    l1_ligand=args.l1_ligand, l1_geometry=args.l1_geometry,
+                    fit_weights=args.fit_weights,
+                    fit_kweights=fit_kweights, include_ms=args.include_ms,
+                    despike=args.despike, deglitch=deglitch,
+                    deadtime=args.deadtime,
+                    reject_outlier_scans=args.reject_outlier_scans,
+                    lcf_standards=lcf_standards,
+                    vary_c3=vary_c3,
+                    vary_c4=vary_c4,
+                    isotropic_deltar=args.isotropic_deltar,
+                    shared_sigma2=shared_sigma2,
+                    mback=args.mback, chi_std=chi_std, chi_std_k=chi_std_k,
+                    clamp_lo=args.clamp_lo, clamp_hi=args.clamp_hi,
+                    catalytic_model=args.catalytic_model,
+                    hetero_cocupancy=args.hetero_cocupancy,
+                    constraints=constraints,
+                    phase_correct=args.phase_correct,
+                    chi2_contour=args.chi2_contour,
+                    self_absorption_formula=args.self_absorption_formula,
+                    self_absorption_thickness=args.self_absorption_thickness,
+                    self_absorption_density=args.self_absorption_density,
+                    self_absorption_angles=sa_angles,
+                    self_absorption_line=args.self_absorption_line,
+                    verbose=False)
+            except Exception as exc:  # 批处理：单个失败不中断整批
+                errors.append({"file": fpath, "error": str(exc)})
+                print(f"  ❌ 失败: {exc}")
+        # 汇总错误
+        err_file = batch_out / "batch_errors.json"
+        xafs_io.write_json(err_file, errors)
+        print("-" * 66)
+        print(f"完成：成功 {len(files) - len(errors)}/{len(files)}, "
+              f"失败 {len(errors)} → {err_file}")
+        return
+    print("=" * 66)
+    print(f"处理 {len(files)} 个文件 → {args.outdir}")
+    print("=" * 66)
+    result = process_sample(
+        files, args.outdir, align=args.align, absorber=args.absorber,
+        edge_energy=args.edge_energy, e0_method=args.e0_method,
+        manual_e0=args.manual_e0, rbkg=args.rbkg, kmin=args.kmin,
+        kmax=args.kmax, kweight=args.kweight, strict=args.strict,
+        diagnostics=args.diagnostics, identify=args.identify, fit=args.fit,
+        fit_motif=args.fit_motif, fit_rmin=args.fit_rmin,
+        fit_rmax=args.fit_rmax, allow_ambiguous=args.allow_ambiguous,
+        l1_ligand=args.l1_ligand, l1_geometry=args.l1_geometry,
+        fit_weights=args.fit_weights,
+        fit_kweights=fit_kweights, include_ms=args.include_ms,
+        despike=args.despike, deglitch=deglitch, deadtime=args.deadtime,
+        reject_outlier_scans=args.reject_outlier_scans,
+        lcf_standards=lcf_standards, vary_c3=vary_c3, vary_c4=vary_c4,
+        isotropic_deltar=args.isotropic_deltar,
+        shared_sigma2=shared_sigma2,
+        mback=args.mback, chi_std=chi_std, chi_std_k=chi_std_k,
+        clamp_lo=args.clamp_lo, clamp_hi=args.clamp_hi,
+        fit_space=args.fit_space, bvs_restraint=bvs_restraint,
+        catalytic_model=args.catalytic_model,
+        hetero_cocupancy=args.hetero_cocupancy,
+        constraints=constraints,
+        phase_correct=args.phase_correct,
+        chi2_contour=args.chi2_contour,
+        self_absorption_formula=args.self_absorption_formula,
+        self_absorption_thickness=args.self_absorption_thickness,
+        self_absorption_density=args.self_absorption_density,
+        self_absorption_angles=sa_angles,
+        self_absorption_line=args.self_absorption_line)
+
+    print("-" * 66)
+    for f in sorted(result.outdir.glob(f"{result.stem}*")):
+        print(f"  {f.name:<34} {f.stat().st_size / 1024:>8.1f} KB")
+    return result
+
+
+if __name__ == "__main__":
+    main()

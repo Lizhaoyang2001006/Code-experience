@@ -1,0 +1,58 @@
+ Feff 6L.02
+ dac_Fe_Co_2.50_N4_2.00
+ Calculating potentials and phases...
+     free atom potential and density for atom type    0
+     free atom potential and density for atom type    1
+     free atom potential and density for atom type    2
+     overlapped potential and density for unique potential    0
+     overlapped potential and density for unique potential    1
+     overlapped potential and density for unique potential    2
+     muffin tin radii and interstitial parameters
+     phase shifts for unique potential    0
+     phase shifts for unique potential    1
+     phase shifts for unique potential    2
+ Preparing plane wave scattering amplitudes...
+   nncrit in prcrit       9
+ Searching for paths...
+    WARNING in PATHS Module:
+       rmax > distance to most distant atom.
+       Some paths may be missing.
+   rmax, ratx      6.00000     3.20156
+     Rmax  6.0000  keep and heap limits   0.0000000   0.0000000
+    Preparing neighbor table
+     nfound  nheap  nheapx  nsc    r
+       1000     26     272   6    6.0000
+     Paths found     1062   (nheapx, nbx     272   6)
+ Eliminating path degeneracies...
+     Plane wave chi amplitude filter   2.50%
+     Unique paths     24,  total paths     181
+ Calculating EXAFS parameters...
+     Curved wave chi amplitude ratio   4.00%
+     Discard feff.dat for paths with cw ratio <   2.67%
+     path  cw ratio     deg    nleg  reff
+       1   100.000     4.000     2   2.0000
+       2    13.723     1.000     2   2.5000
+       3    32.339     4.000     2   3.2016
+       4    10.507     8.000     3   3.4142
+       5    10.605     8.000     3   3.8508
+       6     7.339     8.000     3   3.8508
+       7    18.039     4.000     3   4.0000
+       8    11.175     4.000     4   4.0000
+       9     5.766     4.000     4   4.0000
+      10     7.601    16.000     3   4.4882
+      11     4.247     8.000     3   4.6158
+      12     4.746     8.000     4   4.8284
+      13     8.925     8.000     4   4.8284
+      14     7.630     8.000     3   4.9593
+      15     1.587     8.000     4   5.2016 neglected
+      16     1.934     8.000     4   5.2016 neglected
+      17     2.073    16.000     4   5.4142 neglected
+      18     2.263     4.000     4   5.7016 neglected
+      19     2.652     8.000     4   5.7749 neglected
+      20     3.789    16.000     4   5.9024
+      21     3.582     4.000     4   6.0000
+      22     1.252     8.000     6   6.0000 neglected
+      23     2.169     8.000     5   6.0000 neglected
+      24     3.896     8.000     5   6.0000
+    17 paths kept,   24 examined.
+ Feff done.  Have a nice day.

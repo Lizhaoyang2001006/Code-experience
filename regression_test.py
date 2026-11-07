@@ -1,0 +1,3402 @@
+# -*- coding: utf-8 -*-
+"""
+regression_test.py — 本轮修复的轻量回归测试
+================================================
+只覆盖“曾经真出过问题、且修好后容易再次退化”的契约，不做全链路性能测试：
+
+    1. ChiK 长度契约：k/chi 等长；background/mu_norm 在能量网格
+    2. theory_chi 的 nleg 过滤：MS（nleg>4）不得混入指纹理论谱
+    3. indistinguishable 不包含最优候选自身
+    4. WT 矩阵方向：(len(k_centers), len(r))
+    5. strict 门禁：Fe 箔平台 0.79 → strict 拒绝 / --no-strict 降级
+    6. S7 motif 路径：lepidocrocite → Fe–O/Fe–Fe 多壳层 CN
+    7. S7 L1 路径：goethite（库外）→ 仅第一壳，且不冒充全结构
+    8. 磁铁矿多位点：magnetite_mixed 联合模型 → confident 全覆盖
+    9. mixture 壳层选择：Fe-O@1.89(⅓×4) 与 Fe-O@2.06(⅔×6) 不合并
+    10. vary_s02 合成回路：N 固定、放开 S₀² 能回收真值（标定前提）
+    11. L1 配体感知选峰：Pt–Cl 不被低 R 白线伪峰带偏（ligand=Cl）
+    12. L1 长键窗口：Pt–Pt 2.77 不被 rmax=2.3 截断（曾 Rf=1.0 伪失败）
+    13. mixture 相分数回收：磁铁矿 tet/oct 第一壳 0.25/0.75 合成谱
+    14. 荧光自吸收门禁：Δμ≥1.0 拒绝 CN，透射模式不误伤
+    15. Booth 自吸收反解：Eq.2 前向 → Eq.4 回收（薄/厚极限）
+    16. Booth 全链合成：真实 μ → 前向荧光谱 → 归一化/autobk → 校正
+    17. WT 定位锚定 FT 峰：自吸收校正前后不得在两壳分支间跳
+    18. σ² 共享组：多路径共享一个 σ² 变量（Artemis 式约束）
+    19. CN 系统误差预算随拟合条件动态合成（不再恒为 ±30%）
+    20. HTML 报告：图片内联、强相关/不可靠项标红
+    21. 配置文件未知扩展名给出干净 ValueError（p.suffix 回归）
+    22. Hanning 窗契约：端点 0、平台 1，供浏览器端 FT 与产线对齐
+    23. WT sweep：9 组 (σ,kweight) 全部锚定 FT 第一峰 ±0.5 Å，CSV/图可写出
+    24. 交互式窗口 HTML：内嵌 χ(k)、滑块齐全、推荐窗口落在 r1±0.15 Å
+    25. 多 k 权重联合拟合：三分支 Rf、第一壳键长稳定、N_idp 不变
+    26. Back-FT：q 轴单调、包络非负、Re χ(q) 与 k²χ 同相
+    27. NiO 共线 MS：nleg>2 选入、自由变量数不变、ΔR 按 reff_ratio 缩放
+    28. XANES flattened 平台≈1；合成颈部双台阶识别 + E0 跳变风险
+    29. LCF 三端元权重回收；PCA 前 3 主成分累计解释 >99.9%
+    30. 死时间倍乘/分数两条公式；8 点宽 glitch 的 despike vs deglitch
+    31. WT 壳层切片：Fe–Fe 的 k_peak 高于 Fe–O ≥0.8 Å⁻¹；模型 WT 残差 R<0.15
+    32. ε_R / χ²_ν 为正；双壳相对单壳的 F-test 置信度 >0.95
+    33. C3 合成回收：C3 真值 ±5e-5；N_idp 不足时自动降级不崩溃
+
+Phase II（B5–B8）新增 9 项契约：
+    - 复数小波：反相 χ 的 complex_r_factor=4.0，幅值残差=0.0
+    - 元素理论 k_peak 标尺：O < Cl < Fe 且随 σ² 左移
+    - 多扫描合并：MAD 离群剔除、σ_μ 传播、默认均值逐位兼容
+    - XANES 荧光自吸收：Tröger 反解恢复白线/LCF，分母防爆门禁
+    - 边前 Pseudo-Voigt：双峰质心误差 <0.15 eV，指标表同步
+    - 各向同性晶格约束：M 个 ΔR → 1 个 α；实验 NiO 诚实降级
+    - 部分占据 CIF：共占位合并、占据度缩放简并度（6×0.75=4.5）
+    - C4 回收 + 非高斯 g(R)：面积=N、正偏态尾长判据
+    - 多数据集联合拟合：5 个全局变量、变温爱因斯坦 σ²(T) 回收
+
+Phase III（B9–B12）新增 15 项契约：
+    - 17 键配置文件生效；C4 的 N_idp 降级与 g(R) 导出
+    - σ_μ 落盘/SNR 门禁；WT 元素标尺自动挂载与 L3 白线面积
+    - .prj round-trip 与 MCA 坏道剔除；MBACK 短窗口归一化
+    - AUTOBK chi_std/clamp；SPOIL + MCR-ALS 盲解谱
+    - 相移校正 FT/WT；异核共占位双分支；关联 Debye；BVS 软约束
+    - R/q/WT 多空间拟合；双吸收边 ΔE₀ 分组 + AIC/BIC；SAC/DAC 团簇
+
+当前共 60 项契约回归（B1-1 至 B12-2）。
+
+运行:
+    python regression_test.py
+"""
+from __future__ import annotations
+
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+import numpy as np
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
+
+import artemis                        # noqa: E402
+import athena                         # noqa: E402
+import larch_wt                       # noqa: E402
+import structure_id                   # noqa: E402
+import structure_lib                  # noqa: E402
+import xafs_config                    # noqa: E402
+import xafs_diagnostics               # noqa: E402
+import xafs_fit                       # noqa: E402
+import xafs_io                        # noqa: E402
+import xafs_pipeline                  # noqa: E402
+import xafs_report                    # noqa: E402
+import xafs_window_tuner              # noqa: E402
+from absorber import get_absorber      # noqa: E402
+from xafs_core import (ChiK, K2, NormalizedScan, RawScan,  # noqa: E402
+                       XAFSConfigError, XAFSError)
+
+
+def _find(pattern: str) -> Path:
+    hits = sorted((ROOT / "data").glob(pattern))
+    if not hits:
+        raise unittest.SkipTest(f"测试数据缺失: data/{pattern}")
+    return hits[0]
+
+
+LEPIDO = _find("*/02_Fe_standards/Fe_lepidocrocite.000")
+FE_FOIL = _find("*/01_Fe_foil/fe.060")
+GOETHITE = _find("bmm_standards/Data/Fe/Fe-Goethite.xdi")
+MAGNETITE = _find("bmm_standards/Data/Fe/Fe-Magnetite.xdi")
+FERRIHYDRITE = _find("bmm_standards/Data/Fe/Fe-Ferrihydrite.xdi")
+PT_FOIL = _find("bmm_standards/Data/Pt/Pt-L3-PlatinumFoil.xdi")
+PT_CL = _find("bmm_standards/Data/Pt/Pt-L3-PlatinumChloride.xdi")
+NIO = _find("bmm_standards/Data/Ni/Ni-K-NickelOxide.xdi")
+
+
+class RegressionTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.lep = xafs_pipeline.process_sample(
+            [LEPIDO], absorber="Fe", verbose=False)
+        cls.lep_fit = xafs_fit.run(
+            cls.lep, identify=True, fit=True,
+            absorber_symbol="Fe", verbose=False)
+
+    # ------------------------------------------------------------
+    # 1. 数据契约
+    # ------------------------------------------------------------
+    def test_chik_length_contract(self):
+        chi = self.lep.chi_k
+        self.assertEqual(len(chi.k), len(chi.chi))
+        self.assertEqual(len(chi.background), len(chi.mu_norm))
+        self.assertEqual(len(chi.mu_norm), len(self.lep.norm.energy))
+        self.assertNotEqual(len(chi.mu_norm), len(chi.k),
+                            "mu_norm 不应被误当成 k 网格数组")
+
+    # ------------------------------------------------------------
+    # 2. nleg 过滤
+    # ------------------------------------------------------------
+    def test_theory_chi_filters_ms(self):
+        from larch.xafs import feffpath
+
+        motif = [m for m in structure_lib.load_library("Fe")
+                 if m.id == "lepidocrocite"][0]
+        cache = structure_lib.ensure_feff(motif, edge="K")
+        absorber = get_absorber("Fe")
+        k = np.arange(1.0, 13.0, 0.05)
+
+        def model(max_legs):
+            paths = []
+            for f in sorted(cache.glob("feff*.dat")):
+                p = feffpath(str(f), s02=absorber.s02 or 1.0,
+                             sigma2=0.003, e0=0.0, deltar=0.0)
+                nleg = getattr(p, "nleg", getattr(p, "legs", 2))
+                if nleg <= max_legs and p.degen >= 1 and p.reff <= 5.5:
+                    p._calc_chi()
+                    paths.append(p)
+            return artemis.exafs_model_k(paths, k)
+
+        filtered = model(4)
+        unfiltered = model(99)
+        actual = structure_id.theory_chi(motif, k, absorber, sigma2=0.003)
+        np.testing.assert_allclose(actual, filtered, rtol=1e-10, atol=1e-12)
+        self.assertFalse(np.allclose(actual, unfiltered, rtol=1e-6, atol=1e-9),
+                         "MS 路径仍被计入 theory_chi——nleg 过滤失效")
+
+    # ------------------------------------------------------------
+    # 3. 识别结果语义
+    # ------------------------------------------------------------
+    def test_indistinguishable_excludes_best(self):
+        sid = self.lep_fit["structure"]
+        best = sid["ranked"][0]["id"]
+        self.assertEqual(best, "lepidocrocite")
+        self.assertNotIn(best, sid["indistinguishable"])
+        self.assertEqual(sid["status"], "confident")
+        self.assertGreater(sid["confidence"]["margin"], 0.02)
+
+    # ------------------------------------------------------------
+    # 4. FEFF 吸收边 HOLE 卡
+    # ------------------------------------------------------------
+    def test_feff_hole_card_for_l_edges(self):
+        sites = [(0.0, 0.0, 0.0, "Pt"), (2.77, 0.0, 0.0, "Pt")]
+        expected = {"K": 1, "L1": 2, "L2": 3, "L3": 4}
+        for edge, idx in expected.items():
+            inp = artemis.build_feff_input(
+                sites, absorber="Pt", rmax=3.0, edge=edge)
+            self.assertIn(f"HOLE {idx}   1.0", inp)
+        with self.assertRaises(XAFSConfigError):
+            artemis.build_feff_input(sites, absorber="Pt", edge="M5")
+
+    # ------------------------------------------------------------
+    # 5. WT 方向
+    # ------------------------------------------------------------
+    def test_wavelet_orientation(self):
+        k = np.arange(0.0, 16.0, 0.05)
+        chi = ChiK(k=k, chi=np.sin(2.0 * k), background=np.zeros_like(k),
+                   mu_norm=np.zeros_like(k), rbkg=1.0)
+        wt = larch_wt.continuous_wavelet_transform(
+            chi, sigma=1.5, kmin=3.0, kmax=13.0, kweight=2)
+        self.assertEqual(wt.magnitude.shape,
+                         (len(wt.k_centers), len(wt.r)))
+        self.assertEqual(wt.magnitude.shape[1], len(wt.r))
+
+    # ------------------------------------------------------------
+    # 6. strict 门禁
+    # ------------------------------------------------------------
+    def test_strict_gate_and_downgrade(self):
+        with self.assertRaises(XAFSError) as ctx:
+            xafs_pipeline.process_sample([FE_FOIL], absorber="Fe",
+                                         strict=True, verbose=False)
+        self.assertIn("归一化失败", str(ctx.exception))
+
+        res = xafs_pipeline.process_sample(
+            [FE_FOIL], absorber="Fe", strict=False, verbose=False)
+        self.assertLess(res.norm.plateau, 0.85,
+                        "该标样本应触发平台门禁，否则测试前提失效")
+
+    # ------------------------------------------------------------
+    # 7/8. S7 两条路径
+    # ------------------------------------------------------------
+    def test_fit_motif_returns_shell_cn(self):
+        fit_out = self.lep_fit["fit"]
+        self.assertEqual(fit_out["mode"], "motif")
+        self.assertEqual(fit_out["motif"], "lepidocrocite")
+        self.assertTrue(fit_out["coverage_ok"])
+        self.assertTrue(fit_out["cn_reliable"])
+        fit = fit_out["fit"]
+        self.assertFalse(fit.overfit)
+        first = fit.paths[0]
+        self.assertGreater(first.degeneracy, 4.5)
+        self.assertLess(first.degeneracy, 8.0)
+        self.assertGreater(first.r, 1.90)
+        self.assertLess(first.r, 2.15)
+        self.assertLess(fit.r_factor, 0.10)
+
+    def test_fit_l1_when_no_match(self):
+        res = xafs_pipeline.process_sample(
+            [FERRIHYDRITE], absorber="Fe", strict=False, verbose=False)
+        out = xafs_fit.run(res, identify=True, fit=True,
+                           absorber_symbol="Fe", verbose=False)
+        sid = out["structure"]
+        self.assertEqual(sid["status"], "no_match")
+        fit_out = out["fit"]
+        self.assertEqual(fit_out["mode"], "l1_first_shell")
+        l1 = fit_out["l1"]
+        self.assertGreater(l1["N"], 4.0)
+        self.assertLess(l1["N"], 7.0)
+        self.assertGreater(l1["R"], 1.85)
+        self.assertLess(l1["R"], 2.05)
+        self.assertIn("仅第一壳", l1["warning"])
+
+    # ------------------------------------------------------------
+    # L1 选峰/窗口（Pt L3 实测修正）
+    # ------------------------------------------------------------
+    def test_l1_ligand_aware_peak_selection(self):
+        res = xafs_pipeline.process_sample(
+            [PT_CL], absorber="Pt", strict=False, verbose=False)
+        l1 = structure_id.l1_first_shell_fit(
+            res, absorber_symbol="Pt", ligand="Cl", verbose=False)
+        # 平方平面 PtCl4：N=4、Pt–Cl 2.30 Å；错误的低 R 伪峰会给出 Rf>0.3
+        self.assertLess(l1["rf"], 0.08)
+        self.assertAlmostEqual(l1["N"], 4.0, delta=0.5)
+        self.assertAlmostEqual(l1["R"], 2.30, delta=0.05)
+
+    def test_l1_long_bond_window_not_truncated(self):
+        res = xafs_pipeline.process_sample(
+            [PT_FOIL], absorber="Pt", strict=False, verbose=False)
+        l1 = structure_id.l1_first_shell_fit(
+            res, absorber_symbol="Pt", ligand="Pt", verbose=False)
+        # 旧 rmax=min(2.3, ...) 把 Pt–Pt 2.77 的模型峰截在窗外 → Rf≈1.0
+        self.assertLess(l1["rf"], 0.08)
+        self.assertGreater(l1["N"], 9.0)
+        self.assertAlmostEqual(l1["R"], 2.77, delta=0.05)
+
+    def test_shell_selection_respects_n_idp(self):
+        motif = [m for m in structure_lib.load_library("Fe")
+                 if m.id == "goethite"][0]
+        plan = xafs_fit.select_shell_paths(
+            motif, rmax=3.5, merge_tol=0.20, kmin=3.0, kmax=12.0)
+        self.assertEqual(plan["shells"][0]["label"], "Fe-O@2.03")
+        self.assertEqual(plan["shells"][0]["degen"], 6.0)
+        self.assertEqual(plan["shells"][1]["label"], "Fe-Fe@3.02")
+        self.assertEqual(plan["max_paths_by_idp"], 3)
+        self.assertTrue(plan["truncated"])
+
+    def test_goethite_motif_is_confident(self):
+        res = xafs_pipeline.process_sample(
+            [GOETHITE], absorber="Fe", strict=False, verbose=False)
+        sid = structure_id.identify_result(
+            res, absorber_symbol="Fe", verbose=False)
+        self.assertEqual(sid["status"], "confident")
+        self.assertEqual(sid["ranked"][0]["id"], "goethite")
+        self.assertTrue(sid["coverage_ok"])
+        self.assertEqual(sid["uncovered_peaks"], [])
+
+    def test_magnetite_mixed_is_confident(self):
+        """磁铁矿多位点识别（曾出问题的案例）。
+
+        历史：只有 16d 八面体位点时 score=0.145、实验峰 1.35/3.712
+        无理论峰解释（覆盖率失败→ partial）。补 8a 四面体位点与
+        mixture 联合模型后，联合模型 score=0.083 成为 Top-1，且覆盖
+        按"复合谱 ∪ 各分量分别解释"通过——tet 分量解释 1.35/3.712，
+        oct 分量解释 2.608。
+        """
+        res = xafs_pipeline.process_sample(
+            [MAGNETITE], absorber="Fe", strict=False, verbose=False)
+        sid = structure_id.identify_result(
+            res, absorber_symbol="Fe", verbose=False)
+        self.assertEqual(sid["status"], "confident")
+        self.assertEqual(sid["ranked"][0]["id"], "magnetite_mixed")
+        self.assertTrue(sid["coverage_ok"])
+        self.assertEqual(sid["uncovered_peaks"], [])
+        self.assertGreater(sid["confidence"]["margin"], 0.03)
+
+    def test_mixture_shell_selection(self):
+        """多位点吸收的壳层分割。
+
+        磁铁矿 8a/16d 的两个子壳层 Fe-O 1.886 / 2.060 Å 只差 0.17 Å，
+        单位点容差 0.20 Å 会把它们错并成一层；mixture 的简并度按
+        位点权重缩放（tet O×4·⅓=1.33，oct O×6·⅔=4.0）。
+        """
+        motif = [m for m in structure_lib.load_library("Fe")
+                 if m.id == "magnetite_mixed"][0]
+        plan = xafs_fit.select_shell_paths(motif, rmax=3.5,
+                                           kmin=3.0, kmax=12.0)
+        first, second, third = plan["shells"][:3]
+        self.assertEqual(first["label"], "Fe-O@1.89")
+        self.assertAlmostEqual(first["degen"], 4.0 / 3.0, places=2)
+        self.assertEqual(second["label"], "Fe-O@2.06")
+        self.assertAlmostEqual(second["degen"], 4.0, places=2)
+        self.assertEqual(third["label"], "Fe-Fe@2.97")
+        self.assertAlmostEqual(third["degen"], 4.0, places=2)
+        self.assertLessEqual(plan["merge_tol"], 0.10,
+                             "mixture 必须收紧合并容差，否则子壳层被吞")
+
+    def test_vary_s02_recovers_synthetic_truth(self):
+        """标定回路（calibrate_s02.py 的前提契约）。
+
+        数据由已知参数合成：S₀²=0.72、σ²=0.004、E0+=2 eV、N=8 固定
+        （fe_bcc 第一壳）。fit_r_space 以 vary_s02=True、s02=None 启动，
+        N 固定为晶体学简并度时唯一振幅变量 S₀² 必须回收真值——
+        回收不了说明标定会写入错误数值。
+        """
+        truth = {"s02": 0.72, "sigma2": 0.004, "e0": 2.0}
+        k = np.arange(3.0, 12.0, 0.05)
+        motif = [m for m in structure_lib.load_library("Fe")
+                 if m.id == "fe_bcc"][0]
+        plan = xafs_fit.select_shell_paths(motif, edge="K", rmax=2.9,
+                                           kmin=3.0, kmax=12.0)
+        first = plan["shells"][0]
+        self.assertAlmostEqual(first["degen"], 8.0, places=6)
+        from larch.xafs import feffpath
+        p = feffpath(str(plan["files"][0]), s02=truth["s02"],
+                     sigma2=truth["sigma2"], e0=truth["e0"], deltar=0.0)
+        p.degen = float(first["degen"])
+        p._calc_chi()
+        chi = artemis.exafs_model_k([p], k)
+        chi_k = ChiK(k=k, chi=chi, background=np.zeros_like(k),
+                     mu_norm=np.zeros_like(k), rbkg=1.0)
+        ft = athena.ft_to_r_space(k, chi, None, 3.0, 12.0, 2)
+        fit = artemis.fit_r_space(
+            chi_k, ft, [plan["files"][0]], rmin=1.9, rmax=2.75,
+            kmin=3.0, kmax=12.0, kweight=2, s02=0.85,
+            vary_delta_e0=True, vary_n=False, vary_s02=True,
+            path_degen=[first["degen"]], path_labels=[first["label"]])
+        self.assertFalse(fit.overfit)
+        self.assertLess(fit.r_factor, 0.02, f"无噪声合成数据应近完美复现")
+        self.assertLess(abs(fit.s02 - truth["s02"]), 0.03,
+                        f"S₀² 回收偏差过大: {fit.s02}")
+        self.assertLess(fit.s02_err, 0.06)
+        self.assertLess(abs(fit.paths[0].sigma2 - truth["sigma2"]), 1e-3)
+        self.assertLess(abs(fit.delta_e0 - truth["e0"]), 0.6)
+
+    def test_mixture_weight_recovery(self):
+        """mixture 相分数回收（--fit-weights 的核心数学契约）。
+
+        磁铁矿 tet/oct 第一壳 Fe-O 1.886/2.060 Å 用 0.25/0.75 权重
+        合成 χ。拟合固定每路径的**晶体学简并度**（4/6）、固定 σ²，
+        放开 softmax 权重 + ΔR + ΔE₀。无噪声时权重必须回收真值，
+        有效简并度随之等于 N_crystal·w（1.0 / 4.5）——回收不了说明
+        相分数只是把 N 换个写法，不能用于物相定量。
+        """
+        motif = [m for m in structure_lib.load_library("Fe")
+                 if m.id == "magnetite_mixed"][0]
+        plan = xafs_fit.select_shell_paths(
+            motif, edge="K", rmax=2.6, kmin=3.0, kmax=12.0,
+            group_by_component=True)
+        self.assertEqual(plan["group_names"],
+                         ["magnetite_tet", "magnetite_oct"])
+        self.assertEqual(plan["groups"], [0, 1])
+        self.assertEqual(plan["degens"], [4.0, 6.0],
+                         "权重模式必须保留未乘权重的晶体学简并度")
+        self.assertEqual(plan["weight_degenerate_pairs"], [])
+
+        true_w = np.array([0.25, 0.75])
+        s02, sigma2, e0 = 0.80, 0.004, 2.0
+        k = np.arange(3.0, 12.0, 0.05)
+        from larch.xafs import feffpath
+        paths = []
+        for i, f in enumerate(plan["files"]):
+            p = feffpath(str(f), s02=s02, sigma2=sigma2, e0=e0, deltar=0.0)
+            p.degen = plan["degens"][i] * true_w[plan["groups"][i]]
+            p._calc_chi()
+            paths.append(p)
+        chi = artemis.exafs_model_k(paths, k)
+        chi_k = ChiK(k=k, chi=chi, background=np.zeros_like(k),
+                     mu_norm=np.zeros_like(k), rbkg=1.0)
+        ft = athena.ft_to_r_space(k, chi, None, 3.0, 12.0, 2)
+        fit = artemis.fit_r_space(
+            chi_k, ft, plan["files"],
+            rmin=plan["rmin"], rmax=plan["rmax"],
+            kmin=3.0, kmax=12.0, kweight=2, s02=s02,
+            vary_delta_e0=True, vary_n=False,
+            vary_sigma2=False, sigma2_init=sigma2,
+            path_degen=plan["degens"], path_labels=plan["labels"],
+            path_groups=plan["groups"],
+            path_group_names=plan["group_names"],
+            vary_weights=True, weight_init=[0.5, 0.5])
+
+        self.assertFalse(fit.overfit)
+        self.assertLess(fit.r_factor, 0.02, "无噪声合成数据应近完美复现")
+        self.assertIsNotNone(fit.mixture_weights)
+        got = [w["weight"] for w in fit.mixture_weights]
+        self.assertAlmostEqual(sum(got), 1.0, places=9)
+        for kk in range(2):
+            self.assertLess(abs(got[kk] - true_w[kk]), 0.03,
+                            f"权重回收偏差过大: {got}")
+            err = fit.mixture_weights[kk]["weight_err"]
+            self.assertTrue(np.isfinite(err))
+            self.assertLess(err, 0.03)
+            self.assertAlmostEqual(
+                fit.paths[kk].degeneracy,
+                plan["degens"][kk] * true_w[kk], places=4,
+                msg="有效简并度必须等于 N_crystal·w")
+            self.assertIsNotNone(fit.paths[kk].n_err)
+        self.assertLess(abs(fit.delta_e0 - e0), 0.6)
+        self.assertEqual(len(fit.parameter_names), fit.n_variables)
+        self.assertEqual(fit.correlation.shape,
+                         (fit.n_variables, fit.n_variables))
+        self.assertTrue(np.all(np.isfinite(fit.correlation)))
+        self.assertTrue(np.allclose(fit.correlation, fit.correlation.T))
+        self.assertTrue(np.allclose(np.diag(fit.correlation), 1.0))
+        self.assertLessEqual(np.max(np.abs(fit.correlation
+                                           - np.eye(fit.n_variables))), 1.0)
+
+    def test_fluorescence_self_absorption_gate(self):
+        """荧光自吸收门禁（不做无法验证的校正，只做保守降级）。
+
+        荧光信号被样品自身再吸收会压低 EXAFS 振幅与 N；没有组成/厚度
+        就不能定量校正。契约：Δμ≥1.0 判 high 并拒绝定量；0.3–1.0 只
+        警告；<0.3 视为稀样；透射/given 模式不受影响；Δμ 缺失时不放行。
+        """
+        from types import SimpleNamespace
+
+        def diag(edge, mode="fluor"):
+            res = SimpleNamespace(
+                merged=SimpleNamespace(meta={"mode": mode}),
+                norm=SimpleNamespace(edge_step=edge))
+            return xafs_fit._self_absorption_diag(res)
+
+        high = diag(1.2)
+        self.assertEqual(high["risk"], "high")
+        self.assertTrue(high["cn_gate"])
+        self.assertFalse(high["corrected"])
+        warn = diag(0.5)
+        self.assertEqual(warn["risk"], "possible")
+        self.assertFalse(warn["cn_gate"])
+        low = diag(0.05)
+        self.assertEqual(low["risk"], "low")
+        self.assertFalse(low["cn_gate"])
+        trans = diag(1.2, mode="trans")
+        self.assertEqual(trans["risk"], "none")
+        self.assertFalse(trans["cn_gate"])
+        unknown = diag(float("nan"))
+        self.assertEqual(unknown["risk"], "unknown")
+        self.assertTrue(unknown["cn_gate"])
+
+    def test_booth_self_absorption_recovery(self):
+        """Booth 反解必须回收 Booth 前向模型（Eq.2 → Eq.4）。
+
+        用 Eq.2 从已知 χ 生成 χ_exp，再走 booth_self_absorption；
+        要求 max|Δχ| ≤ 0.01（含厚样修正项），薄极限严格恒等，
+        厚极限保持有限。任何公式符号/单位退化都会先在这里失败。
+        """
+        k = np.arange(3.0, 12.01, 0.05)
+        chi = 0.09 * np.sin(2 * 2.0 * k + 0.4) * np.exp(-2 * 0.004 * k**2)
+        e0, d, rho = 7120.0, 4.6, 5.17
+        anginp, angout = 49.4, 41.0
+        mu_t, mu_a, mu_f, _, _ = athena._booth_mu_terms(
+            "Fe3O4", "Fe", "K", "Ka", e0, k, rho)
+        sin_phi = np.sin(np.deg2rad(anginp))
+        g = sin_phi / np.sin(np.deg2rad(angout))
+        alpha = mu_t + g * mu_f
+        arg = alpha * d / sin_phi
+        arg_true = (alpha + chi * mu_a) * d / sin_phi
+        chi_exp = ((1 - np.exp(-arg_true)) / (1 - np.exp(-arg))
+                   * alpha * (chi + 1.0) / (alpha + chi * mu_a) - 1.0)
+        chi_in = ChiK(k=k, chi=chi_exp, background=np.zeros_like(k),
+                      mu_norm=np.ones_like(k), rbkg=1.2)
+        out, info = athena.booth_self_absorption(
+            chi_in, formula="Fe3O4", elem="Fe", edge="K", line="Ka", e0=e0,
+            thickness_um=d, density=rho, anginp=anginp, angout=angout)
+        self.assertTrue(info["reliable"])
+        self.assertLess(float(np.max(np.abs(out.chi - chi))), 0.01)
+        self.assertGreater(info["correction_factor_median"], 1.0)
+
+        thin, _ = athena.booth_self_absorption(
+            chi_in, formula="Fe3O4", elem="Fe", edge="K", line="Ka", e0=e0,
+            thickness_um=1e-6, density=rho, anginp=anginp, angout=angout)
+        self.assertTrue(np.array_equal(thin.chi, chi_exp))
+
+        thick, _ = athena.booth_self_absorption(
+            chi_in, formula="Fe3O4", elem="Fe", edge="K", line="Ka", e0=e0,
+            thickness_um=1e4, density=rho, anginp=anginp, angout=angout)
+        self.assertTrue(np.all(np.isfinite(thick.chi)))
+
+        # 垂直入射（90°）是合法几何，不能因边界检查误拒
+        normal, _ = athena.booth_self_absorption(
+            chi_in, formula="Fe3O4", elem="Fe", edge="K", line="Ka", e0=e0,
+            thickness_um=d, density=rho, anginp=90.0, angout=45.0)
+        self.assertTrue(np.all(np.isfinite(normal.chi)))
+        with self.assertRaises(XAFSConfigError):
+            athena.booth_self_absorption(
+                chi_in, formula="Fe3O4", elem="Fe", edge="K", line="Ka",
+                e0=e0, thickness_um=d, density=rho, anginp=0.0, angout=45.0)
+
+    def test_booth_end_to_end_synthetic(self):
+        """全链合成：真实 μ → Eq.2 前向荧光谱 → 归一化/autobk → Booth。
+
+        这是对 S4.5 最有信息量的契约：只测公式反解（上一项）不够，
+        还要覆盖 E0 漂移、边前基线、autobk 归一化和 k 空间形状。
+        期望：未校正 χ 振幅明显低于真值（<0.85），校正后回到
+        0.9–1.2；若 μ_a 基线或能量锚点退化，这一项会立刻失败。
+        """
+        import tempfile
+        from xraydb import material_mu, material_mu_components, xray_line
+
+        formula, elem, line, d, rho = "Fe3O4", "Fe", "Ka", 4.6, 5.17
+        angin, angout = 49.4, 41.0
+        scan = xafs_io.read_scan(MAGNETITE)
+        E = np.asarray(scan.energy, dtype=float)
+        e0 = athena.determine_e0(scan)["e0_sample"]
+        norm = athena.normalize_absorption(scan, e0)
+        chi_true = athena.extract_chi_k(norm, rbkg=1.10, kweight=2)
+
+        comp = material_mu_components(formula, E, density=rho, kind="photo")
+        mass = float(comp["mass"])
+        mu_t = np.zeros_like(E)
+        for el in comp["elements"]:
+            stoich, amass, mu_mass = comp[el]
+            mu_t += rho * float(stoich) * float(amass) * np.asarray(mu_mass) / mass
+        mu_a = (rho * comp[elem][0] * comp[elem][1]
+                * np.asarray(comp[elem][2]) / mass)
+        comp_below = material_mu_components(
+            formula, float(e0) - 200.0, density=rho, kind="photo")
+        mu_a -= (rho * comp_below[elem][0] * comp_below[elem][1]
+                 * float(comp_below[elem][2]) / float(comp_below["mass"]))
+        mu_t *= 1e-4
+        mu_a *= 1e-4
+        mu_f = float(material_mu(formula, xray_line(elem, line).energy,
+                                 density=rho, kind="total")) * 1e-4
+
+        k_on_e = np.sqrt(np.maximum(K2 * (E - e0), 0.0))
+        chi_on_e = np.interp(k_on_e, chi_true.k, chi_true.chi,
+                             left=0.0, right=0.0)
+        chi_on_e[E <= e0] = 0.0
+        # 振荡幅度 = 边跳变 × χ（不是平滑 μ_a(E)·χ）
+        c_lo = material_mu_components(formula, e0 - 10.0, density=rho,
+                                      kind="photo")
+        c_hi = material_mu_components(formula, e0 + 10.0, density=rho,
+                                      kind="photo")
+        ma_lo = (rho * c_lo[elem][0] * c_lo[elem][1]
+                 * float(c_lo[elem][2]) / float(c_lo["mass"])) * 1e-4
+        ma_hi = (rho * c_hi[elem][0] * c_hi[elem][1]
+                 * float(c_hi[elem][2]) / float(c_hi["mass"])) * 1e-4
+        jump = float(ma_hi - ma_lo)
+        mu_a_e = mu_a + jump * chi_on_e
+        mu_t_e = mu_t + jump * chi_on_e
+        sin_phi = np.sin(np.deg2rad(angin))
+        g = sin_phi / np.sin(np.deg2rad(angout))
+        arg = (mu_t_e / sin_phi + mu_f / np.sin(np.deg2rad(angout))) * d
+        arg0 = (mu_t / sin_phi + mu_f / np.sin(np.deg2rad(angout))) * d
+        ifluo = (mu_a_e / (mu_t_e + g * mu_f)
+                 * (1.0 - np.exp(-arg)) / (1.0 - np.exp(-arg0)) + 0.35)
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "forward.xdi"
+            lines = ["# XDI/1.0 synthetic-forward", "# Element.symbol: Fe",
+                     "# Element.edge: K", "# Column.1: energy eV",
+                     "# Column.2: i0", "# Column.3: ifluor", "# -----------"]
+            for e, f in zip(E, ifluo):
+                lines.append(f"{e:.6f} 1000000.000000 {f * 1e6:.8f}")
+            path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            common = dict(absorber="Fe", strict=False, rbkg=1.10,
+                          kmin=3.0, kmax=12.0, kweight=2, verbose=False)
+            raw = xafs_pipeline.process_sample([str(path)], **common)
+            corr = xafs_pipeline.process_sample(
+                [str(path)], self_absorption_formula=formula,
+                self_absorption_thickness=d, self_absorption_density=rho,
+                self_absorption_angles=(angin, angout), **common)
+
+        kg = np.linspace(3.0, 12.0, 900)
+        truth = np.interp(kg, chi_true.k, chi_true.chi)
+        raw_amp = np.std(np.interp(kg, raw.chi_k.k, raw.chi_k.chi)) / np.std(truth)
+        cor_amp = np.std(np.interp(kg, corr.chi_k.k, corr.chi_k.chi)) / np.std(truth)
+        self.assertLess(raw_amp, 0.85, f"前向谱未被压低: {raw_amp:.3f}")
+        self.assertGreater(cor_amp, 0.90, f"校正不足: {cor_amp:.3f}")
+        self.assertLess(cor_amp, 1.20, f"校正过头: {cor_amp:.3f}")
+
+    def test_wt_locator_anchored_to_ft_peak(self):
+        """WT 定位必须锚定 FT 峰，不能在两壳分支间跳。
+
+        实测故障：Fe3O4 的 WT 在 R≈1.42（Fe–O，k≈4.5）与 R≈2.72
+        （Fe–Fe，k≈5.8）各有一条分支，宽窗 [1.0,2.6] 内二者只差 3%；
+        Booth 校正把低 k 抬高 7% 后 WT 峰从 2.60 跳到 1.42，而 FT 峰
+        完全不变。契约：锚定 FT 峰后，校正前后 WT R 位移动 ≤ 0.02 Å。
+        """
+        res = xafs_pipeline.process_sample(
+            [MAGNETITE], absorber="Fe", strict=False, verbose=False)
+        chi2, info = athena.booth_self_absorption(
+            res.chi_k, formula="Fe3O4", elem="Fe", edge="K", line="Ka",
+            e0=res.e0["e0_sample"], thickness_um=4.6, density=5.17,
+            anginp=49.4, angout=41.0)
+        self.assertGreater(info["correction_factor_range"][1], 1.4,
+                           "测试前提：校正因子应有明显低 k 抬升")
+
+        def anchored(chi_k):
+            wt = larch_wt.continuous_wavelet_transform(
+                chi_k, sigma=1.5, kmin=3.0, kmax=12.0, kweight=2)
+            return larch_wt.locate_shell_near(wt, res.r1)
+
+        k_a, r_a, _ = anchored(res.chi_k)
+        k_b, r_b, _ = anchored(chi2)
+        self.assertLessEqual(abs(r_b - r_a), 0.02,
+                             f"WT 峰随校正跳变: {r_a} → {r_b}")
+        self.assertLessEqual(abs(r_a - res.r1), 0.5,
+                             f"WT 与 FT 峰位不一致: {r_a} vs {res.r1}")
+        self.assertTrue(np.isfinite(k_a) and np.isfinite(k_b))
+
+    def test_sigma2_shared_group(self):
+        """σ² 共享组：多条路径共享一个 σ² 变量，减少自由参数。
+
+        对标 Artemis 的路径约束。用 NiO 双壳层（Ni-O + Ni-Ni）验证：
+        - shared_sigma2="all"：两条路径共享一个 σ²，拟合收敛，Rf 合理
+        - 显式分组 [[0, 1]]：等价于 "all"（两条路径都在同一组）
+        - 共享组输出的 σ² 值在两条路径中相同
+        若 σ² 共享组机制失效，拟合会报错或输出不同的 σ²。
+        """
+        res = xafs_pipeline.process_sample(
+            [NIO], absorber="Ni", strict=False, verbose=False)
+        out = xafs_fit.fit_identified(
+            res, absorber_symbol="Ni", shared_sigma2="all", verbose=False)
+        fit = out["fit"]
+        self.assertEqual(out["mode"], "motif")
+        self.assertTrue(out["sigma2_shared"])
+        self.assertEqual(len(out["sigma2_groups"]), 1)
+        n_path = len(out["fit"].paths)
+        self.assertEqual(out["sigma2_groups"][0], list(range(n_path)))
+        # 所有路径的 σ² 应相同（共享同一变量）
+        s2s = [p.sigma2 for p in fit.paths]
+        for s2 in s2s:
+            self.assertAlmostEqual(s2, s2s[0], places=6)
+        # σ²_err 也应相同
+        e0s = [p.sigma2_err for p in fit.paths]
+        for e in e0s:
+            self.assertIsNotNone(e)
+        for e in e0s:
+            self.assertAlmostEqual(e, e0s[0], places=6)
+        # Rf 应在合理范围（双壳层 NiO 合成谱，Rf 应 < 0.02）
+        self.assertLess(fit.r_factor, 0.02,
+                        f"σ² 共享后 Rf={fit.r_factor:.4f} 过大，拟合可能失败")
+
+        # 显式分组 [[0, 1, ..., n-1]] 等价于 "all"
+        out2 = xafs_fit.fit_identified(
+            res, absorber_symbol="Ni",
+            shared_sigma2=[list(range(n_path))], verbose=False)
+        fit2 = out2["fit"]
+        s2s2 = [p.sigma2 for p in fit2.paths]
+        for s2 in s2s2:
+            self.assertAlmostEqual(s2, s2s[0], places=6)
+        self.assertAlmostEqual(fit.r_factor, fit2.r_factor, places=6)
+
+    def test_systematic_budget_dynamic(self):
+        """CN 系统误差预算必须随本次拟合条件变化，而不是恒为 ±30%。
+
+        基础预算 0.30 是历史实测锚点；额外项（自吸收残留、参数强相关、
+        远壳层截断、σ² 撞界）按平方和合成。这里用构造对象验证每一类
+        额外项的数值贡献，防止预算退化成写死的常数。
+        """
+        class FakeFit:
+            correlation = np.array([[1.0, 0.95], [0.95, 1.0]])
+            parameter_names = ["Fe-Fe@2.97:N", "Fe-Fe@2.97:σ²"]
+
+        base = xafs_fit.systematic_budget(None)
+        self.assertAlmostEqual(base["relative_1sigma"], 0.30, places=4)
+        self.assertEqual(base["extra_components"], {})
+        self.assertAlmostEqual(base["max_parameter_correlation"], 0.0,
+                               places=4)
+
+        # 0.30 base + 0.10 相关 + 0.10 自吸收残留 + 0.05 截断 + 0.10 σ²撞界
+        rich = xafs_fit.systematic_budget(
+            FakeFit(), flags={"sigma2_at_bound": True},
+            self_abs={"corrected": True, "reliable": True},
+            truncated_shells=2)
+        expected = float(np.sqrt(0.30**2 + 0.10**2 + 0.10**2
+                                 + 0.05**2 + 0.10**2))
+        self.assertAlmostEqual(rich["relative_1sigma"], expected, places=4)
+        self.assertEqual(rich["extra_components"],
+                         {"parameter_correlation": 0.10,
+                          "self_absorption_residual": 0.10,
+                          "truncated_shells": 0.05,
+                          "sigma2_at_bound": 0.10})
+        self.assertIn("Fe-Fe@2.97:N vs Fe-Fe@2.97:σ²", rich["note"])
+
+        # 未校正但 risk=possible → +0.15；risk=low → 不加项
+        possible = xafs_fit.systematic_budget(
+            None, self_abs={"corrected": False, "risk": "possible"})
+        self.assertAlmostEqual(possible["relative_1sigma"],
+                               float(np.hypot(0.30, 0.15)), places=4)
+        low = xafs_fit.systematic_budget(
+            None, self_abs={"corrected": False, "risk": "low"})
+        self.assertAlmostEqual(low["relative_1sigma"], 0.30, places=4)
+
+    def test_html_report_single_file(self):
+        """HTML 报告：图片内联为 data URI，强相关/不可靠项标红。"""
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td)
+            fig, ax = plt.subplots(figsize=(1, 1))
+            ax.plot([0, 1], [0, 1])
+            fig.savefig(out / "demo_xas.png", dpi=40)
+            plt.close(fig)
+            rows = [
+                ("cn_reliable", "False", "",
+                 "CN 是否可作结论"),
+                ("max_parameter_correlation",
+                 "0.950 (a:N vs a:σ²)", "",
+                 "最强参数相关"),
+                ("r_factor", "0.1234", "", "拟合优度"),
+            ]
+            fit_out = {"status": "confident", "cn_reliable": False,
+                       "flags": {"r_factor_bad": True},
+                       "cn_systematics": {"relative_1sigma": 0.35,
+                                          "note": "test budget"},
+                       "fit": None}
+            path = xafs_report.export_html_report(
+                out, "demo", sample="demo sample",
+                edge_label="Fe K-edge", indicator_rows=rows,
+                table_rows=[["demo", "Fe-O", "6.0", "2.00", "0.004",
+                             "0.0", "0.003"]],
+                fit_out=fit_out, diagnostics_dir=None)
+            self.assertTrue(path.exists())
+            doc = path.read_text(encoding="utf-8")
+            self.assertIn("data:image/png;base64,", doc)
+            self.assertGreaterEqual(doc.count("class='bad'"), 2)
+            self.assertIn("r_factor_bad", doc)
+            self.assertIn("35%", doc)
+
+    def test_config_rejects_unknown_suffix(self):
+        """不支持的扩展名必须给出干净 ValueError（曾因 p.sffix 拼写崩溃）。"""
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "config.ini"
+            p.write_text("kmin: 3.0\n", encoding="utf-8")
+            with self.assertRaises(ValueError) as ctx:
+                xafs_config.load_config(p)
+            self.assertIn(".ini", str(ctx.exception))
+            self.assertIn(".yaml", str(ctx.exception))
+
+    def test_hann_window_contract(self):
+        """浏览器端 Hanning 窗必须与产线同约定：两端 0、平台 1。
+
+        交互页在浏览器里重算 FT；若窗函数端点或斜坡写错，峰位/形状会
+        与产线不一致，而页面看起来仍“能出图”，很难察觉。
+        """
+        k = np.linspace(0.0, 16.0, 1601)
+        kmin, kmax, dk = 3.0, 12.0, 1.0
+        w = xafs_window_tuner.hann_window(k, kmin, kmax, dk)
+        self.assertTrue(np.all(w >= -1e-12) and np.all(w <= 1 + 1e-12))
+        # 窗外严格为 0（端点也含在窗内，但 Hanning 在端点处为 0）
+        self.assertTrue(np.allclose(w[k < kmin], 0.0))
+        self.assertTrue(np.allclose(w[k > kmax], 0.0))
+        # 平台
+        plateau = (k > kmin + dk + 0.05) & (k < kmax - dk - 0.05)
+        self.assertGreater(plateau.sum(), 100)
+        self.assertTrue(np.allclose(w[plateau], 1.0))
+        # 左坡单调升、右坡单调降
+        left = (k >= kmin) & (k <= kmin + dk)
+        right = (k >= kmax - dk) & (k <= kmax)
+        self.assertTrue(np.all(np.diff(w[left]) >= -1e-9))
+        self.assertTrue(np.all(np.diff(w[right]) <= 1e-9))
+        # 中点约 0.5
+        mid = int(np.argmin(np.abs(k - (kmin + dk / 2))))
+        self.assertAlmostEqual(float(w[mid]), 0.5, places=3)
+
+    def test_wt_sweep_anchored_to_ft_peak(self):
+        """WT sweep：9 组 (σ,kweight) 都必须锚定 FT 第一峰，且可导出。"""
+        res = self.lep
+        sweep = xafs_diagnostics.wt_sweep(res)
+        self.assertEqual(len(sweep["rows"]), 9)
+        self.assertEqual(len(sweep["maps"]), 9)
+        self.assertEqual(sorted({r["sigma"] for r in sweep["rows"]}),
+                         [1.0, 1.5, 2.0])
+        self.assertEqual(sorted({r["kweight"] for r in sweep["rows"]}),
+                         [1, 2, 3])
+        for row in sweep["rows"]:
+            self.assertLessEqual(abs(row["r_peak"] - res.r1), 0.5,
+                                 f"WT 峰跑出 FT 锚定窗: {row}")
+            self.assertTrue(np.isfinite(row["k_peak"]))
+            self.assertGreater(row["amplitude"], 0)
+        # 行内归一所需的每行最大值必须齐全
+        self.assertEqual(sorted(sweep["row_max"]), [1, 2, 3])
+        for kw in (1, 2, 3):
+            self.assertGreater(sweep["row_max"][kw], 0)
+
+        with tempfile.TemporaryDirectory() as td:
+            png, csv_path, rows = xafs_diagnostics.write_wt_sweep(
+                res, td, stem="demo_wt")
+            self.assertTrue(png.exists() and png.stat().st_size > 10_000)
+            self.assertTrue(csv_path.exists())
+            lines = csv_path.read_text(encoding="utf-8-sig").splitlines()
+            self.assertEqual(len(lines), 10)   # header + 9
+            self.assertEqual(len(rows), 9)
+
+    # ------------------------------------------------------------
+    # 25–27. 第一批（B1-1/B1-2/B1-3）
+    # ------------------------------------------------------------
+    def test_multi_kweight_joint_fit(self):
+        """B1-1：多 k 权重联合拟合。
+
+        验证 (1) 三个分支 Rf 均 < 0.08；(2) 第一壳键长与单权偏差
+        ≤ 0.015 Å、N 仍在物理区间；(3) N_idp 不变且最强相关不恶化。
+        多权残差若未按分支 RMS 归一，kw=3 会统治最小二乘，第一壳 N
+        会被系统性拉偏——这正是该测试要防的退化。
+        """
+        fit1 = self.lep_fit["fit"]["fit"]
+        out3 = xafs_fit.fit_identified(
+            self.lep, absorber_symbol="Fe", kweights=(1, 2, 3),
+            verbose=False)
+        fit3 = out3["fit"]
+        self.assertEqual(tuple(fit3.kweights), (1, 2, 3))
+        self.assertEqual(set(fit3.r_factors_by_kweight), {1, 2, 3})
+        for kw, rf in fit3.r_factors_by_kweight.items():
+            self.assertLess(rf, 0.08, f"kw={kw} Rf={rf:.4f} 超出 0.08")
+
+        p1 = min(fit1.paths, key=lambda p: p.reff)
+        p3 = min(fit3.paths, key=lambda p: p.reff)
+        self.assertLessEqual(abs(p3.r - p1.r), 0.015,
+                             f"第一壳键长漂移 {abs(p3.r - p1.r):.4f} Å")
+        self.assertGreaterEqual(p3.degeneracy, 4.5)
+        self.assertLessEqual(p3.degeneracy, 7.5)
+
+        rho1, _, _ = xafs_fit._max_offdiag_correlation(fit1)
+        rho3, _, _ = xafs_fit._max_offdiag_correlation(fit3)
+        self.assertLessEqual(
+            rho3, rho1 + 1e-9,
+            f"多权相关恶化: {rho3:.4f} > 单权 {rho1:.4f}")
+        self.assertEqual(fit3.n_independent, fit1.n_independent)
+
+    def test_back_ft_q_space_phase_and_envelope(self):
+        """B1-2：R 窗反傅里叶的 q 轴、包络与相位。
+
+        合成单壳 χ(k)=sin(2kR₀)·exp(−2k²σ²)/k² 经 FT/Back-FT 后，
+        Re χ(q) 必须与输入 k²χ(k) 同相（q∈[4,10] 相关 >0.95）。
+        若反向变换符号写反或窗函数端点错误，相关会掉到 0 附近。
+        """
+        k = np.arange(1.0, 14.0, 0.05)
+        R0, sigma2 = 2.0, 0.004
+        chi = np.sin(2.0 * k * R0) * np.exp(-2.0 * k**2 * sigma2) / k**2
+        ft = athena.ft_to_r_space(k, chi, None, 3.0, 12.0, 2, 1.0)
+        bft = athena.back_ft_to_q_space(ft.r, ft.chi_r, 1.3, 2.5, 0.1)
+
+        self.assertEqual(len(bft.q), len(bft.chi_q))
+        self.assertTrue(np.all(np.diff(bft.q) > 0), "q 轴不单调递增")
+        self.assertTrue(np.all(bft.magnitude >= 0))
+        self.assertTrue(np.all(np.isfinite(bft.magnitude)))
+        self.assertEqual(len(bft.r_window), len(ft.r))
+
+        mask = (bft.q >= 4.0) & (bft.q <= 10.0)
+        self.assertGreater(int(mask.sum()), 50)
+        target = np.interp(bft.q[mask], k, k**2 * chi)
+        corr = float(np.corrcoef(bft.real[mask], target)[0, 1])
+        self.assertGreater(corr, 0.95,
+                           f"Re χ(q) 与 k²χ 相关仅 {corr:.4f}（符号/相位错？）")
+        self.assertGreater(float(bft.magnitude[mask].max()), 0.0)
+
+    def test_collinear_ms_constrained_fit_nio(self):
+        """B1-3：NiO 共线 MS 路径受约束纳入，自由变量数不变。
+
+        关键契约：MS 路径不新增 ΔR/σ²/N 变量，全部由母单散射壳层按
+        reff_ratio 驱动；否则加 MS 必然触发 N_idp 过拟合截断。
+        """
+        res = xafs_pipeline.process_sample(
+            [NIO], absorber="Ni", strict=False, verbose=False)
+        no_ms = xafs_fit.fit_identified(
+            res, absorber_symbol="Ni", rmax=4.3,
+            include_ms=False, verbose=False)
+        with_ms = xafs_fit.fit_identified(
+            res, absorber_symbol="Ni", rmax=4.3,
+            include_ms=True, verbose=False)
+        f0, f1 = no_ms["fit"], with_ms["fit"]
+
+        self.assertFalse([p for p in f0.paths if p.nleg > 2],
+                         "include_ms=False 仍选入 MS 路径")
+        ms_paths = [p for p in f1.paths if p.nleg > 2]
+        self.assertTrue(ms_paths, "include_ms=True 未选入任何 nleg>2 路径")
+        self.assertEqual(f1.n_variables, f0.n_variables,
+                         "MS 路径新增了自由变量")
+        self.assertLess(f1.r_factor, 0.08,
+                        f"含 MS 拟合 Rf={f1.r_factor:.4f}")
+
+        labels = [p.label for p in f1.paths]
+        self.assertEqual(len(labels), len(set(labels)), "MS 路径标签重名")
+
+        by_label = {p.label: p for p in f1.paths}
+        for p in ms_paths:
+            self.assertIsNotNone(p.ms_parent, f"{p.label} 未标记母壳层")
+            parent = by_label[p.ms_parent]
+            ratio = p.reff / parent.reff
+            self.assertGreater(ratio, 1.5,
+                               f"{p.label} 不是 Reff≈2R_first 的聚焦路径")
+            expected_r = p.reff + ratio * (parent.r - parent.reff)
+            self.assertAlmostEqual(
+                p.r, expected_r, places=5,
+                msg=f"{p.label} 的 ΔR 未按 reff_ratio={ratio:.3f} 缩放")
+
+
+    def test_window_tuner_html_embeds_data(self):
+        """交互式窗口页：内嵌 χ(k)、四个滑块齐全、推荐窗口不偏离 r1。"""
+        res = self.lep
+        rec = xafs_window_tuner.recommend_window(
+            res.chi_k, res.r1, kweight=res.ft.kweight, dk=res.ft.dk)
+        self.assertGreater(rec["n_candidates"], 0)
+        self.assertLessEqual(abs(rec["recommended"]["peak_r"] - res.r1), 0.15)
+        with tempfile.TemporaryDirectory() as td:
+            path = xafs_window_tuner.write_window_tuner(
+                td, "demo", res.chi_k, res.r1, "demo sample", "Fe K-edge",
+                kmin=res.ft.kmin, kmax=res.ft.kmax,
+                kweight=res.ft.kweight, dk=res.ft.dk)
+            self.assertTrue(path.exists())
+            doc = path.read_text(encoding="utf-8")
+            self.assertIn("const DATA =", doc)
+            for ctl in ('id="kmin"', 'id="kmax"', 'id="kweight"', 'id="dk"'):
+                self.assertIn(ctl, doc)
+            self.assertIn("e<sup>−2ikR</sup>", doc)
+            import json
+            import re
+            m = re.search(r"const DATA = (\{.*?\});", doc, re.S)
+            self.assertIsNotNone(m)
+            data = json.loads(m.group(1))
+            self.assertEqual(len(data["k"]), len(data["chi"]))
+            self.assertGreater(len(data["k"]), 100)
+            self.assertIsNotNone(data["recommended"])
+            self.assertAlmostEqual(data["current"]["kweight"],
+                                   res.ft.kweight)
+
+    # ------------------------------------------------------------
+    # 28–30. 第二批（B2-1/B2-2/B2-3）
+    # ------------------------------------------------------------
+    def test_xanes_flatten_and_neck_features(self):
+        """B2-1：flattened 谱平台≈1，合成颈部双台阶被正确识别。"""
+        norm = self.lep.norm
+        self.assertIsNotNone(norm.flattened)
+        self.assertEqual(len(norm.flattened), len(norm.mu_norm))
+        mm = (norm.energy >= norm.e0 + 100) & (norm.energy <= norm.e0 + 400)
+        self.assertGreater(int(mm.sum()), 5)
+        flat_mean = float(np.mean(norm.flattened[mm]))
+        self.assertGreaterEqual(flat_mean, 0.97)
+        self.assertLessEqual(flat_mean, 1.03)
+        # E<E0 必须保持 mu_norm 不变（flattening 只改边后）
+        pre = norm.energy < norm.e0
+        np.testing.assert_allclose(norm.flattened[pre], norm.mu_norm[pre])
+
+        # 两个相距 5 eV 的 arctan 台阶（1s→4p_z 颈部肩峰）
+        E = np.arange(7100.0, 7300.0, 0.05)
+        e0 = 7150.0
+        width = 0.8
+        e1, e2 = e0 - 2.5, e0 + 2.5
+        mu = (0.5 * (0.5 + np.arctan((E - e1) / width) / np.pi)
+              + 0.5 * (0.5 + np.arctan((E - e2) / width) / np.pi))
+        sn = NormalizedScan(
+            energy=E, mu=mu, mu_norm=mu,
+            pre_edge_line=np.zeros_like(E), edge_step=1.0,
+            plateau=1.0, e0=e0, flattened=mu.copy())
+        feat = athena.extract_xanes_features(sn)
+        self.assertTrue(feat["neck_shoulder_present"])
+        self.assertGreaterEqual(feat["derivative_split_eV"], 4.0)
+        self.assertLessEqual(feat["derivative_split_eV"], 6.0)
+        self.assertTrue(feat["e0_jump_risk"])
+
+    def test_lcf_and_pca_synthetic_mixture(self):
+        """B2-2：3 端元合成混合谱回收权重；PCA 前 3 主成分解释 >99.9%。"""
+        import xafs_lcf
+
+        goe = xafs_pipeline.process_sample(
+            [GOETHITE], absorber="Fe", strict=False, verbose=False).norm
+        mag = xafs_pipeline.process_sample(
+            [MAGNETITE], absorber="Fe", strict=False, verbose=False).norm
+        lep = self.lep.norm
+
+        x = np.arange(-20.0, 60.0, 0.2)
+
+        def flat(n):
+            arr = n.flattened if n.flattened is not None else n.mu_norm
+            return np.interp(x, n.energy - n.e0, arr)
+
+        y_lep, y_goe, y_mag = flat(lep), flat(goe), flat(mag)
+        rng = np.random.default_rng(42)
+        y = 0.35 * y_lep + 0.65 * y_goe + rng.normal(0, 1e-3, x.size)
+        target = NormalizedScan(
+            energy=lep.e0 + x, mu=y, mu_norm=y,
+            pre_edge_line=np.zeros_like(y), edge_step=1.0,
+            plateau=1.0, e0=lep.e0, flattened=y.copy())
+        res = xafs_lcf.lcf_from_scans(
+            target, {"lepido": lep, "goethite": goe, "magnetite": mag},
+            mode="xanes")
+        self.assertLess(abs(res["weights"]["lepido"] - 0.35), 0.02)
+        self.assertLess(abs(res["weights"]["goethite"] - 0.65), 0.02)
+        self.assertLess(abs(res["weights"]["magnetite"]), 0.02)
+        self.assertLess(res["r_factor"], 1e-3)
+
+        specs = []
+        for i, (a, b, c) in enumerate([
+                (0.2, 0.8, 0.0), (0.5, 0.5, 0.0), (0.8, 0.2, 0.0),
+                (0.4, 0.1, 0.5), (0.1, 0.4, 0.5), (0.3, 0.3, 0.4)]):
+            yy = (a * y_lep + b * y_goe + c * y_mag
+                  + rng.normal(0, 1e-4, x.size))
+            specs.append((f"mix{i}", x, yy))
+        pca = xafs_lcf.run_pca(specs, -20.0, 60.0)
+        cum3 = float(np.sum(pca["explained_variance_ratio"][:3]))
+        self.assertGreater(cum3, 0.999,
+                           f"前 3 主成分累计解释仅 {cum3:.6f}")
+
+    def test_deadtime_and_explicit_deglitch(self):
+        """B2-3：死时间倍乘/分数两条公式 + 宽 glitch 精确删点。"""
+        # ---- 死时间：前半 dtime=2（倍乘），后半 dtime=0.5（分数）----
+        E = np.arange(7000.0, 7200.0, 0.5)
+        i0 = np.full_like(E, 1000.0)
+        ifluor = np.full_like(E, 100.0)
+        dt = np.where(np.arange(E.size) < E.size // 2, 2.0, 0.5)
+        fs = RawScan(energy=E, i0=i0, ifluor=ifluor, mu=ifluor / i0,
+                     dtime=dt, meta={"mode": "fluor"})
+        out = athena.apply_deadtime_correction(fs)
+        self.assertAlmostEqual(float(out.mu[0]), 0.2, places=12)
+        self.assertAlmostEqual(float(out.mu[-1]), 0.2, places=12)
+        self.assertAlmostEqual(float(fs.mu[0]), 0.1, places=12,
+                               msg="死时间校正不得原地修改输入扫描")
+        self.assertTrue(out.meta["deadtime_corrected"])
+
+        # ---- 宽方波 glitch：自动 despike 只能削掉边缘，deglitch 精确删点 ----
+        g = xafs_io.read_scans([str(LEPIDO)])[0]
+        mu2 = np.array(g.mu, dtype=float, copy=True)
+        near = np.flatnonzero((g.energy >= 7280.0) & (g.energy <= 7295.0))
+        start = int(near[0]) if near.size else int(
+            np.argmin(np.abs(g.energy - 7280.0)))
+        gi = np.arange(start, min(start + 8, len(g.energy)))
+        mu2[gi] += 2.0
+        glitched = RawScan(energy=np.array(g.energy, copy=True),
+                           mu=mu2, meta=dict(g.meta))
+        # 复刻 pipeline 的去毛刺（kernel=5, 3×MAD）
+        padded = np.pad(mu2, 2, mode="edge")
+        med = np.array([np.median(padded[i:i + 5])
+                        for i in range(len(mu2))])
+        resid = np.abs(mu2 - med)
+        mad = float(np.median(resid)) + 1e-12
+        despiked = mu2.copy()
+        mask = resid > 3.0 * mad
+        despiked[mask] = med[mask]
+        remain = float(np.max(np.abs(despiked[gi] - g.mu[gi])))
+        self.assertGreater(remain, 1.0,
+                           "自动 despike 不应能清除 8 点宽方波")
+        lo, hi = float(g.energy[gi].min()), float(g.energy[gi].max())
+        cleaned, info = athena.deglitch_ranges(glitched, [(lo, hi)])
+        self.assertEqual(info["n_removed"], int(gi.size))
+        self.assertFalse(np.any((cleaned.energy >= lo)
+                                & (cleaned.energy <= hi)))
+        with self.assertRaises(XAFSConfigError):
+            athena.deglitch_ranges(glitched, [(7000.0, 8000.0)])
+
+    # ------------------------------------------------------------
+    # 31. 第三批（B3-1）
+    # ------------------------------------------------------------
+    def test_wt_shell_k_profiles_and_model_residual(self):
+        """B3-1：一维 WT 包络区分轻/重散射体；实验-模型二维残差可定量。
+
+        为什么 k 窗口取 2.5 而不是产线默认 3.0：Fe–O 的包络在低 k 仍有
+        显著权重，kmin=2.5 能保留这部分信息，使第二壳 Fe–Fe（k≈6.4）
+        与第一壳 Fe–O（k≈5.5）的峰位差达到 0.9 Å⁻¹。产线 kmin=3.0 时
+        差值约 0.7 Å⁻¹，方向仍正确但小于验收阈值；这里显式使用更宽的
+        分析窗并同时核对两者排序，避免把窗口选择误当成物理结论。
+        """
+        fit = self.lep_fit["fit"]["fit"]
+        self.assertIsNotNone(fit.model_k, "FitResult 未保存 model_k")
+        self.assertEqual(fit.model_k.shape, fit.model_k_grid.shape)
+
+        kmax = float(min(12.0, np.max(self.lep.chi_k.k)))
+        wt = larch_wt.continuous_wavelet_transform(
+            self.lep.chi_k, sigma=1.5, kmin=2.5, kmax=kmax,
+            kweight=2, rmax=4.0)
+        first = larch_wt.extract_k_profile(wt, 1.47, half_width=0.25)
+        second = larch_wt.extract_k_profile(wt, 2.67, half_width=0.25)
+        diff = second["k_peak"] - first["k_peak"]
+        self.assertGreaterEqual(
+            diff, 0.8, f"Fe–Fe k_peak={second['k_peak']:.2f}, "
+                       f"Fe–O k_peak={first['k_peak']:.2f}, 差 {diff:.2f} <0.8")
+        # 产线默认窗口（kmin=3.0）下排序必须一致，只是差值略小
+        self.assertGreater(larch_wt.extract_k_profile(
+            self.lep.wt, 2.67)["k_peak"],
+            larch_wt.extract_k_profile(self.lep.wt, 1.47)["k_peak"] + 0.5)
+        for prof in (first, second):
+            self.assertEqual(len(prof["k"]), len(prof["ridge_profile"]))
+            self.assertEqual(len(prof["k"]), len(prof["slice_profile"]))
+            self.assertFalse(np.any(np.isnan(prof["ridge_profile"])))
+
+        resid = larch_wt.compute_model_wt_residual(
+            self.lep.chi_k, fit.model_k, sigma=1.5, kmin=3.0,
+            kmax=12.0, kweight=2, rmax=4.0)
+        self.assertEqual(resid["residual_map"].shape,
+                         resid["wt_data"].magnitude.shape)
+        self.assertEqual(resid["residual_map"].shape,
+                         resid["wt_model"].magnitude.shape)
+        self.assertLess(resid["r_factor"], 0.15,
+                        f"二维 WT R-factor={resid['r_factor']:.4f} ≥0.15")
+        # 残差必须共享同一物理标度，而不是各自归一后相减
+        self.assertAlmostEqual(resid["scale"],
+                               float(resid["wt_data"].magnitude.max()),
+                               places=12)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            prof = xafs_diagnostics.write_wt_shell_profiles(
+                self.lep, self.lep_fit, tmp, stem="lepido")
+            self.assertTrue(Path(prof["png"]).exists())
+            self.assertTrue(Path(prof["csv"]).exists())
+            header = Path(prof["csv"]).read_text(
+                encoding="utf-8").splitlines()[0]
+            self.assertIn("data_ridge", header)
+            self.assertGreaterEqual(len(prof["shells"]), 2)
+
+    # ------------------------------------------------------------
+    # 32. 第四批（B4-1）
+    # ------------------------------------------------------------
+    def test_reduced_chi2_and_shell_ftest(self):
+        """B4-1：高 R 噪声 ε_R → χ²_ν；第二壳 Fe–Fe 的 F-test 必须显著。
+
+        关键防退化点：
+          - larch xftf 默认 R 网格只到 ~10 Å，不显式扩到 25 Å 时
+            [15,25] 区间为空，ε_R/χ² 会静默变成 None；
+          - F-test 必须用**同一 R 窗**的单壳对照拟合；换窗后 χ² 不可比。
+        """
+        fit = self.lep_fit["fit"]["fit"]
+        self.assertIsNotNone(fit.epsilon_r)
+        self.assertIsNotNone(fit.chi_square)
+        self.assertIsNotNone(fit.reduced_chi_square)
+        self.assertGreater(fit.epsilon_r, 0.0)
+        self.assertGreater(fit.chi_square, 0.0)
+        self.assertGreater(fit.reduced_chi_square, 0.0)
+        self.assertAlmostEqual(
+            fit.reduced_chi_square,
+            fit.chi_square / max(fit.n_independent - fit.n_variables, 1.0),
+            places=8)
+
+        eps = artemis.estimate_r_noise(
+            self.lep.chi_k, fit.kmin, fit.kmax, kweight=2, dk=1.0)
+        self.assertGreater(eps, 0.0)
+
+        sft = self.lep_fit["fit"].get("shell_f_test")
+        self.assertIsNotNone(sft, "S7 未生成 shell_f_test")
+        self.assertIsNotNone(sft.get("confidence"))
+        self.assertGreater(
+            sft["confidence"], 0.95,
+            f"Fe–Fe 第二壳 F-test 置信度仅 {sft['confidence']:.4f}")
+        self.assertTrue(sft["significant"])
+        self.assertEqual(sft["dfn"], sft["p2"] - sft["p1"])
+        self.assertAlmostEqual(
+            sft["dfd"], fit.n_independent - sft["p2"], places=6)
+        self.assertGreater(sft["delta_chi_square"], 0.0,
+                           "多壳层模型必须降低 χ²（delta = χ²_simple − χ²_complex >0）")
+
+        # 报告摘要必须披露这两个统计量（JSON/HTML 同源）
+        summary = xafs_report.fit_summary(self.lep_fit["fit"])
+        self.assertIn("reduced_chi_square", summary["fit"])
+        self.assertIn("shell_f_test", summary)
+
+    # ------------------------------------------------------------
+    # 33. 第四批（B4-2）
+    # ------------------------------------------------------------
+    def test_c3_cumulant_cli_and_nidp_gate(self):
+        """B4-2：C3 非谐相移回收 + N_idp 自动降级保护。
+
+        合成第一壳 χ(k) 带 ``third=C3=+1.5e-4 Å³``（larch 的相位项
+        ``−4/3·C3·k³``）。放开 C3 后必须回收真值，且 R 回到 FEFF 的
+        真键长；关闭 C3 时 R 会偏 −0.010 Å。窄 R 窗下 n_var ≥ N_idp，
+        必须自动降级到无 C3 而不崩溃。
+        """
+        self.assertEqual(xafs_fit._normalize_c3_paths("first", 3), [0])
+        self.assertEqual(xafs_fit._normalize_c3_paths("all", 3), True)
+        self.assertIsNone(xafs_fit._normalize_c3_paths(False, 3))
+        with self.assertRaises(XAFSConfigError):
+            xafs_fit._normalize_c3_paths([5], 3)
+
+        # 不能原地改 self.lep：unittest 的类级 fixture 会被后续测试复用。
+        import copy
+        res = copy.deepcopy(self.lep)
+        motif = [m for m in structure_lib.load_library("Fe")
+                 if m.id == "lepidocrocite"][0]
+        cache = structure_lib.ensure_feff(motif, edge="K")
+        path = artemis.load_feff_path(cache / "feff0002.dat")
+        path.degen = 6.0
+        c3_true = 1.5e-4
+        artemis.set_path_parameters(
+            path, s02=0.803, delta_r=0.0, sigma2=0.004,
+            delta_e0=0.0, third=c3_true)
+        k_data = np.asarray(res.chi_k.k)
+        chi = np.interp(k_data, path.k, path.chi)
+        res.chi_k = ChiK(k=k_data, chi=chi,
+                         background=res.chi_k.background,
+                         mu_norm=res.chi_k.mu_norm, rbkg=res.chi_k.rbkg)
+        res.ft = athena.ft_to_r_space(k_data, chi, None, 3.0, 12.0, 2, 1.0)
+        res.wt = larch_wt.continuous_wavelet_transform(
+            res.chi_k, sigma=1.5, kmin=3.0, kmax=12.0,
+            kweight=2, rmax=4.0)
+        seg = (res.ft.r >= 0.8) & (res.ft.r <= 2.5)
+        res.r1 = float(res.ft.r[seg][int(np.argmax(
+            res.ft.magnitude[seg]))])
+        res.structure = {"status": "confident", "coverage_ok": True,
+                         "ranked": [{"id": "lepidocrocite"}], "peaks": []}
+
+        fit_c3 = xafs_fit.fit_identified(
+            res, motif_id="lepidocrocite", absorber_symbol="Fe",
+            rmax=2.6, vary_c3=True, verbose=False)["fit"]
+        fit_no = xafs_fit.fit_identified(
+            res, motif_id="lepidocrocite", absorber_symbol="Fe",
+            rmax=2.6, vary_c3=False, verbose=False)["fit"]
+        p_c3, p_no = fit_c3.paths[0], fit_no.paths[0]
+        self.assertIsNotNone(p_c3.c3)
+        self.assertLess(abs(p_c3.c3 - c3_true), 5e-5,
+                        f"C3 回收 {p_c3.c3:.3e}，真值 {c3_true:.3e}")
+        self.assertIsNotNone(p_c3.c3_err)
+        self.assertLess(abs(p_c3.r - path.reff),
+                        abs(p_no.r - path.reff),
+                        "放开 C3 后键长没有更接近 FEFF 真值")
+        self.assertFalse(p_c3.c3_at_bound)
+
+        narrow = xafs_fit.fit_identified(
+            res, motif_id="lepidocrocite", absorber_symbol="Fe",
+            rmin=1.7, rmax=2.5, vary_c3=True, verbose=False)
+        nfit = narrow["fit"]
+        self.assertTrue(narrow["c3_dropped_by_nidp"])
+        self.assertTrue(narrow["flags"]["c3_dropped_by_nidp"])
+        self.assertGreaterEqual(nfit.n_variables, 1)
+        self.assertTrue(all(p.c3 is None for p in nfit.paths))
+
+
+    # ------------------------------------------------------------
+    # 37. 第五批（B5-1）
+    # ------------------------------------------------------------
+    def test_wt_complex_residual_catches_phase_inversion(self):
+        """B5-1：复数小波矩阵 + 相位残差必须抓住"幅值相等、相位反 π"。
+
+        反相模型 χ_model = −χ_data 的 |W| 与实验逐点相同，旧版幅值
+        残差严格为 0；复数残差应为 |W−(−W)|²/|W|² = 4。真实 S7 模型
+        的复数 R-factor 必须保持在 0.25 以下，证明该指标有判别力而
+        不是恒定 4。
+        """
+        kmax = float(min(12.0, np.max(self.lep.chi_k.k)))
+        inverted = larch_wt.compute_model_wt_residual(
+            self.lep.chi_k, -np.asarray(self.lep.chi_k.chi),
+            sigma=1.5, kmin=3.0, kmax=kmax, kweight=2, rmax=4.0)
+        self.assertLess(inverted["r_factor"], 1e-12,
+                        f"反相模型幅值残差={inverted['r_factor']:.3e}，"
+                        f"说明幅值口径本应完全失效")
+        self.assertIsNotNone(inverted["complex_r_factor"])
+        self.assertAlmostEqual(inverted["complex_r_factor"], 4.0, places=6)
+        self.assertEqual(inverted["complex_residual_map"].shape,
+                         inverted["wt_data"].magnitude.shape)
+
+        wt = larch_wt.continuous_wavelet_transform(
+            self.lep.chi_k, sigma=1.5, kmin=3.0, kmax=kmax,
+            kweight=2, rmax=4.0, normalize=True)
+        self.assertEqual(wt.complex_map.shape, wt.magnitude.shape)
+        self.assertLess(float(np.max(np.abs(
+            np.abs(wt.complex_map) - wt.magnitude))), 1e-12,
+            "normalize=True 时 |complex_map| 与 magnitude 未同步归一")
+        self.assertIsNotNone(wt.phase)
+        self.assertEqual(wt.phase.shape, wt.magnitude.shape)
+
+        fit = self.lep_fit["fit"]["fit"]
+        self.assertIsNotNone(fit.model_k)
+        real = larch_wt.compute_model_wt_residual(
+            self.lep.chi_k, fit.model_k, sigma=1.5, kmin=3.0,
+            kmax=kmax, kweight=2, rmax=4.0)
+        self.assertLess(real["complex_r_factor"], 0.25,
+                        f"真实 S7 模型 complex R-factor="
+                        f"{real['complex_r_factor']:.4f} ≥0.25")
+        # 相位数组必须与 k 网格等长，供诊断图直接消费
+        prof = larch_wt.extract_k_profile(wt, 1.47, half_width=0.25)
+        self.assertIsNotNone(prof["phase_ridge"])
+        self.assertIsNotNone(prof["phase_slice"])
+        self.assertEqual(len(prof["phase_ridge"]), len(prof["k"]))
+        self.assertGreaterEqual(prof["beat_node_phase_jump"], 0.0)
+
+    # ------------------------------------------------------------
+    # 38. 第五批（B5-2）
+    # ------------------------------------------------------------
+    def test_wt_element_reference_ruler_sigma2_shift(self):
+        """B5-2：候选散射元素理论 k_peak 标尺随 Z 单调、随 σ² 左移。
+
+        该标尺存在的意义正是打破"3d 金属峰一定在 7 Å⁻¹"的经验误判：
+        高无序 Fe–Fe 的包络峰会被 exp(−2σ²k²) 拉低 ≥0.5 Å⁻¹，与
+        轻/中元素重合。缓存命中后重复调用必须返回完全相同的值。
+        """
+        low = structure_id.reference_element_k_peaks(
+            "Fe", elements=("O", "Cl", "Fe"), r_bond=2.2, sigma2=0.003)
+        high = structure_id.reference_element_k_peaks(
+            "Fe", elements=("Fe",), r_bond=2.2, sigma2=0.015)
+        for el in ("O", "Cl", "Fe"):
+            self.assertIn(el, low)
+            self.assertTrue(np.isfinite(low[el]))
+        self.assertLess(low["O"], low["Cl"])
+        self.assertLess(low["Cl"], low["Fe"])
+        self.assertGreaterEqual(low["Fe"] - low["O"], 1.2,
+                                f"Fe−O 标尺间距仅 "
+                                f"{low['Fe'] - low['O']:.2f} Å⁻¹")
+        self.assertGreaterEqual(low["Fe"] - high["Fe"], 0.5,
+                                f"σ² 0.003→0.015 的 Fe 峰位移仅 "
+                                f"{low['Fe'] - high['Fe']:.2f} Å⁻¹")
+        # 缓存一致性：二次调用逐位相同
+        again = structure_id.reference_element_k_peaks(
+            "Fe", elements=("Fe",), r_bond=2.2, sigma2=0.003)
+        self.assertEqual(again["Fe"], low["Fe"])
+
+        # 诊断图接口必须接受标尺参数且不破坏既有 CSV 列
+        with tempfile.TemporaryDirectory() as tmp:
+            prof = xafs_diagnostics.write_wt_shell_profiles(
+                self.lep, self.lep_fit, tmp, stem="ruler",
+                ref_k_peaks=low)
+            header = Path(prof["csv"]).read_text(
+                encoding="utf-8").splitlines()[0]
+            self.assertIn("data_ridge", header)
+            self.assertIn("data_phase_ridge", header)
+            self.assertIsNotNone(prof["complex_r_factor"])
+
+
+    # ------------------------------------------------------------
+    # 39. 第六批（B6-1）
+    # ------------------------------------------------------------
+    def test_merge_scans_outlier_rejection_and_sigma(self):
+        """B6-1：多扫描合并的离群剔除、σ_μ 传播与默认逐位兼容。
+
+        默认 reject_outliers=False 必须与历史均值逐位一致；开启后
+        第 4 条 +0.15 畸变扫描按中位谱 RMS+MAD 剔除，合并结果与
+        三条干净扫描逐位相同；σ_μ 为保留扫描的逐点标准差。
+        保底护栏：2-vs-1 时只剔 1 条，绝不把扫描集压到 1 条。
+        """
+        files = [LEPIDO.parent / f"Fe_lepidocrocite.{ext}"
+                 for ext in ("000", "100", "200")]
+        if not all(f.exists() for f in files):
+            self.skipTest("缺少 lepidocrocite 三扫描数据")
+        scans = xafs_io.read_scans([str(f) for f in files])
+        self.assertEqual(len(scans), 3)
+
+        clean = athena.merge_scans(scans)
+        self.assertIsNotNone(clean.sigma_mu, "多扫描合并未传播 sigma_mu")
+        self.assertEqual(clean.sigma_mu.shape, clean.energy.shape)
+        self.assertTrue(np.all(np.isfinite(clean.sigma_mu)))
+        self.assertTrue(np.all(np.asarray(clean.sigma_mu) >= 0.0))
+        legacy = np.array([s.mu for s in scans]).mean(axis=0)
+        self.assertTrue(np.array_equal(clean.mu, legacy),
+                        "reject_outliers=False 改变了默认合并结果")
+        self.assertFalse(clean.meta["merge_info"]["reject_outliers"])
+        self.assertEqual(clean.meta["merge_info"]["n_kept"], 3)
+        self.assertEqual(clean.meta["merge_info"]["rejected_indices"], [])
+
+        bad = xafs_io.read_scans([str(files[0])])[0]
+        bad.mu = np.asarray(bad.mu, dtype=float) + 0.15
+        merged = athena.merge_scans(scans + [bad], reject_outliers=True)
+        info = merged.meta["merge_info"]
+        self.assertEqual(info["rejected_indices"], [3],
+                         f"离群扫描未被正确剔除: {info}")
+        self.assertEqual(info["n_kept"], 3)
+        self.assertTrue(np.array_equal(merged.mu, clean.mu),
+                        "剔除离群扫描后合并谱与干净三扫描不一致")
+        self.assertIsNotNone(merged.sigma_mu)
+        self.assertTrue(np.all(np.asarray(merged.sigma_mu) >= 0.0))
+
+        # 保底护栏：3 条里 2 条接近、1 条远离 → 只剔离群者，保留 2 条
+        E = np.arange(7100.0, 7200.0, 0.2)
+
+        def _mk(value):
+            return RawScan(energy=E, mu=np.full_like(E, float(value)))
+
+        floored = athena.merge_scans(
+            [_mk(0.0), _mk(100.0), _mk(101.0)], reject_outliers=True)
+        f_info = floored.meta["merge_info"]
+        self.assertEqual(f_info["n_kept"], 2,
+                         f"保底护栏失效: {f_info}")
+        self.assertEqual(f_info["rejected_indices"], [0])
+
+    # ------------------------------------------------------------
+    # 40. 第六批（B6-2）
+    # ------------------------------------------------------------
+    def test_xanes_fluo_self_absorption_restores_whiteline_and_lcf(self):
+        """B6-2：XANES 荧光自吸收 Tröger 反解恢复白线与 LCF 权重。
+
+        真值 = 0.5·LEPIDO + 0.5·GOETHITE flattened；按 Fe₂O₃ 浓样
+        Eq.2 正演压缩（白线压低 >15%），反解后白线误差 <0.02，
+        LCF 权重回到 0.50±0.02，R-factor 相对未校正下降 >10 倍。
+        同时核对分母防爆门禁：α 较小的 45°/45° 几何下必须
+        reliable=False 且 clamped_points>0，但输出仍有限。
+        """
+        import xafs_lcf
+
+        goe = xafs_pipeline.process_sample(
+            [GOETHITE], absorber="Fe", strict=False, verbose=False)
+        x = np.asarray(self.lep.norm.energy, dtype=float)
+        e0 = float(self.lep.norm.e0)
+        y_lep = np.asarray(self.lep.norm.flattened, dtype=float)
+        y_goe = np.interp(x, goe.norm.energy, goe.norm.flattened)
+        y_true = 0.5 * y_lep + 0.5 * y_goe
+
+        def _norm(y):
+            return NormalizedScan(
+                energy=np.array(x, copy=True), mu=np.asarray(y, dtype=float),
+                mu_norm=np.asarray(y, dtype=float),
+                pre_edge_line=np.zeros_like(x), edge_step=1.0,
+                plateau=1.0, e0=e0, flattened=np.asarray(y, dtype=float))
+
+        # 用公开 API 在占位谱上读取同一几何的 α，避免在测试里复制私有公式
+        dummy = _norm(np.ones_like(x))
+        _, info0 = athena.fluo_xanes_self_absorption(
+            dummy, "Fe2O3", "Fe", "K", "Ka", 100.0, 5.24, 45.0, 20.0)
+        alpha = float(info0["alpha"])
+        self.assertGreater(alpha, 0.3)
+
+        y_att = (alpha + 1.0) * y_true / (alpha + y_true)
+        drop = 1.0 - float(np.max(y_att)) / float(np.max(y_true))
+        self.assertGreater(drop, 0.15,
+                           f"正演白线压缩仅 {100 * drop:.1f}% (<15%)，"
+                           f"测试未覆盖浓样自吸收场景")
+
+        norm_att = _norm(y_att)
+        corr, info = athena.fluo_xanes_self_absorption(
+            norm_att, "Fe2O3", "Fe", "K", "Ka", 100.0, 5.24, 45.0, 20.0)
+        self.assertTrue(info["reliable"], info.get("warning"))
+        self.assertEqual(info["clamped_points"], 0)
+        self.assertAlmostEqual(info["alpha"], alpha, places=9)
+        wl_err = abs(float(np.max(corr.flattened)) - float(np.max(y_true)))
+        self.assertLess(wl_err, 0.02,
+                        f"白线恢复误差 {wl_err:.4f} ≥0.02")
+        # 输入对象不得被原地修改
+        self.assertLess(float(np.max(np.abs(
+            np.asarray(norm_att.flattened) - y_att))), 1e-12)
+
+        xr = x - e0
+        standards = {"lepido": (xr, y_lep), "goethite": (xr, y_goe)}
+        r_att = xafs_lcf.run_lcf(xr, y_att, standards, -10.0, 60.0)
+        r_cor = xafs_lcf.run_lcf(xr, corr.flattened, standards, -10.0, 60.0)
+        for name in ("lepido", "goethite"):
+            self.assertLess(abs(r_cor["weights"][name] - 0.5), 0.02,
+                            f"校正后 {name} 权重 "
+                            f"{r_cor['weights'][name]:.4f} 偏离 0.50 超过 0.02")
+        self.assertGreater(r_att["r_factor"], 10.0 * r_cor["r_factor"],
+                           f"LCF R-factor 未下降 >10 倍: "
+                           f"{r_att['r_factor']:.4g} → "
+                           f"{r_cor['r_factor']:.4g}")
+
+        # 分母防爆门禁：α≈0.42 的 45°/45° 几何必然触界
+        _, info45 = athena.fluo_xanes_self_absorption(
+            dummy, "Fe2O3", "Fe", "K", "Ka", 100.0, 5.24, 45.0, 45.0)
+        alpha45 = float(info45["alpha"])
+        y_att45 = (alpha45 + 1.0) * y_true / (alpha45 + y_true)
+        corr45, guard = athena.fluo_xanes_self_absorption(
+            _norm(y_att45), "Fe2O3", "Fe", "K", "Ka",
+            100.0, 5.24, 45.0, 45.0)
+        self.assertFalse(guard["reliable"],
+                         "45°/45° 下分母钳制未触发 reliable=False")
+        self.assertGreater(guard["clamped_points"], 0)
+        self.assertTrue(np.all(np.isfinite(corr45.flattened)))
+
+    # ------------------------------------------------------------
+    # 41. 第六批（B6-3）
+    # ------------------------------------------------------------
+    def test_pre_edge_voigt_deconvolution_and_centroid(self):
+        """B6-3：主边拖尾基线 + 双 Pseudo-Voigt 分峰与面积加权质心。
+
+        合成峰：E_c1=7113.0 (A=0.08)、E_c2=7114.6 (A=0.16)，
+        真值质心 7114.067 eV。要求 n_peaks=2、质心误差 <0.15 eV、
+        子峰中心误差 <0.20 eV；并核对 extract_xanes_features 与
+        指标表已写入 pre_edge_centroid。
+        """
+        E = np.linspace(7090.0, 7160.0, 701)
+        E0 = 7125.0
+
+        def _pv(energy, area, center, gamma, eta):
+            # 独立实现（不复用被测函数），避免公式错误相互抵消
+            xx = energy - center
+            lor = (gamma / np.pi) / (xx ** 2 + gamma ** 2)
+            gau = (np.sqrt(np.log(2.0)) / (gamma * np.sqrt(np.pi))
+                   * np.exp(-np.log(2.0) * (xx / gamma) ** 2))
+            return area * (eta * lor + (1.0 - eta) * gau)
+
+        y = (0.02 + 1.5 / ((E - (E0 + 2.0)) ** 2 + 3.0 ** 2)
+             + _pv(E, 0.08, 7113.0, 0.7, 0.5)
+             + _pv(E, 0.16, 7114.6, 0.7, 0.5))
+        norm = NormalizedScan(
+            energy=E, mu=y, mu_norm=y, pre_edge_line=np.zeros_like(E),
+            edge_step=1.0, plateau=1.0, e0=E0, flattened=y)
+        res = athena.fit_pre_edge_peaks(norm)
+        self.assertEqual(res["n_peaks"], 2,
+                         f"双峰未被识别: n_peaks={res['n_peaks']}")
+        centroid_true = (0.08 * 7113.0 + 0.16 * 7114.6) / 0.24
+        self.assertLess(abs(res["centroid_energy"] - centroid_true), 0.15,
+                        f"质心 {res['centroid_energy']:.4f} vs 真值 "
+                        f"{centroid_true:.4f}")
+        centers = sorted(p["center"] for p in res["peaks"])
+        self.assertLess(abs(centers[0] - 7113.0), 0.20,
+                        f"子峰 1 中心 {centers[0]:.4f} vs 7113.0")
+        self.assertLess(abs(centers[1] - 7114.6), 0.20,
+                        f"子峰 2 中心 {centers[1]:.4f} vs 7114.6")
+        self.assertLess(res["r_factor"], 0.05)
+        self.assertAlmostEqual(
+            res["total_area"], sum(p["area"] for p in res["peaks"]),
+            places=12)
+
+        # 集成：真实管线结果必须带该字段；指标表必须有对应行
+        self.assertIn("pre_edge_centroid", self.lep.xanes_features)
+        self.assertIn("pre_edge_n_peaks", self.lep.xanes_features)
+        st = {"chi_k": self.lep.chi_k, "r1": self.lep.r1,
+              "wt": self.lep.wt, "norm": self.lep.norm,
+              "e0": self.lep.e0["e0_sample"], "rbkg": self.lep.rbkg,
+              "xanes_features": self.lep.xanes_features}
+        with tempfile.TemporaryDirectory() as tmp:
+            rows = xafs_report.export_indicators_single(
+                st, None, Path(tmp), "pe", "Fe2O3", "Fe K", 0.803, [])
+            names = [r[0] for r in rows]
+            self.assertIn("pre_edge_centroid", names)
+            self.assertIn("pre_edge_n_peaks", names)
+
+    # ------------------------------------------------------------
+    # 42. 第七批（B7-1）
+    # ------------------------------------------------------------
+    def test_isotropic_lattice_expansion_constraint(self):
+        """B7-1：各向同性晶格约束把 M 个 ΔR 压缩为唯一全局 α。
+
+        用 FEFF 四壳 NiO 按 ΔR_i = α_true·Reff_i（α_true=0.004）合成
+        无噪声 χ(k)，要求 isotropic_deltar=True 后：
+          - 自由变量数从 13 降为 10（4 个 ΔR → 1 个 α）；
+          - Rf < 1e-4，α 回收误差 < 1e-9，四壳 ΔR/Reff 与 α 一致。
+        实验 NiO 的各壳位移不服从统一晶格缩放（Rf≈0.135 > 0.08），
+        必须诚实降级 cn_reliable=False 并给出同约束警告。
+        """
+        from types import SimpleNamespace
+
+        motif = [m for m in structure_lib.load_library("Ni")
+                 if m.id == "nio_rocksalt"][0]
+        cache = structure_lib.ensure_feff(motif, edge="K")
+        paths = []
+        for f in sorted(cache.glob("feff*.dat")):
+            p = artemis.load_feff_path(f)
+            if int(getattr(p, "nleg", 2)) == 2:
+                paths.append(p)
+        paths.sort(key=lambda p: p.reff)
+        paths = paths[:4]
+        self.assertEqual(len(paths), 4, "NiO 四壳 FEFF 路径不完整")
+
+        alpha_true = 0.004
+        k = np.arange(2.0, 13.0, 0.02)
+        for p in paths:
+            artemis.set_path_parameters(
+                p, s02=1.0, sigma2=0.004,
+                delta_r=alpha_true * float(p.reff), delta_e0=0.0)
+        chi = artemis.exafs_model_k(paths, k)
+        ck = ChiK(k=k, chi=chi, background=np.zeros_like(k),
+                  mu_norm=np.ones_like(k), rbkg=1.0)
+        ft = athena.ft_to_r_space(k, chi, None, 3.0, 12.0, 2)
+        synthetic = SimpleNamespace(
+            chi_k=ck, ft=ft,
+            structure={"status": "confident", "coverage_ok": True,
+                       "ranked": [{"id": motif.id}]},
+            merged=None, norm=None, self_absorption=None,
+            absorber_symbol="Ni")
+        free = xafs_fit.fit_identified(
+            synthetic, absorber_symbol="Ni", rmax=4.3,
+            verbose=False)["fit"]
+        iso = xafs_fit.fit_identified(
+            synthetic, absorber_symbol="Ni", rmax=4.3,
+            isotropic_deltar=True, verbose=False)["fit"]
+        self.assertEqual(free.n_variables, 13)
+        self.assertEqual(iso.n_variables, 10,
+                         f"各向同性约束后变量数 {iso.n_variables} ≠ 10")
+        self.assertEqual(free.n_variables - iso.n_variables,
+                         len(iso.paths) - 1)
+        self.assertLess(iso.r_factor, 1e-4,
+                        f"合成各向同性 NiO 的 Rf={iso.r_factor:.3e} ≥ 1e-4")
+        self.assertIsNotNone(iso.lattice_strain)
+        self.assertIsNotNone(iso.lattice_strain_err)
+        self.assertLess(abs(iso.lattice_strain - alpha_true), 1e-9,
+                        f"α 回收 {iso.lattice_strain:.12f} vs 真值 {alpha_true}")
+        for p in iso.paths:
+            self.assertLess(
+                abs(p.delta_r / p.reff - iso.lattice_strain), 1e-12,
+                f"{p.label} 的 ΔR/Reff 与全局 α 不一致")
+
+        exp = xafs_pipeline.process_sample(
+            [NIO], absorber="Ni", strict=False, verbose=False)
+        exp_iso = xafs_fit.fit_identified(
+            exp, absorber_symbol="Ni", rmax=4.3,
+            isotropic_deltar=True, verbose=False)
+        self.assertGreater(exp_iso["fit"].r_factor, 0.08,
+                           "实验 NiO 的统一 α 约束意外达到 Rf<0.08，"
+                           "需复核是否有人为补偿")
+        self.assertFalse(exp_iso["cn_reliable"],
+                         "实验 NiO 的 Rf>0.08 却仍标记 CN 可靠")
+        self.assertIn("各向同性晶格约束", exp_iso["warning"])
+
+    # ------------------------------------------------------------
+    # 43. 第七批（B7-2）
+    # ------------------------------------------------------------
+    def test_cif_partial_occupancy_and_vacancy_scaling(self):
+        """B7-2：CIF 部分占据、共占位合并与壳层简并度缩放。
+
+        合成 Pm-3m CIF（a=4.10 Å）：第一壳 O 位于 3d (0.5,0,0)（R=2.05 Å，
+        6 配位，occ=0.75）；第二壳 Co(0.6)/Ni(0.4) 同处 1b (0.5,0.5,0.5)
+        （R=3.5507 Å，8 配位）共占位。要求：默认仍返回 4 元组；return_occupancy
+        返 5 元组且第一壳 O 的 occ=0.75；共占位合并后任意两点间距 ≥0.08 Å，
+        元素取高占据者 Co 且有效占据度钳制到 1.0，可正常跑 FEFF6；
+        select_shell_paths 选出的第一壳简并度 degens[0] 精确等于 6×0.75=4.5，
+        第二壳 Fe-Co 简并度等于 8×1.0=8.0。
+        """
+        cif_text = """data_test_occ
+_cell_length_a 4.10
+_cell_length_b 4.10
+_cell_length_c 4.10
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 90
+_symmetry_space_group_name_H-M 'Pm-3m'
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+Fe1 Fe 0.0 0.0 0.0 1.0
+O1 O 0.5 0.0 0.0 0.75
+Co1 Co 0.5 0.5 0.5 0.6
+Ni1 Ni 0.5 0.5 0.5 0.4
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            cif = Path(tmp) / "occ.cif"
+            cif.write_text(cif_text, encoding="utf-8")
+
+            legacy = artemis.read_cif_sites(cif, absorber="Fe", rmax=6.0)
+            self.assertGreater(len(legacy), 10)
+            self.assertTrue(all(len(s) == 4 for s in legacy),
+                            "默认模式不再是 4 元组，破坏既有 CIF 调用")
+            sites2, occs2 = artemis.read_cif_sites(
+                cif, absorber="Fe", rmax=6.0, with_occupancy=True)
+            self.assertEqual(len(sites2), len(occs2))
+            five = artemis.read_cif_sites(
+                cif, absorber="Fe", rmax=6.0, return_occupancy=True)
+            self.assertEqual(len(five[0]), 5)
+            self.assertEqual(five[0][3], "O")
+            self.assertAlmostEqual(five[0][4], 0.75, places=12)
+
+            pos = np.array([s[:3] for s in five])
+            dmin = min(float(np.linalg.norm(pos[i] - pos[j]))
+                       for i in range(len(pos))
+                       for j in range(i + 1, len(pos)))
+            self.assertGreaterEqual(dmin, 0.08,
+                                    f"共占位合并后仍有间距 {dmin:.4f} Å < 0.08")
+            co_sites = [s for s in five if s[3] == "Co"]
+            self.assertGreaterEqual(len(co_sites), 8)
+            self.assertTrue(all(abs(s[4] - 1.0) < 1e-12 for s in co_sites),
+                            f"Co/Ni 共占位未钳制到 occ=1.0: {co_sites[0][4]}")
+            self.assertFalse(any(s[3] == "Ni" for s in five),
+                             "Co/Ni 共占位未合并成单一晶位")
+            self.assertAlmostEqual(
+                float(np.linalg.norm(co_sites[0][:3])),
+                2.05 * np.sqrt(3.0), places=6)
+
+            # 合并后的位点必须能正常生成 FEFF 路径而不崩溃
+            feff_dir = Path(tmp) / "feff_occ"
+            feff_inp = artemis.build_feff_input(
+                legacy, absorber="Fe", rmax=4.2, edge="K", title="occ_test")
+            datfiles = artemis.run_feff6l(feff_inp, feff_dir)
+            self.assertGreaterEqual(len(datfiles), 2)
+
+            scale = artemis.cif_shell_occupancy_scale(cif, "Fe", rmax=6.0)
+            o_scale = [occ for (dist, el, occ) in scale
+                       if el == "O" and abs(dist - 2.05) < 1e-6]
+            self.assertEqual(len(o_scale), 6)
+            self.assertTrue(all(abs(occ - 0.75) < 1e-12 for occ in o_scale),
+                            f"第一壳 O 占据度缩放错误: {o_scale}")
+
+            motif = structure_lib.Motif(
+                id="occ_test", absorber="Fe", kind="crystal",
+                nuclearity="crystal", cell={"a": 4.10},
+                spacegroup="Pm-3m",
+                asym_sites=[
+                    {"el": "Fe", "x": 0.0, "y": 0.0, "z": 0.0},
+                    {"el": "O", "x": 0.5, "y": 0.0, "z": 0.0, "occ": 0.75},
+                    {"el": "Co", "x": 0.5, "y": 0.5, "z": 0.5,
+                     "occ": 0.6},
+                    {"el": "Ni", "x": 0.5, "y": 0.5, "z": 0.5,
+                     "occ": 0.4}],
+                cif_path=str(cif),
+                sites=[(x, y, z, el) for (x, y, z, el) in legacy])
+            plan = xafs_fit.select_shell_paths(
+                motif, edge="K", rmax=3.8, kmin=3.0, kmax=12.0)
+            self.assertEqual(plan["labels"][0], "Fe-O@2.05")
+            self.assertAlmostEqual(plan["degens"][0], 4.5, places=12,
+                                   msg=f"第一壳 Fe-O 简并度 {plan['degens'][0]} ≠ 6×0.75")
+            co_idx = plan["labels"].index("Fe-Co@3.55")
+            self.assertAlmostEqual(plan["degens"][co_idx], 8.0, places=12,
+                                   msg=f"第二壳 Fe-Co 简并度 {plan['degens'][co_idx]} ≠ 8×1.0")
+
+    # ------------------------------------------------------------
+    # 44. 第七批（B7-3）
+    # ------------------------------------------------------------
+    def test_c4_cumulant_and_asymmetric_rdf_reconstruction(self):
+        """B7-3：C4 回收与正偏态 g(R) 的重构契约。
+
+        1) C4=6e-5 合成单壳谱，vary_c4=True 回收误差 <2.5e-5；
+        2) RDF 面积严格等于 N，且 C3>0 时 r_mode < r_mean、
+           skewness>0、右尾延伸大于左尾。
+
+        注：规范原文“右半侧积分面积大于左半侧”与归一化正偏态分布
+        数学矛盾——在 r0 处切分时，质量向峰位左侧集中必然导致
+        左面积 > 右面积（本实现实测 3.159 vs 2.779）。这里改用
+        等价可检验的尾长判据（q95−r0 > r0−q05），不伪造面积。
+        """
+        motif = [m for m in structure_lib.load_library("Ni")
+                 if m.id == "nio_rocksalt"][0]
+        cache = structure_lib.ensure_feff(motif, edge="K")
+        datfile = None
+        for f in sorted(cache.glob("feff*.dat")):
+            p = artemis.load_feff_path(f)
+            if int(getattr(p, "nleg", 2)) == 2:
+                datfile = f
+                break
+        self.assertIsNotNone(datfile, "NiO 单散射路径缺失")
+        p = artemis.load_feff_path(datfile)
+        p.degen = 6.0
+        artemis.set_path_parameters(p, s02=1.0, delta_r=0.0,
+                                    sigma2=0.004, delta_e0=0.0,
+                                    fourth=6e-5)
+        self.assertIn(p.pathpar_name("fourth"), p.params,
+                      "set_path_parameters 未把 fourth 映射进 larch params")
+        k = np.asarray(p.k)
+        chi = np.asarray(p.chi)
+        ck = ChiK(k=k, chi=chi, background=np.zeros_like(k),
+                  mu_norm=np.ones_like(k), rbkg=1.2)
+        ft = athena.ft_to_r_space(k, chi, None, 3.0, 12.0, 2)
+        fit = artemis.fit_r_space(
+            ck, ft, [datfile], rmin=max(1.0, p.reff - 0.8),
+            rmax=p.reff + 0.8, kmin=3.0, kmax=12.0, kweight=2,
+            s02=1.0, vary_n=False, vary_c4=True,
+            sigma2_init=0.004, deltar_lim=(-0.1, 0.1))
+        path_fit = fit.paths[0]
+        self.assertIsNotNone(path_fit.c4)
+        self.assertLess(abs(path_fit.c4 - 6e-5), 2.5e-5,
+                        f"C4 回收 {path_fit.c4:.3e} vs 真值 6e-5")
+        self.assertFalse(path_fit.c4_at_bound)
+        self.assertEqual(artemis.C4_LIMIT, 2e-4)
+
+        rdf = artemis.reconstruct_pair_distribution(
+            np.linspace(1.5, 2.7, 601), n=6.0, r0=2.05,
+            sigma2=0.006, c3=2.5e-4)
+        self.assertLess(abs(rdf["area"] - 6.0), 1e-3,
+                        f"g(R) 积分面积 {rdf['area']:.6f} ≠ 6.0")
+        self.assertEqual(rdf["r"].shape, rdf["g_r"].shape)
+        self.assertTrue(np.all(rdf["g_r"] >= 0.0))
+        self.assertLess(rdf["r_mode"], rdf["r_mean"],
+                        "正偏态 g(R) 的峰位必须低于平均键长")
+        self.assertGreater(rdf["skewness"], 0.0)
+        r, g = rdf["r"], rdf["g_r"]
+        cdf = np.cumsum(g) * np.gradient(r)
+        cdf /= cdf[-1]
+        q05 = float(r[np.searchsorted(cdf, 0.05)])
+        q95 = float(r[np.searchsorted(cdf, 0.95)])
+        self.assertGreater(q95 - 2.05, 2.05 - q05,
+                           f"右尾 {q95 - 2.05:.3f} 未长于左尾 {2.05 - q05:.3f}")
+        left = float(np.trapezoid(g[r <= 2.05], r[r <= 2.05]))
+        right = float(np.trapezoid(g[r >= 2.05], r[r >= 2.05]))
+        self.assertGreater(left, right,
+                           "归一化正偏态分布在 r0 处切分应满足左面积>右面积；"
+                           "若此断言失败说明归一化或非负截断出错")
+
+    # ------------------------------------------------------------
+    # 45. 第八批（B8-1）
+    # ------------------------------------------------------------
+    def test_multi_dataset_corefinement_and_einstein_model(self):
+        """B8-1：双温度全局联合拟合 + 爱因斯坦 σ²(T) 约束。
+
+        用 LEPIDO 第一壳 Fe–O（μ=12.436 amu）在真值 Θ_E=420 K、
+        σ²_static=0.0015 Å²、ΔR=-0.02 Å、N=6.0 下合成 80 K 与 350 K
+        两条谱。要求：
+          - 全局自由变量从独立 2×4=8 降为 5（N/ΔR/e0/σ²_static/Θ_E）；
+          - Θ_E 回收误差 <15 K，σ²_static 误差 <5e-4；
+          - 两数据集各自 Rf <1e-4，且 ΔR/N 也被正确绑定回收。
+        同时核对 HBAR2_OVER_2KB=24.254316 与 T≤0 的干净拒绝。
+        """
+        motif = [m for m in structure_lib.load_library("Fe")
+                 if m.id == "lepidocrocite"][0]
+        cache = structure_lib.ensure_feff(motif, edge="K")
+        first = None
+        for f in sorted(cache.glob("feff*.dat")):
+            p = artemis.load_feff_path(f)
+            if int(getattr(p, "nleg", 2)) == 2:
+                if first is None or p.reff < first[1].reff:
+                    first = (f, p)
+        self.assertIsNotNone(first, "lepidocrocite 第一壳路径缺失")
+        datfile, path0 = first
+        self.assertLess(abs(path0.reff - 1.98), 0.05)
+
+        # 常数与输入护栏
+        self.assertEqual(artemis.HBAR2_OVER_2KB, 24.254316)
+        self.assertAlmostEqual(
+            artemis.einstein_sigma2(300.0, 500.0, 12.436),
+            0.005717251068417776, places=12)
+        for kwargs in ({"temperature_K": 0.0, "theta_e": 420.0,
+                        "reduced_mass_amu": 12.436},
+                       {"temperature_K": 300.0, "theta_e": 0.0,
+                        "reduced_mass_amu": 12.436},
+                       {"temperature_K": 300.0, "theta_e": 420.0,
+                        "reduced_mass_amu": 0.0}):
+            with self.assertRaises(XAFSConfigError):
+                artemis.einstein_sigma2(**kwargs)
+
+        theta_true, static_true = 420.0, 0.0015
+        dr_true, n_true, mu = -0.02, 6.0, 12.436
+        k = np.arange(2.0, 13.0, 0.02)
+        datasets = []
+        sigma2_true = {}
+        for T in (80.0, 350.0):
+            p = artemis.load_feff_path(datfile)
+            p.degen = n_true
+            s2 = artemis.einstein_sigma2(
+                T, theta_true, mu, static_true)
+            sigma2_true[T] = s2
+            artemis.set_path_parameters(
+                p, s02=1.0, delta_r=dr_true, sigma2=s2, delta_e0=0.0)
+            chi = artemis.exafs_model_k([p], k)
+            ck = ChiK(k=k, chi=chi, background=np.zeros_like(k),
+                      mu_norm=np.ones_like(k), rbkg=1.0)
+            ft = athena.ft_to_r_space(k, chi, None, 3.0, 12.0, 2)
+            datasets.append({
+                "name": f"T{int(T)}", "chi_k": ck, "ft": ft,
+                "datfiles": [datfile], "rmin": 1.0, "rmax": 2.6,
+                "kmin": 3.0, "kmax": 12.0, "kweight": 2, "s02": 1.0,
+                "vary_n": True, "path_degen": [n_true],
+                "path_labels": ["Fe-O"], "temperature_K": T})
+
+        ref = artemis.fit_multi_datasets(
+            datasets,
+            shared_bonds=[{"target": (1, 0), "source": (0, 0),
+                           "share_deltar": True, "share_sigma2": False,
+                           "degen_ratio": 1.0}],
+            einstein_models=[{"paths": [(0, 0), (1, 0)],
+                              "reduced_mass_amu": mu,
+                              "theta_e_init": 350.0}])
+        self.assertEqual(ref["n_variables_total"], 5,
+                         f"全局变量数 {ref['n_variables_total']} ≠ 5")
+        self.assertGreater(ref["n_independent_total"],
+                           ref["n_variables_total"])
+        self.assertEqual(len(ref["datasets"]), 2)
+        self.assertEqual(len(ref["einstein_results"]), 1)
+        ein = ref["einstein_results"][0]
+        self.assertLess(abs(ein["theta_e"] - theta_true), 15.0,
+                        f"Θ_E 回收 {ein['theta_e']:.4f} vs 真值 {theta_true}")
+        self.assertLess(abs(ein["sigma2_static"] - static_true), 5e-4,
+                        f"σ²_static 回收 {ein['sigma2_static']:.6f} "
+                        f"vs 真值 {static_true}")
+        for di, T in enumerate((80.0, 350.0)):
+            fr = ref["datasets"][di]
+            self.assertLess(fr.r_factor, 1e-4,
+                            f"T={T} K 的 Rf={fr.r_factor:.3e} ≥1e-4")
+            self.assertAlmostEqual(
+                fr.paths[0].delta_r, dr_true, places=4,
+                msg=f"T={T} K 的 ΔR 未被共享约束")
+            self.assertAlmostEqual(
+                fr.paths[0].degeneracy, n_true, places=4,
+                msg=f"T={T} K 的 N 未被共享约束")
+            self.assertAlmostEqual(
+                fr.paths[0].sigma2, sigma2_true[T], places=10,
+                msg=f"T={T} K 的 σ²(T) 未按爱因斯坦模型计算")
+            self.assertIsNotNone(fr.paths[0].sigma2_err)
+        self.assertLess(abs(ref["global_r_factor"]), 1e-4)
+
+
+    # ============================================================
+    # Phase III（B9–B12）：#46–#60
+    # ============================================================
+    def test_config_file_covers_all_cli_switches(self):
+        """#46 B9-1：17 个 Phase I–III 配置键逐键生效，未配置键保持默认。
+
+        优先级契约：explicit（CLI 显式 dest）> 配置文件 > 代码默认值。
+        这里用 JSON（合法 YAML 子集）写全部 17 键，避免依赖 PyYAML；
+        同时确认 ``bvs_restraint`` 已进入 DEFAULTS。
+        """
+        import json
+
+        cfg = {
+            "deglitch": [[7000.0, 7010.0]],
+            "deadtime": True,
+            "reject_outlier_scans": True,
+            "fit_kweights": "1,2,3",
+            "include_ms": True,
+            "vary_c3": "first",
+            "vary_c4": "all",
+            "isotropic_deltar": True,
+            "lcf_standards": "a.xdi,b.xdi",
+            "shared_sigma2": "all",
+            "mback": True,
+            "chi_std": "std.dat",
+            "clamp_lo": 0.1,
+            "clamp_hi": 0.2,
+            "fit_space": "q",
+            "target_transform": {"spoil_good": 3.0},
+            "mcr_als": {"n_components": 3},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "all.json"
+            path.write_text(json.dumps(cfg), encoding="utf-8")
+            loaded = xafs_config.load_config(path)
+            kwargs = {k: (list(v) if isinstance(v, list) else v)
+                      for k, v in xafs_config.DEFAULTS.items()}
+            kwargs.pop("self_absorption", None)
+            kwargs.pop("batch", None)
+            merged = xafs_config.apply_config_to_kwargs(loaded, kwargs)
+
+        self.assertEqual(merged["deglitch"], [(7000.0, 7010.0)])
+        for key in ("deadtime", "reject_outlier_scans", "include_ms",
+                    "isotropic_deltar", "mback"):
+            self.assertIs(merged[key], True, f"{key} 未由配置打开")
+        self.assertEqual(merged["fit_kweights"], (1, 2, 3))
+        self.assertEqual(merged["vary_c3"], [0])
+        self.assertIs(merged["vary_c4"], True)
+        self.assertEqual(merged["lcf_standards"], ["a.xdi", "b.xdi"])
+        self.assertEqual(merged["shared_sigma2"], "all")
+        self.assertEqual(merged["chi_std"], "std.dat")
+        self.assertAlmostEqual(merged["clamp_lo"], 0.1)
+        self.assertAlmostEqual(merged["clamp_hi"], 0.2)
+        self.assertEqual(merged["fit_space"], "q")
+        self.assertEqual(merged["target_transform"], {"spoil_good": 3.0})
+        self.assertEqual(merged["mcr_als"], {"n_components": 3})
+        # 未出现在配置里的键必须保持代码默认值
+        self.assertEqual(merged["kmin"], 3.0)
+        self.assertEqual(merged["kmax"], 12.0)
+        self.assertIs(merged["despike"], xafs_config.DEFAULTS["despike"],
+                      "未配置的 despike 不应被配置合并改写")
+        self.assertIs(merged["despike"], False)
+        self.assertIn("bvs_restraint", xafs_config.DEFAULTS)
+
+        # CLI 显式值优先级最高
+        merged2 = xafs_config.apply_config_to_kwargs(
+            loaded, dict(kwargs, clamp_lo=0.9), explicit={"clamp_lo"})
+        self.assertAlmostEqual(merged2["clamp_lo"], 0.9)
+
+    def test_vary_c4_cli_nidp_gate_and_rdf_export(self):
+        """#47 B9-1：C4 回收、N_idp 降级与真实 LEPIDO 的 g(R) 导出。
+
+        1) 合成 Fe–O 单壳 C4=6e-5，经 ``fit_identified(vary_c4=True)``
+           回收误差 <2.5e-5；
+        2) LEPIDO 取 4 条壳层、vary_c4="all" 时 4 个 C4 变量使
+           n_var=17 > N_idp≈15，必须先降为仅第一壳并记
+           ``c4_dropped_by_nidp=True``；
+        3) 真实 LEPIDO 放开 C3 后 ``rdf_table`` 每条路径的 g(R) 面积
+           必须等于拟合 N，并能写出 7 列 ``_rdf.csv``。
+        """
+        import types
+
+        motif = [m for m in structure_lib.load_library("Fe")
+                 if m.id == "lepidocrocite"][0]
+        cache = structure_lib.ensure_feff(motif, edge="K")
+        first = None
+        for f in sorted(cache.glob("feff*.dat")):
+            p = artemis.load_feff_path(f)
+            if int(getattr(p, "nleg", 2)) == 2:
+                if first is None or p.reff < first[1].reff:
+                    first = (f, p)
+        self.assertIsNotNone(first, "lepidocrocite 第一壳路径缺失")
+        datfile = first[0]
+
+        k = np.arange(2.0, 13.0, 0.02)
+        p = artemis.load_feff_path(datfile)
+        p.degen = 6.0
+        artemis.set_path_parameters(
+            p, s02=0.803, delta_r=-0.05, sigma2=0.004,
+            delta_e0=0.5, fourth=6e-5)
+        chi = artemis.exafs_model_k([p], k)
+        ck = ChiK(k=k, chi=chi, background=np.zeros_like(k),
+                  mu_norm=np.ones_like(k), rbkg=1.0)
+        ft = athena.ft_to_r_space(k, chi, None, 3.0, 12.0, 2)
+        res = types.SimpleNamespace(
+            chi_k=ck, ft=ft, merged=None, norm=None,
+            structure=None, absorber_symbol="Fe", self_absorption=None)
+        out = xafs_fit.fit_identified(
+            res, motif_id="lepidocrocite", absorber_symbol="Fe",
+            rmin=1.2, rmax=2.4, vary_c4=True, verbose=False)
+        fit = out["fit"]
+        c4 = fit.paths[0].c4
+        self.assertIsNotNone(c4, "vary_c4=True 未产生 C4 变量")
+        self.assertLess(abs(c4 - 6e-5), 2.5e-5,
+                        f"C4 回收 {c4:.3e} vs 真值 6.0e-05")
+        self.assertIn(fit.paths[0].label,
+                      out["flags"]["c4_active_shells"])
+
+        # 4 壳层 + 全部 C4 → N_idp 防护
+        out2 = xafs_fit.fit_identified(
+            self.lep, motif_id="lepidocrocite", absorber_symbol="Fe",
+            rmax=4.0, vary_c4="all", verbose=False)
+        self.assertTrue(out2["flags"]["c4_dropped_by_nidp"],
+                        "4 壳层 + C4 未触发 c4_dropped_by_nidp")
+        self.assertEqual(len(out2["flags"]["c4_active_shells"]), 1,
+                         "C4 降级后应只保留第一壳")
+        self.assertLess(out2["fit"].n_variables,
+                        out2["fit"].n_independent)
+
+        out3 = xafs_fit.fit_identified(
+            self.lep, motif_id="lepidocrocite", absorber_symbol="Fe",
+            vary_c3=True, verbose=False)
+        rdf = xafs_fit.rdf_table(out3["fit"])
+        self.assertEqual(len(rdf["rows"]), len(out3["fit"].paths),
+                         "并非每条 C3 路径都生成了 g(R)")
+        for summary, path in zip(rdf["summary"], out3["fit"].paths):
+            self.assertAlmostEqual(summary["area"], path.degeneracy,
+                                   places=6,
+                                   msg=f"{path.label} 的 g(R) 面积≠N")
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_path = Path(tmp) / "lepido_rdf.csv"
+            xafs_fit.write_rdf_csv(csv_path, rdf)
+            self.assertTrue(csv_path.exists())
+            header = csv_path.read_text(
+                encoding="utf-8-sig").splitlines()[0]
+            for col in ("label", "r_A", "g_r", "r_mode", "r_mean",
+                        "skewness", "area"):
+                self.assertIn(col, header)
+
+    def test_sigma_mu_export_and_high_k_snr_gate(self):
+        """#48 B9-2：三扫描合并的 σ_μ 落盘与高 k SNR 单调性。
+
+        ``_mu.dat`` 必须有第 4 列 sigma_mu；注入递增噪声时 k_snr2 必须
+        单调下降；没有 sigma_mu 时返回 None 并给出原因，不伪造曲线。
+        """
+        import run_xafs
+
+        files = [LEPIDO, LEPIDO.with_suffix(".100"),
+                 LEPIDO.with_suffix(".200")]
+        for f in files:
+            self.assertTrue(f.is_file(), f"缺少测试扫描 {f}")
+        with tempfile.TemporaryDirectory() as tmp:
+            res = run_xafs.process_sample(
+                [str(f) for f in files], Path(tmp), absorber="Fe",
+                strict=False, verbose=False)
+            self.assertIsNotNone(res.merged.sigma_mu,
+                                 "三扫描合并未保留 sigma_mu")
+            mu_path = Path(tmp) / f"{res.stem}_mu.dat"
+            lines = mu_path.read_text(encoding="utf-8").splitlines()
+            self.assertIn("sigma_mu", lines[1])
+            self.assertEqual(len(lines[2].split()), 4,
+                             "_mu.dat 不是 4 列（E, mu, mu_norm, sigma_mu）")
+
+        ck = res.chi_k
+        edge = abs(float(res.norm.edge_step))
+        k_snr2 = []
+        for scale in (1e-3, 3e-3, 1e-2, 3e-2):
+            out = athena.high_k_snr(
+                ck, sigma_mu=np.full_like(ck.k, scale * edge),
+                edge_step=res.norm.edge_step, kweight=2)
+            self.assertIsNotNone(out["k_snr2"],
+                                 f"噪声 scale={scale} 未给出 k_snr2")
+            k_snr2.append(out["k_snr2"])
+        for hi_noise, lo_noise in zip(k_snr2[1:], k_snr2[:-1]):
+            self.assertLess(hi_noise, lo_noise - 0.2,
+                            f"k_snr2 未随噪声单调下降: {k_snr2}")
+        none = athena.high_k_snr(ck)
+        self.assertIsNone(none["k_snr2"])
+        self.assertIn("sigma_mu", none["reason"])
+        self.assertIsNotNone(res.snr["k_snr2"])
+
+    def test_wt_ruler_auto_mount_and_l3_whiteline_area(self):
+        """#49 B9-2：WT 元素标尺自动挂载 + L3 白线净面积。
+
+        K 边保留 ``pre_edge_n_peaks``；L3 边必须没有该字段，而给出
+        有限的 ``white_line_area``/``whiteline_peak_height``。
+        自动标尺的元素集合来自拟合路径 ∪ {O, 吸收元素}，并带缓存。
+        """
+        fit_obj = self.lep_fit["fit"]["fit"]
+        ruler = xafs_report.auto_ref_k_peaks(
+            self.lep, fit_obj, "Fe")
+        self.assertIsNotNone(ruler, "拟合路径存在时未生成 WT 标尺")
+        self.assertIn("O", ruler)
+        self.assertIn("Fe", ruler)
+        self.assertTrue(np.isfinite(ruler["O"]))
+        self.assertTrue(np.isfinite(ruler["Fe"]))
+        self.assertLess(ruler["O"], ruler["Fe"])
+        again = xafs_report.auto_ref_k_peaks(
+            self.lep, fit_obj, "Fe")
+        self.assertIs(again, ruler, "同一参数未命中 WT 标尺缓存")
+        with tempfile.TemporaryDirectory() as tmp:
+            prof = xafs_diagnostics.write_wt_shell_profiles(
+                self.lep, self.lep_fit, tmp, ref_k_peaks=ruler)
+            self.assertTrue(Path(prof["png"]).exists())
+
+        k_feat = athena.extract_xanes_features(
+            self.lep.norm, edge="K", absorber="Fe")
+        self.assertIn("pre_edge_n_peaks", k_feat)
+        self.assertNotIn("white_line_area", k_feat)
+
+        res_pt = xafs_pipeline.process_sample(
+            [PT_FOIL], absorber="Pt", strict=False, verbose=False)
+        l_feat = athena.extract_xanes_features(
+            res_pt.norm, edge="L3", absorber="Pt")
+        self.assertNotIn("pre_edge_n_peaks", l_feat,
+                         "L3 边不应拟合 1s→3d 边前峰")
+        self.assertTrue(np.isfinite(l_feat["white_line_area"]))
+        self.assertGreater(l_feat["white_line_area"], 0.0)
+        self.assertTrue(np.isfinite(l_feat["whiteline_peak_height"]))
+
+    def test_prj_roundtrip_and_multichannel_mca_merge(self):
+        """#50 B9-3：gzip-JSON 工程容器 round-trip 与 MCA 坏道剔除。
+
+        8 通道中第 2、6 道注入 Bragg spike，必须精确剔除且保底 ≥2 道；
+        求和谱必须等于干净通道按 info["weights"] 的加权和。
+        """
+        rng = np.random.default_rng(4)
+        energy = np.linspace(7100.0, 7300.0, 201)
+        mu = (1.0 + 0.5 / (1.0 + np.exp(-(energy - 7120.0) / 2.0))
+              + 0.01 * np.sin(energy / 3.0))
+        scan = RawScan(energy=energy, mu=mu, meta={"mode": "trans"})
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "roundtrip.prj"
+            xafs_io.write_prj(
+                path, {"scans": [scan], "standards": {},
+                       "meta": {"created": "test"}})
+            self.assertEqual(path.read_bytes()[:2], b"\x1f\x8b",
+                             ".prj 未使用 gzip 容器")
+            out = xafs_io.read_prj(path, as_scans=True)
+            got = out["scans"][0]
+            self.assertTrue(np.array_equal(got.energy, scan.energy))
+            self.assertTrue(np.array_equal(got.mu, scan.mu))
+            self.assertEqual(out["meta"], {"created": "test"})
+
+            # 兼容未压缩 JSON
+            import json
+            plain = Path(tmp) / "plain.prj"
+            plain.write_text(json.dumps({
+                "xafs_prj": 1,
+                "scans": [{"energy": energy.tolist(),
+                           "mu": mu.tolist(), "meta": {}}],
+                "meta": {}}), encoding="utf-8")
+            out2 = xafs_io.read_prj(plain, as_scans=True)
+            self.assertTrue(np.array_equal(out2["scans"][0].energy, energy))
+
+            # Athena Perl 工程必须干净拒绝
+            perl = Path(tmp) / "athena.prj"
+            perl.write_text("$VAR1 = { 'x' => 1 };", encoding="utf-8")
+            with self.assertRaises(XAFSConfigError):
+                xafs_io.read_prj(perl)
+
+        n = 600
+        base = (1.0 + 0.6 / (1.0 + np.exp(-(np.arange(n) - 300.0) / 12.0))
+                + 0.005 * np.sin(np.arange(n) / 9.0))
+        channels = (np.tile(base[:, None], (1, 8))
+                    + rng.normal(0.0, 0.002, (n, 8)))
+        for idx in (2, 6):
+            for j in (120, 121, 400):
+                channels[j, idx] += 2.5
+        summed, info = athena.merge_mca_channels(
+            channels, z_threshold=3.5, min_channels=2)
+        self.assertEqual(info["rejected"], [2, 6])
+        self.assertEqual(info["n_kept"], 6)
+        self.assertGreaterEqual(info["n_kept"], 2)
+        clean = [i for i in range(8) if i not in info["rejected"]]
+        weights = np.asarray(info["weights"], dtype=float)
+        self.assertAlmostEqual(float(weights.sum()), 1.0, places=12)
+        ref = np.sum(channels[:, clean] * weights[None, :], axis=1)
+        np.testing.assert_allclose(summed, ref, rtol=1e-12, atol=1e-12)
+
+    def test_mback_short_window_normalization(self):
+        """#51 B10-1：短边后窗口 MBACK 归一化的 edge_step 回收。
+
+        Fe K 理论截面合成 μ(E)（边后仅 60–150 eV），MBACK 的 edge_step
+        相对误差必须 <3%；传统二次多项式归一化在同窗口平台发 NaN 且
+        偏差更大。a≤0 时干净拒绝。
+        """
+        from xraydb import mu_elam
+
+        energy = np.linspace(6900.0, 7280.0, 650)
+        mu = (1.7 * mu_elam("Fe", energy)
+              + 0.02 * (energy - 7112.0) + 0.3)
+        scan = RawScan(energy=energy, mu=mu, meta={})
+        truth = 1.7 * (mu_elam("Fe", 7162.0) - mu_elam("Fe", 7062.0))
+        mback = athena.normalize_mback(
+            scan, 7112.0, "Fe", post_window=(60.0, 150.0))
+        rel = abs(mback.edge_step - truth) / truth
+        self.assertLess(rel, 0.03,
+                        f"MBACK edge_step 相对误差 {rel:.3e} ≥3%")
+        self.assertAlmostEqual(mback.edge_step, truth, places=8)
+        self.assertTrue(np.isfinite(mback.plateau))
+        self.assertEqual(mback.engine, "mback")
+        self.assertEqual(mback.mback["element"], "Fe")
+        self.assertGreater(mback.mback["a"], 0.0)
+
+        trad = athena.normalize_absorption(
+            scan, 7112.0, post_window=(60.0, 150.0))
+        trad_rel = abs(trad.edge_step - truth) / truth
+        self.assertGreater(trad_rel, 0.01,
+                           "传统短窗口归一化不应比 MBACK 更准")
+        self.assertGreater(trad_rel, 5.0 * rel)
+        self.assertFalse(np.isfinite(trad.plateau))
+
+        negative = RawScan(
+            energy=energy,
+            mu=-1.7 * mu_elam("Fe", energy) + 0.02 * (energy - 7112.0) + 0.3,
+            meta={})
+        with self.assertRaises(XAFSError):
+            athena.normalize_mback(
+                negative, 7112.0, "Fe", post_window=(60.0, 150.0))
+
+    def test_autobk_chi_std_prior_and_clamp(self):
+        """#52 B10-1：AUTOBK 先验谱压低低 R 泄漏，clamp 生效且合法。
+
+        合成谱 = 真实 Fe–O χ(k) + 0.7 Å 低频伪振荡 + 噪声。以真实
+        χ(k) 作为 chi_std 时，R<1.2 Å 内“提取谱−真值”的泄漏必须
+        降到无先验的一半以下；非法长度必须报 XAFSConfigError。
+        """
+        motif = [m for m in structure_lib.load_library("Fe")
+                 if m.id == "lepidocrocite"][0]
+        cache = structure_lib.ensure_feff(motif, edge="K")
+        first = None
+        for f in sorted(cache.glob("feff*.dat")):
+            p = artemis.load_feff_path(f)
+            if int(getattr(p, "nleg", 2)) == 2:
+                if first is None or p.reff < first[1].reff:
+                    first = (f, p)
+        datfile = first[0]
+        k = np.arange(0.0, 15.0, 0.05)
+        p = artemis.load_feff_path(datfile)
+        p.degen = 6.0
+        artemis.set_path_parameters(
+            p, s02=0.803, delta_r=0.0, sigma2=0.004, delta_e0=0.0)
+        true_chi = artemis.exafs_model_k([p], k)
+        rng = np.random.default_rng(3)
+        leak = 0.03 * np.sin(2.0 * 0.7 * k + 0.4)
+        noise = rng.normal(0.0, 0.002, k.size)
+        mu = 1.0 + true_chi + leak + noise
+        energy = 7112.0 + k ** 2 / K2
+        norm = NormalizedScan(
+            energy=energy, mu=mu, mu_norm=mu,
+            pre_edge_line=np.zeros_like(mu), edge_step=1.0,
+            plateau=1.0, e0=7112.0, flattened=mu.copy())
+
+        trap = getattr(np, "trapezoid", None) or getattr(np, "trapz")
+        ft_true = athena.ft_to_r_space(k, true_chi, None, 3.0, 12.0, 2)
+        r_mask = (ft_true.r >= 0.2) & (ft_true.r < 1.2)
+
+        def low_r_leak(chi_k):
+            ft = athena.ft_to_r_space(
+                chi_k.k, chi_k.chi, None, 3.0, 12.0, 2)
+            re = np.interp(ft_true.r, ft.r, ft.chi_r.real)
+            im = np.interp(ft_true.r, ft.r, ft.chi_r.imag)
+            diff = (re + 1j * im) - ft_true.chi_r
+            return float(trap(np.abs(diff[r_mask]), ft_true.r[r_mask]))
+
+        plain = athena.extract_chi_k(norm, rbkg=1.2, kweight=2)
+        with_std = athena.extract_chi_k(
+            norm, rbkg=1.2, kweight=2, chi_std=true_chi, k_std=k)
+        leak_plain = low_r_leak(plain)
+        leak_std = low_r_leak(with_std)
+        self.assertTrue(with_std.chi_std_used,
+                        "chi_std 未被记录为已使用")
+        self.assertLess(leak_std, 0.5 * leak_plain,
+                        f"低 R 泄漏未下降: plain={leak_plain:.4f}, "
+                        f"std={leak_std:.4f}")
+
+        clamped = athena.extract_chi_k(
+            norm, rbkg=1.2, kweight=2, clamp_lo=0.1, clamp_hi=0.1)
+        self.assertAlmostEqual(clamped.clamp_lo, 0.1)
+        self.assertAlmostEqual(clamped.clamp_hi, 0.1)
+        self.assertTrue(np.all(np.isfinite(clamped.chi)))
+        self.assertFalse(np.array_equal(clamped.chi, plain.chi),
+                         "clamp_lo/hi 未改变 AUTOBK 解")
+
+        with self.assertRaises(XAFSConfigError):
+            athena.extract_chi_k(
+                norm, rbkg=1.2, chi_std=np.ones(10), k_std=np.arange(9.0))
+        with self.assertRaises(XAFSConfigError):
+            athena.extract_chi_k(
+                norm, rbkg=1.2, chi_std=np.ones(20))
+
+    def test_pca_target_transform_spoil_and_mcr_als(self):
+        """#53 B10-2：SPOIL 判定与 MCR-ALS 盲解谱。
+
+        3 个独立端元 + 9 条混合谱（含纯端元，浓度和=1）加 0.5% 噪声：
+        真实端元 SPOIL<3、随机谱>6；MCR-ALS 组分谱相关系数>0.99、
+        浓度 RMSE<0.02，且 closure=True 时收敛。
+        """
+        import xafs_lcf
+
+        x = np.linspace(0.0, 10.0, 400)
+
+        def g(c, w):
+            return np.exp(-0.5 * ((x - c) / w) ** 2)
+
+        e1 = g(2.0, 0.35) + 0.10 * g(4.0, 0.6)
+        e2 = g(5.0, 0.55) + 0.15 * g(7.5, 0.5)
+        e3 = g(8.0, 0.40) + 0.20 * g(3.0, 0.4)
+        truth = np.vstack([e1, e2, e3])
+        weights = np.array([
+            [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0],
+            [0.5, 0.3, 0.2], [0.2, 0.6, 0.2], [0.3, 0.2, 0.5],
+            [0.6, 0.1, 0.3], [0.15, 0.15, 0.7], [0.25, 0.55, 0.2]])
+        rng = np.random.default_rng(11)
+        scale = float(np.max(truth))
+        specs = [(f"s{i}", x, weights[i] @ truth
+                  + rng.normal(0.0, 0.005 * scale, x.size))
+                 for i in range(len(weights))]
+        pca = xafs_lcf.run_pca(specs, 0.0, 10.0)
+        self.assertEqual(pca["x"].shape, x.shape)
+        self.assertEqual(np.asarray(pca["components"]).shape,
+                         (x.size, len(weights)))
+        tt = xafs_lcf.target_transform(
+            pca, [("true1", x, e1), ("true2", x, e2),
+                  ("true3", x, e3),
+                  ("rand", x, rng.normal(0.0, 1.0, x.size))],
+            n_components=3)
+        for name in ("true1", "true2", "true3"):
+            self.assertLess(tt[name]["spoils"], 3.0,
+                            f"{name} SPOIL={tt[name]['spoils']:.3f} ≥3")
+            self.assertEqual(tt[name]["rating"], "good")
+        self.assertGreater(tt["rand"]["spoils"], 6.0,
+                           f"随机谱 SPOIL={tt['rand']['spoils']:.3f} ≤6")
+
+        mcr = xafs_lcf.mcr_als(
+            specs, 3, max_iter=1500, tol=1e-10, closure=True)
+        self.assertTrue(mcr["converged"], "MCR-ALS 未收敛")
+        self.assertLess(mcr["r_factor"], 0.03)
+        comp = np.asarray(mcr["components"])
+        conc = np.asarray(mcr["concentrations"])
+        self.assertEqual(comp.shape, (x.size, 3))
+        self.assertEqual(conc.shape, (3, len(weights)))
+        # 组分顺序由数据决定，贪心匹配真值后计算相关与 RMSE
+        perm = []
+        for i in range(3):
+            candidates = [j for j in range(3) if j not in perm]
+            cors = [abs(np.corrcoef(comp[:, i], truth[j])[0, 1])
+                    for j in candidates]
+            perm.append(candidates[int(np.argmax(cors))])
+        for i, j in enumerate(perm):
+            corr = abs(np.corrcoef(comp[:, i], truth[j])[0, 1])
+            self.assertGreater(corr, 0.99,
+                               f"组分 {i} 与真值 {j} 相关 {corr:.4f} ≤0.99")
+        rmse = float(np.sqrt(np.mean(
+            (conc[perm, :] - weights.T) ** 2)))
+        self.assertLess(rmse, 0.02, f"浓度 RMSE={rmse:.4f} ≥0.02")
+
+    def test_phase_corrected_ft_and_wt(self):
+        """#54 B11-1：FEFF 总相移校正把 FT/WT 峰位拉回 Reff。
+
+        未校正 FT 峰位在 1.4–1.7 Å（表观 R），校正后 |R_peak−Reff|
+        必须 <0.05 Å；WT 使用同一相移也必须回到 Reff。
+        """
+        motif = [m for m in structure_lib.load_library("Fe")
+                 if m.id == "lepidocrocite"][0]
+        cache = structure_lib.ensure_feff(motif, edge="K")
+        first = None
+        for f in sorted(cache.glob("feff*.dat")):
+            p = artemis.load_feff_path(f)
+            if int(getattr(p, "nleg", 2)) == 2:
+                if first is None or p.reff < first[1].reff:
+                    first = (f, p)
+        datfile, path0 = first
+        reff = float(path0.reff)
+        k = np.arange(2.0, 13.0, 0.02)
+        p = artemis.load_feff_path(datfile)
+        p.degen = 6.0
+        artemis.set_path_parameters(
+            p, s02=1.0, delta_r=0.0, sigma2=0.004, delta_e0=0.0)
+        chi = artemis.exafs_model_k([p], k)
+        phi = artemis.path_total_phase(datfile, k)
+        self.assertEqual(phi.shape, k.shape)
+        self.assertTrue(np.all(np.isfinite(phi)))
+        self.assertIn(artemis.path_total_phase.last_source,
+                      ("feff_pha", "hilbert_fallback"))
+
+        def ft_peak(phase_correct):
+            ft = athena.ft_to_r_space(
+                k, chi, None, 3.0, 12.0, 2, phase_correct=phase_correct)
+            m = (ft.r >= 0.8) & (ft.r <= 2.8)
+            return float(ft.r[m][np.argmax(np.abs(ft.chi_r[m]))])
+
+        raw_peak = ft_peak(None)
+        corrected_peak = ft_peak(phi)
+        self.assertGreater(raw_peak, 1.3)
+        self.assertLess(raw_peak, 1.7)
+        self.assertLess(abs(corrected_peak - reff), 0.05,
+                        f"校正 FT 峰 {corrected_peak:.4f} vs Reff {reff:.4f}")
+
+        ck = ChiK(k=k, chi=chi, background=np.zeros_like(k),
+                  mu_norm=np.ones_like(k), rbkg=1.0)
+
+        def wt_peak(phase_correct):
+            wt = larch_wt.continuous_wavelet_transform(
+                ck, sigma=1.5, kmin=3.0, kmax=12.0, kweight=2,
+                rmax=3.0, phase_correct=phase_correct)
+            m = (wt.r >= 0.8) & (wt.r <= 2.8)
+            mag = wt.magnitude[:, m]
+            ij = np.unravel_index(int(np.argmax(mag)), mag.shape)
+            return float(wt.r[m][ij[1]])
+
+        wt_raw = wt_peak(None)
+        wt_corrected = wt_peak(phi)
+        self.assertLess(wt_raw, 1.7)
+        self.assertLess(abs(wt_corrected - reff), 0.05,
+                        f"校正 WT 峰 {wt_corrected:.4f} vs Reff {reff:.4f}")
+
+    def test_hetero_cocupancy_dual_branch_paths(self):
+        """#55 B11-1：异核共占位按距离聚壳并拆成元素分支。
+
+        Pm-3m 中 Ti(0.7)/Ru(0.3) 共占 1b 位（8 个镜像，R=3.5507 Å）：
+        两支占据度和=1、简并度合计=8（不是 16——不能按展开条目重复
+        乘占据度），且 single_element_approx=False。
+        """
+        cif_text = """data_test_hetero
+_cell_length_a 4.10
+_cell_length_b 4.10
+_cell_length_c 4.10
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 90
+_symmetry_space_group_name_H-M 'Pm-3m'
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+Fe1 Fe 0.0 0.0 0.0 1.0
+Ti1 Ti 0.5 0.5 0.5 0.7
+Ru1 Ru 0.5 0.5 0.5 0.3
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            cif = Path(tmp) / "hetero.cif"
+            cif.write_text(cif_text, encoding="utf-8")
+            out = artemis.cif_hetero_cocupancy_branches(
+                cif, "Fe", rmax=5.0, delta_z=3, occ_min=0.10)
+        self.assertFalse(out["single_element_approx"],
+                         "Ti/Ru 共占位被误判为单元素近似")
+        hetero_shells = [s for s in out["shells"]
+                         if not s["single_element_approx"]]
+        self.assertEqual(len(hetero_shells), 1)
+        shell = hetero_shells[0]
+        self.assertAlmostEqual(shell["distance"], 3.5507041555161982,
+                               places=10)
+        self.assertEqual(shell["n_geom"], 8)
+        branches = {b["element"]: b for b in shell["branches"]}
+        self.assertEqual(set(branches), {"Ti", "Ru"})
+        self.assertAlmostEqual(branches["Ti"]["occ"], 0.7, places=12)
+        self.assertAlmostEqual(branches["Ru"]["occ"], 0.3, places=12)
+        self.assertAlmostEqual(
+            branches["Ti"]["occ"] + branches["Ru"]["occ"], 1.0, places=12)
+        self.assertAlmostEqual(
+            branches["Ti"]["degen"] + branches["Ru"]["degen"],
+            shell["n_geom"], places=12)
+        self.assertAlmostEqual(branches["Ti"]["degen"], 5.6, places=12)
+        self.assertAlmostEqual(branches["Ru"]["degen"], 2.4, places=12)
+
+    def test_correlated_debye_sigma2_contract(self):
+        """#56 B11-2：关联 Debye 模型的温度/距离趋势与输入护栏。
+
+        σ²(300 K)>σ²(80 K)；R=4 Å 的关联因子更接近 1，σ² 大于 R=2 Å；
+        T→0 收敛到与温度无关的零点平台（静态项 + 零点振动），R=4 Å 的
+        高温值与 Einstein 模型同量级（0.5–2）。
+        """
+        kw = dict(theta_d=400.0, mass_absorber=55.845,
+                  mass_scatterer=15.999)
+        near_80 = artemis.correlated_debye_sigma2(80.0, reff=2.0, **kw)
+        near_300 = artemis.correlated_debye_sigma2(300.0, reff=2.0, **kw)
+        far_300 = artemis.correlated_debye_sigma2(300.0, reff=4.0, **kw)
+        self.assertGreater(near_300, near_80)
+        self.assertGreater(far_300, near_300)
+        self.assertLess(artemis.correlated_debye_sigma2.last_details[
+            "correlation_factor"], 1.0)
+        self.assertEqual(artemis.correlated_debye_sigma2.last_details[
+            "k_debye_source"], "conservative_default_0.35A^-1")
+
+        t_plateau_a = artemis.correlated_debye_sigma2(
+            1e-6, reff=2.0, **kw)
+        t_plateau_b = artemis.correlated_debye_sigma2(
+            1e-4, reff=2.0, **kw)
+        self.assertAlmostEqual(t_plateau_a, t_plateau_b, places=8)
+        static = 0.0015
+        with_static = artemis.correlated_debye_sigma2(
+            1e-6, reff=2.0, sigma2_static=static, **kw)
+        self.assertAlmostEqual(with_static - static, t_plateau_a, places=10)
+
+        einstein = artemis.einstein_sigma2(1000.0, 400.0, 12.436)
+        far_1000 = artemis.correlated_debye_sigma2(1000.0, reff=4.0, **kw)
+        ratio = far_1000 / einstein
+        self.assertGreaterEqual(ratio, 0.5)
+        self.assertLessEqual(ratio, 2.0)
+        self.assertGreater(far_1000, near_300)
+
+        for bad in (
+                dict(temperature_K=0.0, theta_d=400.0, reff=2.0,
+                     mass_absorber=55.845, mass_scatterer=15.999),
+                dict(temperature_K=300.0, theta_d=0.0, reff=2.0,
+                     mass_absorber=55.845, mass_scatterer=15.999),
+                dict(temperature_K=300.0, theta_d=400.0, reff=2.0,
+                     mass_absorber=0.0, mass_scatterer=15.999)):
+            with self.assertRaises(XAFSConfigError):
+                artemis.correlated_debye_sigma2(**bad)
+
+    def test_bond_valence_sum_restraint(self):
+        """#57 B11-2：BVS 计算与软约束。
+
+        Fe–O N=6,R=2.0 的 BVS≈3.128（Fe³⁺ 合理）；约束 target=3.0
+        后拟合输出的 bvs 必须与用手工 BVS 从最终路径重算的值一致，
+        且 |bvs−3| 小于无约束拟合；bvs_chi2 有限。
+        """
+        bvs = artemis.bond_valence_sum(
+            [{"N": 6.0, "R": 2.0, "ligand": "O"}], absorber="Fe")
+        self.assertAlmostEqual(bvs, 3.12804471568531, places=10)
+        with self.assertRaises(XAFSConfigError):
+            artemis.bond_valence_sum(
+                [{"N": 6.0, "R": 2.0, "ligand": "P"}], absorber="Fe")
+
+        motif = [m for m in structure_lib.load_library("Fe")
+                 if m.id == "lepidocrocite"][0]
+        cache = structure_lib.ensure_feff(motif, edge="K")
+        datfile = None
+        for f in sorted(cache.glob("feff*.dat")):
+            p = artemis.load_feff_path(f)
+            if (int(getattr(p, "nleg", 2)) == 2
+                    and abs(p.reff - 1.98) < 0.05):
+                datfile = f
+                break
+        self.assertIsNotNone(datfile)
+        k = np.linspace(2.0, 14.0, 601)
+        p = artemis.load_feff_path(datfile)
+        p.degen = 6.0
+        artemis.set_path_parameters(
+            p, s02=0.803, delta_r=-0.05, sigma2=0.004, delta_e0=0.5)
+        chi = np.interp(k, p.k, p.chi)
+        ck = ChiK(k=k, chi=chi, background=np.zeros_like(k),
+                  mu_norm=np.ones_like(k), rbkg=1.2)
+        ft = athena.ft_to_r_space(k, chi, None, 3.0, 12.0, 2, 1.0)
+        base = artemis.fit_r_space(
+            ck, ft, [str(datfile)], 1.2, 2.4, kmin=3.0, kmax=12.0,
+            kweight=2, s02=0.803, vary_n=True, vary_delta_e0=True,
+            path_labels=["Fe-O"])
+        free_bvs = artemis.bond_valence_sum(base.paths, absorber="Fe")
+        self.assertIsNone(base.bvs)
+        constrained = artemis.fit_r_space(
+            ck, ft, [str(datfile)], 1.2, 2.4, kmin=3.0, kmax=12.0,
+            kweight=2, s02=0.803, vary_n=True, vary_delta_e0=True,
+            path_labels=["Fe-O"],
+            bvs_restraint={"target": 3.0, "sigma": 0.05})
+        self.assertEqual(constrained.bvs_target, 3.0)
+        self.assertIsNotNone(constrained.bvs)
+        manual = artemis.bond_valence_sum(
+            constrained.paths, absorber="Fe")
+        self.assertAlmostEqual(constrained.bvs, manual, places=10)
+        self.assertLess(abs(constrained.bvs - 3.0),
+                        0.05 * abs(free_bvs - 3.0))
+        self.assertTrue(np.isfinite(constrained.bvs_chi2))
+        self.assertLess(constrained.bvs_chi2, 0.01)
+
+    def test_multispace_q_and_wt_fit(self):
+        """#58 B11-3：R/q/WT 三空间拟合回收同一组 N/R/σ²。
+
+        同一合成单壳谱在三个空间分别拟合，参数差必须
+        |ΔN|<0.3、|ΔR|<0.02 Å、|Δσ²|<0.001 Å²；默认 "r" 与显式
+        "r" 逐位一致（历史口径不回退）。
+        """
+        motif = [m for m in structure_lib.load_library("Fe")
+                 if m.id == "lepidocrocite"][0]
+        cache = structure_lib.ensure_feff(motif, edge="K")
+        datfile = None
+        for f in sorted(cache.glob("feff*.dat")):
+            p = artemis.load_feff_path(f)
+            if (int(getattr(p, "nleg", 2)) == 2
+                    and abs(p.reff - 1.98) < 0.05):
+                datfile = f
+                break
+        k = np.arange(2.0, 13.0, 0.02)
+        p = artemis.load_feff_path(datfile)
+        p.degen = 6.0
+        artemis.set_path_parameters(
+            p, s02=0.803, delta_r=-0.05, sigma2=0.004, delta_e0=0.5)
+        chi = artemis.exafs_model_k([p], k)
+        ck = ChiK(k=k, chi=chi, background=np.zeros_like(k),
+                  mu_norm=np.ones_like(k), rbkg=1.0)
+        ft = athena.ft_to_r_space(k, chi, None, 3.0, 12.0, 2)
+
+        fits = {}
+        for space in ("r", "q", "wt"):
+            fits[space] = artemis.fit_r_space(
+                ck, ft, [str(datfile)], 1.2, 2.4,
+                kmin=3.0, kmax=12.0, kweight=2, s02=0.803,
+                vary_n=True, vary_delta_e0=True,
+                path_degen=[6.0], path_labels=["Fe-O"],
+                fit_space=space)
+            self.assertEqual(fits[space].fit_space, space)
+            self.assertTrue(np.isfinite(fits[space].aic))
+            self.assertTrue(np.isfinite(fits[space].bic))
+
+        default = artemis.fit_r_space(
+            ck, ft, [str(datfile)], 1.2, 2.4,
+            kmin=3.0, kmax=12.0, kweight=2, s02=0.803,
+            vary_n=True, vary_delta_e0=True,
+            path_degen=[6.0], path_labels=["Fe-O"])
+        self.assertEqual(default.r_factor, fits["r"].r_factor)
+        self.assertEqual(default.paths[0].degeneracy,
+                         fits["r"].paths[0].degeneracy)
+
+        ref = fits["r"].paths[0]
+        for space in ("q", "wt"):
+            got = fits[space].paths[0]
+            self.assertLess(abs(got.degeneracy - ref.degeneracy), 0.3)
+            self.assertLess(abs(got.r - ref.r), 0.02)
+            self.assertLess(abs(got.sigma2 - ref.sigma2), 0.001)
+
+    def test_multi_edge_e0_groups_and_aic_bic(self):
+        """#59 B12-1：双吸收边独立 ΔE₀ 分组与 AIC/BIC 惩罚。
+
+        两条同路径合成谱真值 ΔE₀=+2.0 / −6.0 eV，edge_group=K/L3：
+        share_e0="auto" 分出 2 个槽位并各自回收 <0.5 eV；
+        share_e0=True 只有 1 个槽位、Rf 显著变差；BIC 对多出的参数
+        惩罚更重（auto 相对 True 的 BIC 优势小于 AIC 优势）。
+        """
+        motif = [m for m in structure_lib.load_library("Fe")
+                 if m.id == "lepidocrocite"][0]
+        cache = structure_lib.ensure_feff(motif, edge="K")
+        datfile = None
+        for f in sorted(cache.glob("feff*.dat")):
+            p = artemis.load_feff_path(f)
+            if (int(getattr(p, "nleg", 2)) == 2
+                    and abs(p.reff - 1.98) < 0.05):
+                datfile = f
+                break
+        k = np.arange(2.0, 13.0, 0.02)
+        datasets = []
+        for group, e0_true in (("K", 2.0), ("L3", -6.0)):
+            p = artemis.load_feff_path(datfile)
+            p.degen = 6.0
+            artemis.set_path_parameters(
+                p, s02=1.0, delta_r=-0.02, sigma2=0.004,
+                delta_e0=e0_true)
+            chi = artemis.exafs_model_k([p], k)
+            ck = ChiK(k=k, chi=chi, background=np.zeros_like(k),
+                      mu_norm=np.ones_like(k), rbkg=1.0)
+            ft = athena.ft_to_r_space(k, chi, None, 3.0, 12.0, 2)
+            datasets.append({
+                "name": group, "chi_k": ck, "ft": ft,
+                "datfiles": [str(datfile)], "rmin": 1.2, "rmax": 2.4,
+                "kmin": 3.0, "kmax": 12.0, "kweight": 2, "s02": 1.0,
+                "vary_n": False, "path_degen": [6.0],
+                "path_labels": ["Fe-O"], "edge_group": group})
+
+        auto = artemis.fit_multi_datasets(datasets, share_e0="auto")
+        shared = artemis.fit_multi_datasets(datasets, share_e0=True)
+        self.assertEqual(auto["e0_groups"], ["K", "L3"])
+        self.assertEqual(shared["e0_groups"], ["global"])
+        self.assertEqual(auto["n_variables_total"],
+                         shared["n_variables_total"] + 1)
+        self.assertAlmostEqual(auto["datasets"][0].delta_e0, 2.0, places=6)
+        self.assertAlmostEqual(auto["datasets"][1].delta_e0, -6.0, places=6)
+        self.assertLess(abs(auto["datasets"][0].delta_e0 - 2.0), 0.5)
+        self.assertLess(abs(auto["datasets"][1].delta_e0 + 6.0), 0.5)
+        self.assertLess(auto["global_r_factor"], 1e-6)
+        self.assertGreater(shared["global_r_factor"], 0.01)
+
+        for key in ("aic", "bic", "global_aic", "global_bic"):
+            self.assertTrue(np.isfinite(auto[key]), f"auto {key} 非有限")
+            self.assertTrue(np.isfinite(shared[key]),
+                            f"shared {key} 非有限")
+        for fit in auto["datasets"] + shared["datasets"]:
+            self.assertTrue(np.isfinite(fit.aic))
+            self.assertTrue(np.isfinite(fit.bic))
+            self.assertGreater(fit.bic, fit.aic)
+        # auto 多 1 个 ΔE₀ 参数：BIC 惩罚使其相对 shared 的优势变小
+        aic_gain = shared["aic"] - auto["aic"]
+        bic_gain = shared["bic"] - auto["bic"]
+        self.assertGreater(aic_gain, bic_gain,
+                           "BIC 未对多参数模型施加更重惩罚")
+
+    def test_sac_dac_cluster_generator_and_element_expansion(self):
+        """#60 B12-2：SAC/DAC 团簇生成、FEFF 可跑与元素扩充。
+
+        M–N₄ 恰好 4 条且键长误差 <1e-9；C 壳层在 ring_radius±0.2；
+        build_feff_input + feff6l 成功；12 个新元素全部未标定，
+        Fe/Co/Ni/Cu/Pt 的 S₀² 逐位不变。
+        """
+        sites = artemis.sac_cluster_sites(
+            bond_m_ligand=2.0, ligand="N", n_coord=4,
+            axial=None, carbon_shell=True, ring_radius=2.9)
+        n_sites = [s for s in sites if s[3] == "N"]
+        c_sites = [s for s in sites if s[3] == "C"]
+        self.assertEqual(len(n_sites), 4)
+        self.assertEqual(len(c_sites), 8)
+        for s in n_sites:
+            self.assertLess(abs(float(np.linalg.norm(s[:3])) - 2.0), 1e-9)
+        for s in c_sites:
+            self.assertLess(
+                abs(float(np.linalg.norm(s[:3])) - 2.9), 0.2)
+        inp = artemis.build_feff_input(
+            sites, absorber="Fe", rmax=4.0, title="sac_test")
+        with tempfile.TemporaryDirectory() as tmp:
+            files = artemis.run_feff6l(inp, tmp)
+            self.assertGreaterEqual(len(files), 1, "FEFF 未生成路径文件")
+            # files 的路径位于临时目录内，必须在 with 块内读路径文件；
+            # 出了块目录已被删除，load_feff_path 会报文件不存在。
+            p0 = artemis.load_feff_path(files[0])
+            self.assertGreater(p0.reff, 1.0)
+
+        dac = artemis.diatomic_m1m2_sites(
+            "Fe", "Co", bond_length=2.5, ligand="N",
+            n_coord=4, ligand_bond=2.0)
+        m2 = [s for s in dac if s[3] == "Co"]
+        self.assertEqual(len(m2), 1)
+        self.assertAlmostEqual(m2[0][2], 2.5, places=12)
+        self.assertEqual(sum(1 for s in dac if s[3] == "N"), 8)
+
+        new_elements = ("Cr", "Mn", "Zn", "Mo", "Ru", "Rh",
+                        "Pd", "Ag", "Ir", "Au", "Ce", "U")
+        for sym in new_elements:
+            cfg = get_absorber(sym)
+            self.assertFalse(cfg.calibrated, f"{sym} 不应标记为已标定")
+            self.assertIsNone(cfg.s02, f"{sym} 的 S₀² 必须为 None")
+            self.assertTrue(np.isfinite(cfg.e0_edge))
+            self.assertTrue(np.isfinite(cfg.kmax_ceiling))
+            self.assertIn(sym, artemis.COVALENT_RADII)
+        calibrated = {"Fe": 0.803, "Co": 0.7308, "Ni": 0.7795,
+                      "Cu": 0.8670, "Pt": 0.8075}
+        for sym, s02 in calibrated.items():
+            self.assertEqual(get_absorber(sym).s02, s02,
+                             f"{sym} 的标定 S₀² 被改动")
+
+    # ------------------------------------------------------------
+    # B13-1 SAC/DAC 动态 motif 与 M–M Hamilton F-test
+    # ------------------------------------------------------------
+    def test_sac_axial_and_dac_mm_bond_ftest_pipeline(self):
+        """#61 B13-1：动态 SAC/DAC motif + M₁–M₂ 金属键显著性判据。
+
+        用 DAC motif 的真实 FEFF 路径合成两组谱（ε≈1e-3）：
+        - 纯 Fe–N₄ 谱按 DAC 模型拟合：mm_bond_ftest.significant=False
+          （p>0.05，N_MM 不显著大于误差）；
+        - 真 Fe–N₄ + Fe–Co 谱：R_Co∈[2.47,2.53]、N_Co∈[0.7,1.3]，
+          significant=True 且 p<0.01；
+        - SAC 轴向氧谱：N_N≈4、N_O≈1（|Δ|<0.5）。
+        """
+        from types import SimpleNamespace
+        from larch.xafs import feffpath
+
+        s02 = 0.803
+
+        def synth(files, degens, noise=1e-3, seed=13):
+            k = np.arange(3.0, 12.0, 0.05)
+            plist = []
+            for f, d in zip(files, degens):
+                p = feffpath(str(f), s02=s02, sigma2=0.004, e0=2.0,
+                             deltar=0.0)
+                p.degen = float(d)
+                p._calc_chi()
+                plist.append(p)
+            chi = artemis.exafs_model_k(plist, k)
+            if noise:
+                rng = np.random.default_rng(seed)
+                chi = chi + rng.normal(0.0, noise, size=chi.shape)
+            chi_k = ChiK(k=k, chi=chi, background=np.zeros_like(k),
+                         mu_norm=np.zeros_like(k), rbkg=1.0)
+            ft = athena.ft_to_r_space(k, chi, None, 3.0, 12.0, 2)
+            return SimpleNamespace(
+                chi_k=chi_k, ft=ft, absorber_symbol="Fe", structure=None,
+                merged=None, norm=None, self_absorption=None)
+
+        dac = structure_lib.parse_catalytic_cluster_spec(
+            "Fe", "dac:Co@2.50,N4@2.00")
+        self.assertEqual(dac.nuclearity, "binuclear")
+        self.assertIn("_dynamic_cache", str(dac.cache_dir))
+        plan = xafs_fit.select_shell_paths(
+            dac, edge="K", rmin=1.0, rmax=2.6, kmin=3.0, kmax=12.0)
+        self.assertEqual([s["scatterer"] for s in plan["shells"]],
+                         ["N", "Co"])
+        self.assertEqual(plan["degens"], [4.0, 1.0])
+
+        # ---- 纯 SAC 谱：DAC 模型的 Co 分支必须判为不显著 ----
+        res_sac = synth(plan["files"][:1], plan["degens"][:1])
+        out_sac = xafs_fit.fit_identified(
+            res_sac, absorber_symbol="Fe",
+            catalytic_model="dac:Co@2.50,N4@2.00",
+            rmin=1.0, rmax=2.6, verbose=False)
+        self.assertEqual(out_sac["mode"], "motif")
+        mm = out_sac["mm_bond_ftest"]
+        self.assertIsNotNone(mm)
+        self.assertEqual(mm["partner"], "Co")
+        self.assertFalse(mm["significant"],
+                         f"纯 SAC 谱不应检出 Fe–Co: {mm}")
+        self.assertGreater(mm["p_value"], 0.05)
+
+        # ---- 真 DAC 谱：回收 Fe–Co 距离/配位并判显著 ----
+        res_dac = synth(plan["files"], plan["degens"])
+        out_dac = xafs_fit.fit_identified(
+            res_dac, absorber_symbol="Fe",
+            catalytic_model="dac:Co@2.50,N4@2.00",
+            rmin=1.0, rmax=2.6, verbose=False)
+        self.assertEqual(out_dac["mode"], "motif")
+        co = [p for p in out_dac["fit"].paths if "Co" in p.label]
+        self.assertEqual(len(co), 1)
+        self.assertGreaterEqual(co[0].r, 2.47)
+        self.assertLessEqual(co[0].r, 2.53)
+        self.assertGreaterEqual(co[0].degeneracy, 0.7)
+        self.assertLessEqual(co[0].degeneracy, 1.3)
+        mm_dac = out_dac["mm_bond_ftest"]
+        self.assertTrue(mm_dac["significant"],
+                        f"真 DAC 谱未检出 Fe–Co: {mm_dac}")
+        self.assertLess(mm_dac["p_value"], 0.01)
+        self.assertGreaterEqual(mm_dac["delta_r_factor"], 0.0)
+
+        # ---- SAC 轴向氧：N_N≈4、N_O≈1（共享 σ² 避免 0.1 Å 近简并） ----
+        sac = structure_lib.parse_catalytic_cluster_spec(
+            "Fe", "sac:N4@2.00,axial=O@2.10,C=none")
+        self.assertEqual(sac.nuclearity, "mononuclear")
+        self.assertIn("_dynamic_cache", str(sac.cache_dir))
+        splan = xafs_fit.select_shell_paths(
+            sac, edge="K", rmin=1.0, rmax=2.6, kmin=3.0, kmax=12.0)
+        self.assertEqual([s["scatterer"] for s in splan["shells"]],
+                         ["N", "O"])
+        deg_axial = list(splan["degens"])
+        for i, sh in enumerate(splan["shells"]):
+            if sh["scatterer"] == "O":
+                deg_axial[i] = 1.0
+        res_ax = synth(splan["files"], deg_axial)
+        out_ax = xafs_fit.fit_identified(
+            res_ax, absorber_symbol="Fe",
+            catalytic_model="sac:N4@2.00,axial=O@2.10,C=none",
+            rmin=1.0, rmax=2.6, shared_sigma2="all", verbose=False)
+        by_el = {("O" if "O" in p.label else "N"): p
+                 for p in out_ax["fit"].paths}
+        self.assertLess(abs(by_el["N"].degeneracy - 4.0), 0.5,
+                        f"SAC N_N 回收失败: {by_el['N'].degeneracy}")
+        self.assertLess(abs(by_el["O"].degeneracy - 1.0), 0.5,
+                        f"SAC N_O 回收失败: {by_el['O'].degeneracy}")
+        self.assertLess(by_el["N"].n_err, 0.5)
+        self.assertLess(by_el["O"].n_err, 0.5)
+
+    # ------------------------------------------------------------
+    # B13-2 异核共占位双分支 path_links
+    # ------------------------------------------------------------
+    def test_hetero_cocupancy_end_to_end_dual_branch_fit(self):
+        """#62 B13-2：共占位 CIF → 双分支 FEFF → 共享 ΔR/σ² 精修。
+
+        Ti(0.7)/Ru(0.3) 共占 N_geom=8（N_Ti=5.6, N_Ru=2.4）：
+        path_links 把自由变量从 7 压到 5；回收两分支 N、ΔR 与 σ²
+        逐位相等；双分支 Rf 比单元素近似小 5 倍以上。
+        """
+        from larch.xafs import feffpath
+
+        cif_text = """data_test_hetero
+_cell_length_a 4.10
+_cell_length_b 4.10
+_cell_length_c 4.10
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 90
+_symmetry_space_group_name_H-M 'Pm-3m'
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+Fe1 Fe 0.0 0.0 0.0 1.0
+Ti1 Ti 0.5 0.5 0.5 0.7
+Ru1 Ru 0.5 0.5 0.5 0.3
+"""
+        with tempfile.TemporaryDirectory() as tmp:
+            cif = Path(tmp) / "hetero.cif"
+            cif.write_text(cif_text, encoding="utf-8")
+            motif = structure_lib.import_cif(cif, "test_hetero_b13", "Fe")
+            motif.cif_path = str(cif)
+            motif.sites = structure_lib.expand_crystal(motif, rmax=5.0)
+            motif.shell_expect = structure_lib.geometric_shells(motif.sites)
+            plan = xafs_fit.select_shell_paths(
+                motif, edge="K", rmin=2.8, rmax=4.3,
+                kmin=3.0, kmax=12.0, hetero_cocupancy=True)
+
+        self.assertEqual(plan["hetero_shells"][0]["n_geom"], 8)
+        branches = {b["element"]: b for b in
+                    plan["hetero_shells"][0]["branches"]}
+        self.assertAlmostEqual(branches["Ti"]["degen"], 5.6, places=10)
+        self.assertAlmostEqual(branches["Ru"]["degen"], 2.4, places=10)
+        self.assertEqual(len(plan["path_links"]), 1)
+        link = plan["path_links"][0]
+        self.assertTrue(link["share_deltar"] and link["share_sigma2"])
+        self.assertIsNone(link["degen_ratio"])
+
+        # 合成真值谱：N_Ti=5.6, N_Ru=2.4, ΔR=-0.02, σ²=0.004
+        s02, dr_true, s2_true, e0_true = 0.803, -0.02, 0.004, 2.0
+        k = np.arange(3.0, 12.0, 0.05)
+        plist = []
+        for f, d in zip(plan["files"], plan["degens"]):
+            p = feffpath(str(f), s02=s02, sigma2=s2_true,
+                         e0=e0_true, deltar=dr_true)
+            p.degen = float(d)
+            p._calc_chi()
+            plist.append(p)
+        chi = artemis.exafs_model_k(plist, k)
+        chi_k = ChiK(k=k, chi=chi, background=np.zeros_like(k),
+                     mu_norm=np.zeros_like(k), rbkg=1.0)
+        ft = athena.ft_to_r_space(k, chi, None, 3.0, 12.0, 2)
+
+        def do_fit(files, labels, degens, links=None):
+            return artemis.fit_r_space(
+                chi_k, ft, files, rmin=plan["rmin"], rmax=plan["rmax"],
+                kmin=3.0, kmax=12.0, kweight=2, s02=s02,
+                vary_delta_e0=True, vary_n=True,
+                path_degen=degens, path_labels=labels, path_links=links)
+
+        fit = do_fit(plan["files"], plan["labels"], plan["degens"],
+                     plan["path_links"])
+        self.assertEqual(fit.n_variables, 5,
+                         "共享 ΔR/σ² 后应为 4 个壳层变量 + ΔE0")
+        free = do_fit(plan["files"], plan["labels"], plan["degens"])
+        self.assertEqual(free.n_variables, 7,
+                         "无 path_links 时双分支应为 2×3+1=7 个变量")
+
+        by_el = {("Ti" if "Ti" in p.label else "Ru"): p
+                 for p in fit.paths}
+        ti, ru = by_el["Ti"], by_el["Ru"]
+        self.assertGreaterEqual(ti.degeneracy, 5.2)
+        self.assertLessEqual(ti.degeneracy, 6.0)
+        self.assertGreaterEqual(ru.degeneracy, 2.0)
+        self.assertLessEqual(ru.degeneracy, 2.8)
+        self.assertAlmostEqual(ti.delta_r, ru.delta_r, places=12)
+        self.assertAlmostEqual(ti.sigma2, ru.sigma2, places=12)
+        self.assertAlmostEqual(ti.delta_r_err, ru.delta_r_err, places=12)
+        self.assertAlmostEqual(ti.sigma2_err, ru.sigma2_err, places=12)
+        self.assertLess(fit.r_factor, 1e-4,
+                        f"双分支合成谱应近完美复现: Rf={fit.r_factor}")
+
+        ti_idx = [i for i, s in enumerate(plan["shells"])
+                  if s["scatterer"] == "Ti"][0]
+        single = do_fit([plan["files"][ti_idx]],
+                        [plan["labels"][ti_idx]],
+                        [plan["degens"][ti_idx]])
+        self.assertGreater(single.r_factor, 5.0 * fit.r_factor,
+                           "单元素近似应显著劣于双分支共享精修")
+
+    # ------------------------------------------------------------
+    # B14-1 Mini-GDS 化学计量约束
+    # ------------------------------------------------------------
+    def test_mini_gds_stoichiometric_sum_and_ratio_constraints(self):
+        """#63 B14-1：N_sum 精确守恒、误差严格传递、循环约束拒绝。
+
+        Fe–O@1.98 + Fe–Cl@2.35 双路径合成谱（N=2.4/3.6）：
+        - 无约束 n_variables=7，n_sum 约束后=6（真实减少 1）；
+        - N_O+N_Cl=6.0 逐位成立，且 σ(N_Cl)=σ(N_O)；
+        - 循环约束与未知标签抛 XAFSConfigError。
+        """
+        from larch.xafs import feffpath
+
+        def single_path(distance, element, workdir):
+            inp = artemis.build_feff_input(
+                [(distance, 0.0, 0.0, element)], absorber="Fe",
+                rmax=distance + 0.8, title=f"gds_{element}")
+            files = artemis.run_feff6l(inp, workdir)
+            for f in files:
+                p = artemis.load_feff_path(f)
+                if (int(getattr(p, "nleg", 2)) == 2
+                        and abs(float(p.reff) - distance) < 0.05):
+                    return f
+            raise AssertionError(f"FEFF 未生成 {element}@{distance} SS 路径")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            f_o = single_path(1.98, "O", Path(tmp) / "o")
+            f_cl = single_path(2.35, "Cl", Path(tmp) / "cl")
+            files = [f_o, f_cl]
+            labels = ["Fe-O", "Fe-Cl"]
+            truth_n = [2.4, 3.6]
+            s02, s2, e0 = 0.803, 0.004, 2.0
+            k = np.arange(3.0, 12.0, 0.05)
+            plist = []
+            for f, n in zip(files, truth_n):
+                p = feffpath(str(f), s02=s02, sigma2=s2, e0=e0, deltar=0.0)
+                p.degen = n
+                p._calc_chi()
+                plist.append(p)
+            chi = artemis.exafs_model_k(plist, k)
+            chi_k = ChiK(k=k, chi=chi, background=np.zeros_like(k),
+                         mu_norm=np.zeros_like(k), rbkg=1.0)
+            ft = athena.ft_to_r_space(k, chi, None, 3.0, 12.0, 2)
+
+            def do_fit(**kw):
+                return artemis.fit_r_space(
+                    chi_k, ft, files, rmin=1.4, rmax=2.9,
+                    kmin=3.0, kmax=12.0, kweight=2, s02=s02,
+                    vary_delta_e0=True, vary_n=True,
+                    path_degen=truth_n, path_labels=labels, **kw)
+
+            free = do_fit()
+            self.assertEqual(free.n_variables, 7)
+            constrained = do_fit(constraints="N(Fe-O)+N(Fe-Cl)=6.0")
+            self.assertEqual(constrained.n_variables, 6,
+                             "n_sum 应真实减少一个 N 自由变量")
+            n_o = constrained.paths[0].degeneracy
+            n_cl = constrained.paths[1].degeneracy
+            self.assertAlmostEqual(n_o + n_cl, 6.0, places=12)
+            self.assertLess(abs(n_o - 2.4), 0.25)
+            self.assertLess(abs(n_cl - 3.6), 0.25)
+            self.assertIsNotNone(constrained.paths[0].n_err)
+            self.assertIsNotNone(constrained.paths[1].n_err)
+            self.assertEqual(constrained.paths[1].n_err,
+                             constrained.paths[0].n_err,
+                             "n_sum 误差必须严格按 |coeff| 传递")
+            self.assertLess(constrained.r_factor, 0.05)
+
+            # 字典形式的 n_ratio：N_Cl = 1.5·N_O
+            ratio = do_fit(constraints=[
+                {"kind": "n_ratio", "target": "Fe-Cl",
+                 "source": "Fe-O", "ratio": 1.5}])
+            self.assertEqual(ratio.n_variables, 6)
+            self.assertAlmostEqual(
+                ratio.paths[1].degeneracy,
+                1.5 * ratio.paths[0].degeneracy, places=12)
+            self.assertAlmostEqual(
+                ratio.paths[1].n_err, 1.5 * ratio.paths[0].n_err,
+                places=12)
+
+            with self.assertRaises(XAFSConfigError):
+                do_fit(constraints=(
+                    "N(Fe-O)=1.0*N(Fe-Cl);N(Fe-Cl)=1.0*N(Fe-O)"))
+            with self.assertRaises(XAFSConfigError):
+                do_fit(constraints="N(Fe-O)+N(Fe-Pt)=6.0")
+
+    # ------------------------------------------------------------
+    # B14-2 相移校正诊断 + χ² 置信椭圆 + HTML 内联
+    # ------------------------------------------------------------
+    def test_phase_corrected_diagnostics_and_chi2_contour_report(self):
+        """#64 B14-2：相移校正真键长与二维 χ² 等高线全链接入。
+
+        用自带 lepidocrocite + S7 拟合结果：
+        - 未校正 FT 峰在 1.4–1.7 Å（表观 R），E0 补偿相移校正后
+          |r_peak_corrected − r_fit| < 0.06 Å；
+        - χ² 网格 (15,15)、min_chi2 有限，CSV/PNG 非空；
+        - xafs_report 开 --phase-correct/--chi2-contour 后 HTML 内联
+          两张图并含标题。
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            pc = xafs_diagnostics.write_phase_corrected_diagnostics(
+                self.lep, self.lep_fit, tmp, stem="lepido")
+            self.assertGreaterEqual(pc["r_peak_raw"], 1.4)
+            self.assertLessEqual(pc["r_peak_raw"], 1.7)
+            self.assertLess(abs(pc["r_peak_corrected"] - pc["r_fit"]), 0.06,
+                            f"相移校正未回到拟合键长: {pc}")
+            self.assertEqual(pc["phase_source"], "feff_pha")
+            csv_path, png_path = Path(pc["csv"]), Path(pc["png"])
+            self.assertTrue(csv_path.is_file()
+                            and csv_path.stat().st_size > 0)
+            self.assertTrue(png_path.is_file()
+                            and png_path.stat().st_size > 0)
+            header = csv_path.read_text(
+                encoding="utf-8-sig").splitlines()[0]
+            self.assertEqual(
+                header, "R_A,mag_raw,real_raw,"
+                        "mag_phase_corrected,real_phase_corrected")
+
+            cc = xafs_diagnostics.write_chi2_contour_diagnostics(
+                self.lep, self.lep_fit, tmp, stem="lepido")
+            self.assertIsNotNone(cc, "χ² 等高线未生成")
+            self.assertTrue(np.isfinite(cc["min_chi2"]))
+            self.assertEqual(cc["chi2_grid"].shape, (15, 15))
+            self.assertEqual((cc["x_name"], cc["y_name"]), ("N", "sigma2"))
+            for key in ("csv", "png"):
+                p = Path(cc[key])
+                self.assertTrue(p.is_file() and p.stat().st_size > 0)
+            self.assertEqual(len(cc["levels"]), 3)
+            self.assertAlmostEqual(cc["levels"][0] - cc["min_chi2"],
+                                   2.30, places=6)
+            self.assertLessEqual(cc["min_chi2"],
+                                 np.nanmin(cc["chi2_grid"]) + 1e-9)
+
+            report_dir = tmp / "report"
+            xafs_report.main([
+                str(LEPIDO), "--absorber", "Fe", "-o", str(report_dir),
+                "--phase-correct", "--chi2-contour", "--no-window-tuner"])
+            html_files = sorted(report_dir.glob("*_report.html"))
+            self.assertEqual(len(html_files), 1)
+            html_text = html_files[0].read_text(encoding="utf-8")
+            self.assertIn("相移校正真键长诊断", html_text)
+            self.assertIn("二维 χ² 置信椭圆", html_text)
+            self.assertIn("data:image/png;base64,", html_text)
+
+    # ------------------------------------------------------------
+    # B14-3 关联 Debye 模型纳入多数据集联合拟合
+    # ------------------------------------------------------------
+    def test_multi_dataset_correlated_debye_corefinement(self):
+        """#65 B14-3：单 Θ_D 同时约束近壳/远壳 σ²(T,R)。
+
+        用 Fe–O@2.00 与 Fe–O@3.68 两条 FEFF 路径，以真值 Θ_D=420 K、
+        σ²_static=0.0012 Å² 合成 80 K 与 350 K 两套谱：
+        - 一个 debye_models 组绑定两温度下的全部 4 条路径，
+          Θ_D 回收误差 <15 K、σ²_static <5e-4；
+        - 同一温度下远壳 σ² 严格大于近壳 σ²，global Rf <1e-4；
+        - 与 einstein_models/share_sigma2 绑定同一路径时抛错。
+        """
+        from larch.xafs import feffpath
+
+        true_theta, true_static, s02 = 420.0, 0.0012, 0.803
+
+        def find_ss(files, target, tol=0.08):
+            best = None
+            for f in files:
+                p = artemis.load_feff_path(f)
+                if int(getattr(p, "nleg", 2)) != 2:
+                    continue
+                if (best is None or abs(float(p.reff) - target)
+                        < abs(float(best[1].reff) - target)):
+                    best = (f, p)
+            if best is None or abs(float(best[1].reff) - target) > tol:
+                raise AssertionError(f"FEFF 未生成 {target} Å 附近的 SS 路径")
+            return best[0]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            sites = []
+            for d, el in ((2.0, "O"), (3.68, "O")):
+                for axis in ((d, 0, 0), (-d, 0, 0), (0, d, 0),
+                             (0, -d, 0), (0, 0, d), (0, 0, -d)):
+                    sites.append((*axis, el))
+            inp = artemis.build_feff_input(
+                sites, absorber="Fe", rmax=4.5, title="debye_test")
+            files = artemis.run_feff6l(inp, tmp / "feff")
+            near = find_ss(files, 2.0)
+            far = find_ss(files, 3.68)
+
+            k = np.arange(3.0, 12.0, 0.05)
+            datasets = []
+            expected = {}
+            for T in (80.0, 350.0):
+                plist, s2s = [], []
+                for f in (near, far):
+                    reff = float(artemis.load_feff_path(f).reff)
+                    s2 = artemis.correlated_debye_sigma2(
+                        T, true_theta, reff, 55.845, 15.999,
+                        sigma2_static=true_static)
+                    s2s.append(s2)
+                    p = feffpath(str(f), s02=s02, sigma2=s2,
+                                 e0=0.0, deltar=0.0)
+                    p.degen = 6.0
+                    p._calc_chi()
+                    plist.append(p)
+                expected[T] = s2s
+                chi = artemis.exafs_model_k(plist, k)
+                ck = ChiK(k=k, chi=chi, background=np.zeros_like(k),
+                          mu_norm=np.ones_like(k), rbkg=1.0)
+                ft = athena.ft_to_r_space(k, chi, None, 3.0, 12.0, 2)
+                datasets.append({
+                    "name": f"{T:.0f}K", "chi_k": ck, "ft": ft,
+                    "datfiles": [str(near), str(far)],
+                    "rmin": 1.4, "rmax": 4.0, "kmin": 3.0, "kmax": 12.0,
+                    "kweight": 2, "s02": s02, "vary_n": False,
+                    "path_degen": [6.0, 6.0],
+                    "path_labels": ["Fe-O_near", "Fe-O_far"],
+                    "temperature_K": T, "edge_group": "K"})
+
+            model = {
+                "paths": [(0, 0), (0, 1), (1, 0), (1, 1)],
+                "mass_absorber": 55.845,
+                "mass_scatterer": 15.999,
+                "theta_d_init": 400.0,
+                "k_debye": None,
+            }
+            out = artemis.fit_multi_datasets(
+                datasets, share_e0="auto", debye_models=[model])
+            self.assertEqual(out["n_variables_total"], 7,
+                             "4 ΔR + 2 Debye 全局变量 + ΔE0")
+            self.assertEqual(len(out["debye_results"]), 1)
+            deb = out["debye_results"][0]
+            self.assertLess(abs(deb["theta_d"] - true_theta), 15.0)
+            self.assertLess(abs(deb["sigma2_static"] - true_static), 5e-4)
+            self.assertTrue(np.isfinite(deb["theta_d_err"]))
+            self.assertTrue(np.isfinite(deb["sigma2_static_err"]))
+            self.assertLess(out["global_r_factor"], 1e-4,
+                            f"联合拟合未复现合成谱: "
+                            f"Rf={out['global_r_factor']}")
+            for di, T in enumerate((80.0, 350.0)):
+                near_fit, far_fit = out["datasets"][di].paths
+                self.assertGreater(far_fit.sigma2, near_fit.sigma2,
+                                   f"{T:.0f} K 远壳 σ² 应大于近壳")
+                self.assertAlmostEqual(near_fit.sigma2, expected[T][0],
+                                       places=7)
+                self.assertAlmostEqual(far_fit.sigma2, expected[T][1],
+                                       places=7)
+
+            with self.assertRaises(XAFSConfigError):
+                artemis.fit_multi_datasets(
+                    datasets, debye_models=[model],
+                    einstein_models=[{"paths": [(0, 0)],
+                                      "reduced_mass_amu": 12.5}])
+            with self.assertRaises(XAFSConfigError):
+                artemis.fit_multi_datasets(
+                    datasets, debye_models=[model],
+                    shared_bonds=[{"target": (1, 0), "source": (0, 0),
+                                   "share_sigma2": True}])
+
+    # ------------------------------------------------------------
+    # B15-1 原位序列 PCA → SPOIL → LCF → MCR-ALS
+    # ------------------------------------------------------------
+    def test_operando_series_pca_spoil_lcf_and_mcr_tracking(self):
+        """#66 B15-1：原位序列一键解谱与演变轨迹。
+
+        LEPIDO/GOETHITE 按 w=[0,0.2,…,1.0] 线性混合成 6 条序列，
+        候选标样加一个纯噪声伪标样：
+        - SPOIL 必须只拒绝 fake_noise；
+        - LCF 回收 goethite 权重 RMSE <0.02；
+        - MCR 两条组分浓度随序号单调（|r|>0.98），四宫格与 CSV 落盘。
+        """
+        import xafs_lcf
+
+        goe = xafs_pipeline.process_sample(
+            [GOETHITE], absorber="Fe", strict=False, verbose=False).norm
+        lep = self.lep.norm
+        x = np.arange(-20.0, 60.0, 0.2)
+
+        def flat(n):
+            arr = n.flattened if n.flattened is not None else n.mu_norm
+            return np.interp(x, n.energy - n.e0, arr)
+
+        y_lep, y_goe = flat(lep), flat(goe)
+        rng = np.random.default_rng(66)
+        w_true = np.linspace(0.0, 1.0, 6)
+        items = []
+        for i, w in enumerate(w_true):
+            yy = ((1.0 - w) * y_lep + w * y_goe
+                  + rng.normal(0, 1e-3, x.size))
+            items.append((f"scan_{i:02d}", x, yy))
+        fake_y = rng.normal(0.0, 0.1, x.size)
+        standards = {"lepido": lep, "goethite": goe,
+                     "fake_noise": (x, fake_y)}
+
+        out = xafs_lcf.run_operando_series(
+            items, standards=standards, xmin=-20.0, xmax=60.0)
+        self.assertEqual(out["n_components"], 2)
+        self.assertEqual(out["accepted_standards"],
+                         ["lepido", "goethite"])
+        self.assertEqual(out["rejected_standards"], ["fake_noise"])
+
+        got = np.asarray([row["weights"].get("goethite", np.nan)
+                          for row in out["lcf_series"]], dtype=float)
+        self.assertEqual(got.shape, w_true.shape)
+        rmse = float(np.sqrt(np.mean((got - w_true) ** 2)))
+        self.assertLess(rmse, 0.02, f"LCF goethite 权重 RMSE={rmse}")
+
+        conc = np.asarray(out["mcr_als"]["concentrations"], dtype=float)
+        self.assertEqual(conc.shape, (2, 6))
+        idx = np.arange(6, dtype=float)
+        corr = [abs(float(np.corrcoef(idx, conc[j])[0, 1]))
+                for j in range(2)]
+        self.assertTrue(all(c > 0.98 for c in corr),
+                        f"MCR 组分未随序号单调: {corr}")
+        self.assertEqual(len(out["mcr_als"]["characteristic_energy"]), 2)
+        self.assertLess(out["mcr_als"]["characteristic_energy"][0],
+                        out["mcr_als"]["characteristic_energy"][1])
+        self.assertEqual(len(out["descriptors"]), 6)
+        for key in ("e0", "e_half_height", "white_line_height", "ft_r1"):
+            self.assertIn(key, out["descriptors"][0])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            made = xafs_diagnostics.write_operando_diagnostics(
+                out, tmp, stem="op")
+            conc_csv = Path(made["concentrations_csv"])
+            comp_csv = Path(made["components_csv"])
+            png = Path(made["png"])
+            for p in (conc_csv, comp_csv, png):
+                self.assertTrue(p.is_file() and p.stat().st_size > 0,
+                                f"缺少产物: {p}")
+            lines = conc_csv.read_text(
+                encoding="utf-8-sig").splitlines()
+            self.assertEqual(len(lines), 7, "浓度表应为 6 条谱 + 表头")
+            self.assertIn("lcf_goethite", lines[0])
+            self.assertIn("mcr_component_1", lines[0])
+            comp_lines = comp_csv.read_text(
+                encoding="utf-8-sig").splitlines()
+            self.assertGreater(len(comp_lines), 10)
+            self.assertIn("mcr_component_2", comp_lines[0])
+
+        with self.assertRaises(XAFSConfigError):
+            xafs_lcf.run_operando_series(items[:2])
+
+    # ------------------------------------------------------------
+    # B16-1 Athena 原生 Perl .prj 只读导入
+    # ------------------------------------------------------------
+    def test_read_real_athena_perl_prj_fe_standards(self):
+        """#67 B16-1：直接读通仓库自带 Fe_standards.prj。
+
+        - 4 条主扫描（.000/.100/.200 + pyrite），Ref 与 merge 默认过滤；
+        - include_derived=True 时 10 条全保留；
+        - .100 的 energy/μ 与原始文件 462 点逐点一致；
+        - 不含 @x/@y 的任意 Perl 片段仍抛 XAFSConfigError（保护 #50）。
+        """
+        prj = (ROOT / "data" / "练手数据" / "02_Fe_standards" /
+               "Fe_standards.prj")
+        out = xafs_io.read_prj(prj, as_scans=True)
+        self.assertEqual(out["meta"]["source_format"], "athena_perl")
+        self.assertEqual(len(out["scans"]), 4)
+        labels = [s.meta["label"] for s in out["scans"]]
+        for name in ("Fe_lepidocrocite.000", "Fe_lepidocrocite.100",
+                     "Fe_lepidocrocite.200", "Fe_pyrite.000"):
+            self.assertIn(name, labels)
+        derived = xafs_io.read_prj(
+            prj, as_scans=True, include_derived=True)
+        self.assertEqual(len(derived["scans"]), 10)
+
+        s_prj = [s for s in out["scans"]
+                 if s.meta["label"] == "Fe_lepidocrocite.100"][0]
+        s_raw = xafs_io.read_scan(
+            ROOT / "data" / "练手数据" / "02_Fe_standards" /
+            "Fe_lepidocrocite.100")
+        self.assertEqual(len(s_prj.energy), len(s_raw.energy))
+        self.assertEqual(len(s_prj.energy), 462)
+        self.assertLess(
+            float(np.max(np.abs(s_prj.energy - s_raw.energy))), 1e-4)
+        self.assertGreater(
+            float(np.corrcoef(s_prj.mu, s_raw.mu)[0, 1]), 0.999999)
+        self.assertIsNotNone(s_prj.i0)
+        self.assertIsNotNone(s_prj.it)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            perl = Path(tmp) / "perl_only.prj"
+            perl.write_text("$VAR1 = { 'x' => 1 };", encoding="utf-8")
+            with self.assertRaises(XAFSConfigError):
+                xafs_io.read_prj(perl)
+            with self.assertRaises(XAFSConfigError):
+                xafs_io.read_athena_perl_prj(perl, as_scans=True)
+
+    # ------------------------------------------------------------
+    # B16-2 Co / Ni / Cu / Pt 催化结构库扩充
+    # ------------------------------------------------------------
+    def test_catalysis_library_motifs_for_co_ni_cu_pt(self):
+        """#68 B16-2：四大催化元素催化基准 Motif 入库 + PtCl2 实测命中。
+
+        - Co/Ni/Cu 平面 M-N4 + 碳壳、Cu2O 赤铜矿、PtCl2 平面 PtCl4；
+        - 每个 Motif 均能 ensure_feff 生成 feff0001.dat；
+        - 真实 Pt-L3-PlatinumChloride.xdi（Sample.name=PtCl2）：
+          top1=ptcl4_square、status=confident，S7 第一壳
+          N∈[3.5,4.5]、R∈[2.26,2.35] Å、Rf<0.05。
+        """
+        expected = {
+            "Co": [("con4_planar", "N", 1.96, 4, "C", 2.88)],
+            "Ni": [("nin4_planar", "N", 1.92, 4, "C", 2.85)],
+            "Cu": [("cun4_planar", "N", 1.95, 4, "C", 2.88),
+                   ("cu2o_cuprite", "O", 1.8488, 2, "Cu", 3.0191)],
+            "Pt": [("ptcl4_square", "Cl", 2.31, 4, "Cl", 3.45)],
+        }
+        for el, entries in expected.items():
+            lib = {m.id: m for m in structure_lib.load_library(el)}
+            edge = get_absorber(el).edge
+            for mid, el1, r1, n1, el2, r2 in entries:
+                self.assertIn(mid, lib, f"{el} 库缺 {mid}")
+                motif = lib[mid]
+                shells = motif.shell_expect
+                self.assertEqual(shells[0]["el"], el1)
+                self.assertAlmostEqual(shells[0]["r"], r1, places=3)
+                self.assertEqual(shells[0]["n"], n1)
+                self.assertEqual(shells[1]["el"], el2)
+                self.assertAlmostEqual(shells[1]["r"], r2, places=3)
+                cache = structure_lib.ensure_feff(motif, edge=edge)
+                self.assertTrue(
+                    (cache / "feff0001.dat").is_file(),
+                    f"{el}/{mid} 未生成 feff0001.dat")
+
+        res = xafs_pipeline.process_sample(
+            [PT_CL], absorber="Pt", strict=False, verbose=False)
+        out = xafs_fit.run(
+            res, identify=True, fit=True, absorber_symbol="Pt",
+            verbose=False)
+        sid = out["structure"]
+        self.assertEqual(sid["status"], "confident")
+        self.assertEqual(sid["ranked"][0]["id"], "ptcl4_square")
+        self.assertEqual(sid["uncovered_peaks"], [])
+        fit = out["fit"]["fit"]
+        self.assertEqual(out["fit"]["motif"], "ptcl4_square")
+        path = fit.paths[0]
+        self.assertTrue(path.label.startswith("Pt-Cl"))
+        self.assertGreaterEqual(path.degeneracy, 3.5)
+        self.assertLessEqual(path.degeneracy, 4.5)
+        self.assertGreaterEqual(path.r, 2.26)
+        self.assertLessEqual(path.r, 2.35)
+        self.assertLess(fit.r_factor, 0.05)
+
+
+if __name__ == "__main__":
+    # unittest 默认写 stderr；PowerShell 会把任何 stderr 记录当成
+    # NativeCommandError，导致测试通过也显示“失败”。统一写 stdout。
+    suite = unittest.defaultTestLoader.loadTestsFromTestCase(RegressionTest)
+    result = unittest.TextTestRunner(stream=sys.stdout, verbosity=2).run(suite)
+    sys.exit(0 if result.wasSuccessful() else 1)

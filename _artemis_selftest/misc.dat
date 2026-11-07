@@ -1,0 +1,5 @@
+ Fe foil bcc                                            Feff 6L.02  potph 4.12
+ Abs   Z=26 Rmt= 1.235 Rnm= 1.388 K shell
+ Pot 1 Z=26 Rmt= 1.242 Rnm= 1.402
+ Gam_ch=1.325E+00 H-L exch
+ Mu=-8.044E+00 kf=1.974E+00 Vint=-2.289E+01 Rs_int= 1.837

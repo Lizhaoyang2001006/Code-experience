@@ -1,0 +1,5 @@
+ wt_ref_Fe_Fe                                           Feff 6L.02  potph 4.12
+ Abs   Z=26 Rmt= 0.992 Rnm= 1.363 K shell
+ Pot 1 Z=26 Rmt= 1.290 Rnm= 1.660
+ Gam_ch=1.325E+00 H-L exch
+ Mu=-5.246E+00 kf=1.656E+00 Vint=-1.569E+01 Rs_int= 2.191

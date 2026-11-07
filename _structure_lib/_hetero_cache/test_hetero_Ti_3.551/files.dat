@@ -1,0 +1,8 @@
+ test_hetero_Ti_3.55                                    Feff 6L.02  potph 4.12
+ Abs   Z=26 Rmt= 1.697 Rnm= 2.469 K shell
+ Pot 1 Z=22 Rmt= 1.853 Rnm= 2.695
+ Gam_ch=1.325E+00 H-L exch
+ Mu=-3.566E+00 kf=8.269E-01 Vint=-6.171E+00 Rs_int= 4.386
+ -------------------------------------------------------------------------------
+    file        sig2   amp ratio    deg    nlegs  r effective
+ feff0001.dat 0.00000   100.000     1.000     2   3.5507

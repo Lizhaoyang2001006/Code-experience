@@ -1,0 +1,5 @@
+numpy>=2.0
+scipy>=1.10
+matplotlib>=3.7
+xraylarch>=2024.1
+gemmi>=0.6

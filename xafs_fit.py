@@ -1,0 +1,1329 @@
+# -*- coding: utf-8 -*-
+"""
+xafs_fit.py — 拟合链编排（S6.5 结构识别 + S7 自动/指定结构拟合）
+================================================================
+归约链（xafs_pipeline，S1–S6）与拟合链在这里分界：
+
+    PipelineResult 进 → S6.5 结构识别
+                     → S7 拟合（识别到 confident 结构，或显式给 motif）
+
+关键决策：
+  - 识别状态不是 confident（ambiguous / partial / no_match）时，默认只做
+    L1 第一壳拟合；长程结构未知。``allow_ambiguous=True`` 才允许用 Top-1
+    强制拟合，并在结果里标记。
+  - 自动拟合的路径按 Reff + 散射元素分壳层；同一壳层的多条 SS 路径
+    合并为一条代表路径，简并度加总，拟合出的 N 是**壳层总配位数**。
+    这是 Artemis 里“合并不可分辨壳层”的自动化版本，代表路径的近似
+    仍会在结果里保留 warning。
+  - S₀² 只从 absorber.py 的标定值取；未标定元素拒绝 CN 定量。
+"""
+from __future__ import annotations
+
+import math
+from pathlib import Path
+
+import numpy as np
+
+import artemis
+import structure_id
+import structure_lib
+from absorber import get_absorber
+from xafs_core import XAFSConfigError, XAFSDataError, XAFSError
+
+# 形式误差 ≠ 绝对精度。N 的误差棒只来自最小二乘协方差，
+# 不包含 S₀² 传递、代表路径/壳层合并、N–σ²–ΔE₀ 相关和归一化偏差。
+# 按 Fe 基准（Fe 箔第二壳 9.45 vs 晶体学 6；lepidocrocite Fe–Fe 7.6 vs 6）
+# 实测，CN 的绝对系统误差约 ±20–40%（1σ，量级估计），跨体系比较时
+# 不应把 ±0.3 当成“配位数已精确到小数第二位”。
+CN_SYSTEMATIC_BUDGET = {
+    "relative_1sigma": 0.30,
+    "components": {
+        "S02_transfer": 0.15,
+        "representative_path_and_shell_merge": 0.25,
+        "N_sigma2_e0_correlation": 0.15,
+        "normalization": 0.10,
+    },
+    "note": ("n_err 是形式误差；CN 绝对值的系统误差约 ±20–40%，"
+             "报告时应注明预算，不能把形式误差当绝对精度。"),
+}
+
+# 荧光自吸收：没有样品组成/厚度就无法做可验证的定量校正。
+# 这里只做保守筛查：荧光模式下边跳变越大，表观振幅被压低越严重。
+# 阈值是**风险门禁**，不是校正因子；高风险时拒绝 CN/相分数结论。
+SELF_ABSORPTION_HIGH_EDGE_STEP = 1.0   # Δμ ≥ 1.0：浓样/厚样，必须校正后才定量
+SELF_ABSORPTION_WARN_EDGE_STEP = 0.3   # 0.3–1.0：可能受影响，只警告
+
+
+def _self_absorption_diag(res) -> dict:
+    """荧光模式自吸收风险（不校正，只决定能否定量）。
+
+    荧光信号 ∝ 吸收量，但出射荧光会被样品自身再吸收；浓度/厚度越大，
+    EXAFS 振幅被压低越多，表现为 N 偏小。可靠校正需要样品组成、密度、
+    厚度与几何，本管线不假设这些量，因此在荧光模式下：
+      - Δμ ≥ 1.0 → risk=high，cn_gate=True（拒绝 CN/相分数定量）
+      - 0.3 ≤ Δμ < 1.0 → risk=possible，只警告
+      - Δμ < 0.3 → risk=low（稀样，自吸收通常可忽略）
+    透射/文件自带 xmu 不受此门禁影响。
+    """
+    merged = getattr(res, "merged", None)
+    mode = ((getattr(merged, "meta", None) or {}).get("mode")
+            if merged is not None else None) or "unknown"
+    norm = getattr(res, "norm", None)
+    edge_step = float(getattr(norm, "edge_step", float("nan")))
+    sa = getattr(res, "self_absorption", None)
+    if sa and sa.get("corrected"):
+        gate = not bool(sa.get("reliable", False))
+        return {
+            "mode": mode, "edge_step": edge_step, "corrected": True,
+            "reliable": bool(sa.get("reliable", False)),
+            "risk": ("corrected_unreliable" if gate else "corrected"),
+            "cn_gate": gate,
+            "method": sa.get("method"),
+            "formula": sa.get("formula"),
+            "thickness_um": sa.get("thickness_um"),
+            "density": sa.get("density"),
+            "anginp": sa.get("anginp"), "angout": sa.get("angout"),
+            "line": sa.get("line"),
+            "correction_factor_median": sa.get("correction_factor_median"),
+            "note": ("已做 Booth 自吸收校正；可靠性取决于总化学式、厚度、"
+                     "有效密度与角度的准确性（" + str(sa.get("note", "")) + "）"
+                     + ("；" + str(sa["warning"]) if sa.get("warning") else "")),
+        }
+    diag = {"mode": mode, "edge_step": edge_step, "corrected": False,
+            "risk": "none", "cn_gate": False,
+            "note": "非荧光模式，不涉及自吸收"}
+    if mode != "fluor":
+        return diag
+    if not math.isfinite(edge_step):
+        diag.update(risk="unknown", cn_gate=True,
+                    note="荧光模式但边跳变缺失，无法判断自吸收，拒绝定量")
+    elif edge_step >= SELF_ABSORPTION_HIGH_EDGE_STEP:
+        diag.update(risk="high", cn_gate=True,
+                    note=(f"荧光 Δμ={edge_step:.3f} ≥ "
+                          f"{SELF_ABSORPTION_HIGH_EDGE_STEP:.1f}："
+                          "浓样/厚样自吸收显著，未校正时振幅与 N 被压低，"
+                          "需透射谱或组成/厚度已知的外部校正"))
+    elif edge_step >= SELF_ABSORPTION_WARN_EDGE_STEP:
+        diag.update(risk="possible",
+                    note=(f"荧光 Δμ={edge_step:.3f} 处于可能受自吸收影响的"
+                          "区间；若 N 系统性偏低，优先怀疑此项"))
+    else:
+        diag.update(risk="low",
+                    note="荧光稀样，自吸收通常可忽略")
+    return diag
+
+
+def _max_offdiag_correlation(fit) -> tuple[float, str | None, str | None]:
+    """返回 (|ρ|max, 变量名 i, 变量名 j)；无相关矩阵时返回 (0, None, None)。"""
+    corr = getattr(fit, "correlation", None)
+    names = getattr(fit, "parameter_names", None)
+    if corr is None or names is None:
+        return 0.0, None, None
+    c = np.array(corr, dtype=float, copy=True)
+    if c.ndim != 2 or c.size == 0:
+        return 0.0, None, None
+    np.fill_diagonal(c, 0.0)
+    ij = np.unravel_index(np.argmax(np.abs(c)), c.shape)
+    return abs(float(c[ij])), names[ij[0]], names[ij[1]]
+
+
+def systematic_budget(fit, flags: dict | None = None,
+                      self_abs: dict | None = None,
+                      truncated_shells: int = 0,
+                      fit_weights: bool = False) -> dict:
+    """按**本次拟合的实际条件**生成 CN 系统误差预算（1σ，相对值）。
+
+    基础预算 0.30 是历史实测锚点（见 CN_SYSTEMATIC_BUDGET）。这里不重算
+    基础项，只把**额外可归因的系统误差**与基础值按平方和合成：
+
+      - Booth 自吸收已校正且 reliable：+0.10（化学式/厚度/角度误差残留）
+      - 荧光自吸收未校正但处于 possible 区间：+0.15（振幅压低方向未知）
+      - 最强参数相关 |ρ| ≥ 0.9：+0.10；0.8–0.9：+0.05
+      - 因 N_idp 截断远壳层：+0.05
+      - σ² 撞下界（形状失配）：+0.10
+
+    宁可将不可归因项显式列出，也不把 0.30 当成放之四海皆准的常数。
+    """
+    flags = flags or {}
+    self_abs = self_abs or {}
+    base = float(CN_SYSTEMATIC_BUDGET["relative_1sigma"])
+    extras: dict[str, float] = {}
+    notes: list[str] = []
+
+    if self_abs.get("corrected") and self_abs.get("reliable"):
+        extras["self_absorption_residual"] = 0.10
+        notes.append("Booth 校正后残留（化学式/厚度/角度误差）")
+    elif (not self_abs.get("corrected")
+          and self_abs.get("risk") == "possible"):
+        extras["self_absorption_uncorrected"] = 0.15
+        notes.append("荧光自吸收可能压低振幅且未校正")
+
+    rho, ni, nj = _max_offdiag_correlation(fit)
+    if rho >= 0.9:
+        extras["parameter_correlation"] = 0.10
+        notes.append(f"参数强相关 |ρ|={rho:.3f}"
+                     + (f"（{ni} vs {nj}）" if ni else ""))
+    elif rho >= 0.8:
+        extras["parameter_correlation"] = 0.05
+        notes.append(f"参数相关 |ρ|={rho:.3f}"
+                     + (f"（{ni} vs {nj}）" if ni else ""))
+
+    if truncated_shells > 0:
+        extras["truncated_shells"] = 0.05
+        notes.append(f"{truncated_shells} 条远壳层因 N_idp 截断")
+    if flags.get("sigma2_at_bound"):
+        extras["sigma2_at_bound"] = 0.10
+        notes.append("σ² 撞下界，模型形状失配")
+
+    total = math.hypot(base, *extras.values())
+    return {
+        "relative_1sigma": round(total, 4),
+        "base_relative_1sigma": base,
+        "extra_components": extras,
+        "components": dict(CN_SYSTEMATIC_BUDGET["components"]),
+        "max_parameter_correlation": round(rho, 4),
+        "note": ("基础预算 "
+                 f"±{100 * base:.0f}% 与本次额外系统项按平方和合成"
+                 + ("：" + "；".join(notes) if notes else "（无额外项）")
+                 + "。n_err 仍是形式误差，不能当绝对精度。"),
+    }
+
+
+def _find_motif(absorber: str, motif_id: str) -> structure_lib.Motif:
+    for motif in structure_lib.load_library(absorber):
+        if motif.id == motif_id:
+            return motif
+    raise XAFSConfigError(
+        "FIT", f"结构库 {absorber} 中不存在 motif {motif_id!r}")
+
+
+def _ss_rows(motif: structure_lib.Motif, edge: str) -> list:
+    """返回 motif 的全部单散射路径摘要（已按 Reff 排序）。"""
+    cache = structure_lib.ensure_feff(motif, edge=edge)
+    rows = []
+    for f in sorted(cache.glob("feff*.dat")):
+        path = artemis.load_feff_path(f)
+        if int(getattr(path, "nleg", 2)) != 2:
+            continue
+        geom = getattr(path, "geom", None) or []
+        scatterer = geom[-1][0] if geom else "?"
+        rows.append({"file": f, "reff": float(path.reff),
+                     "degen": float(path.degen), "scatterer": scatterer})
+    rows.sort(key=lambda r: r["reff"])
+    # ---- B7-2 部分占据：按距离/元素匹配壳层平均占据度缩放简并度 ----
+    # 只对确有 occ<0.999 或直接引用外部 CIF 的晶体 motif 做展开，
+    # 避免全占据体系每次识别都重复展开晶胞。
+    needs_occ = (motif.kind == "crystal"
+                 and (motif.cif_path is not None
+                      or any(float(s.get("occ", 1.0)) < 0.999
+                             for s in (motif.asym_sites or []))))
+    if needs_occ:
+        try:
+            scale = artemis.cif_shell_occupancy_scale(
+                structure_lib._cif_path(motif), motif.absorber, rmax=6.0)
+        except XAFSError:
+            scale = []
+        for r in rows:
+            matches = [occ for (dist, el, occ) in scale
+                       if el == r["scatterer"]
+                       and abs(dist - float(r["reff"])) <= 0.05]
+            if matches:
+                occ_mean = float(np.mean(matches))
+                if abs(occ_mean - 1.0) > 1e-12:
+                    r["degen"] = float(r["degen"]) * occ_mean
+                    r["occupancy_scale"] = occ_mean
+    return rows
+
+
+def _collinear_ms_rows(motif: structure_lib.Motif, edge: str,
+                       rmax: float, min_abs_cos: float = 0.85,
+                       min_reff_ratio: float = 1.5) -> list:
+    """筛选近共线多散射（MS）路径：nleg∈{3,4}、reff≤rmax、所有内角≈0/180°。
+
+    为什么必须几何筛选而不是把所有 nleg>2 都塞进去：FEFF 对每个团簇
+    输出几十条 MS 路径（NiO rmax=4.5 时有 81 条），多数是 90° 弱路径；
+    只有共线/近共线路径（如 Ni–O–Ni、Ni–O–Ni–O，reff≈2×2.0885）振幅
+    足以影响 3–4 Å 拟合。
+
+    判据用 ``|cos|`` 而不是带符号的 ``cos``：FEFF 的 ``geom`` 是路径
+    原子序列，最后一条腿由末原子回到吸收原子是**隐式**的。对共线路径，
+    中间原子处“指向上一原子”和“指向下一原子”的两个向量要么同向
+    （继续前行，0° 转折）要么反向（180° 回散射），二者都满足 |cos|≈1；
+    90° 路径给出 |cos|≈0。旧实现只看 ``max(cos)`` 且漏掉回吸收原子的
+    闭合腿，会把 NiO 的 feff0007/0009 全部误删。
+    """
+    cache = structure_lib.ensure_feff(motif, edge=edge)
+    rows = []
+    for f in sorted(cache.glob("feff*.dat")):
+        path = artemis.load_feff_path(f)
+        nleg = int(getattr(path, "nleg", 2))
+        if nleg not in (3, 4):
+            continue
+        reff = float(path.reff)
+        if reff > rmax:
+            continue
+        geom = getattr(path, "geom", None) or []
+        if len(geom) < nleg:
+            continue
+        try:
+            pts = np.asarray([[float(g[4]), float(g[5]), float(g[6])]
+                              for g in geom[:nleg]], dtype=float)
+        except (TypeError, ValueError, IndexError):
+            continue
+        # 闭合路径：末原子 → 吸收原子（GEOM 不重复列吸收原子）。
+        closed = np.vstack([pts, pts[0]])
+        cosines = []
+        for i in range(1, len(closed) - 1):
+            v1 = closed[i - 1] - closed[i]
+            v2 = closed[i + 1] - closed[i]
+            n1, n2 = np.linalg.norm(v1), np.linalg.norm(v2)
+            if n1 <= 1e-8 or n2 <= 1e-8:
+                cosines = []
+                break
+            cosines.append(float(np.dot(v1, v2) / (n1 * n2)))
+        if not cosines or min(abs(c) for c in cosines) < min_abs_cos:
+            continue
+        first_dist = float(np.linalg.norm(pts[1] - pts[0]))
+        # 聚焦判据：Reff ≈ 2·R_first（nleg=3 的三体 180° 路径与 nleg=4
+        # 的往返路径）。首腿本身等于 Reff 的“长腿”路径（如 Ni–Ni–O）
+        # 不是聚焦路径，不纳入受约束 MS。
+        if first_dist <= 0 or reff < min_reff_ratio * first_dist:
+            continue
+        try:
+            path_id = int(f.stem.replace("feff", ""))
+        except ValueError:
+            path_id = 0
+        rows.append({
+            "file": f, "reff": reff, "degen": float(path.degen),
+            "nleg": nleg, "scatterer": str(geom[-1][0]),
+            "first_el": str(geom[1][0]), "first_dist": first_dist,
+            "sequence": "-".join(str(g[0]) for g in geom[:nleg]),
+            "reff_ratio": float(reff / first_dist),
+            "path_id": path_id,
+        })
+    rows.sort(key=lambda r: (r["reff"], -r["degen"]))
+    return rows
+
+
+def _mixture_rows(motif: structure_lib.Motif, edge: str, merge_tol: float,
+                  apply_weights: bool = True):
+    """展开 SS 路径；mixture 则按权重缩放简并度并收紧合并容差。
+
+    返回 (rows, merge_tol_effective)。普通 motif 原样透传；
+    mixture 的 χ 是各位点 χ 的加权线性组合，对应到路径层就是
+    把每个分量的 degen 乘以该位点权重，再做**同一**窗口拟合。
+
+    apply_weights=False 用于**权重拟合**：保留晶体学简并度、给每条
+    路径打上 ``group``（组分下标）与 ``group_name``，由 fit_r_space
+    在迭代中按 N_crystal·w 缩放——否则权重会被预先乘死，无法再拟合。
+    """
+    if motif.kind != "mixture":
+        return _ss_rows(motif, edge), merge_tol
+    lib = {m.id: m for m in structure_lib.load_library(motif.absorber)}
+    rows = []
+    for ci, comp in enumerate(motif.components):
+        w = float(comp["weight"])
+        for r in _ss_rows(lib[comp["id"]], edge):
+            d = dict(r)
+            d["group"] = ci
+            d["group_name"] = comp["id"]
+            if apply_weights:
+                d["degen"] = float(r["degen"]) * w
+            rows.append(d)
+    rows.sort(key=lambda r: r["reff"])
+    # 两吸收位点的近距壳（磁铁矿 Fe-O 1.886 / 2.060）只差 0.17 Å，
+    # 单位点容差 0.20 会把它们错误合并；物理分辨 π/(2Δk) 允许用
+    # 更紧的容差分开子壳层。
+    return rows, min(merge_tol, 0.10)
+
+
+def _hetero_branch_row(motif: structure_lib.Motif, edge: str,
+                       element: str, distance: float) -> dict:
+    """为异核共占位分支生成一条单散射 FEFF 路径（缓存到 _hetero_cache）。
+
+    做法：把共占位位点纯化为该分支元素的单个近邻原子跑一次 FEFF，
+    取该距离处的 nleg==2 路径；简并度由占位数在调用方覆盖。
+    """
+    element = str(element).capitalize()
+    distance = float(distance)
+    cache = (structure_lib.HETERO_CACHE
+             / f"{motif.id}_{element}_{distance:.3f}")
+    if not list(cache.glob("feff*.dat")):
+        inp = artemis.build_feff_input(
+            [(distance, 0.0, 0.0, element)], absorber=motif.absorber,
+            rmax=distance + 0.8,
+            title=f"{motif.id}_{element}_{distance:.2f}", edge=edge)
+        artemis.run_feff6l(inp, cache)
+    best = None
+    for f in sorted(cache.glob("feff*.dat")):
+        p = artemis.load_feff_path(f)
+        if int(getattr(p, "nleg", 2)) != 2:
+            continue
+        if abs(float(p.reff) - distance) > 0.25:
+            continue
+        if best is None or (abs(float(p.reff) - distance)
+                            < abs(float(best[0].reff) - distance)):
+            best = (p, f)
+    if best is None:
+        raise XAFSDataError(
+            "FIT", f"异核分支 {motif.absorber}-{element}@{distance:.2f} Å "
+                   f"在 FEFF 缓存 {cache} 中无 SS 路径")
+    return {"file": best[1], "reff": float(best[0].reff),
+            "degen": float(best[0].degen), "scatterer": element}
+
+
+def _hetero_shells_in_window(motif: structure_lib.Motif,
+                             rmin: float, rmax: float) -> list:
+    """返回窗口内需要拆分的异核共占位壳层（single_element_approx=False）。"""
+    if not motif.cif_path:
+        raise XAFSConfigError(
+            "FIT", f"{motif.id}: hetero_cocupancy 需要 motif.cif_path "
+                   f"（含 _atom_site_occupancy 的共占位 CIF）")
+    hetero = artemis.cif_hetero_cocupancy_branches(
+        motif.cif_path, motif.absorber, rmax=max(4.0, rmax + 1.5))
+    out = []
+    for si, sh in enumerate(hetero.get("shells") or []):
+        if sh.get("single_element_approx"):
+            continue
+        if not (rmin - 0.5 <= float(sh["distance"]) <= rmax + 0.5):
+            continue
+        item = dict(sh)
+        item["shell_index"] = si
+        out.append(item)
+    return out
+
+
+def _replace_hetero_rows(motif: structure_lib.Motif, edge: str,
+                         rows: list, hetero_shells: list) -> list:
+    """用每分支 FEFF 路径替换共占位壳层的单元素近似行。"""
+    out = list(rows)
+    for sh in hetero_shells:
+        distance = float(sh["distance"])
+        els = {str(b["element"]).capitalize() for b in sh["branches"]}
+        out = [r for r in out
+               if not (str(r["scatterer"]).capitalize() in els
+                       and abs(float(r["reff"]) - distance) <= 0.25)]
+        for bi, branch in enumerate(sh["branches"]):
+            row = _hetero_branch_row(
+                motif, edge, str(branch["element"]).capitalize(), distance)
+            row["degen"] = float(branch["degen"])
+            row["hetero_group"] = int(sh["shell_index"])
+            row["hetero_branch"] = int(bi)
+            row["hetero_n_geom"] = int(sh["n_geom"])
+            out.append(row)
+    return out
+
+
+def select_shell_paths(motif: structure_lib.Motif, edge: str = "K",
+                       rmin: float | None = None, rmax: float | None = None,
+                       merge_tol: float = 0.20, max_paths: int = 12,
+                       kmin: float = 3.0, kmax: float = 12.0,
+                       group_by_component: bool = False,
+                       include_ms: bool = False, max_ms: int = 3,
+                       isotropic_deltar: bool = False,
+                       hetero_cocupancy: bool = False) -> dict:
+    """按 (散射元素, Reff) 分壳层，返回代表路径 + 总简并度。
+
+    ``merge_tol`` 默认 0.20 Å，仍小于 π/(2Δk)（Δk=6 时约 0.26 Å）——
+    比 0.15 Å 更符合“不可分辨壳层”的物理判据：针铁矿 Fe-O
+    1.95×3 + 2.10×3（ΔR=0.15 Å）应合并成一层 N=6，否则两条 N
+    强相关、误差爆炸。代表路径取该壳层中简并度最大的一条，N 初值
+    取壳层总简并度。
+
+    自动选壳层还必须服从信息量上限：每条路径放开 N/ΔR/σ² 是 3 个
+    变量，加 1 个全局 ΔE0，故 ``3n+1`` 必须小于独立点数 N_idp。
+    超出时从**最远壳层**开始截断（近壳信噪比高、相关弱），并在
+    ``truncated`` 里返回被丢弃的壳层，避免静默过拟合。
+
+    kind=mixture（多位点吸收）：各分量 SS 路径按权重缩放简并度后
+    统一分组，并把合并容差收紧到 ≤0.10 Å——磁铁矿 8a/16d 第一壳
+    1.886 与 2.060 Å 仅差 0.17 Å，默认 0.20 容差会错误合并成一层。
+    """
+    if group_by_component and motif.kind != "mixture":
+        raise XAFSConfigError(
+            "FIT", f"{motif.id} 不是 mixture，group_by_component 仅用于多位点混合相")
+    # 权重拟合必须保留**未乘权重**的晶体学简并度，否则 N·w 被预先乘死。
+    rows, merge_tol = _mixture_rows(
+        motif, edge, merge_tol, apply_weights=not group_by_component)
+    if not rows:
+        raise XAFSDataError("FIT", f"{motif.id}: 没有可用单散射路径")
+    if rmin is None:
+        rmin = max(1.0, min(r["reff"] for r in rows) - 0.6)
+    if rmax is None:
+        # 默认止步 3.5 Å：覆盖第一壳 + 常见第二壳（Fe 箔 2.87、
+        # Fe–Fe 3.06），但不把 3.6–4.4 Å 的弱远壳全部放进自动拟合。
+        # 需要第三壳时显式 --fit-rmax 3.9，并自行承担过拟合风险。
+        rmax = min(3.5, max(r["reff"] for r in rows) + 0.3)
+
+    # ---- B13-2 异核共占位：把单元素近似拆成每元素一条分支路径 ----
+    hetero_shells = []
+    if hetero_cocupancy:
+        hetero_shells = _hetero_shells_in_window(
+            motif, rmin=float(rmin), rmax=float(rmax))
+        if hetero_shells:
+            rows = _replace_hetero_rows(motif, edge, rows, hetero_shells)
+
+    kept = [r for r in rows if rmin - 0.5 <= r["reff"] <= rmax + 0.5]
+    if not kept:
+        raise XAFSConfigError(
+            "FIT", f"{motif.id}: R∈[{rmin:.2f},{rmax:.2f}] 内无 SS 路径")
+    groups = []
+    for row in kept:
+        row_key = row.get("group") if group_by_component else None
+        # 同一 (散射元素, 组分) 内按距离容差合并；不同组分永不合并，
+        # 否则磁铁矿 tet/oct 的权重会被并进同一条路径而不可辨识。
+        match = None
+        for g in groups:
+            if g["scatterer"] != row["scatterer"]:
+                continue
+            if group_by_component and g["group"] != row_key:
+                continue
+            if abs(row["reff"] - g["reff_mean"]) <= merge_tol:
+                if (match is None
+                        or abs(row["reff"] - g["reff_mean"])
+                        < abs(row["reff"] - match["reff_mean"])):
+                    match = g
+        if match is not None:
+            g = match
+            old_n = g["degen"]
+            new_n = old_n + row["degen"]
+            g["reff_mean"] = ((g["reff_mean"] * old_n
+                               + row["reff"] * row["degen"]) / new_n)
+            g["degen"] = new_n
+            g["members"].append(row)
+            if row["degen"] > g["rep"]["degen"]:
+                g["rep"] = row
+            continue
+        groups.append({"scatterer": row["scatterer"], "reff_mean": row["reff"],
+                       "degen": row["degen"], "rep": row,
+                       "members": [row],
+                       "group": row_key,
+                       "group_name": (row.get("group_name")
+                                      if group_by_component else None)})
+    # 逐行插入可能打乱距离顺序；截断策略依赖"从最远壳开始丢"。
+    groups.sort(key=lambda g: g["reff_mean"])
+
+    # 只保留中心落在拟合窗口内的壳层；窗口外的弱路径不参与自动拟合。
+    groups = [g for g in groups
+              if rmin - 0.20 <= g["reff_mean"] <= rmax + 0.15]
+    if not groups:
+        raise XAFSConfigError(
+            "FIT", f"{motif.id}: R∈[{rmin:.2f},{rmax:.2f}] 内无有效壳层")
+
+    n_idp = artemis.independent_points(kmin, kmax, rmin, rmax)
+    if isotropic_deltar:
+        # ΔR 已压缩为唯一全局 α：每壳只剩 N、σ² 两个变量，加 α、ΔE₀
+        # 两个全局变量，信息量上限为 2n + 2 < N_idp。
+        max_by_idp = max(1, int((n_idp - 2.0) // 2.0))
+    else:
+        max_by_idp = max(1, int((n_idp - 1.0) // 3.0))
+    limit = min(max_paths, max_by_idp)
+    truncated = groups[limit:]
+    groups = groups[:limit]
+
+    files, degens, labels, shells = [], [], [], []
+    for g in groups:
+        el = g["scatterer"]
+        # 用代表距离做唯一标签，避免 "Fe-O2" 让人误以为是第二壳；
+        # 多壳层表里真正重要的是 Reff/N/R，而不是序号。
+        base = f"{motif.absorber}-{el}@{g['reff_mean']:.2f}"
+        label = (f"{g['group_name']}:{base}" if group_by_component else base)
+        files.append(g["rep"]["file"])
+        degens.append(g["degen"])
+        labels.append(label)
+        shells.append({"label": label, "scatterer": el,
+                       "reff": round(g["rep"]["reff"], 4),
+                       "reff_mean": round(g["reff_mean"], 4),
+                       "degen": g["degen"], "n_members": len(g["members"]),
+                       "group": (g["group_name"] if group_by_component
+                                 else None)})
+
+    # ---- 权重拟合所需的组分映射 ----
+    # fit_r_space 要求 path_groups 是 0..K-1 连续下标，而组分可能因
+    # R 窗/信息量截断缺失，故重映射并同时给出原始组分下标。
+    path_groups = None
+    group_names = None
+    component_ids = None
+    weight_degenerate_pairs = []
+    if group_by_component:
+        used = sorted({int(g["group"]) for g in groups})
+        remap = {old: i for i, old in enumerate(used)}
+        path_groups = [remap[int(g["group"])] for g in groups]
+        component_ids = used
+        group_names = []
+        for old in used:
+            name = next(g["group_name"] for g in groups
+                        if int(g["group"]) == old)
+            group_names.append(name)
+        # 不同组分在同一 (散射元素, 距离) 上出现时，只有振幅之和可辨识，
+        # 单组分权重严格简并——必须显式标记，不能给出"相分数"。
+        for a in range(len(groups)):
+            for b in range(a + 1, len(groups)):
+                ga, gb = groups[a], groups[b]
+                if (int(ga["group"]) != int(gb["group"])
+                        and ga["scatterer"] == gb["scatterer"]
+                        and abs(ga["reff_mean"] - gb["reff_mean"])
+                        <= merge_tol):
+                    weight_degenerate_pairs.append(
+                        [f"{ga['group_name']}@{ga['reff_mean']:.2f}",
+                         f"{gb['group_name']}@{gb['reff_mean']:.2f}"])
+
+    # ---- 受约束多散射：追加近共线 nleg>2 路径，不新增自由变量 ----
+    ms_links = []
+    if include_ms:
+        for row in _collinear_ms_rows(motif, edge, rmax + 0.15):
+            parent = None
+            for gi, g in enumerate(groups):
+                if g["scatterer"] != row["first_el"]:
+                    continue
+                if abs(g["reff_mean"] - row["first_dist"]) <= 0.05:
+                    parent = gi
+                    break
+            if parent is None:
+                continue
+            idx = len(files)
+            # 标签必须带完整原子序列：同一 Reff 下 Ni–O–O 与
+            # Ni–O–Ni–O 是不同路径，只写末原子会产生重名。
+            label = (f"{row.get('sequence', motif.absorber + '-' + row['scatterer'])}"
+                     f"@{row['reff']:.2f}(MS{row['nleg']}"
+                     f"#{row.get('path_id', 0)})")
+            files.append(row["file"])
+            degens.append(row["degen"])
+            labels.append(label)
+            shells.append({"label": label, "scatterer": row["scatterer"],
+                           "reff": round(row["reff"], 4),
+                           "reff_mean": round(row["reff"], 4),
+                           "degen": row["degen"], "n_members": 1,
+                           "group": None, "kind": "ms",
+                           "parent": labels[parent]})
+            ms_links.append({
+                "ms_path_index": idx,
+                "parent_shell_index": parent,
+                "reff_ratio": float(row["reff"]
+                                    / groups[parent]["reff_mean"]),
+                "degen_ratio": float(row["degen"]
+                                     / groups[parent]["degen"]),
+                "nleg": int(row["nleg"]),
+            })
+            if len(ms_links) >= max_ms:
+                break
+
+    # ---- B13-2 双分支绑定：同壳层不同元素分支共享 ΔR/σ²，各自放开 N ----
+    path_links = []
+    if hetero_cocupancy and hetero_shells:
+        by_group: dict[int, list[int]] = {}
+        for gi, g in enumerate(groups):
+            hg = g["rep"].get("hetero_group")
+            if hg is None:
+                continue
+            by_group.setdefault(int(hg), []).append(gi)
+        for _hg, idxs in sorted(by_group.items()):
+            idxs.sort(key=lambda gi: int(
+                groups[gi]["rep"].get("hetero_branch", 0)))
+            src = idxs[0]
+            for tgt in idxs[1:]:
+                path_links.append({"target": int(tgt), "source": int(src),
+                                   "share_deltar": True,
+                                   "share_sigma2": True,
+                                   "degen_ratio": None})
+
+    return {"files": files, "degens": degens, "labels": labels,
+            "shells": shells, "rmin": float(rmin), "rmax": float(rmax),
+            "merge_tol": merge_tol, "n_independent": round(n_idp, 2),
+            "max_paths_by_idp": max_by_idp, "ms_links": ms_links,
+            "groups": path_groups, "group_names": group_names,
+            "component_ids": component_ids,
+            "weight_degenerate_pairs": weight_degenerate_pairs,
+            "hetero_shells": [{"distance": float(sh["distance"]),
+                               "n_geom": int(sh["n_geom"]),
+                               "branches": [dict(b) for b in sh["branches"]]}
+                              for sh in hetero_shells],
+            "path_links": path_links,
+            "truncated": [{"label": (f"{g['group_name']}:{motif.absorber}-"
+                                     f"{g['scatterer']}@{g['reff_mean']:.2f}"
+                                     if group_by_component else
+                                     f"{motif.absorber}-{g['scatterer']}"
+                                     f"@{g['reff_mean']:.2f}"),
+                           "reff_mean": round(g["reff_mean"], 4),
+                           "degen": g["degen"]} for g in truncated]}
+
+
+def _normalize_c3_paths(vary_c3, n_path: int):
+    """把 CLI/API 的 vary_c3 归一成 artemis 接受的 None / True / [idx...]。"""
+    if vary_c3 is None or vary_c3 is False:
+        return None
+    if vary_c3 is True:
+        return True
+    if isinstance(vary_c3, str):
+        key = vary_c3.strip().lower()
+        if key in ("", "none", "false", "off"):
+            return None
+        if key == "first":
+            return [0]
+        if key == "all":
+            return True
+        raise XAFSConfigError(
+            "FIT", f"vary_c3 字符串只支持 'first'/'all'，收到 {vary_c3!r}")
+    if isinstance(vary_c3, (list, tuple, set)):
+        idx = sorted({int(i) for i in vary_c3})
+        for i in idx:
+            if i < 0 or i >= n_path:
+                raise XAFSConfigError(
+                    "FIT", f"vary_c3 路径下标 {i} 超出范围 0–{n_path - 1}")
+        return idx or None
+    raise XAFSConfigError(
+        "FIT", f"vary_c3 必须是 bool 或路径下标列表，收到 {vary_c3!r}")
+
+
+def rdf_table(fit) -> dict:
+    """B9-1：把拟合出的 C3/C4 累积量重构为非高斯 g(R)。
+
+    只对真正放开了 C3 或 C4 的路径生成——常规拟合没有非高斯信息，
+    不能凭空画一条不对称分布。返回:
+        {"rows": [{"label", "r", "g_r"}, ...],
+         "summary": [{"label", "r_mode", "r_mean", "skewness", "area",
+                      "c3", "c4"}, ...]}
+    """
+    rows, summary = [], []
+    for p in fit.paths:
+        if p.c3 is None and p.c4 is None:
+            continue
+        r_grid = np.linspace(max(0.5, p.r - 0.8), p.r + 1.0, 401)
+        rdf = artemis.reconstruct_pair_distribution(
+            r_grid, n=float(p.degeneracy), r0=float(p.r),
+            sigma2=float(p.sigma2), c3=float(p.c3 or 0.0),
+            c4=float(p.c4 or 0.0))
+        rows.append({"label": p.label, "r": rdf["r"], "g_r": rdf["g_r"]})
+        summary.append({"label": p.label, "r_mode": rdf["r_mode"],
+                        "r_mean": rdf["r_mean"],
+                        "skewness": rdf["skewness"],
+                        "area": rdf["area"], "c3": p.c3, "c4": p.c4})
+    return {"rows": rows, "summary": summary}
+
+
+def write_rdf_csv(path, rdf: dict):
+    """把 rdf_table 的结果写成 long-form CSV（每路径一段）。"""
+    import csv
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8-sig") as fh:
+        w = csv.writer(fh)
+        w.writerow(["label", "r_A", "g_r", "r_mode", "r_mean",
+                    "skewness", "area"])
+        meta = {m["label"]: m for m in rdf.get("summary", [])}
+        for block in rdf.get("rows", []):
+            m = meta.get(block["label"], {})
+            for riv, g in zip(block["r"], block["g_r"]):
+                w.writerow([block["label"], f"{riv:.6f}", f"{g:.6e}",
+                            m.get("r_mode"), m.get("r_mean"),
+                            m.get("skewness"), m.get("area")])
+    return path
+
+
+def fit_identified(res, motif_id: str | None = None,
+                   absorber_symbol: str | None = None,
+                   rmin: float | None = None, rmax: float | None = None,
+                   allow_ambiguous: bool = False,
+                   l1_ligand: str = "O", l1_geometry: str = "oct",
+                   fit_weights: bool = False,
+                   shared_sigma2: str | list | None = None,
+                   kweights: tuple | list | None = None,
+                   include_ms: bool = False,
+                   vary_c3: bool | list | str = False,
+                   vary_c4: bool | list | str = False,
+                   isotropic_deltar: bool = False,
+                   fit_space: str = "r",
+                   bvs_restraint: dict | None = None,
+                   catalytic_model=None,
+                   hetero_cocupancy: bool = False,
+                   constraints=None,
+                   verbose: bool = True) -> dict:
+    """对识别结果做 S7 拟合；未 confident 时返回 L1 第一壳结果。
+
+    ``fit_weights=True`` 仅对 mixture（多位点吸收）生效：固定每条路径的
+    晶体学简并度，放开各组分权重（softmax，和=1）与每壳 ΔR/σ²/ΔE₀，
+    给出相分数。此时 N 列是**有效简并度 N_crystal·w**，不是配位数。
+
+    ``shared_sigma2`` 对标 Artemis 的路径约束：多条路径共享一个 σ²
+    变量，减少自由参数、避免 σ² 与 ΔR 过度相关。
+        None        每条路径独立 σ²（默认）
+        "all"       所有路径共享一个 σ²
+        [[0,1],[2]] 显式分组：路径 0、1 共享 σ²，路径 2 独立
+    与 fit_weights 互斥（权重模式下 σ² 已按组分缩放，不再共享）。
+
+    ``kweights``：多 k 权重联合拟合（对标 Artemis），如 ``(1, 2, 3)``。
+    None 时沿用单权 ``res.ft.kweight``（默认 2），行为与历史完全一致。
+
+    ``fit_space``（B11-3）：``"r"``（默认）/ ``"q"`` / ``"wt"``，透传给
+    ``artemis.fit_r_space``。不同空间的 Rf 口径不同，不可横向比较。
+    ``bvs_restraint``（B11-2）：``{"target", "sigma", "r0_table"?}`` 软约束
+    键价和；L1 合成团簇不提供 R₀ 语义，遇到 L1 降级时显式拒绝而不是
+    静默忽略。
+    """
+    absorber_symbol = absorber_symbol or getattr(res, "absorber_symbol", None)
+    if not absorber_symbol:
+        raise XAFSConfigError(
+            "FIT", "缺少吸收元素：给 absorber_symbol 或 --absorber")
+    absorber = get_absorber(absorber_symbol)
+    if absorber.s02 is None:
+        raise XAFSConfigError(
+            "FIT", f"{absorber.symbol} 未标定 S₀²，拒绝 CN 定量；"
+                   f"先在 absorber.py 用标准样标定")
+    self_abs = _self_absorption_diag(res)
+
+    # ---- B13-1 显式催化模型：绕过晶相库搜索，直接进 S7 ----
+    catalytic_motif = None
+    if catalytic_model is not None:
+        catalytic_motif = structure_lib.parse_catalytic_cluster_spec(
+            absorber.symbol, catalytic_model)
+        if str(catalytic_motif.absorber).capitalize() != absorber.symbol.capitalize():
+            raise XAFSConfigError(
+                "FIT", f"催化模型的吸收元素 {catalytic_motif.absorber!r} 与 "
+                       f"--absorber {absorber.symbol!r} 不一致")
+
+    sid = getattr(res, "structure", None)
+    if catalytic_motif is not None:
+        if sid is None:
+            sid = {
+                "status": "catalytic_model",
+                "absorber": absorber.symbol,
+                "ranked": [{"id": catalytic_motif.id,
+                            "score": None, "de0": 0.0,
+                            "kind": catalytic_motif.kind,
+                            "nuclearity": catalytic_motif.nuclearity}],
+                "indistinguishable": [],
+                "uncovered_peaks": [],
+                "coverage_ok": True,
+                "confidence": {
+                    "margin": None,
+                    "note": "用户显式给定催化模型，未做结构库搜索"},
+                "warning": ("使用 --catalytic-model 显式模型；识别状态"
+                            "不代表库内排序结果，长程结构由该模型强制假设"),
+            }
+        if motif_id is None:
+            motif_id = catalytic_motif.id
+    else:
+        if sid is None:
+            sid = structure_id.identify_result(
+                res, absorber_symbol=absorber_symbol,
+                l1_ligand=l1_ligand, l1_geometry=l1_geometry,
+                vary_c3=vary_c3, fit_space=fit_space, verbose=verbose)
+
+    if catalytic_model is None and motif_id is None:
+        status = sid.get("status")
+        if status == "confident" or allow_ambiguous:
+            motif_id = sid["ranked"][0]["id"]
+        else:
+            l1 = sid.get("l1_first_shell")
+            if l1 is None:
+                detail = sid.get("l1_error", "L1 拟合未生成")
+                raise XAFSDataError(
+                    "FIT", f"识别状态 {status}，不能自动全拟合：{detail}")
+            l1_c3_bound = bool(l1.get("c3_at_bound", False))
+            if bvs_restraint is not None:
+                raise XAFSConfigError(
+                    "FIT", "bvs_restraint 需要结构模型给出的配体与参考键长；"
+                           "识别状态不是 confident，L1 合成团簇的 BVS 无物理"
+                           "意义，拒绝静默忽略该约束")
+            l1_reliable = (l1.get("rf", 1.0) <= 0.08
+                           and abs(l1.get("delta_e0", 0.0)) < 15.0
+                           and not self_abs["cn_gate"]
+                           and not l1_c3_bound)
+            l1_flags = {"sigma2_at_bound":
+                        float(l1.get("sigma2", 1.0)) <= 5e-4,
+                        "c3_at_bound": l1_c3_bound}
+            out = {"mode": "l1_first_shell", "status": status,
+                   "coverage_ok": sid.get("coverage_ok"),
+                   "cn_reliable": l1_reliable,
+                   "flags": {"c3_dropped_by_nidp":
+                             bool(l1.get("c3_dropped_by_nidp", False)),
+                             "c3_at_bound": l1_c3_bound},
+                   "structure": sid, "l1": l1,
+                   "self_absorption": self_abs,
+                   "cn_systematics": systematic_budget(
+                       None, flags=l1_flags, self_abs=self_abs),
+                   "warning": l1.get(
+                       "warning", "仅第一壳可信；长程结构未知")}
+            if self_abs["risk"] in ("high", "unknown",
+                                    "corrected_unreliable"):
+                prefix = ("荧光自吸收校正不可靠" if self_abs["corrected"]
+                          else "荧光自吸收未校正")
+                out["warning"] += ("；" + prefix + "（"
+                                   + self_abs["note"] + "）")
+            elif self_abs["risk"] == "possible":
+                out["warning"] += ("；荧光自吸收风险（"
+                                   + self_abs["note"] + "）")
+            if fit_weights:
+                out["warning"] += ("；识别状态不是 confident，"
+                                   "--fit-weights 未执行（返回 L1 第一壳）")
+            return out
+
+    motif = (catalytic_motif if catalytic_motif is not None
+             else _find_motif(absorber.symbol, motif_id))
+    if fit_weights and motif.kind != "mixture":
+        raise XAFSConfigError(
+            "FIT", f"{motif.id} 不是混合相（kind={motif.kind}），"
+                   f"--fit-weights 只用于多位点吸收的 mixture")
+    plan = select_shell_paths(motif, edge=absorber.edge,
+                              rmin=rmin, rmax=rmax,
+                              kmin=res.ft.kmin, kmax=res.ft.kmax,
+                              group_by_component=fit_weights,
+                              include_ms=include_ms,
+                              isotropic_deltar=isotropic_deltar,
+                              hetero_cocupancy=hetero_cocupancy)
+    if verbose:
+        print(f"  [S7] motif={motif.id}  R∈[{plan['rmin']:.2f},{plan['rmax']:.2f}] Å"
+              f"  S₀²={absorber.s02}  N_idp={plan['n_independent']:.1f}")
+        for sh in plan["shells"]:
+            print(f"       {sh['label']:<10} Reff={sh['reff']:.3f} Å"
+                  f"  N0={sh['degen']:.2f}  ({sh['n_members']} 条合并)")
+        if plan["truncated"]:
+            names = [t["label"] for t in plan["truncated"]]
+            print(f"       ⚠ 信息量上限：最多 {plan['max_paths_by_idp']} 条壳层"
+                  f"（3n+1 < N_idp），已截断 {names}")
+
+    weight_init = None
+    if fit_weights:
+        all_ids = list(range(len(motif.components)))
+        missing = [i for i in all_ids if i not in plan["component_ids"]]
+        if missing:
+            names = [motif.components[i]["id"] for i in missing]
+            raise XAFSConfigError(
+                "FIT", "权重拟合缺少组分路径：" + ", ".join(names)
+                       + "；这些组分在 R 窗内没有可用壳层或被 N_idp 截断，"
+                         "相分数不可辨识。请扩大 --fit-rmax 或减小壳层数")
+        # 初始权重按识别阶段给出的组分比例；仅用于优化起点。
+        weight_init = [float(motif.components[i]["weight"])
+                       for i in plan["component_ids"]]
+        total_w = sum(weight_init)
+        if total_w <= 0:
+            raise XAFSConfigError("FIT", "mixture 初始权重之和必须为正")
+        weight_init = [w / total_w for w in weight_init]
+
+    # ---- σ² 共享组（对标 Artemis 路径约束）----
+    sigma2_groups = None
+    sigma2_group_names = None
+    if shared_sigma2 is not None and not fit_weights:
+        n_path = len(plan["files"])
+        if shared_sigma2 == "all":
+            sigma2_groups = [list(range(n_path))]
+            sigma2_group_names = ["all_shells"]
+        elif isinstance(shared_sigma2, list):
+            # 显式分组：[[0, 1], [2]] 验证下标合法
+            for g in shared_sigma2:
+                for pi in g:
+                    if int(pi) < 0 or int(pi) >= n_path:
+                        raise XAFSConfigError(
+                            "FIT", f"shared_sigma2 路径下标 {pi} 超出范围 0–{n_path-1}")
+            sigma2_groups = [list(map(int, g)) for g in shared_sigma2]
+            sigma2_group_names = [f"s2grp{g}" for g in range(len(sigma2_groups))]
+        else:
+            raise XAFSConfigError(
+                "FIT", f"shared_sigma2 必须是 'all' 或路径下标列表，收到 {shared_sigma2!r}")
+
+    requested_c3 = _normalize_c3_paths(vary_c3, len(plan["files"]))
+    requested_c4 = _normalize_c3_paths(vary_c4, len(plan["files"]))
+    if fit_weights and requested_c3:
+        raise XAFSConfigError(
+            "FIT", "C3 与 mixture 相分数拟合不能同时开启："
+                   "权重模式的有效简并度 N_crystal·w 不是配位数，"
+                   "C3 无法解释为近邻分布偏斜")
+    if isotropic_deltar and fit_weights:
+        raise XAFSConfigError(
+            "FIT", "isotropic_deltar 与 mixture 相分数拟合不能同时开启："
+                   "各组分晶格膨胀不一致时全局 α 无物理意义")
+
+    def _fit_with_cumulants(c3_arg, c4_arg):
+        return artemis.fit_r_space(
+            res.chi_k, res.ft, plan["files"],
+            rmin=plan["rmin"], rmax=plan["rmax"],
+            kmin=res.ft.kmin, kmax=res.ft.kmax,
+            kweight=(tuple(kweights) if kweights else res.ft.kweight),
+            s02=absorber.s02, vary_delta_e0=True, vary_n=not fit_weights,
+            vary_weights=fit_weights,
+            vary_c3=(c3_arg if c3_arg is not None else False),
+            vary_c4=(c4_arg if c4_arg is not None else False),
+            isotropic_deltar=isotropic_deltar,
+            path_degen=plan["degens"], path_labels=plan["labels"],
+            path_groups=(plan["groups"] if fit_weights else None),
+            path_group_names=(plan["group_names"] if fit_weights else None),
+            weight_init=weight_init,
+            sigma2_groups=sigma2_groups,
+            sigma2_group_names=sigma2_group_names,
+            ms_links=(plan["ms_links"] or None),
+            path_links=(plan.get("path_links") or None),
+            constraints=constraints,
+            fit_space=fit_space,
+            bvs_restraint=bvs_restraint)
+
+    # 自动 N_idp 防护（B9-1：C3 与 C4 完全对称）：
+    # 先按用户请求放开；若 n_var ≥ N_idp，降级到仅第一壳；仍超限则
+    # 彻底关闭，并分别记录 c3_dropped_by_nidp / c4_dropped_by_nidp。
+    # C4 是更高阶项，优先降 C4 以保留用户更常需要的 C3。
+    c3_effective = requested_c3
+    c4_effective = requested_c4
+    fit = _fit_with_cumulants(c3_effective, c4_effective)
+    c3_dropped_by_nidp = False
+    c4_dropped_by_nidp = False
+
+    if c4_effective and fit.n_variables >= fit.n_independent:
+        c4_dropped_by_nidp = True
+        if c4_effective is True or tuple(c4_effective) != (0,):
+            c4_effective = [0]
+            fit = _fit_with_cumulants(c3_effective, c4_effective)
+        if fit.n_variables >= fit.n_independent:
+            c4_effective = None
+            fit = _fit_with_cumulants(c3_effective, c4_effective)
+
+    if c3_effective and fit.n_variables >= fit.n_independent:
+        c3_dropped_by_nidp = True
+        if c3_effective is True or tuple(c3_effective) != (0,):
+            c3_effective = [0]
+            fit = _fit_with_cumulants(c3_effective, c4_effective)
+        if fit.n_variables >= fit.n_independent:
+            c3_effective = None
+            fit = _fit_with_cumulants(c3_effective, c4_effective)
+
+    # ---- B13-1 DAC 金属键存在性：含/不含 M–M 的 Hamilton F-test ----
+    # 只看 Rf 无法回答“到底有没有 M–M 键”：多一条路径总会降低残差。
+    # 必须在同一 k/R 窗内比较两个嵌套模型，并把 N_MM 与其形式误差
+    # 一起纳入判据（N 不显著大于误差时不算检出金属键）。
+    mm_bond_ftest = None
+    if (catalytic_motif is not None
+            and str(catalytic_motif.nuclearity) == "binuclear"
+            and not fit_weights):
+        partner = None
+        for sh in plan["shells"]:
+            el = str(sh.get("scatterer") or "")
+            if (el and el != absorber.symbol
+                    and el not in structure_lib._LIGAND_ELEMENTS):
+                partner = el
+                break
+        mm_idx = [i for i, sh in enumerate(plan["shells"])
+                  if partner is not None and sh["scatterer"] == partner]
+        mm_set = set(mm_idx)
+        keep = [i for i in range(len(plan["files"])) if i not in mm_set]
+        if partner is not None and mm_idx and keep:
+            try:
+                simple_fit = artemis.fit_r_space(
+                    res.chi_k, res.ft,
+                    [plan["files"][i] for i in keep],
+                    rmin=plan["rmin"], rmax=plan["rmax"],
+                    kmin=res.ft.kmin, kmax=res.ft.kmax,
+                    kweight=(tuple(kweights) if kweights
+                             else res.ft.kweight),
+                    s02=absorber.s02, vary_delta_e0=True, vary_n=True,
+                    path_degen=[plan["degens"][i] for i in keep],
+                    path_labels=[plan["labels"][i] for i in keep],
+                    fit_space=fit_space)
+                ftest = artemis.shell_f_test(simple_fit, fit)
+                mm_path = fit.paths[mm_idx[0]]
+                conf = ftest.get("confidence")
+                p_value = (None if conf is None
+                           else float(max(0.0, 1.0 - float(conf))))
+                n_err = mm_path.n_err
+                significant = bool(
+                    p_value is not None and p_value < 0.05
+                    and n_err is not None
+                    and float(mm_path.degeneracy) > float(n_err))
+                mm_bond_ftest = {
+                    "partner": partner,
+                    "f_stat": (None if ftest.get("F") is None
+                               else float(ftest["F"])),
+                    "p_value": p_value,
+                    "significant": significant,
+                    "delta_r_factor": float(simple_fit.r_factor
+                                            - fit.r_factor),
+                    "n_mm": float(mm_path.degeneracy),
+                    "n_mm_err": (None if n_err is None else float(n_err)),
+                    "r_mm": float(mm_path.r),
+                    "dfn": int(ftest.get("dfn", 0)),
+                    "dfd": float(ftest.get("dfd", 0.0)),
+                    "method": ftest.get("method"),
+                    "simple_r_factor": float(simple_fit.r_factor),
+                }
+            except XAFSError as exc:
+                mm_bond_ftest = {
+                    "partner": partner, "f_stat": None, "p_value": None,
+                    "significant": False, "delta_r_factor": None,
+                    "error": getattr(exc, "message", str(exc))}
+
+    # 形式误差 >1 或 >50% 都说明 N 没被数据约束住（Fe 箔第二壳
+    # N=9.45±2.40 是典型：Rf 很好但 N 明显偏高，不能当可靠 CN）。
+    n_err_bad = any(
+        p.n_err is not None and (p.n_err > 1.0
+                                 or p.n_err > 0.5 * p.degeneracy)
+        for p in fit.paths)
+    # σ² 撞下界不是"振动很小"，而是模型形状与数据失配时 σ² 被反向
+    # 压缩的证据（goethite 中距离壳 0.0001–0.0007 Å²）。此时 N 由
+    # 振幅补偿撑起来，形式误差可能仍好看，必须独立判不可靠。
+    sigma2_bound_bad = any(p.sigma2_at_bound for p in fit.paths)
+    c3_bound_bad = any(p.c3_at_bound for p in fit.paths)
+    c4_bound_bad = any(p.c4_at_bound for p in fit.paths)
+    c3_active_shells = [p.label for p in fit.paths if p.c3 is not None]
+    coverage_ok = bool(sid.get("coverage_ok", True))
+    base_reliable = not (fit.overfit or fit.r_factor > 0.08
+                         or abs(fit.delta_e0) >= 15.0 or n_err_bad
+                         or sigma2_bound_bad or c3_bound_bad or c4_bound_bad
+                         or not coverage_ok
+                         or self_abs["cn_gate"])
+
+    # mixture 权重拟合的可靠性是**相分数**的可靠性，和配位数不是一回事：
+    # 权重撞 softmax 边界、误差过大、或两组分在同一壳层不可分辨，都会
+    # 让相分数失去物理含义。
+    weight_at_bound = False
+    weight_err_bad = False
+    if fit_weights and fit.mixture_weights:
+        weight_at_bound = any(w["weight"] <= 0.01 or w["weight"] >= 0.99
+                              for w in fit.mixture_weights)
+        weight_err_bad = any(
+            (not math.isfinite(w["weight_err"]))
+            or w["weight_err"] > 0.15
+            or w["weight_err"] > 0.5 * w["weight"]
+            for w in fit.mixture_weights)
+    weight_degenerate = bool(plan["weight_degenerate_pairs"])
+    weights_reliable = None
+    if fit_weights:
+        weights_reliable = (base_reliable and not weight_at_bound
+                            and not weight_err_bad and not weight_degenerate)
+    # 权重模式下 N 列是有效简并度 N_crystal·w，不是配位数，故 CN 不成立。
+    cn_reliable = base_reliable and not fit_weights
+    flags = {
+        "overfit": bool(fit.overfit),
+        "r_factor_bad": bool(fit.r_factor > 0.08),
+        "delta_e0_bad": bool(abs(fit.delta_e0) >= 15.0),
+        "n_err_bad": bool(n_err_bad),
+        "sigma2_at_bound": bool(sigma2_bound_bad),
+        "coverage_bad": bool(not coverage_ok),
+        # 撞界的壳层标签，报告层可直接列出"哪些壳不可信"
+        "sigma2_bound_shells": [p.label for p in fit.paths
+                                if p.sigma2_at_bound],
+        "weight_at_bound": bool(weight_at_bound),
+        "weight_err_bad": bool(weight_err_bad),
+        "weight_degenerate": weight_degenerate,
+        "weight_degenerate_pairs": plan["weight_degenerate_pairs"],
+        "self_absorption_gate": bool(self_abs["cn_gate"]),
+        "self_absorption_risk": self_abs["risk"],
+        "c3_requested": bool(requested_c3),
+        "c3_dropped_by_nidp": bool(c3_dropped_by_nidp),
+        "c3_at_bound": bool(c3_bound_bad),
+        "c3_active_shells": c3_active_shells,
+        "c3_bound_shells": [p.label for p in fit.paths if p.c3_at_bound],
+        "c4_requested": bool(requested_c4),
+        "c4_dropped_by_nidp": bool(c4_dropped_by_nidp),
+        "c4_at_bound": bool(c4_bound_bad),
+        "c4_active_shells": [p.label for p in fit.paths if p.c4 is not None],
+        "c4_bound_shells": [p.label for p in fit.paths if p.c4_at_bound],
+    }
+
+    # ---- B4-1 增减壳层 F-test：同一 R 窗，仅保留第 1 壳的对照拟合 ----
+    # 必须用**同一数据窗口**，否则 χ² 求和的 R 区间不同，F 不成立。
+    # 权重拟合与相分数不是配位数问题，不纳入壳层 F-test。
+    shell_f_test = None
+    if len(plan["shells"]) >= 2 and not fit_weights:
+        try:
+            simple_fit = artemis.fit_r_space(
+                res.chi_k, res.ft, [plan["files"][0]],
+                rmin=plan["rmin"], rmax=plan["rmax"],
+                kmin=res.ft.kmin, kmax=res.ft.kmax,
+                kweight=(tuple(kweights) if kweights else res.ft.kweight),
+                s02=absorber.s02, vary_delta_e0=True, vary_n=True,
+                path_degen=[plan["degens"][0]],
+                path_labels=[plan["labels"][0]],
+                fit_space=fit_space)
+            shell_f_test = artemis.shell_f_test(simple_fit, fit)
+        except XAFSError as exc:
+            shell_f_test = {"F": None, "confidence": None,
+                            "significant": False,
+                            "error": getattr(exc, "message", str(exc))}
+
+    out = {"mode": ("motif_weights" if fit_weights else "motif"),
+           "status": sid.get("status"), "motif": motif.id,
+           "coverage_ok": sid.get("coverage_ok"), "cn_reliable": cn_reliable,
+           "weights_reliable": weights_reliable,
+           "mixture_weights": (fit.mixture_weights if fit_weights else None),
+           "flags": flags,
+           "structure": sid, "rmin": plan["rmin"], "rmax": plan["rmax"],
+           "s02": absorber.s02, "shells": plan["shells"], "fit": fit,
+           "fit_space": fit.fit_space,
+           "aic": fit.aic, "bic": fit.bic,
+           "bvs": fit.bvs, "bvs_target": fit.bvs_target,
+           "bvs_chi2": fit.bvs_chi2,
+           "truncated_shells": plan["truncated"],
+           "ms_links": plan["ms_links"],
+           "path_files": [str(f) for f in plan["files"]],
+           "path_links": plan.get("path_links") or [],
+           "hetero_cocupancy": bool(hetero_cocupancy),
+           "hetero_shells": plan.get("hetero_shells") or [],
+           "mm_bond_ftest": mm_bond_ftest,
+           "shell_f_test": shell_f_test,
+           "c3_dropped_by_nidp": bool(c3_dropped_by_nidp),
+           "c3_at_bound": bool(c3_bound_bad),
+           "c4_at_bound": bool(c4_bound_bad),
+           "self_absorption": self_abs,
+           "cn_systematics": systematic_budget(
+               fit, flags=flags, self_abs=self_abs,
+               truncated_shells=len(plan["truncated"]),
+               fit_weights=fit_weights)}
+    if fit_weights and fit.mixture_weights:
+        w_max_err = max(float(w["weight_err"])
+                        for w in fit.mixture_weights)
+        out["weights_systematics"] = {
+            "relative_1sigma": round(math.hypot(0.20, w_max_err), 4),
+            "components": {"component_model_binding": 0.20,
+                           "fitted_weight_error": round(w_max_err, 4)},
+            "note": ("相分数误差 = 拟合形式误差与结构模型绑定误差"
+                     "（0.20）平方和；组分数由模型选择决定，"
+                     "不是独立物相定量。"),
+        }
+    if sigma2_groups:
+        out["sigma2_groups"] = sigma2_groups
+        out["sigma2_group_names"] = sigma2_group_names
+        out["sigma2_shared"] = True
+    else:
+        out["sigma2_shared"] = False
+    if fit_weights:
+        out["warning"] = ("相分数是各组分 χ 的线性组合权重（有效简并度 "
+                          "N_crystal·w），N 列不是配位数；组分数与结构模型"
+                          "绑定，不是独立物相定量")
+    else:
+        out["warning"] = ("同壳层路径以代表路径 + 总简并度近似；"
+                          "代表路径换一条会改变 F(k)/φ(k)，N 有系统误差")
+    if plan["truncated"]:
+        out["warning"] += ("；受 N_idp 限制，自动拟合截断了远壳层 "
+                           + ", ".join(t["label"] for t in plan["truncated"]))
+    if c3_dropped_by_nidp:
+        out["warning"] += ("；开启 C3 后自由变量数 ≥ N_idp，"
+                           "已按 c3_dropped_by_nidp 自动降级/关闭 C3")
+    if c4_bound_bad:
+        out["warning"] += ("；C4 达到 ±80% 边界（±1.6e-4 Å⁴），"
+                           "非高斯展宽项在吞噬失配，CN 不可靠")
+    if isotropic_deltar and fit.r_factor > 0.08:
+        out["warning"] += (f"；各向同性晶格约束 Rf={fit.r_factor:.4f} > 0.08："
+                           "各壳层位移不服从同一 α·Reff 缩放，"
+                           "不要用该约束下的 N 作配位数结论")
+    if not sid.get("coverage_ok", True):
+        out["warning"] += ("；最优候选未解释部分实验峰，"
+                           "结构模型可能不完整，CN 解释需谨慎")
+    if self_abs["risk"] in ("high", "unknown", "corrected_unreliable"):
+        prefix = ("荧光自吸收校正不可靠" if self_abs["corrected"]
+                  else "荧光自吸收未校正")
+        out["warning"] += "；" + prefix + "（" + self_abs["note"] + "）"
+    elif self_abs["risk"] == "possible":
+        out["warning"] += "；荧光自吸收风险（" + self_abs["note"] + "）"
+    reasons = []
+    if fit.overfit:
+        reasons.append("变量数 ≥ 独立点数")
+    if fit.r_factor > 0.08:
+        reasons.append(f"Rf={fit.r_factor:.3f}>0.08")
+    if abs(fit.delta_e0) >= 15.0:
+        reasons.append(f"|ΔE0|={abs(fit.delta_e0):.1f} eV≥15")
+    if n_err_bad:
+        reasons.append("N 形式误差过大")
+    if sigma2_bound_bad:
+        reasons.append("σ² 撞下界（形状失配证据"
+                       + (f"：{', '.join(flags['sigma2_bound_shells'])}"
+                          if flags["sigma2_bound_shells"] else "")
+                       + "）")
+    if c3_bound_bad:
+        reasons.append("C3 撞 ±0.01 Å³ 边界（非谐项在吞噬相位失配"
+                       + (f"：{', '.join(flags['c3_bound_shells'])}"
+                          if flags["c3_bound_shells"] else "") + "）")
+    if not coverage_ok:
+        reasons.append("覆盖清单未通过/模型不完整")
+    if self_abs["cn_gate"]:
+        if self_abs["corrected"]:
+            reasons.append("Booth 自吸收校正不可靠（截断/非有限值）")
+        else:
+            reasons.append(f"荧光自吸收未校正（Δμ="
+                           f"{self_abs['edge_step']:.3g}，"
+                           f"risk={self_abs['risk']}）")
+    if fit_weights:
+        if weight_at_bound:
+            reasons.append("组分权重撞 softmax 边界")
+        if weight_err_bad:
+            reasons.append("组分权重误差过大")
+        if weight_degenerate:
+            pairs = "; ".join(" vs ".join(p)
+                              for p in plan["weight_degenerate_pairs"])
+            reasons.append(f"不同组分在同一壳层不可分辨（{pairs}）")
+        if not weights_reliable:
+            out["warning"] += ("；相分数不可靠（" + "、".join(reasons)
+                               + "），不可作为物相定量结论")
+    elif not cn_reliable:
+        out["warning"] += ("；CN 不可靠（" + "、".join(reasons)
+                           + "），不可直接用于配位数结论")
+    if verbose:
+        print(f"       ΔE0={fit.delta_e0:+.2f}±{fit.delta_e0_err:.2f} eV  "
+              f"Rf={fit.r_factor:.4f}  vars={fit.n_variables}/"
+              f"N_idp={fit.n_independent:.1f}"
+              + ("" if fit.lattice_strain is None else
+                 f"  α={fit.lattice_strain:+.5f}"
+                 f"±{fit.lattice_strain_err:.5f}"))
+        if fit_weights and fit.mixture_weights:
+            print("       相分数（χ 线性组合权重，和=1）：")
+            for w in fit.mixture_weights:
+                print(f"         {w['group']:<18} w={w['weight']:.4f}"
+                      f"±{w['weight_err']:.4f}")
+        ntag = "N_eff" if fit_weights else "N"
+        for p in fit.paths:
+            print(f"       {p.label:<10} {ntag}={p.degeneracy:.2f}"
+                  f"±{p.n_err:.2f}" if p.n_err is not None else
+                  f"       {p.label:<10} {ntag}={p.degeneracy:.2f}", end="")
+            print(f"  R={p.r:.3f} Å  σ²={p.sigma2:.4f}"
+                  + (f"  C3={p.c3:+.2e} Å³" if p.c3 is not None else "")
+                  + (f"  C4={p.c4:+.2e} Å⁴" if p.c4 is not None else "")
+                  + ("  ⚠σ²撞下界" if p.sigma2_at_bound else "")
+                  + ("  ⚠C3撞边界" if p.c3_at_bound else "")
+                  + ("  ⚠C4撞边界" if p.c4_at_bound else ""))
+        if fit_weights and not weights_reliable:
+            print(f"       ⚠ 相分数不可靠：{'、'.join(reasons)}")
+        elif not cn_reliable:
+            print(f"       ⚠ CN 不可靠：{'、'.join(reasons)}")
+    return out
+
+
+def run(res, identify: bool = True, fit: bool = False,
+        absorber_symbol: str | None = None, fit_motif: str | None = None,
+        fit_rmin: float | None = None, fit_rmax: float | None = None,
+        allow_ambiguous: bool = False, l1_ligand: str = "O",
+        l1_geometry: str = "oct", fit_weights: bool = False,
+        shared_sigma2: str | list | None = None,
+        kweights: tuple | list | None = None,
+        include_ms: bool = False,
+        vary_c3: bool | list | str = False,
+        vary_c4: bool | list | str = False,
+        isotropic_deltar: bool = False,
+        fit_space: str = "r",
+        bvs_restraint: dict | None = None,
+        catalytic_model=None,
+        hetero_cocupancy: bool = False,
+        constraints=None,
+        verbose: bool = True) -> dict:
+    """S6.5（可选 S7）的唯一入口；结果回填 res.structure / res.fit。"""
+    out: dict = {}
+    if identify or fit:
+        # 显式催化模型不需要先跑库搜索：fit_identified 会自建状态。
+        if catalytic_model is None:
+            out["structure"] = structure_id.identify_result(
+                res, absorber_symbol=absorber_symbol,
+                l1_ligand=l1_ligand, l1_geometry=l1_geometry,
+                vary_c3=vary_c3, fit_space=fit_space, verbose=verbose)
+            res.structure = out["structure"]
+    if fit:
+        out["fit"] = fit_identified(
+            res, motif_id=fit_motif, absorber_symbol=absorber_symbol,
+            rmin=fit_rmin, rmax=fit_rmax,
+            allow_ambiguous=allow_ambiguous,
+            l1_ligand=l1_ligand, l1_geometry=l1_geometry,
+            fit_weights=fit_weights,
+            shared_sigma2=shared_sigma2, kweights=kweights,
+            include_ms=include_ms, vary_c3=vary_c3, vary_c4=vary_c4,
+            isotropic_deltar=isotropic_deltar,
+            fit_space=fit_space, bvs_restraint=bvs_restraint,
+            catalytic_model=catalytic_model,
+            hetero_cocupancy=hetero_cocupancy,
+            constraints=constraints,
+            verbose=verbose)
+        res.fit = out["fit"]
+    return out

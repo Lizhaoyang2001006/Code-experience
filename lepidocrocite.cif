@@ -1,0 +1,29 @@
+# γ-FeOOH lepidocrocite, space group Cmcm (No. 63)
+# Lattice & Fe / O(2) sites: Zhukhlistov (2001) electron-diffraction
+#   refinement, as tabulated in Guo & Barnard, PCCP 14 (2012) 3306
+#   (Table 2, ED column): a=3.072, b=12.516, c=3.873 A;
+#   Fe (0.5, 0.1778, 0.25); O(2) (0, 0.2889, 0.25)
+# O(1) site completed geometrically at (0, 0.0667, 0.25): the ED O(1)
+#   listing (y~0.00, 4c) leaves the FeO6 octahedron open (only 4 bonds,
+#   all on one side of Fe) and is presumed garbled in the source table.
+#   The completed site closes all octahedra:
+#   Fe-O = 1.98 A x2 (axial OH) + 2.07 A x4 (equatorial);
+#   Fe-Fe = 3.06 x4 + 3.07 x2 (edge-sharing) + 3.87 x2 (corner-sharing),
+#   matching published EXAFS values for gamma-FeOOH.
+data_lepidocrocite_gamma_FeOOH
+_cell_length_a 3.072
+_cell_length_b 12.516
+_cell_length_c 3.873
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 90
+_symmetry_space_group_name_H-M 'C m c m'
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+Fe1 Fe 0.5000 0.1778 0.2500
+O1  O  0.0000 0.0667 0.2500
+O2  O  0.0000 0.2889 0.2500
