@@ -38,6 +38,7 @@ from pathlib import Path
 import numpy as np
 
 import cn_table
+import phase_resolver
 import xafs_config
 import xafs_diagnostics
 import xafs_fit
@@ -151,7 +152,15 @@ def process_sample(paths, outdir, align: bool = False,
                    self_absorption_angles: tuple = (45.0, 45.0),
                    self_absorption_line: str | None = None,
                    verbose: bool = True,
-                   formal_cn: bool = False):
+                   formal_cn: bool = False,
+          # ---- P1b 相解析（正式 CN 结构来源）----
+          phase_cif: list[str] | None = None,
+          phase_id: str | None = None,
+          phase_spec: str | None = None,
+          phase_index_path: str | Path | None = None,
+          phase_pack_path: str | Path | None = None,
+          absorber_site: str | None = None,
+          offline: bool = False):
     """
     跑完 S1–S6 并落盘。返回 PipelineResult。
 
@@ -196,7 +205,38 @@ def process_sample(paths, outdir, align: bool = False,
                           lcf_res["weights"].items())
             print(f"  [B2-2] XANES LCF: {w}   Rf={lcf_res['r_factor']:.2e}")
 
-    # S6.5/S7 只经拟合链编排触发（入口 → xafs_fit → structure_id，线性无环）
+    # P1b phase resolution: parse --phase-* into StructureModel (formal CN strict track)
+    structure_model = None
+    if formal_cn and (phase_cif or phase_id or phase_spec or phase_index_path):
+        if not absorber:
+            raise XAFSConfigError(
+                "FIT", "--formal-cn + --phase-* requires --absorber to specify absorber element")
+        resolution = phase_resolver.resolve_phase(
+            absorber,
+            phase_cif=phase_cif,
+            phase_id=phase_id,
+            phase_spec=phase_spec,
+            phase_index_path=phase_index_path,
+            phase_pack_path=phase_pack_path,
+            absorber_site=absorber_site,
+            offline=offline)
+        if resolution.status == "ambiguous":
+            raise XAFSConfigError(
+                "FIT", f"Phase ambiguous: {resolution.reason}; "
+                f"please use --phase-id to specify precisely or --absorber-site to disambiguate")
+        if resolution.status == "offline_miss":
+            raise XAFSConfigError(
+                "FIT", f"Phase offline miss: {resolution.reason}; does not fall back to motif")
+        structure_model = resolution.structure_model
+        if structure_model is None:
+            raise XAFSConfigError(
+                "FIT", f"Phase resolution did not produce a usable structure model: {resolution.reason}")
+        if verbose:
+            sel = resolution.selected
+            print(f"  [P1b] phase resolved: {sel.source}:{sel.id} "
+                  f"sha256={sel.cif_sha256[:12]}... site={resolution.absorber_site}")
+
+    # S6.5/S7 only triggered via the fitting chain (entry -> xafs_fit -> structure_id, linear no cycle)
     if identify or fit:
         xafs_fit.run(
             result, identify=identify or fit, fit=fit,
@@ -214,7 +254,8 @@ def process_sample(paths, outdir, align: bool = False,
             constraints=constraints,
             s02=s02,
             verbose=verbose,
-            formal_cn=formal_cn)
+            formal_cn=formal_cn,
+            structure_model=structure_model)
 
     # ---- 落盘 ----
     stem, norm, chi_k, ft, wave_map = (result.stem, result.norm, result.chi_k,
@@ -369,6 +410,24 @@ def main():
     parser.add_argument("--formal-cn", action="store_true",
                         help="P0a 正式 CN 链：无合格结构来源时写拒绝行到 "
                              "cn_table.csv；诊断拟合照常输出（需 --fit）")
+    parser.add_argument("--phase-cif", action="append", default=None,
+                        help="P1b 用户真实 CIF 路径（可重复，最高优先级）；"
+                             "必须可被 gemmi 解析，且不得是现场生成 CIF")
+    parser.add_argument("--phase-id", default=None,
+                        help="P1b 精确数据库编号 SOURCE:ID，如 COD:1100108；"
+                             "本地缓存/phase pack 优先；未命中且非离线才允许 fetcher")
+    parser.add_argument("--phase", default=None,
+                        help="P1b 相 SPEC 字符串，如 name=fcc Fe;formula=Fe;"
+                             "spacegroup=Im-3m;cell=a=2.868,b=2.868,c=2.868,"
+                             "alpha=90,beta=90,gamma=90；仅 split(';')/split('=',1)，禁止 eval/exec")
+    parser.add_argument("--phase-index", default=None,
+                        help="P1b 本地 phase_index.json 路径（默认 _structure_lib/phase_index.json）")
+    parser.add_argument("--phase-pack", default=None,
+                        help="P1b phase pack 根目录（默认 _structure_lib/_phase_pack）")
+    parser.add_argument("--absorber-site", default=None,
+                        help="P1b 吸收位标签，如 Fe1 或 frac:(0,0,0)；缺省时取候选首个吸收位")
+    parser.add_argument("--offline", action="store_true",
+                        help="P1b 离线模式：不允许 fetcher 联网；未命中时报 offline_miss，不退回 motif")
     parser.add_argument("--fit-motif", default=None,
                         help="强制用指定 motif 做 S7（跳过识别歧义）")
     parser.add_argument("--catalytic-model", default=None,
@@ -806,7 +865,13 @@ def main():
                     self_absorption_angles=sa_angles,
                     self_absorption_line=args.self_absorption_line,
                     verbose=False,
-                    formal_cn=args.formal_cn)
+                    formal_cn=args.formal_cn,                    phase_cif=args.phase_cif,
+                    phase_id=args.phase_id,
+                    phase_spec=args.phase,
+                    phase_index_path=args.phase_index,
+                    phase_pack_path=args.phase_pack,
+                    absorber_site=args.absorber_site,
+                    offline=args.offline)
             except Exception as exc:  # 批处理：单个失败不中断整批
                 errors.append({"file": fpath, "error": str(exc)})
                 print(f"  ❌ 失败: {exc}")
@@ -850,7 +915,13 @@ def main():
         self_absorption_density=args.self_absorption_density,
         self_absorption_angles=sa_angles,
         self_absorption_line=args.self_absorption_line,
-        formal_cn=args.formal_cn)
+        formal_cn=args.formal_cn,                    phase_cif=args.phase_cif,
+                    phase_id=args.phase_id,
+                    phase_spec=args.phase,
+                    phase_index_path=args.phase_index,
+                    phase_pack_path=args.phase_pack,
+                    absorber_site=args.absorber_site,
+                    offline=args.offline)
 
     print("-" * 66)
     for f in sorted(result.outdir.glob(f"{result.stem}*")):

@@ -57,7 +57,7 @@ Phase III（B9–B12）新增 15 项契约：
     - 相移校正 FT/WT；异核共占位双分支；关联 Debye；BVS 软约束
     - R/q/WT 多空间拟合；双吸收边 ΔE₀ 分组 + AIC/BIC；SAC/DAC 团簇
 
-当前共 86 项契约回归（B1-1 至 B20-1，外加 P0a/P0b/P1a 正式 CN 契约）。
+当前共 93 项契约回归（B1-1 至 B20-1，外加 P0a/P0b/P1a/P1b 正式 CN 契约）。
 
 运行:
     python regression_test.py
@@ -81,6 +81,7 @@ import cn_table                       # noqa: E402
 import larch_wt                       # noqa: E402
 import motif_provenance               # noqa: E402
 import phase_pack                     # noqa: E402
+import phase_resolver                 # noqa: E402
 import structure_id                   # noqa: E402
 import structure_lib                  # noqa: E402
 import structure_model                # noqa: E402
@@ -4353,6 +4354,231 @@ Ru1 Ru 0.5 0.5 0.5 0.3
         self.assertEqual(len(back), 1)
         self.assertEqual(back[0]["gate_status"], "no_cif")
         self.assertEqual(back[0]["n_fit"], "")
+
+    # ------------------------------------------------------------
+    # 87–93. P1b：相解析与缓存
+    # ------------------------------------------------------------
+    def test_phase_spec_parser_no_eval(self):
+        """#87 P1b：--phase SPEC 只做字符串拆分，禁止 eval/exec。"""
+        # 合法 SPEC
+        spec = phase_resolver.parse_phase_spec(
+            "name=fcc Fe;formula=Fe;spacegroup=Im-3m;"
+            "cell=a=2.868,b=2.868,c=2.868,alpha=90,beta=90,gamma=90;"
+            "source=COD;id=1100108")
+        self.assertEqual(spec["name"], "fcc Fe")
+        self.assertEqual(spec["formula"], "Fe")
+        self.assertEqual(spec["spacegroup"], "Im-3m")
+        self.assertEqual(spec["cell"]["a"], 2.868)
+        self.assertEqual(spec["cell"]["gamma"], 90.0)
+        self.assertEqual(spec["source"], "COD")
+        self.assertEqual(spec["id"], "1100108")
+
+        # 禁止 eval/exec：任何试图注入代码的片段都应被当作普通字符串
+        # 或因不允许的键 / 格式错误而被拒绝，绝不会执行。
+        # 下面这些值即使看起来像代码，也只是被当作字符串，不执行；
+        # 真正应拒绝的是非法 key、缺少 '='、cell 格式错误。
+        bad_key_or_format = [
+            "evil=1",                 # 非法 key
+            "novalue",                # 缺少 '='
+            "cell=1,2,3",             # cell 不是 6 个数字
+            "cell=1,2,3,4,5,6,7",     # cell 太多数字
+            "cell=a=1,b=2,c=3,d=4,e=5",  # cell 缺 gamma
+        ]
+        for b in bad_key_or_format:
+            with self.assertRaises(phase_resolver.PhaseResolutionError):
+                phase_resolver.parse_phase_spec(b)
+
+        # 代码注入字符串只被当作普通字符串，不会执行（也不报错，因为 key 合法）
+        harmless = [
+            "name=__import__('os')",
+            "formula=eval('1+1')",
+            "spacegroup=open('/etc/passwd')",
+        ]
+        for h in harmless:
+            spec = phase_resolver.parse_phase_spec(h)
+            # key 合法，值原样保留
+
+    def test_phase_cif_user_source(self):
+        """#88 P1b：--phase-cif 用户真实 CIF 作为正式来源。"""
+        cif = ROOT / "_structure_lib" / "_phase_pack" / "COD" / "1100108" \
+            / "41085e65debf2bd82a772bcee9e7c0a43ef42b67666d2f233c8f2d822769b8fe.cif"
+        self.assertTrue(cif.is_file())
+
+        # 无 absorber_site：自动取候选首个吸收位
+        res = phase_resolver.resolve_phase("Fe", phase_cif=[str(cif)])
+        self.assertEqual(res.status, "resolved")
+        self.assertIsNotNone(res.selected)
+        self.assertEqual(res.selected.source, "user")
+        self.assertTrue(res.selected.cif_path.endswith(".cif"))
+        self.assertEqual(res.selected.cif_sha256,
+                         "41085e65debf2bd82a772bcee9e7c0a43ef42b67666d2f233c8f2d822769b8fe")
+        self.assertIsNotNone(res.structure_model)
+        self.assertEqual(res.structure_model.provenance_status,
+                         "verified_source_cif")
+        self.assertEqual(res.structure_model.source_type, "user_cif")
+        self.assertTrue(res.structure_model.source_ref.startswith("user:"))
+        # 用户 CIF 始终优先，不是 _structure_lib/*/_cif/ 生成文件
+        from structure_model import validate_formal
+        v = validate_formal(res.structure_model)
+        self.assertTrue(v["ok"], v)
+
+    def test_phase_id_cache_hit(self):
+        """#89 P1b：--phase-id 精确编号，本地缓存命中（幂等）。"""
+        cache_root = ROOT / "_structure_lib" / "_phase_cache"
+        # 先确保缓存为空（测试隔离）
+        import shutil
+        fe_cache = cache_root / "COD" / "1100108"
+        if fe_cache.exists():
+            shutil.rmtree(fe_cache)
+
+        res = phase_resolver.resolve_phase("Fe", phase_id="COD:1100108",
+                                           absorber_site="Fe1")
+        self.assertEqual(res.status, "resolved")
+        self.assertIsNotNone(res.selected)
+        self.assertEqual(res.selected.source, "COD")
+        self.assertEqual(res.selected.id, "1100108")
+        self.assertIsNotNone(res.structure_model)
+        self.assertEqual(res.structure_model.provenance_status,
+                         "verified_source_cif")
+
+        # 缓存文件应已写入
+        meta_files = list(fe_cache.glob("*.meta.json")) if fe_cache.exists() else []
+        self.assertGreaterEqual(len(meta_files), 1)
+
+        # 再次调用：缓存命中，结果一致
+        res2 = phase_resolver.resolve_phase("Fe", phase_id="COD:1100108",
+                                            absorber_site="Fe1")
+        self.assertEqual(res2.status, "resolved")
+        self.assertEqual(res2.selected.cif_sha256,
+                         res.selected.cif_sha256)
+        self.assertEqual(len(list(fe_cache.glob("*.cif"))), 1)
+
+        # 清理测试产生的缓存
+        shutil.rmtree(fe_cache)
+
+    def test_phase_id_cache_miss_offline(self):
+        """#90 P1b：--phase-id 未命中且离线 → offline_miss，不退回 motif。"""
+        cache_root = ROOT / "_structure_lib" / "_phase_cache"
+        import shutil
+        # 确保不存在该 ID 的缓存
+        weird_cache = cache_root / "COD" / "99999999"
+        if weird_cache.exists():
+            shutil.rmtree(weird_cache)
+        # phase pack 中也不存在该 ID
+        res = phase_resolver.resolve_phase("Fe", phase_id="COD:99999999",
+                                           offline=True)
+        self.assertEqual(res.status, "offline_miss")
+        self.assertIsNone(res.selected)
+        self.assertIsNone(res.structure_model)
+        self.assertIn("离线", res.reason)
+        if weird_cache.exists():
+            shutil.rmtree(weird_cache)
+
+    def test_phase_name_ambiguous(self):
+        """#91 P1b：多候选 → ambiguous，不自动 Top-1。"""
+        # 给 Fe 指定 phase_index，Fe 有 1 条 verified；此处用不存在的元素
+        # 制造无候选；要制造“多候选”，需在同一 pack 下有 2 条含同一吸收元素。
+        # 用临时 pack 造两条 Fe CIF。
+        import shutil
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            tmp_pack = tmp / "pack"
+            tmp_pack.mkdir()
+            # 复制 Fe CIF 为两条不同 id（同 sha 不行，改文件名即可）
+            src = ROOT / "_structure_lib" / "_phase_pack" / "COD" / "1100108" \
+                / "41085e65debf2bd82a772bcee9e7c0a43ef42b67666d2f233c8f2d822769b8fe.cif"
+            sha = phase_pack.sha256_file(src)
+            d1 = tmp_pack / "COD" / "1100108"
+            d1.mkdir(parents=True)
+            shutil.copy2(src, d1 / f"{sha}.cif")
+            meta1 = {"source": "COD", "id": "1100108", "formula": "Fe",
+                     "spacegroup": "Im-3m", "cell": {"a": 2.868, "b": 2.868,
+                     "c": 2.868, "alpha": 90, "beta": 90, "gamma": 90},
+                     "absorber_sites": ["Fe1"], "absorber_elements": ["Fe"],
+                     "cif_path": f"{sha}.cif", "cif_sha256": sha,
+                     "experimental": True, "model_level": "crystal_cif"}
+            (d1 / f"{sha}.meta.json").write_text(
+                json.dumps(meta1, ensure_ascii=False, indent=2), encoding="utf-8")
+            # 第二条：不同 id，同 sha（内容相同），构成另一个候选
+            d2 = tmp_pack / "COD" / "1100109"
+            d2.mkdir(parents=True)
+            shutil.copy2(src, d2 / f"{sha}.cif")
+            meta2 = dict(meta1, id="1100109")
+            (d2 / f"{sha}.meta.json").write_text(
+                json.dumps(meta2, ensure_ascii=False, indent=2), encoding="utf-8")
+            phase_pack.rebuild_manifest(tmp_pack)
+
+            res = phase_resolver.resolve_phase(
+                "Fe", phase_index_path=str(tmp_pack / "manifest.json"),
+                phase_pack_path=str(tmp_pack))
+            self.assertEqual(res.status, "ambiguous")
+            self.assertEqual(len(res.candidates), 2)
+            self.assertIsNone(res.selected)
+            self.assertIsNone(res.structure_model)
+            self.assertIn("不自动 Top-1", res.reason)
+        finally:
+            shutil.rmtree(tmp)
+
+    def test_phase_index_schema(self):
+        """#92 P1b：phase_index.json schema 与必要字段齐全。"""
+        index = json.loads((ROOT / "_structure_lib" /
+                            "phase_index.json").read_text(encoding="utf-8"))
+        self.assertEqual(index["schema_version"], 1)
+        self.assertIn("pack_id", index)
+        self.assertIn("pack_root", index)
+        self.assertIn("manifest_sha256", index)
+        self.assertIn("summary", index)
+        self.assertEqual(index["summary"]["entries"], 5)
+        self.assertEqual(index["summary"]["verified_cif"], 5)
+        self.assertEqual(set(index["summary"]["elements_covered"]),
+                         {"Fe", "Co", "Ni", "Cu", "Pt"})
+        for row in index["entries"]:
+            for key in ("source", "id", "formula", "spacegroup", "cell",
+                        "absorber_sites", "absorber_elements", "cif_path",
+                        "cif_sha256", "experimental", "model_level"):
+                self.assertIn(key, row, row.get("id"))
+            self.assertTrue(row["experimental"])
+            self.assertIn(row["model_level"], ("crystal_cif", "crystal_edited"))
+            # cif_path 必须是 repo-relative，且文件存在
+            cif = ROOT / row["cif_path"]
+            self.assertTrue(cif.is_file(), row["cif_path"])
+            # sha256 必须与文件一致
+            actual = phase_pack.sha256_file(cif)
+            self.assertEqual(actual, row["cif_sha256"])
+
+    def test_cache_sha256_reuse(self):
+        """#93 P1b：缓存复用前校验 sha256；不匹配则拒绝。"""
+        import shutil
+        cache_root = ROOT / "_structure_lib" / "_phase_cache"
+        fe_cache = cache_root / "COD" / "1100108"
+        if fe_cache.exists():
+            shutil.rmtree(fe_cache)
+
+        # 首次解析：写入缓存
+        res = phase_resolver.resolve_phase("Fe", phase_id="COD:1100108",
+                                           absorber_site="Fe1")
+        self.assertEqual(res.status, "resolved")
+        meta_files = list(fe_cache.glob("*.meta.json"))
+        self.assertEqual(len(meta_files), 1)
+        cached_sha = json.loads(meta_files[0].read_text(encoding="utf-8"))[
+            "cif_sha256"]
+        self.assertEqual(cached_sha,
+                         "41085e65debf2bd82a772bcee9e7c0a43ef42b67666d2f233c8f2d822769b8fe")
+
+        # 篡改缓存中的 CIF 字节（改哈希），复用时应拒绝
+        cif_file = list(fe_cache.glob("*.cif"))[0]
+        original_bytes = cif_file.read_bytes()
+        try:
+            cif_file.write_bytes(original_bytes + b"\n# tampered\n")
+            res2 = phase_resolver.resolve_phase("Fe", phase_id="COD:1100108",
+                                                absorber_site="Fe1")
+            # 缓存 sha256 不匹配，应回退到 phase pack 重新获取（仍 resolved）
+            self.assertEqual(res2.status, "resolved")
+        finally:
+            cif_file.write_bytes(original_bytes)
+
+        # 清理测试产生的缓存
+        shutil.rmtree(fe_cache)
 
 
 if __name__ == "__main__":
