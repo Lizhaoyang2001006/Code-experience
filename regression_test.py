@@ -57,7 +57,7 @@ Phase III（B9–B12）新增 15 项契约：
     - 相移校正 FT/WT；异核共占位双分支；关联 Debye；BVS 软约束
     - R/q/WT 多空间拟合；双吸收边 ΔE₀ 分组 + AIC/BIC；SAC/DAC 团簇
 
-当前共 74 项契约回归（B1-1 至 B20-1）。
+当前共 86 项契约回归（B1-1 至 B20-1，外加 P0a/P0b/P1a 正式 CN 契约）。
 
 运行:
     python regression_test.py
@@ -80,6 +80,7 @@ import athena                         # noqa: E402
 import cn_table                       # noqa: E402
 import larch_wt                       # noqa: E402
 import motif_provenance               # noqa: E402
+import phase_pack                     # noqa: E402
 import structure_id                   # noqa: E402
 import structure_lib                  # noqa: E402
 import structure_model                # noqa: E402
@@ -4146,6 +4147,212 @@ Ru1 Ru 0.5 0.5 0.5 0.3
         self.assertEqual(saved["provenance_status"], "constructed")
         self.assertEqual(saved["model_level"], "cluster")
         self.assertIn("edits", saved)
+
+    # ------------------------------------------------------------
+    # 83–86. P1a：覆盖审计 + phase pack
+    # ------------------------------------------------------------
+    def test_motif_coverage_audit(self):
+        """#83 P1a：motif 覆盖审计覆盖 17/17 元素且无未分类。"""
+        coverage = json.loads((ROOT / "_structure_lib" /
+                               "motif_coverage.json")
+                              .read_text(encoding="utf-8"))
+        report = json.loads((ROOT / "_structure_lib" /
+                             "provenance_report.json")
+                            .read_text(encoding="utf-8"))
+        self.assertEqual(coverage["schema_version"], 1)
+        self.assertEqual(set(coverage["absorber_elements"]),
+                         set(phase_pack.ABSORBER_ELEMENTS))
+        self.assertEqual(len(coverage["absorber_elements"]), 17)
+        self.assertEqual(coverage["summary"]["elements_total"], 17)
+        self.assertEqual(coverage["summary"]["elements_covered"], 9)
+        self.assertEqual(coverage["summary"]["elements_missing"], 8)
+        self.assertEqual(coverage["summary"]["motifs"], 32)
+        self.assertEqual(set(coverage["missing_elements"]),
+                         {"Ag", "Ce", "Ir", "Mn", "Pd", "Rh", "Ru", "U"})
+        self.assertEqual(set(coverage["covered_elements"]) |
+                         set(coverage["missing_elements"]),
+                         set(coverage["absorber_elements"]))
+        self.assertFalse(set(coverage["covered_elements"]) &
+                         set(coverage["missing_elements"]))
+        self.assertEqual(sum(row["motifs"]
+                             for row in coverage["elements"].values()), 32)
+        self.assertEqual(coverage["summary"]["formal_cn_ready_elements"], [])
+        self.assertEqual(report["summary"]["unclassified"], 0)
+        self.assertEqual(report["summary"]["by_status"].get(
+            "verified_source_cif", 0), 0)
+        self.assertEqual(report["summary"]["motifs"], 32)
+
+    def test_phase_pack_import_and_index(self):
+        """#84 P1a：5 条金属种子可校验、可索引、导入幂等。"""
+        pack_root = ROOT / "_structure_lib" / "_phase_pack"
+        manifest = phase_pack.load_manifest(pack_root)
+        self.assertEqual(manifest["schema_version"], 1)
+        self.assertEqual(manifest["pack_id"], "formal-cn-phase-pack")
+        self.assertEqual(len(manifest["entries"]), 5)
+
+        expected = {
+            "Fe": ("1100108", "Fe1"),
+            "Co": ("9008492", "Co"),
+            "Ni": ("1534892", "Ni1"),
+            "Cu": ("4105040", "Cu"),
+            "Pt": ("1011103", "Pt1"),
+        }
+        by_element = {}
+        for entry in manifest["entries"]:
+            result = phase_pack.validate_entry(pack_root, entry)
+            self.assertTrue(result["ok"], (entry["id"], result))
+            self.assertEqual(entry["source"], "COD")
+            self.assertTrue(entry["experimental"])
+            self.assertEqual(entry["model_level"], "crystal_cif")
+            self.assertEqual(len(entry["absorber_elements"]), 1)
+            by_element[entry["absorber_elements"][0]] = entry
+        for element, (entry_id, site) in expected.items():
+            self.assertIn(element, by_element)
+            entry = by_element[element]
+            self.assertEqual(entry["id"], entry_id)
+            self.assertEqual(entry["absorber_sites"], [site])
+
+        index = json.loads((ROOT / "_structure_lib" /
+                            "phase_index.json").read_text(encoding="utf-8"))
+        self.assertEqual(index["schema_version"], 1)
+        self.assertEqual(index["pack_id"], manifest["pack_id"])
+        self.assertEqual(len(index["entries"]), 5)
+        self.assertEqual(set(index["summary"]["elements_covered"]),
+                         {"Fe", "Co", "Ni", "Cu", "Pt"})
+        indexed = {(e["source"], e["id"]): e for e in index["entries"]}
+        for entry in manifest["entries"]:
+            row = indexed[(entry["source"], entry["id"])]
+            self.assertEqual(row["cif_sha256"], entry["cif_sha256"])
+            self.assertEqual(row["pack_path"], entry["cif_path"])
+            self.assertTrue((ROOT / row["cif_path"]).is_file())
+
+        coverage = json.loads((ROOT / "_structure_lib" /
+                               "phase_coverage.json")
+                              .read_text(encoding="utf-8"))
+        self.assertEqual(len(coverage["absorber_elements"]), 17)
+        self.assertEqual(coverage["summary"]["elements_with_motif"], 9)
+        self.assertEqual(coverage["summary"]["elements_without_motif"], 8)
+        self.assertEqual(set(coverage["summary"]["without_motif_elements"]),
+                         {"Ag", "Ce", "Ir", "Mn", "Pd", "Rh", "Ru", "U"})
+        for element in expected:
+            row = coverage["elements"][element]
+            self.assertTrue(row["formal_cn_ready"], element)
+            self.assertEqual(row["coverage_status"], "verified")
+            self.assertGreaterEqual(row["verified_cif"], 1)
+
+        # 导入幂等：同一文件导入两次，manifest 与目标文件保持不变。
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_pack = Path(tmp) / "pack"
+            src = pack_root / by_element["Fe"]["cif_path"]
+            first = phase_pack.import_cif(
+                src, tmp_pack, source="user", id="seed_fe",
+                tags=["metal"], meta={})
+            manifest_1 = (tmp_pack / "manifest.json").read_text(
+                encoding="utf-8")
+            second = phase_pack.import_cif(
+                src, tmp_pack, source="user", id="seed_fe",
+                tags=["metal"], meta={})
+            manifest_2 = (tmp_pack / "manifest.json").read_text(
+                encoding="utf-8")
+            self.assertEqual(first["cif_sha256"], second["cif_sha256"])
+            self.assertEqual(manifest_1, manifest_2)
+            target_dir = tmp_pack / "user" / "seed_fe"
+            self.assertEqual(len(list(target_dir.glob("*.cif"))), 1)
+            self.assertEqual(len(list(target_dir.glob("*.meta.json"))), 1)
+            tmp_index = phase_pack.build_index(tmp_pack)
+            self.assertEqual(tmp_index["summary"]["entries"], 1)
+            tmp_cov = phase_pack.build_coverage(tmp_pack, index=tmp_index)
+            self.assertTrue(tmp_cov["elements"]["Fe"]["formal_cn_ready"])
+
+    def test_phase_pack_sha256_mismatch_rejected(self):
+        """#85 P1a：sha256 不符、同 ID 冲突与显式覆盖。"""
+        pack_root = ROOT / "_structure_lib" / "_phase_pack"
+        manifest = phase_pack.load_manifest(pack_root)
+        fe = next(e for e in manifest["entries"]
+                  if e["absorber_elements"] == ["Fe"])
+        source = pack_root / fe["cif_path"]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            src = tmp / "COD-1100108.cif"
+            src.write_bytes(source.read_bytes())
+            meta_path = src.with_suffix(".meta.json")
+            meta_path.write_text(json.dumps({
+                "source": "COD", "id": "1100108",
+                "cif_sha256": "0" * 64,
+            }), encoding="utf-8")
+            with self.assertRaises(phase_pack.PhasePackError) as ctx:
+                phase_pack.import_cif(src, tmp / "pack")
+            self.assertEqual(ctx.exception.code, "sha256_mismatch")
+            meta_path.unlink()
+
+            first = phase_pack.import_cif(
+                src, tmp / "pack", source="user", id="conflict")
+            old_cif = tmp / "pack" / first["cif_path"]
+            self.assertTrue(old_cif.is_file())
+
+            changed = tmp / "changed.cif"
+            changed.write_bytes(source.read_bytes() + b"\n# changed\n")
+            with self.assertRaises(phase_pack.PhasePackError) as ctx:
+                phase_pack.import_cif(
+                    changed, tmp / "pack", source="user", id="conflict")
+            self.assertEqual(ctx.exception.code, "id_sha_conflict")
+
+            replaced = phase_pack.import_cif(
+                changed, tmp / "pack", source="user", id="conflict",
+                replace=True)
+            self.assertNotEqual(replaced["cif_sha256"],
+                                first["cif_sha256"])
+            rebuilt = phase_pack.load_manifest(tmp / "pack")
+            self.assertEqual(len(rebuilt["entries"]), 1)
+            self.assertEqual(rebuilt["entries"][0]["cif_sha256"],
+                             replaced["cif_sha256"])
+            self.assertFalse(old_cif.exists())
+
+            tampered = dict(rebuilt["entries"][0])
+            tampered["cif_sha256"] = "f" * 64
+            result = phase_pack.validate_entry(tmp / "pack", tampered)
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["code"], "sha256_mismatch")
+
+    def test_uncovered_element_no_formal_cn(self):
+        """#86 P1a：未覆盖元素不回退 motif，正式 CN 为 0 行 + no_cif。"""
+        coverage = json.loads((ROOT / "_structure_lib" /
+                               "phase_coverage.json")
+                              .read_text(encoding="utf-8"))
+        index = json.loads((ROOT / "_structure_lib" /
+                            "phase_index.json").read_text(encoding="utf-8"))
+        self.assertFalse(coverage["elements"]["Mn"]["formal_cn_ready"])
+        self.assertEqual(coverage["elements"]["Mn"]["coverage_status"],
+                         "not_covered")
+        self.assertEqual(phase_pack.verified_entries(index, "Mn"), [])
+        # Zn 有 motif，但只是 generated_only，不能算正式覆盖。
+        self.assertEqual(coverage["elements"]["Zn"]["coverage_status"],
+                         "motif_only")
+        self.assertFalse(coverage["elements"]["Zn"]["formal_cn_ready"])
+        self.assertEqual(phase_pack.verified_entries(index, "Zn"), [])
+
+        zn = next(m for m in structure_lib.load_library("Zn")
+                  if m.id == "zn_hcp")
+        self.assertEqual(zn.provenance_status, "generated_only")
+        model = structure_model.model_from_motif(zn)
+        gate = structure_model.validate_formal(model)
+        self.assertFalse(gate["ok"])
+        row = cn_table.refusal_row(
+            "no_cif", gate["reason"], phase_id=model.model_id,
+            source_type=model.source_type)
+        self.assertEqual(row["gate_status"], "no_cif")
+        self.assertEqual(row["n_fit"], "")
+        self.assertEqual(row["cn_label"], "none")
+        self.assertIn("refused", row["flags"])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "cn_table.csv"
+            cn_table.write_cn_table(out, [row])
+            back = cn_table.read_cn_table(out)
+        self.assertEqual(len(back), 1)
+        self.assertEqual(back[0]["gate_status"], "no_cif")
+        self.assertEqual(back[0]["n_fit"], "")
 
 
 if __name__ == "__main__":

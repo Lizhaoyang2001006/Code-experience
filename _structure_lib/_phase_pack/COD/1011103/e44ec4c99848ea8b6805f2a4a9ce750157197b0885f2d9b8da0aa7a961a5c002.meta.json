@@ -1,0 +1,29 @@
+{
+  "source": "COD",
+  "id": "1011103",
+  "formula": "Pt",
+  "spacegroup": "F m -3 m",
+  "cell": {
+    "a": 3.944,
+    "b": 3.944,
+    "c": 3.944,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Pt1"
+  ],
+  "absorber_elements": [
+    "Pt"
+  ],
+  "cif_path": "COD/1011103/e44ec4c99848ea8b6805f2a4a9ce750157197b0885f2d9b8da0aa7a961a5c002.cif",
+  "cif_sha256": "e44ec4c99848ea8b6805f2a4a9ce750157197b0885f2d9b8da0aa7a961a5c002",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "metal"
+  ],
+  "added_by": "tools/import_phase_pack.py",
+  "original_filename": "COD-1011103.cif"
+}

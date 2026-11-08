@@ -1,0 +1,29 @@
+{
+  "source": "COD",
+  "id": "4105040",
+  "formula": "Cu",
+  "spacegroup": "F m -3 m",
+  "cell": {
+    "a": 3.58191,
+    "b": 3.58191,
+    "c": 3.58191,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Cu"
+  ],
+  "absorber_elements": [
+    "Cu"
+  ],
+  "cif_path": "COD/4105040/39726e1afd93226e126184d30eb0e45df8138f9a78c07b5fd59d9a700cb2300c.cif",
+  "cif_sha256": "39726e1afd93226e126184d30eb0e45df8138f9a78c07b5fd59d9a700cb2300c",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "metal"
+  ],
+  "added_by": "tools/import_phase_pack.py",
+  "original_filename": "COD-4105040.cif"
+}

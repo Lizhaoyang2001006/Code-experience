@@ -1,0 +1,29 @@
+{
+  "source": "COD",
+  "id": "9008492",
+  "formula": "Co",
+  "spacegroup": "P 63/m m c",
+  "cell": {
+    "a": 2.5071,
+    "b": 2.5071,
+    "c": 4.0686,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 120.0
+  },
+  "absorber_sites": [
+    "Co"
+  ],
+  "absorber_elements": [
+    "Co"
+  ],
+  "cif_path": "COD/9008492/bd9d57408d901e3ff966ba0ebe19ced70e1f1b62a4ef47fda801a39ecbb5344a.cif",
+  "cif_sha256": "bd9d57408d901e3ff966ba0ebe19ced70e1f1b62a4ef47fda801a39ecbb5344a",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "metal"
+  ],
+  "added_by": "tools/import_phase_pack.py",
+  "original_filename": "COD-9008492.cif"
+}

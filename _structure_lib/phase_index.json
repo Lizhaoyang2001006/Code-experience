@@ -1,0 +1,171 @@
+{
+  "schema_version": 1,
+  "generated_by": "tools/build_phase_index.py",
+  "pack_id": "formal-cn-phase-pack",
+  "pack_root": "_structure_lib/_phase_pack",
+  "manifest_sha256": "f5ef2c5c0a0b8a8efcd2663e42275877936d7da3c6b4589ea9e9adbc117484af",
+  "summary": {
+    "entries": 5,
+    "verified_cif": 5,
+    "elements_covered": [
+      "Co",
+      "Cu",
+      "Fe",
+      "Ni",
+      "Pt"
+    ],
+    "elements_total": 17
+  },
+  "entries": [
+    {
+      "source": "COD",
+      "id": "1011103",
+      "formula": "Pt",
+      "spacegroup": "F m -3 m",
+      "cell": {
+        "a": 3.944,
+        "b": 3.944,
+        "c": 3.944,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Pt1"
+      ],
+      "absorber_elements": [
+        "Pt"
+      ],
+      "cif_path": "_structure_lib/_phase_pack/COD/1011103/e44ec4c99848ea8b6805f2a4a9ce750157197b0885f2d9b8da0aa7a961a5c002.cif",
+      "cif_sha256": "e44ec4c99848ea8b6805f2a4a9ce750157197b0885f2d9b8da0aa7a961a5c002",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "metal"
+      ],
+      "added_by": "tools/import_phase_pack.py",
+      "original_filename": "COD-1011103.cif",
+      "pack_path": "COD/1011103/e44ec4c99848ea8b6805f2a4a9ce750157197b0885f2d9b8da0aa7a961a5c002.cif"
+    },
+    {
+      "source": "COD",
+      "id": "1100108",
+      "formula": "Fe",
+      "spacegroup": "Im-3m",
+      "cell": {
+        "a": 2.868018,
+        "b": 2.868018,
+        "c": 2.868018,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Fe1"
+      ],
+      "absorber_elements": [
+        "Fe"
+      ],
+      "cif_path": "_structure_lib/_phase_pack/COD/1100108/41085e65debf2bd82a772bcee9e7c0a43ef42b67666d2f233c8f2d822769b8fe.cif",
+      "cif_sha256": "41085e65debf2bd82a772bcee9e7c0a43ef42b67666d2f233c8f2d822769b8fe",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "metal"
+      ],
+      "added_by": "tools/import_phase_pack.py",
+      "original_filename": "COD-1100108.cif",
+      "pack_path": "COD/1100108/41085e65debf2bd82a772bcee9e7c0a43ef42b67666d2f233c8f2d822769b8fe.cif"
+    },
+    {
+      "source": "COD",
+      "id": "1534892",
+      "formula": "Ni",
+      "spacegroup": "F m -3 m",
+      "cell": {
+        "a": 3.45,
+        "b": 3.45,
+        "c": 3.45,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Ni1"
+      ],
+      "absorber_elements": [
+        "Ni"
+      ],
+      "cif_path": "_structure_lib/_phase_pack/COD/1534892/adb86b38b5313592734259a0ff2bb537fc60acb92793015ee8a74a41b9966cdd.cif",
+      "cif_sha256": "adb86b38b5313592734259a0ff2bb537fc60acb92793015ee8a74a41b9966cdd",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "metal"
+      ],
+      "added_by": "tools/import_phase_pack.py",
+      "original_filename": "COD-1534892.cif",
+      "pack_path": "COD/1534892/adb86b38b5313592734259a0ff2bb537fc60acb92793015ee8a74a41b9966cdd.cif"
+    },
+    {
+      "source": "COD",
+      "id": "4105040",
+      "formula": "Cu",
+      "spacegroup": "F m -3 m",
+      "cell": {
+        "a": 3.58191,
+        "b": 3.58191,
+        "c": 3.58191,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Cu"
+      ],
+      "absorber_elements": [
+        "Cu"
+      ],
+      "cif_path": "_structure_lib/_phase_pack/COD/4105040/39726e1afd93226e126184d30eb0e45df8138f9a78c07b5fd59d9a700cb2300c.cif",
+      "cif_sha256": "39726e1afd93226e126184d30eb0e45df8138f9a78c07b5fd59d9a700cb2300c",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "metal"
+      ],
+      "added_by": "tools/import_phase_pack.py",
+      "original_filename": "COD-4105040.cif",
+      "pack_path": "COD/4105040/39726e1afd93226e126184d30eb0e45df8138f9a78c07b5fd59d9a700cb2300c.cif"
+    },
+    {
+      "source": "COD",
+      "id": "9008492",
+      "formula": "Co",
+      "spacegroup": "P 63/m m c",
+      "cell": {
+        "a": 2.5071,
+        "b": 2.5071,
+        "c": 4.0686,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 120.0
+      },
+      "absorber_sites": [
+        "Co"
+      ],
+      "absorber_elements": [
+        "Co"
+      ],
+      "cif_path": "_structure_lib/_phase_pack/COD/9008492/bd9d57408d901e3ff966ba0ebe19ced70e1f1b62a4ef47fda801a39ecbb5344a.cif",
+      "cif_sha256": "bd9d57408d901e3ff966ba0ebe19ced70e1f1b62a4ef47fda801a39ecbb5344a",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "metal"
+      ],
+      "added_by": "tools/import_phase_pack.py",
+      "original_filename": "COD-9008492.cif",
+      "pack_path": "COD/9008492/bd9d57408d901e3ff966ba0ebe19ced70e1f1b62a4ef47fda801a39ecbb5344a.cif"
+    }
+  ]
+}

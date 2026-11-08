@@ -1,0 +1,29 @@
+{
+  "source": "COD",
+  "id": "1100108",
+  "formula": "Fe",
+  "spacegroup": "Im-3m",
+  "cell": {
+    "a": 2.868018,
+    "b": 2.868018,
+    "c": 2.868018,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Fe1"
+  ],
+  "absorber_elements": [
+    "Fe"
+  ],
+  "cif_path": "COD/1100108/41085e65debf2bd82a772bcee9e7c0a43ef42b67666d2f233c8f2d822769b8fe.cif",
+  "cif_sha256": "41085e65debf2bd82a772bcee9e7c0a43ef42b67666d2f233c8f2d822769b8fe",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "metal"
+  ],
+  "added_by": "tools/import_phase_pack.py",
+  "original_filename": "COD-1100108.cif"
+}
