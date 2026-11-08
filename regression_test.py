@@ -57,7 +57,7 @@ Phase III（B9–B12）新增 15 项契约：
     - 相移校正 FT/WT；异核共占位双分支；关联 Debye；BVS 软约束
     - R/q/WT 多空间拟合；双吸收边 ΔE₀ 分组 + AIC/BIC；SAC/DAC 团簇
 
-当前共 93 项契约回归（B1-1 至 B20-1，外加 P0a/P0b/P1a/P1b 正式 CN 契约）。
+当前共 101 项契约回归（B1-1 至 B20-1，外加 P0a/P0b/P1a/P1b/P2a 正式 CN 契约）。
 
 运行:
     python regression_test.py
@@ -65,6 +65,7 @@ Phase III（B9–B12）新增 15 项契约：
 from __future__ import annotations
 
 import json
+import math
 import sys
 import tempfile
 import unittest
@@ -82,6 +83,7 @@ import larch_wt                       # noqa: E402
 import motif_provenance               # noqa: E402
 import phase_pack                     # noqa: E402
 import phase_resolver                 # noqa: E402
+import cif_gate                       # noqa: E402
 import structure_id                   # noqa: E402
 import structure_lib                  # noqa: E402
 import structure_model                # noqa: E402
@@ -4579,6 +4581,144 @@ Ru1 Ru 0.5 0.5 0.5 0.3
 
         # 清理测试产生的缓存
         shutil.rmtree(fe_cache)
+
+    # ------------------------------------------------------------
+    # 94–101. P2a：CIF 门禁 + N₀ + Rayleigh 分组
+    # ------------------------------------------------------------
+    def test_cif_gate_parse_failed(self):
+        """#94 P2a：缺 _atom_site_* 循环的 CIF → parse_failed。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            bad = Path(tmp) / "bad.cif"
+            bad.write_text(
+                "data_test\n_cell_length_a 1.0\n_cell_length_b 1.0\n",
+                encoding="utf-8")
+            r = cif_gate.gate_cif(bad, "Fe")
+            self.assertFalse(r.ok)
+            self.assertEqual(r.code, "parse_failed")
+            self.assertIn("_atom_site", r.reason)
+
+    def test_cif_gate_absorber_missing(self):
+        """#95 P2a：CIF 中无吸收元素 → absorber_missing。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            cif = Path(tmp) / "oxygen.cif"
+            cif.write_text("""data_test
+_symmetry_space_group_name_H-M 'P 1'
+_cell_length_a 3.0 _cell_length_b 3.0 _cell_length_c 3.0
+_cell_angle_alpha 90 _cell_angle_beta 90 _cell_angle_gamma 90
+loop_
+_atom_site_label _atom_site_type_symbol _atom_site_fract_x _atom_site_fract_y _atom_site_fract_z _atom_site_occupancy
+O1 O 0 0 0 1
+""", encoding="utf-8")
+            r = cif_gate.gate_cif(cif, "Fe")
+            self.assertFalse(r.ok)
+            self.assertEqual(r.code, "absorber_missing")
+
+    def test_cif_gate_absorber_site_ambiguous(self):
+        """#96 P2a：多元素结构中 Fe 有两个晶位，未指定 → absorber_site_ambiguous。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            cif = Path(tmp) / "two_fe.cif"
+            cif.write_text("""data_test
+_symmetry_space_group_name_H-M 'P 1'
+_cell_length_a 4.0 _cell_length_b 4.0 _cell_length_c 4.0
+_cell_angle_alpha 90 _cell_angle_beta 90 _cell_angle_gamma 90
+loop_
+_atom_site_label _atom_site_type_symbol _atom_site_fract_x _atom_site_fract_y _atom_site_fract_z _atom_site_occupancy
+Fe1 Fe 0 0 0 1
+Fe2 Fe 0.5 0.5 0.5 1
+O1 O 0.25 0.25 0.25 1
+""", encoding="utf-8")
+            r = cif_gate.gate_cif(cif, "Fe")
+            self.assertFalse(r.ok)
+            self.assertEqual(r.code, "absorber_site_ambiguous")
+            # 指定吸收位后应放行（测试 CIF 中 Fe1 第一壳 CN=1，超出正常范围，需开关）
+            r2 = cif_gate.gate_cif(cif, "Fe", absorber_site="Fe1",
+                                   allow_unusual_coordination=True)
+            self.assertTrue(r2.ok, r2.reason)
+            self.assertEqual(r2.absorber_site, "Fe1")
+
+    def test_cif_gate_occupancy_implicit_ok(self):
+        """#97 P2a：缺 occupancy 但单元素有序 → implicit_1.0 放行（COD:9008492 Co）。"""
+        cif = ROOT / "_structure_lib" / "_phase_pack" / "COD" / "9008492" \
+            / "bd9d57408d901e3ff966ba0ebe19ced70e1f1b62a4ef47fda801a39ecbb5344a.cif"
+        self.assertTrue(cif.is_file())
+        r = cif_gate.gate_cif(cif, "Co")
+        self.assertTrue(r.ok, r.reason)
+        self.assertEqual(r.occupancy_source, "implicit_1.0")
+        self.assertEqual(r.first_shell_cn, 12.0)   # hcp Co 第一壳 CN=12
+
+    def test_cif_gate_occupancy_disorder_rejected(self):
+        """#98 P2a：多元素结构缺 occupancy → occupancy_missing。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            cif = Path(tmp) / "disorder.cif"
+            cif.write_text("""data_test
+_symmetry_space_group_name_H-M 'P 1'
+_cell_length_a 4.0 _cell_length_b 4.0 _cell_length_c 4.0
+_cell_angle_alpha 90 _cell_angle_beta 90 _cell_angle_gamma 90
+loop_
+_atom_site_label _atom_site_type_symbol _atom_site_fract_x _atom_site_fract_y _atom_site_fract_z
+Fe1 Fe 0 0 0
+O1 O 0.5 0.5 0.5
+""", encoding="utf-8")
+            r = cif_gate.gate_cif(cif, "Fe")
+            self.assertFalse(r.ok)
+            self.assertEqual(r.code, "occupancy_missing")
+
+    def test_cif_gate_cocupancy_unresolved(self):
+        """#99 P2a：同一坐标多元素共占位，未拆分 → cocupancy_unresolved。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            cif = Path(tmp) / "cocupancy.cif"
+            cif.write_text("""data_test
+_symmetry_space_group_name_H-M 'P 1'
+_cell_length_a 4.0 _cell_length_b 4.0 _cell_length_c 4.0
+_cell_angle_alpha 90 _cell_angle_beta 90 _cell_angle_gamma 90
+loop_
+_atom_site_label _atom_site_type_symbol _atom_site_fract_x _atom_site_fract_y _atom_site_fract_z _atom_site_occupancy
+Fe1 Fe 0 0 0 0.5
+O1 O 0 0 0 0.5
+""", encoding="utf-8")
+            r = cif_gate.gate_cif(cif, "Fe")
+            self.assertFalse(r.ok)
+            self.assertEqual(r.code, "cocupancy_unresolved")
+
+    def test_cn_range_12_metals(self):
+        """#100 P2a：fcc/hcp 金属 CN=12 正常通过；CN=8 (bcc) 也通过。"""
+        pack = ROOT / "_structure_lib" / "_phase_pack"
+        cases = {
+            "Co": ("9008492", "bd9d57408d901e3ff966ba0ebe19ced70e1f1b62a4ef47fda801a39ecbb5344a.cif", 12.0),
+            "Ni": ("1534892", "adb86b38b5313592734259a0ff2bb537fc60acb92793015ee8a74a41b9966cdd.cif", 12.0),
+            "Cu": ("4105040", "39726e1afd93226e126184d30eb0e45df8138f9a78c07b5fd59d9a700cb2300c.cif", 12.0),
+            "Pt": ("1011103", "e44ec4c99848ea8b6805f2a4a9ce750157197b0885f2d9b8da0aa7a961a5c002.cif", 12.0),
+            "Fe": ("1100108", "41085e65debf2bd82a772bcee9e7c0a43ef42b67666d2f233c8f2d822769b8fe.cif", 8.0),
+        }
+        for el, (_id, fname, expected_cn) in cases.items():
+            cif = pack / "COD" / _id / fname
+            self.assertTrue(cif.is_file(), str(cif))
+            r = cif_gate.gate_cif(cif, el)
+            self.assertTrue(r.ok, f"{el}: {r.reason}")
+            self.assertEqual(r.first_shell_cn, expected_cn,
+                             f"{el} first shell CN={r.first_shell_cn} != {expected_cn}")
+
+    def test_n0_shell_grouping_rayleigh(self):
+        """#101 P2a：Rayleigh 分组：同元素子壳间距 < ΔR_Rayleigh 归为一组。"""
+        cif = ROOT / "_structure_lib" / "_phase_pack" / "COD" / "1100108" \
+            / "41085e65debf2bd82a772bcee9e7c0a43ef42b67666d2f233c8f2d822769b8fe.cif"
+        # k 范围越窄，ΔR_Rayleigh 越大，分组越粗（合并更多壳层）
+        r_wide = cif_gate.gate_cif(cif, "Fe", kmin=3.0, kmax=6.0)
+        r_narrow = cif_gate.gate_cif(cif, "Fe", kmin=3.0, kmax=12.0)
+        self.assertTrue(r_wide.ok)
+        self.assertTrue(r_narrow.ok)
+        # ΔR_Rayleigh(k=3–6) = π/(2*3) ≈ 0.524 > ΔR(k=3–12) = π/(2*9) ≈ 0.175
+        self.assertGreater(r_wide.rayleigh_delta_r, r_narrow.rayleigh_delta_r)
+        self.assertAlmostEqual(r_wide.rayleigh_delta_r, math.pi / 6.0, places=6)
+        self.assertAlmostEqual(r_narrow.rayleigh_delta_r, math.pi / 18.0, places=6)
+        # 窄 k 范围（大 delta_r）：第一壳 2.484 与第二壳 2.868 间距 0.384 < 0.524，合并 → first_cn 增大
+        self.assertGreater(r_wide.first_shell_cn, r_narrow.first_shell_cn)
+        self.assertEqual(r_narrow.first_shell_cn, 8.0)   # bcc Fe 第一壳 CN=8，不合并
+        # 验证 N₀ = Σ(简并度 × 占据度)
+        for sh in r_narrow.n0_shells:
+            n0_sum = sum(m["occ"] for m in sh["n0_members"])
+            self.assertAlmostEqual(sh["n0"], n0_sum, places=6,
+                                   msg=f"N₀ {sh['n0']} != Σ occ {n0_sum}")
 
 
 if __name__ == "__main__":
