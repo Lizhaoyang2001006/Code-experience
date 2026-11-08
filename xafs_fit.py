@@ -1773,3 +1773,251 @@ def select_shell_paths(motif, edge="K", rmin=None, rmax=None,
         plan["shells"] = plan["shells"][:limit]
     return plan
 
+
+# ================================================================
+# P3：条件 CN —— 固定 N → 自由 N（首壳单一比例因子）
+# ================================================================
+CN_RATIO_OK_LO, CN_RATIO_OK_HI = 0.7, 1.3
+CN_RATIO_WARN_LO, CN_RATIO_WARN_HI = 0.6, 1.4
+
+
+def build_conditional_fit_args(
+        plan: dict, n0_mapping: dict, ref_idx: int | None = None) -> dict:
+    """构建条件 CN 拟合的 artemis.fit_r_space 参数。
+
+    第一步（固定 N）：vary_n=[], path_degen=n0_per_path，所有壳层 N 固定为 N₀。
+    第二步（条件 CN）：vary_n=[ref_idx]，只放开首壳参考路径 N；
+    其他首壳路径用 path_links.degen_ratio = N0_j/N0_ref 绑定到参考路径；
+    远壳 N 保持固定。
+
+    返回 dict：
+        fit_args: dict  透传给 artemis.fit_r_space 的参数
+        ref_idx: int    首壳参考路径下标（N₀ 最大的首壳路径）
+        n0_total: float 首壳 N₀ 总和
+    """
+    n0_per_path = n0_mapping["n0_per_path"]
+    path_links = list(n0_mapping.get("path_links") or [])
+    n_paths = len(n0_per_path)
+    plan_shells = plan.get("shells", [])
+
+    # 找出首壳路径（reff 最小的若干条，scatterer 可能相同或不同）
+    first_shell_idxs = []
+    if plan_shells:
+        min_r = min(float(s.get("reff", s.get("reff_mean", 0.0)))
+                    for s in plan_shells)
+        for i, s in enumerate(plan_shells):
+            r = float(s.get("reff", s.get("reff_mean", 0.0)))
+            if abs(r - min_r) < 1e-6:
+                first_shell_idxs.append(i)
+
+    if not first_shell_idxs:
+        first_shell_idxs = [0]
+
+    # 参考路径：首壳中 N₀ 最大的
+    ref_idx = ref_idx if ref_idx is not None else \
+        max(first_shell_idxs, key=lambda i: n0_per_path[i])
+    ref_idx = int(ref_idx)
+    if ref_idx < 0 or ref_idx >= n_paths:
+        raise XAFSConfigError(
+            "FIT", f"ref_idx {ref_idx} 超出路径范围 0–{n_paths-1}")
+
+    n0_total = sum(n0_per_path[i] for i in first_shell_idxs)
+
+    # path_links：非参考首壳路径绑定到参考路径
+    # 先清除已有的首壳间链接，重新按 N₀ 比例建立
+    links = {}
+    for link in path_links:
+        links[link["target"]] = link
+
+    for i in first_shell_idxs:
+        if i == ref_idx:
+            continue
+        ratio = n0_per_path[i] / n0_per_path[ref_idx] if n0_per_path[ref_idx] > 0 else 1.0
+        links[i] = {
+            "target": i, "source": ref_idx,
+            "degen_ratio": round(ratio, 6),
+            "share_deltar": False,
+            "share_sigma2": False,
+        }
+
+    fit_args = {
+        "vary_n": [ref_idx],           # 只放开首壳参考路径 N
+        "path_degen": [round(v, 6) for v in n0_per_path],  # 所有路径 N₀ 初值
+        "path_links": list(links.values()),
+    }
+    return {
+        "fit_args": fit_args,
+        "ref_idx": ref_idx,
+        "n0_total": round(n0_total, 6),
+        "first_shell_idxs": first_shell_idxs,
+    }
+
+
+def compute_n_ratio(fit_result: dict, n0_mapping: dict,
+                    ref_idx: int | None = None) -> dict:
+    """从拟合结果计算 N/N₀。
+
+    N_fit_total = Σ 首壳拟合路径的 N
+    N0_total   = Σ 首壳 N₀
+    N/N0       = N_fit_total / N0_total
+
+    返回 dict：
+        n_ratio: float | None
+        n_fit_total: float
+        n0_total: float
+        n_status: str  "ok" / "warning" / "out_of_range" / "undef"
+    """
+    paths = fit_result.get("paths", [])
+    n0_per_path = n0_mapping.get("n0_per_path", [])
+    plan_shells = fit_result.get("shells", []) or \
+        n0_mapping.get("plan_shells", [])
+
+    if not paths or not n0_per_path:
+        return {"n_ratio": None, "n_fit_total": None, "n0_total": None,
+                "n_status": "undef"}
+
+    # 首壳路径：reff 最小的
+    first_idxs = []
+    if plan_shells:
+        min_r = min(float(s.get("reff", s.get("reff_mean", 0.0)))
+                    for s in plan_shells)
+        for i, s in enumerate(plan_shells):
+            r = float(s.get("reff", s.get("reff_mean", 0.0)))
+            if abs(r - min_r) < 1e-6:
+                first_idxs.append(i)
+    if not first_idxs:
+        first_idxs = [0] if len(paths) > 0 else []
+
+    n_fit_total = 0.0
+    n0_total = 0.0
+    for i in first_idxs:
+        if i < len(paths):
+            n_fit_total += float(paths[i].degen or 0.0)
+        if i < len(n0_per_path):
+            n0_total += float(n0_per_path[i])
+
+    if n0_total <= 0:
+        return {"n_ratio": None, "n_fit_total": round(n_fit_total, 6),
+                "n0_total": round(n0_total, 6), "n_status": "undef"}
+
+    n_ratio = n_fit_total / n0_total
+    status = check_n_ratio(n_ratio)
+
+    return {
+        "n_ratio": round(n_ratio, 6),
+        "n_fit_total": round(n_fit_total, 6),
+        "n0_total": round(n0_total, 6),
+        "n_status": status,
+    }
+
+
+def check_n_ratio(n_ratio: float) -> str:
+    """N/N₀ 范围检查（P3 门禁）。
+
+    0.7–1.3: ok（通过）
+    0.6–0.7 / 1.3–1.4: warning（警告）
+    <0.6 或 >1.4: out_of_range（需要定量缺陷模型，否则拒绝）
+    """
+    if n_ratio is None:
+        return "undef"
+    if n_ratio < CN_RATIO_WARN_LO or n_ratio > CN_RATIO_WARN_HI:
+        return "out_of_range"
+    if n_ratio < CN_RATIO_OK_LO or n_ratio > CN_RATIO_OK_HI:
+        return "warning"
+    return "ok"
+
+
+# ================================================================
+# P3：缺陷模型解析
+# ================================================================
+def parse_defect_model(spec: str | dict) -> dict:
+    """解析缺陷模型规范，返回标准化 dict。
+
+    支持 JSON 字符串或 dict：
+        {"type": "nanoparticle", "diameter_nm": 2.5, "shape": "spherical", "lattice": "fcc"}
+        {"type": "vacancy", "site": "O1", "fraction": 0.1}
+        {"type": "custom", "expected_n_ratio": 0.75, "uncertainty": 0.10, "justification": "..."}
+
+    返回 dict 包含：type, expected_n_ratio, uncertainty, model_dependent (bool)
+    """
+    if isinstance(spec, str):
+        import json as _json
+        try:
+            spec = _json.loads(spec)
+        except _json.JSONDecodeError as exc:
+            raise XAFSConfigError(
+                "FIT", f"缺陷模型 JSON 解析失败: {exc}") from exc
+    if not isinstance(spec, dict):
+        raise XAFSConfigError(
+            "FIT", "缺陷模型必须是 JSON 对象或 dict")
+
+    mtype = str(spec.get("type", "")).lower()
+    if mtype not in ("nanoparticle", "vacancy", "custom"):
+        raise XAFSConfigError(
+            "FIT", f"未知缺陷模型类型: {mtype!r}（支持 nanoparticle/vacancy/custom）")
+
+    result = {"type": mtype, "model_dependent": True}
+
+    if mtype == "nanoparticle":
+        dia = spec.get("diameter_nm")
+        lattice = str(spec.get("lattice", "")).lower()
+        if dia is None:
+            raise XAFSConfigError(
+                "FIT", "nanoparticle 缺陷模型需要 diameter_nm")
+        if lattice not in ("fcc", "hcp", "bcc"):
+            raise XAFSConfigError(
+                "FIT", f"nanoparticle 仅对 fcc/hcp/bcc 开放，收到 {lattice!r}")
+        u = 1.0 / float(dia)   # u = r1/d，简化：取 r1=1Å
+        expected = 1.0 - 1.5 * u + 0.5 * u ** 3
+        result["expected_n_ratio"] = round(max(0.0, expected), 6)
+        result["uncertainty"] = float(spec.get("uncertainty", 0.10))
+        result["diameter_nm"] = float(dia)
+        result["lattice"] = lattice
+
+    elif mtype == "vacancy":
+        site = spec.get("site")
+        fraction = spec.get("fraction")
+        if site is None or fraction is None:
+            raise XAFSConfigError(
+                "FIT", "vacancy 缺陷模型需要 site 与 fraction")
+        result["expected_n_ratio"] = round(1.0 - float(fraction), 6)
+        result["uncertainty"] = float(spec.get("uncertainty", 0.10))
+        result["site"] = str(site)
+        result["fraction"] = float(fraction)
+
+    else:  # custom
+        ratio = spec.get("expected_n_ratio")
+        uncertainty = spec.get("uncertainty")
+        if ratio is None or uncertainty is None:
+            raise XAFSConfigError(
+                "FIT", "custom 缺陷模型需要 expected_n_ratio 与 uncertainty")
+        result["expected_n_ratio"] = float(ratio)
+        result["uncertainty"] = float(uncertainty)
+        result["justification"] = str(spec.get("justification", ""))
+
+    return result
+
+
+def check_defect_model(n_ratio: float, defect_model: dict) -> dict:
+    """检查 N/N₀ 是否在缺陷模型预期的不确定度内。
+
+    返回 dict：
+        ok: bool
+        status: str  "defect_ok" / "defect_model_mismatch" / "defect_model_missing"
+        detail: str
+    """
+    if defect_model is None:
+        return {"ok": False, "status": "defect_model_missing",
+                "detail": "N/N₀ 超出范围但未提供定量缺陷模型"}
+    expected = defect_model.get("expected_n_ratio")
+    uncertainty = defect_model.get("uncertainty", 0.10)
+    if expected is None:
+        return {"ok": False, "status": "defect_model_missing",
+                "detail": "缺陷模型缺少 expected_n_ratio"}
+    if abs(n_ratio - expected) <= uncertainty:
+        return {"ok": True, "status": "defect_ok",
+                "detail": f"N/N₀={n_ratio:.3f} 在模型预期 {expected:.3f}±{uncertainty:.2f} 范围内"}
+    return {"ok": False, "status": "defect_model_mismatch",
+            "detail": f"N/N₀={n_ratio:.3f} 偏离模型预期 {expected:.3f}±{uncertainty:.2f}"}
+
+

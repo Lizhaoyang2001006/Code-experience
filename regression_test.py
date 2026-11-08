@@ -57,7 +57,7 @@ Phase III（B9–B12）新增 15 项契约：
     - 相移校正 FT/WT；异核共占位双分支；关联 Debye；BVS 软约束
     - R/q/WT 多空间拟合；双吸收边 ΔE₀ 分组 + AIC/BIC；SAC/DAC 团簇
 
-当前共 103 项契约回归（B1-1 至 B20-1，外加 P0a/P0b/P1a/P1b/P2a/P2b 正式 CN 契约）。
+当前共 110 项契约回归（B1-1 至 B20-1，外加 P0a/P0b/P1a/P1b/P2a/P2b/P3 正式 CN 契约）。
 
 运行:
     python regression_test.py
@@ -4789,6 +4789,194 @@ O1 O 0 0 0 0.5
         self.assertFalse(mapped_bad["mapping_ok"])
         self.assertIn("无匹配 N₀ 壳层", mapped_bad["mapping_reason"])
         self.assertEqual(len(mapped_bad.get("n0_per_path", [])), 0)
+
+    # ------------------------------------------------------------
+    # 104–110. P3：条件 CN、多相与缺陷模型
+    # ------------------------------------------------------------
+    def test_first_shell_single_scale_factor(self):
+        """#104 P3：首壳单一比例因子，仅放开参考路径 N。"""
+        motifs = {m.id: m for m in structure_lib.load_library("Fe")}
+        motif = motifs["fe_bcc"]
+        cif = ROOT / "_structure_lib" / "_phase_pack" / "COD" / "1100108" \
+            / "41085e65debf2bd82a772bcee9e7c0a43ef42b67666d2f233c8f2d822769b8fe.cif"
+        gate = cif_gate.gate_cif(cif, "Fe")
+        self.assertTrue(gate.ok)
+        plan = xafs_fit.select_shell_paths(
+            motif, edge="K", kmin=3.0, kmax=12.0, rmax=3.5, n_mode="free")
+        mapping = xafs_fit.map_n0_to_plan(plan, gate.n0_shells,
+                                          kmin=3.0, kmax=12.0)
+        self.assertTrue(mapping["mapping_ok"])
+        args = xafs_fit.build_conditional_fit_args(plan, mapping)
+        # 仅放开参考路径 N
+        self.assertEqual(len(args["fit_args"]["vary_n"]), 1)
+        self.assertIn(args["ref_idx"], args["fit_args"]["vary_n"])
+        # path_degen = n0_per_path（所有路径 N₀ 初值）
+        self.assertEqual(args["fit_args"]["path_degen"],
+                         mapping["n0_per_path"])
+        # 非参考首壳路径用 degen_ratio 绑定到参考路径
+        links = args["fit_args"]["path_links"]
+        for link in links:
+            self.assertEqual(link["share_deltar"], False)
+            self.assertEqual(link["share_sigma2"], False)
+            self.assertIsNotNone(link["degen_ratio"])
+            self.assertGreater(link["degen_ratio"], 0)
+        # n0_total = 首壳 N₀ 总和
+        self.assertAlmostEqual(args["n0_total"], 8.0)
+
+    def test_conditional_cn_out_of_range_requires_defect(self):
+        """#105 P3：N/N₀ 超出范围且无缺陷模型 → defect_model_missing。"""
+        # N/N₀ = 0.5，低于 0.6，out_of_range
+        self.assertEqual(xafs_fit.check_n_ratio(0.5), "out_of_range")
+        self.assertEqual(xafs_fit.check_n_ratio(1.5), "out_of_range")
+        # 无缺陷模型 → 拒绝
+        chk = xafs_fit.check_defect_model(0.5, None)
+        self.assertFalse(chk["ok"])
+        self.assertEqual(chk["status"], "defect_model_missing")
+        # 有缺陷模型但不匹配 → defect_model_mismatch
+        dm = xafs_fit.parse_defect_model(
+            '{"type": "custom", "expected_n_ratio": 0.75, "uncertainty": 0.05}')
+        chk = xafs_fit.check_defect_model(0.5, dm)
+        self.assertFalse(chk["ok"])
+        self.assertEqual(chk["status"], "defect_model_mismatch")
+        # N/N₀ 在正常范围 → ok，不需要缺陷模型
+        self.assertEqual(xafs_fit.check_n_ratio(0.9), "ok")
+        self.assertEqual(xafs_fit.check_n_ratio(1.2), "ok")
+
+    def test_conditional_cn_nanoparticle_model(self):
+        """#106 P3：纳米粒子缺陷模型，N/N₀ 在预期不确定度内。"""
+        dm = xafs_fit.parse_defect_model(
+            '{"type": "nanoparticle", "diameter_nm": 2.5, "lattice": "fcc"}')
+        self.assertEqual(dm["type"], "nanoparticle")
+        self.assertTrue(dm["model_dependent"])
+        self.assertIn("expected_n_ratio", dm)
+        self.assertIn("uncertainty", dm)
+        # N/N₀ 在模型预期范围内 → defect_ok
+        ratio = dm["expected_n_ratio"]
+        chk = xafs_fit.check_defect_model(ratio, dm)
+        self.assertTrue(chk["ok"])
+        self.assertEqual(chk["status"], "defect_ok")
+        # 偏离不确定度范围 → mismatch
+        chk = xafs_fit.check_defect_model(ratio + 3 * dm["uncertainty"], dm)
+        self.assertFalse(chk["ok"])
+        self.assertEqual(chk["status"], "defect_model_mismatch")
+        # 非 fcc/hcp/bcc 晶格拒绝
+        with self.assertRaises(xafs_fit.XAFSConfigError):
+            xafs_fit.parse_defect_model(
+                '{"type": "nanoparticle", "diameter_nm": 2.5, "lattice": "diamond"}')
+
+    def test_multiphase_no_auto_pick(self):
+        """#107 P3：多相候选 → ambiguous，不自动 Top-1。"""
+        import shutil
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            tmp_pack = tmp / "pack"
+            tmp_pack.mkdir()
+            # 两条含 Fe 的 CIF（相同内容，不同 id）
+            src = ROOT / "_structure_lib" / "_phase_pack" / "COD" / "1100108" \
+                / "41085e65debf2bd82a772bcee9e7c0a43ef42b67666d2f233c8f2d822769b8fe.cif"
+            sha = phase_pack.sha256_file(src)
+            for mid in ("1100108", "1100109"):
+                d = tmp_pack / "COD" / mid
+                d.mkdir(parents=True)
+                shutil.copy2(src, d / f"{sha}.cif")
+                meta = {"source": "COD", "id": mid, "formula": "Fe",
+                        "spacegroup": "Im-3m",
+                        "cell": {"a": 2.868, "b": 2.868, "c": 2.868,
+                                 "alpha": 90, "beta": 90, "gamma": 90},
+                        "absorber_sites": ["Fe1"], "absorber_elements": ["Fe"],
+                        "cif_path": f"{sha}.cif", "cif_sha256": sha,
+                        "experimental": True, "model_level": "crystal_cif"}
+                (d / f"{sha}.meta.json").write_text(
+                    json.dumps(meta, ensure_ascii=False, indent=2),
+                    encoding="utf-8")
+            phase_pack.rebuild_manifest(tmp_pack)
+            res = phase_resolver.resolve_phase(
+                "Fe", phase_index_path=str(tmp_pack / "manifest.json"),
+                phase_pack_path=str(tmp_pack))
+            self.assertEqual(res.status, "ambiguous")
+            self.assertEqual(len(res.candidates), 2)
+            self.assertIsNone(res.selected)
+            self.assertIsNone(res.structure_model)
+        finally:
+            shutil.rmtree(tmp)
+
+    def test_cn_table_provenance_complete(self):
+        """#108 P3：正式 CN 行必须包含全部 provenance 字段。"""
+        from structure_model import StructureModel, validate_formal
+        model = StructureModel(
+            model_id="COD:1100108", absorber="Fe",
+            absorber_site="Fe1", model_level="crystal_cif",
+            source_type="database_cif", source_ref="COD:1100108",
+            source_cif="_structure_lib/_phase_pack/COD/1100108/x.cif",
+            source_cif_sha256="0" * 64,
+            cell={"a": 2.868, "b": 2.868, "c": 2.868,
+                  "alpha": 90, "beta": 90, "gamma": 90},
+            spacegroup="Im-3m",
+            provenance_status="verified_source_cif",
+        )
+        # provenance 字段完整
+        self.assertIsNotNone(model.model_id)
+        self.assertIsNotNone(model.absorber)
+        self.assertIsNotNone(model.absorber_site)
+        self.assertIsNotNone(model.model_level)
+        self.assertIsNotNone(model.source_type)
+        self.assertIsNotNone(model.source_ref)
+        self.assertIsNotNone(model.source_cif_sha256)
+        self.assertIsNotNone(model.absorber_site)
+        self.assertEqual(model.provenance_status, "verified_source_cif")
+        # cn_table 拒绝行也应包含 provenance 字段
+        row = cn_table.refusal_row("no_cif", "测试拒绝",
+                                   phase_id=model.model_id,
+                                   model_level=model.model_level,
+                                   source_type=model.source_type,
+                                   source_ref=model.source_ref,
+                                   source_cif_sha256=model.source_cif_sha256,
+                                   absorber_site=model.absorber_site)
+        self.assertEqual(row["phase_id"], "COD:1100108")
+        self.assertEqual(row["model_level"], "crystal_cif")
+        self.assertEqual(row["source_type"], "database_cif")
+        self.assertEqual(row["source_ref"], "COD:1100108")
+        self.assertEqual(row["absorber_site"], "Fe1")
+        self.assertEqual(row["gate_status"], "no_cif")
+
+    def test_prototype_cluster_separate(self):
+        """#109 P3：prototype/cluster 模型不进正式 CN 表。"""
+        from structure_model import StructureModel, validate_formal
+        # prototype
+        m1 = StructureModel(
+            model_id="proto_test", absorber="Fe",
+            model_level="prototype", source_type="none",
+            provenance_status="source_ref_only",
+        )
+        self.assertFalse(validate_formal(m1)["ok"])
+        # cluster
+        m2 = StructureModel(
+            model_id="cluster_test", absorber="Fe",
+            model_level="cluster", source_type="constructed",
+            provenance_status="constructed",
+        )
+        self.assertFalse(validate_formal(m2)["ok"])
+
+    def test_reproducible_cn_hash(self):
+        """#110 P3：cn_table.csv 写读往返，内容逐字节一致。"""
+        import hashlib
+        row = cn_table.refusal_row(
+            "no_cif", "reproducibility test",
+            phase_id="COD:1100108", model_level="crystal_cif",
+            source_type="database_cif", source_ref="COD:1100108",
+            source_cif_sha256="0" * 64, absorber_site="Fe1")
+        with tempfile.TemporaryDirectory() as tmp:
+            out1 = Path(tmp) / "cn1.csv"
+            out2 = Path(tmp) / "cn2.csv"
+            cn_table.write_cn_table(out1, [row])
+            cn_table.write_cn_table(out2, [row])
+            h1 = hashlib.sha256(out1.read_bytes()).hexdigest()
+            h2 = hashlib.sha256(out2.read_bytes()).hexdigest()
+            self.assertEqual(h1, h2)
+            # 读回内容一致
+            back = cn_table.read_cn_table(out1)
+            self.assertEqual(len(back), 1)
+            self.assertEqual(back[0]["phase_id"], "COD:1100108")
 
 
 if __name__ == "__main__":
