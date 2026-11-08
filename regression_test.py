@@ -57,7 +57,7 @@ Phase III（B9–B12）新增 15 项契约：
     - 相移校正 FT/WT；异核共占位双分支；关联 Debye；BVS 软约束
     - R/q/WT 多空间拟合；双吸收边 ΔE₀ 分组 + AIC/BIC；SAC/DAC 团簇
 
-当前共 101 项契约回归（B1-1 至 B20-1，外加 P0a/P0b/P1a/P1b/P2a 正式 CN 契约）。
+当前共 103 项契约回归（B1-1 至 B20-1，外加 P0a/P0b/P1a/P1b/P2a/P2b 正式 CN 契约）。
 
 运行:
     python regression_test.py
@@ -4719,6 +4719,76 @@ O1 O 0 0 0 0.5
             n0_sum = sum(m["occ"] for m in sh["n0_members"])
             self.assertAlmostEqual(sh["n0"], n0_sum, places=6,
                                    msg=f"N₀ {sh['n0']} != Σ occ {n0_sum}")
+
+    # ------------------------------------------------------------
+    # 102–103. P2b：固定 N 一致性 + 自由 N 对照
+    # ------------------------------------------------------------
+    def test_fixed_n_nidp_formula(self):
+        """#102 P2b：固定 N 信息量公式 2n+1 / 2n+2，map_n0_to_plan 一致。"""
+        motifs = {m.id: m for m in structure_lib.load_library("Fe")}
+        motif = motifs["fe_bcc"]
+        cif = ROOT / "_structure_lib" / "_phase_pack" / "COD" / "1100108" \
+            / "41085e65debf2bd82a772bcee9e7c0a43ef42b67666d2f233c8f2d822769b8fe.cif"
+        gate = cif_gate.gate_cif(cif, "Fe")
+        self.assertTrue(gate.ok)
+
+        # free 模式：3n+1
+        plan_free = xafs_fit.select_shell_paths(
+            motif, edge="K", kmin=3.0, kmax=12.0, rmax=3.5, n_mode="free")
+        n_free = len(plan_free["files"])
+        # fixed_n 模式：2n+1
+        plan_fixed = xafs_fit.select_shell_paths(
+            motif, edge="K", kmin=3.0, kmax=12.0, rmax=3.5, n_mode="fixed_n")
+        n_fixed = len(plan_fixed["files"])
+        self.assertEqual(n_free, n_fixed)
+        self.assertEqual(plan_fixed["n_var_fixed_n"], 2 * n_fixed + 1)
+        # conditional 模式：2n+2
+        plan_cond = xafs_fit.select_shell_paths(
+            motif, edge="K", kmin=3.0, kmax=12.0, rmax=3.5,
+            n_mode="conditional")
+        self.assertEqual(plan_cond["n_var_conditional"], 2 * n_fixed + 2)
+
+        # map_n0_to_plan 的 n_var 与 select_shell_paths 一致
+        mapped = xafs_fit.map_n0_to_plan(
+            plan_free, gate.n0_shells, kmin=3.0, kmax=12.0)
+        self.assertTrue(mapped["mapping_ok"], mapped["mapping_reason"])
+        self.assertEqual(mapped["n_var_fixed_n"], 2 * n_free + 1)
+        self.assertEqual(mapped["n_var_free_n_first"], 2 * n_free + 2)
+        # n0_per_path 与前两个壳层 N₀ 一致
+        self.assertEqual(len(mapped["n0_per_path"]), n_free)
+        expected_n0 = [round(s["n0"], 6) for s in gate.n0_shells[:n_free]]
+        for i, n0 in enumerate(mapped["n0_per_path"]):
+            self.assertAlmostEqual(n0, expected_n0[i], places=6)
+
+    def test_wrong_phase_consistency_failed(self):
+        """#103 P2b：错误相 → N₀ 映射失败（0 CN）；正确相 → 映射通过。"""
+        motifs = {m.id: m for m in structure_lib.load_library("Fe")}
+        motif = motifs["fe_bcc"]
+
+        # 正确相：Fe bcc 的 n0_shells 与 plan 匹配
+        cif = ROOT / "_structure_lib" / "_phase_pack" / "COD" / "1100108" \
+            / "41085e65debf2bd82a772bcee9e7c0a43ef42b67666d2f233c8f2d822769b8fe.cif"
+        gate = cif_gate.gate_cif(cif, "Fe")
+        self.assertTrue(gate.ok)
+        plan = xafs_fit.select_shell_paths(
+            motif, edge="K", kmin=3.0, kmax=12.0, rmax=3.5, n_mode="free")
+        mapped_ok = xafs_fit.map_n0_to_plan(plan, gate.n0_shells,
+                                            kmin=3.0, kmax=12.0)
+        self.assertTrue(mapped_ok["mapping_ok"], mapped_ok["mapping_reason"])
+        self.assertGreater(len(mapped_ok["n0_per_path"]), 0)
+
+        # 错误相：n0_shells 中的元素与 plan 的 scatterer 不匹配
+        wrong_shells = [
+            {"el": "Zn", "r": 2.484, "n0": 8.0, "n0_members": [],
+             "sub_rayleigh_grouped": False},
+            {"el": "Cu", "r": 2.868, "n0": 6.0, "n0_members": [],
+             "sub_rayleigh_grouped": False},
+        ]
+        mapped_bad = xafs_fit.map_n0_to_plan(plan, wrong_shells,
+                                             kmin=3.0, kmax=12.0)
+        self.assertFalse(mapped_bad["mapping_ok"])
+        self.assertIn("无匹配 N₀ 壳层", mapped_bad["mapping_reason"])
+        self.assertEqual(len(mapped_bad.get("n0_per_path", [])), 0)
 
 
 if __name__ == "__main__":

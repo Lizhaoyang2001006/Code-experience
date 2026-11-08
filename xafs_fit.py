@@ -1621,3 +1621,155 @@ def run_operando_exafs_series(
         "trajectories": trajectories,
         "multi_fit": multi_out,
     }
+
+
+# ================================================================
+# P2b：固定 N 一致性 —— N₀ shell 到 FEFF 路径的映射
+# ================================================================
+def map_n0_to_plan(plan: dict, n0_shells: list[dict],
+                   kmin: float = 3.0, kmax: float = 12.0) -> dict:
+    """把 CIFGateResult 的 n0_shells 映射到 plan["files"] 的每条 FEFF 路径。
+
+    匹配规则：用 (scatterer, reff) 匹配 n0_shells 中的壳层；容差 0.5 Å。
+    一个 CN 组可对应多条路径（子壳），每条路径的 path_degen 用该路径
+    对应壳层的 N₀（不取组总和）。
+
+    返回 dict：
+        mapping_ok: bool          是否成功映射全部路径
+        mapping_reason: str       失败原因（ok 时为空）
+        n0_per_path: list[float]  每条路径的 N₀（用于 path_degen）
+        path_links: list[dict]    同组多条路径的 degen_ratio 绑定
+        n_var_fixed_n: int        固定 N 变量数 = 2n + 1
+        n_var_free_n_first: int   自由 N（首壳）变量数 = 2n + 2
+        n_paths: int              路径总数
+    """
+    n_paths = len(plan["files"])
+    plan_shells = plan.get("shells", [])
+    if len(plan_shells) != n_paths:
+        return {
+            "mapping_ok": False,
+            "mapping_reason": (f"plan shells({len(plan_shells)}) != "
+                               f"files({n_paths}), 无法一一映射"),
+        }
+
+    n0_per_path = [0.0] * n_paths
+    used_shell_idx: set[int] = set()
+
+    # ---- 为每条路径匹配 n0_shell ----------------------------------
+    for pi, sh in enumerate(plan_shells):
+        scatterer = str(sh.get("scatterer", "")).capitalize()
+        reff = float(sh.get("reff", sh.get("reff_mean", 0.0)))
+        best_si = None
+        best_dist = float("inf")
+        for si, n0_sh in enumerate(n0_shells):
+            if si in used_shell_idx:
+                continue
+            if str(n0_sh.get("el", "")).capitalize() != scatterer:
+                continue
+            dist = abs(float(n0_sh.get("r", 0.0)) - reff)
+            if dist < best_dist and dist < 0.5:
+                best_dist = dist
+                best_si = si
+        if best_si is None:
+            return {
+                "mapping_ok": False,
+                "mapping_reason": (f"路径 {pi} ({scatterer}@{reff:.3f} Å) "
+                                   f"无匹配 N₀ 壳层"),
+            }
+        used_shell_idx.add(best_si)
+        n0_per_path[pi] = float(n0_shells[best_si]["n0"])
+
+    # ---- path_links：sub_rayleigh_grouped 的子壳绑定到参考路径 ----
+    path_links: list[dict] = []
+    # 找出被分组的壳层（sub_rayleigh_grouped=True），其多个 n0_member
+    # 对应 plan 中多条相近路径。这里按 (scatterer, 近距离) 聚集 plan 路径，
+    # 将非首条路径绑定到首条。
+    groups_by_el: dict[str, list[int]] = {}
+    for pi, sh in enumerate(plan_shells):
+        el = str(sh.get("scatterer", "")).capitalize()
+        groups_by_el.setdefault(el, []).append(pi)
+
+    for el, idxs in groups_by_el.items():
+        if len(idxs) <= 1:
+            continue
+        idxs.sort(key=lambda pi: float(plan_shells[pi].get("reff", 0.0)))
+        ref = idxs[0]
+        ref_n0 = n0_per_path[ref]
+        for tgt in idxs[1:]:
+            tgt_n0 = n0_per_path[tgt]
+            ratio = (tgt_n0 / ref_n0) if ref_n0 > 0 else 1.0
+            path_links.append({
+                "target": int(tgt),
+                "source": int(ref),
+                "degen_ratio": round(ratio, 6),
+                "share_deltar": False,
+                "share_sigma2": False,
+            })
+
+    n_var_fixed_n = 2 * n_paths + 1      # 每壳 ΔR + σ²，加全局 ΔE₀
+    n_var_free_n_first = 2 * n_paths + 2 # 首壳多放开一个 N
+
+    return {
+        "mapping_ok": True,
+        "mapping_reason": "",
+        "n0_per_path": [round(v, 6) for v in n0_per_path],
+        "path_links": path_links,
+        "n_var_fixed_n": n_var_fixed_n,
+        "n_var_free_n_first": n_var_free_n_first,
+        "n_paths": n_paths,
+    }
+
+
+# ================================================================
+# P2b：select_shell_paths 信息量模式扩展
+# ================================================================
+_orig_select_shell_paths = select_shell_paths
+
+
+def select_shell_paths(motif, edge="K", rmin=None, rmax=None,
+                       merge_tol=0.20, max_paths=12, kmin=3.0, kmax=12.0,
+                       group_by_component=False, include_ms=False,
+                       max_ms=3, isotropic_deltar=False,
+                       hetero_cocupancy=False,
+                       n_mode: str = "free"):
+    """select_shell_paths 的包装，支持 P2b 固定 N 信息量模式。
+
+    n_mode:
+        "free"      诊断/自由 N（默认）：3n+1 < N_idp
+        "fixed_n"   固定 N：2n+1 < N_idp（每壳 ΔR+σ²，加 ΔE₀）
+        "conditional" 条件 CN：2n+2 < N_idp（首壳多放开一个 N）
+    """
+    if n_mode not in ("free", "fixed_n", "conditional"):
+        raise XAFSConfigError(
+            "FIT", f"n_mode 必须是 free/fixed_n/conditional，收到 {n_mode!r}")
+    plan = _orig_select_shell_paths(
+        motif, edge=edge, rmin=rmin, rmax=rmax, merge_tol=merge_tol,
+        max_paths=max_paths, kmin=kmin, kmax=kmax,
+        group_by_component=group_by_component, include_ms=include_ms,
+        max_ms=max_ms, isotropic_deltar=isotropic_deltar,
+        hetero_cocupancy=hetero_cocupancy)
+    if n_mode == "free":
+        return plan
+    # 重算信息量上限
+    n_idp = plan["n_independent"]
+    n_paths = len(plan["files"])
+    if n_mode == "fixed_n":
+        max_by_idp = max(1, int((n_idp - 1.0) // 2.0))
+    else:  # conditional
+        max_by_idp = max(1, int((n_idp - 2.0) // 2.0))
+    limit = min(max_paths, max_by_idp)
+    plan["n_paths_fixed_n"] = n_paths
+    plan["n_var_fixed_n"] = 2 * n_paths + 1
+    plan["n_var_conditional"] = 2 * n_paths + 2
+    # 截截断：按新上限重新截断
+    groups_count = len(plan["files"])
+    if groups_count > limit:
+        plan["truncated"] = plan.get("truncated", []) + [
+            {"label": f"truncated_by_{n_mode}", "note":
+             f"信息量上限 {n_mode}: {groups_count} > {limit}"}]
+        plan["files"] = plan["files"][:limit]
+        plan["degens"] = plan["degens"][:limit]
+        plan["labels"] = plan["labels"][:limit]
+        plan["shells"] = plan["shells"][:limit]
+    return plan
+
