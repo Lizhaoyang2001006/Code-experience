@@ -553,5 +553,10 @@
     }
   ],
   "notes": "FeO 理想岩盐结构（实际常为非整比 Fe(1-x)O）；第一壳 Fe-O 2.155×6，Fe-Fe 3.048×12。",
-  "version": 1
+  "version": 1,
+  "absorber_site": "frac:(0,0,0)",
+  "occupancy_source": "generated",
+  "model_level": "prototype",
+  "provenance_status": "generated_only",
+  "edits": []
 }

@@ -64,6 +64,7 @@ Phase III（B9–B12）新增 15 项契约：
 """
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 import unittest
@@ -78,6 +79,7 @@ import artemis                        # noqa: E402
 import athena                         # noqa: E402
 import cn_table                       # noqa: E402
 import larch_wt                       # noqa: E402
+import motif_provenance               # noqa: E402
 import structure_id                   # noqa: E402
 import structure_lib                  # noqa: E402
 import structure_model                # noqa: E402
@@ -3971,6 +3973,179 @@ Ru1 Ru 0.5 0.5 0.5 0.3
         self.assertEqual(rows[0]["n_fit"], "")
         self.assertEqual(rows[0]["gate_status"], "no_cif")
         self.assertTrue(rows[0]["reject_reason"])
+
+    # ------------------------------------------------------------
+    # 79–82. P0b：motif provenance 升级
+    # ------------------------------------------------------------
+    def test_motif_provenance_schema(self):
+        """#79 P0b：全部 motif 可加载；新字段齐全且状态合法。"""
+        allowed_status = set(motif_provenance.PROVENANCE_STATUSES)
+        allowed_levels = set(motif_provenance.MODEL_LEVELS)
+        allowed_occ = set(motif_provenance.OCCUPANCY_SOURCES)
+
+        report_path = ROOT / "_structure_lib" / "provenance_report.json"
+        self.assertTrue(report_path.exists(), "缺少 provenance_report.json")
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        entries = {(e["element"], e["id"]): e
+                   for e in report["entries"]}
+
+        total = 0
+        for element_dir in sorted((ROOT / "_structure_lib").iterdir()):
+            if not element_dir.is_dir() or element_dir.name.startswith("_"):
+                continue
+            for motif in structure_lib.load_library(element_dir.name):
+                total += 1
+                self.assertIn(motif.provenance_status, allowed_status,
+                              motif.id)
+                self.assertIn(motif.model_level, allowed_levels, motif.id)
+                self.assertIn(motif.occupancy_source, allowed_occ, motif.id)
+                if motif.kind == "crystal":
+                    self.assertTrue(motif.absorber_site, motif.id)
+                key = (element_dir.name, motif.id)
+                self.assertIn(key, entries, motif.id)
+                self.assertEqual(entries[key]["provenance_status"],
+                                 motif.provenance_status)
+                self.assertEqual(entries[key]["model_level"],
+                                 motif.model_level)
+
+        self.assertEqual(total, report["summary"]["motifs"])
+        self.assertEqual(total, 32)
+        self.assertEqual(report["summary"]["unclassified"], 0)
+
+    def test_generated_cif_not_formal_source(self):
+        """#80 P0b：现场生成 CIF 不得成为正式来源。"""
+        fe = next(m for m in structure_lib.load_library("Fe")
+                  if m.id == "fe_bcc")
+        self.assertEqual(fe.provenance_status, "generated_only")
+        self.assertIsNone(fe.source_cif_sha256)
+        self.assertIsNone(fe.cif_path)
+
+        generated = structure_lib._cif_path(fe)
+        self.assertTrue(generated.exists())
+        self.assertTrue(motif_provenance.is_generated_cif(generated))
+
+        model = structure_model.model_from_motif(fe)
+        self.assertEqual(model.provenance_status, "generated_only")
+        self.assertIsNone(model.source_cif)
+        self.assertIsNone(model.source_cif_sha256)
+        gate = structure_model.validate_formal(model)
+        self.assertFalse(gate["ok"])
+        self.assertIn(gate["code"], ("unverified_source", "no_cif"))
+
+        lep = next(m for m in structure_lib.load_library("Fe")
+                   if m.id == "lepidocrocite")
+        self.assertIn(lep.provenance_status,
+                      ("source_ref_only", "generated_only"))
+        self.assertIsNone(lep.source_cif_sha256)
+        self.assertEqual(lep.source_ref, "COD:9002763")
+        lep_model = structure_model.model_from_motif(lep)
+        self.assertIsNone(lep_model.source_cif)
+        self.assertFalse(structure_model.validate_formal(lep_model)["ok"])
+
+        # 即使把生成 CIF 伪造成“哈希正确 + 吸收位明确”，门禁仍拒绝。
+        fake = structure_model.StructureModel(
+            model_id="fake_generated",
+            absorber="Fe",
+            absorber_site="Fe1@(0,0,0)",
+            model_level="crystal_cif",
+            source_type="user_cif",
+            source_cif=str(generated),
+            source_cif_sha256=structure_model.sha256_file(generated),
+            provenance_status="verified_source_cif",
+        )
+        gate = structure_model.validate_formal(fake)
+        self.assertFalse(gate["ok"])
+        self.assertEqual(gate["code"], "generated_cif_not_formal")
+
+    def test_user_cif_is_verified_source(self):
+        """#81 P0b：用户真实 CIF + sha256 + 吸收位可升级为正式来源。"""
+        source = ROOT / "lepidocrocite.cif"
+        self.assertTrue(source.exists())
+        with tempfile.TemporaryDirectory() as tmp:
+            user_cif = Path(tmp) / "user_lepidocrocite.cif"
+            user_cif.write_bytes(source.read_bytes())
+            motif = structure_lib.Motif(
+                id="user_lep",
+                absorber="Fe",
+                kind="crystal",
+                nuclearity="crystal",
+                source={"type": "user_cif", "ref": "user:test"},
+                cell={"a": 3.072, "b": 12.516, "c": 3.873,
+                      "alpha": 90, "beta": 90, "gamma": 90},
+                spacegroup="C m c m",
+                asym_sites=[], absorber_fract=[0.5, 0.1778, 0.25],
+                cif_path=str(user_cif),
+                edits=[{"op": "complete_site", "site": "O1",
+                        "reason": "文献表残缺，几何补全"}],
+            )
+            fields = motif_provenance.classify_motif(motif)
+            self.assertEqual(fields["provenance_status"],
+                             "verified_source_cif")
+            self.assertEqual(fields["model_level"], "crystal_edited")
+            self.assertEqual(fields["source_cif_sha256"],
+                             structure_model.sha256_file(user_cif))
+            self.assertFalse(fields["_has_generated_cif"])
+
+            model = structure_model.model_from_motif(motif)
+            self.assertEqual(model.provenance_status, "verified_source_cif")
+            self.assertEqual(model.model_level, "crystal_edited")
+            self.assertEqual(model.source_cif, str(user_cif))
+            self.assertTrue(model.absorber_site)
+            gate = structure_model.validate_formal(model)
+            self.assertTrue(gate["ok"], gate)
+
+    def test_b20_motifs_not_degraded(self):
+        """#82 P0b：B17–B20 motif 保留、指纹不变、constructed 不升级。"""
+        expected = {
+            "Fe": {"fen4_planar", "fe2_mu_oxo", "fe2n6_dual"},
+            "Co": {"co3o4_mixed", "co3o4_oct", "co3o4_tet",
+                   "con4_planar"},
+            "Ni": {"nin4_planar", "ni_oh2_brucite"},
+            "Cu": {"cun4_planar", "cuo_tenorite"},
+            "Pt": {"ptcl4_square", "pto2_beta"},
+        }
+        libraries = {}
+        for element, ids in expected.items():
+            lib = {m.id: m for m in structure_lib.load_library(element)}
+            libraries[element] = lib
+            for motif_id in ids:
+                self.assertIn(motif_id, lib, f"{element}/{motif_id}")
+
+        co_oct = libraries["Co"]["co3o4_oct"]
+        co_tet = libraries["Co"]["co3o4_tet"]
+        con4 = libraries["Co"]["con4_planar"]
+        self.assertEqual(co_oct.shell_expect[0],
+                         {"el": "O", "r": 1.9217, "n": 6, "n_occ": 6.0})
+        self.assertEqual(co_tet.shell_expect[0],
+                         {"el": "O", "r": 1.9323, "n": 4, "n_occ": 4.0})
+        self.assertEqual(con4.shell_expect[0],
+                         {"el": "N", "r": 1.96, "n": 4})
+
+        for motif_id in ("co3o4_mixed", "con4_planar"):
+            motif = libraries["Co"][motif_id]
+            self.assertEqual(motif.provenance_status, "constructed")
+            self.assertEqual(motif.model_level, "cluster")
+            model = structure_model.model_from_motif(motif)
+            self.assertEqual(model.provenance_status, "constructed")
+            self.assertFalse(structure_model.validate_formal(model)["ok"])
+
+        # 压力测试会用 overwrite=True 重注册种子；注册通道必须保留
+        # provenance，不能把刚补好的字段静默写丢。
+        with tempfile.TemporaryDirectory() as tmp:
+            original_root = structure_lib.LIB_ROOT
+            try:
+                structure_lib.LIB_ROOT = Path(tmp)
+                motif = structure_lib.Motif(
+                    id="persist_check", absorber="Fe", kind="cluster",
+                    nuclearity="m1", source={"type": "constructed"},
+                    sites=[[2.0, 0.0, 0.0, "N"]])
+                saved_path = structure_lib.register(motif)
+                saved = json.loads(saved_path.read_text(encoding="utf-8"))
+            finally:
+                structure_lib.LIB_ROOT = original_root
+        self.assertEqual(saved["provenance_status"], "constructed")
+        self.assertEqual(saved["model_level"], "cluster")
+        self.assertIn("edits", saved)
 
 
 if __name__ == "__main__":

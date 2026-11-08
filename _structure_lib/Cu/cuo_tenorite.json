@@ -750,5 +750,10 @@
     }
   ],
   "notes": "CuO 黑铜矿。第一壳 Cu-O 4×1.956 Å（畸变平面四方），Cu-Cu 2.900/3.083 Å；Cu-CuO 标样基准相。",
-  "version": 1
+  "version": 1,
+  "absorber_site": "frac:(0.25,0.25,0)",
+  "occupancy_source": "generated",
+  "model_level": "prototype",
+  "provenance_status": "generated_only",
+  "edits": []
 }

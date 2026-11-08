@@ -69,6 +69,14 @@ class Motif:
     size_model: dict | None = None     # 纳米颗粒模型的壳层 N 缩放先验
     notes: str = ""
     version: int = LIB_VERSION
+    # ---------- P0b：来源分层（正式 CN 只认 verified_source_cif） ----------
+    source_ref: str | None = None          # COD:xxxx / AMCSD:xxxx / user:...
+    source_cif_sha256: str | None = None   # 仅真实源 CIF 才填写
+    absorber_site: str | None = None       # 吸收位标签或 frac:(x,y,z)
+    occupancy_source: str | None = None    # explicit / implicit_1.0 / generated
+    model_level: str | None = None         # crystal_cif / crystal_edited / prototype / cluster
+    provenance_status: str | None = None   # verified_source_cif / source_ref_only / generated_only / constructed / unverified
+    edits: list | None = None              # 对源 CIF 的显式编辑记录
 
     # ---------- 序列化 ----------
     def to_json(self) -> dict:
@@ -225,6 +233,15 @@ def register(motif: Motif, rmax: float = 6.0, overwrite: bool = False) -> Path:
             raise XAFSConfigError(
                 "motif", f"{motif.id} 与已有 {other.id} 指纹重复，拒绝注册")
     lib_dir.mkdir(parents=True, exist_ok=True)
+    # P0b：注册/覆盖时统一按当前几何重算来源分层，避免压力测试用
+    # overwrite=True 重注册后把 provenance 字段静默丢掉。
+    from motif_provenance import PERSISTED_FIELDS, classify_motif
+    fields = classify_motif(motif)
+    for key in PERSISTED_FIELDS:
+        value = fields.get(key)
+        if key == "edits" and value is None:
+            value = []
+        setattr(motif, key, value)
     out.write_text(json.dumps(motif.to_json(), ensure_ascii=False, indent=2),
                    encoding="utf-8")
     return out

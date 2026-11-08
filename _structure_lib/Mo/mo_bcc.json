@@ -403,5 +403,10 @@
     }
   ],
   "notes": "金属 Mo（bcc，N₁=8）。第一壳 Mo-Mo 2.7254×8，第二壳 3.1470×6。",
-  "version": 1
+  "version": 1,
+  "absorber_site": "2a@(0,0,0)",
+  "occupancy_source": "generated",
+  "model_level": "prototype",
+  "provenance_status": "generated_only",
+  "edits": []
 }

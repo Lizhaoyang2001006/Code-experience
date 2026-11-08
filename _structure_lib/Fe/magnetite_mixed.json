@@ -18,5 +18,9 @@
     }
   ],
   "notes": "多位点吸收：实验 χ(R) = 两个吸收位点 χ 的线性组合。各位点共用 S₀²/σ²/ΔE₀（指纹级近似）；定量拟合时Fe-O 子壳层 1.886/2.060 分开给 N。",
-  "version": 1
+  "version": 1,
+  "occupancy_source": "generated",
+  "model_level": "cluster",
+  "provenance_status": "constructed",
+  "edits": []
 }

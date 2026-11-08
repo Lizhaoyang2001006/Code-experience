@@ -548,5 +548,10 @@
     }
   ],
   "notes": "CoO 岩盐氧化物。第一壳 Co-O 6×2.131 Å、第二壳 Co-Co 12×3.013 Å；Co-K-CoO 标样基准相。",
-  "version": 1
+  "version": 1,
+  "absorber_site": "4a@(0,0,0)",
+  "occupancy_source": "generated",
+  "model_level": "prototype",
+  "provenance_status": "generated_only",
+  "edits": []
 }

@@ -577,5 +577,10 @@
     }
   ],
   "notes": "β-Ni(OH)2 水镁石层状氢氧化物。第一壳 Ni-O 6×2.070、第二壳 Ni-Ni 6×3.126；H 未入模（背散射可忽略）。",
-  "version": 1
+  "version": 1,
+  "absorber_site": "1a@(0,0,0)",
+  "occupancy_source": "generated",
+  "model_level": "prototype",
+  "provenance_status": "generated_only",
+  "edits": []
 }

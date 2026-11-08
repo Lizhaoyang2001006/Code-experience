@@ -540,5 +540,11 @@
     }
   ],
   "notes": "γ-FeOOH 标样。管线基准结构。",
-  "version": 1
+  "version": 1,
+  "source_ref": "COD:9002763",
+  "absorber_site": "Fe1@(0.5,0.1778,0.25)",
+  "occupancy_source": "generated",
+  "model_level": "prototype",
+  "provenance_status": "source_ref_only",
+  "edits": []
 }

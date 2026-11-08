@@ -373,5 +373,10 @@
     }
   ],
   "notes": "金属 Pt。Pt L3（11564 eV）S₀² 标定源；第一壳 Pt-Pt 2.774×12，第二壳 3.924×6。",
-  "version": 1
+  "version": 1,
+  "absorber_site": "4a@(0,0,0)",
+  "occupancy_source": "generated",
+  "model_level": "prototype",
+  "provenance_status": "generated_only",
+  "edits": []
 }

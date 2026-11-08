@@ -577,5 +577,10 @@
     }
   ],
   "notes": "β-PtO2 层状六方参照相。第一壳 Pt-O 6×2.047、第二壳 Pt-Pt 6×3.100；用于 Pt 氧化物/氢氧化物鉴别。",
-  "version": 1
+  "version": 1,
+  "absorber_site": "1a@(0,0,0)",
+  "occupancy_source": "generated",
+  "model_level": "prototype",
+  "provenance_status": "generated_only",
+  "edits": []
 }

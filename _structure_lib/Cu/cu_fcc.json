@@ -523,5 +523,10 @@
     }
   ],
   "notes": "压力测试种子：fcc 金属 Cu，第一壳 12×Cu–Cu=2.556 Å 单一距离。",
-  "version": 1
+  "version": 1,
+  "absorber_site": "4a@(0,0,0)",
+  "occupancy_source": "generated",
+  "model_level": "prototype",
+  "provenance_status": "generated_only",
+  "edits": []
 }

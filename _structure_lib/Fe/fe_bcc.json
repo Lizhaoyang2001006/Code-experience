@@ -445,5 +445,10 @@
     }
   ],
   "notes": "金属 Fe。S₀² 标定源；也作 α-Fe 颗粒的体相极限。",
-  "version": 1
+  "version": 1,
+  "absorber_site": "2a@(0,0,0)",
+  "occupancy_source": "generated",
+  "model_level": "prototype",
+  "provenance_status": "generated_only",
+  "edits": []
 }

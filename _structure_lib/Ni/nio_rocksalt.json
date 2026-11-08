@@ -626,5 +626,10 @@
     }
   ],
   "notes": "压力测试种子：岩盐 NiO。Ni-O 2.0885×6 + Ni-Ni 2.954×12；Ni-O-Ni 180° 共线 MS 聚焦路径显著（岩盐结构指纹）。",
-  "version": 1
+  "version": 1,
+  "absorber_site": "4a@(0,0,0)",
+  "occupancy_source": "generated",
+  "model_level": "prototype",
+  "provenance_status": "generated_only",
+  "edits": []
 }

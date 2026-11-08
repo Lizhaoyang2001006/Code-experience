@@ -560,5 +560,10 @@
     }
   ],
   "notes": "压力测试种子：hcp 金属 Co，第一壳 12×Co–Co≈2.50 Å。",
-  "version": 1
+  "version": 1,
+  "absorber_site": "frac:(0.333333,0.666667,0.25)",
+  "occupancy_source": "generated",
+  "model_level": "prototype",
+  "provenance_status": "generated_only",
+  "edits": []
 }

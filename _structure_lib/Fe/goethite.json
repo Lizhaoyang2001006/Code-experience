@@ -677,5 +677,11 @@
     }
   ],
   "notes": "α-FeOOH（针铁矿）。第一壳 Fe-O 1.95×3 + 2.10×3，Fe-Fe 3.02×2 / 3.31×2 / 3.44×4。H 坐标未入模（背散射可忽略，且粉晶 H 常不可靠）。",
-  "version": 1
+  "version": 1,
+  "source_ref": "COD:2211652",
+  "absorber_site": "frac:(0.04893,0.853657,0.25)",
+  "occupancy_source": "generated",
+  "model_level": "prototype",
+  "provenance_status": "source_ref_only",
+  "edits": []
 }

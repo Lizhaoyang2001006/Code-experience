@@ -373,5 +373,10 @@
     }
   ],
   "notes": "金属 Au。第一壳 Au-Au 2.8837×12，第二壳 4.0782×6。",
-  "version": 1
+  "version": 1,
+  "absorber_site": "4a@(0,0,0)",
+  "occupancy_source": "generated",
+  "model_level": "prototype",
+  "provenance_status": "generated_only",
+  "edits": []
 }

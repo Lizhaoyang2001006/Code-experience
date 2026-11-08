@@ -70,5 +70,9 @@
     }
   ],
   "notes": "M-N-C 单原子催化剂候选：平面 CuN4 + 4 个第二壳 C。第一壳 Cu-N=1.95 Å 与金属箔（≥2.49 Å）错开。",
-  "version": 1
+  "version": 1,
+  "occupancy_source": "generated",
+  "model_level": "cluster",
+  "provenance_status": "constructed",
+  "edits": []
 }

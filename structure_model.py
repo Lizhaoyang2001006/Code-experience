@@ -16,10 +16,15 @@ P0a 只建立“结构模型 -> 是否允许进入正式 CN”的最小契约：
 """
 from __future__ import annotations
 
-import hashlib
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from motif_provenance import (
+    CRYSTAL_SOURCE_TYPES,
+    classify_motif,
+    is_generated_cif,
+    sha256_file,
+)
 from xafs_core import XAFSError
 
 
@@ -93,64 +98,49 @@ class StructureModel:
         return asdict(self)
 
 
-def sha256_file(path: str | Path) -> str:
-    """流式计算文件 SHA256，避免把大 CIF 一次性读入内存。"""
-    digest = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(1 << 20), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def model_from_motif(motif, *, source_type: str | None = None,
                      source_ref: str | None = None,
                      source_cif_sha256: str | None = None,
                      absorber_site: str | None = None,
                      occupancy_policy: str | None = None,
                      model_level: str | None = None) -> StructureModel:
-    """从 motif 构造结构模型；P0a 只做保守分类，不自动升级来源。
+    """从 motif 构造结构模型；分类规则见 ``motif_provenance``。
 
-    关键约束：
-    - ``source_type`` 必须由调用方显式声明为 ``user_cif`` / ``database_cif``；
-      仅凭 ``motif.source.ref="COD-..."`` 不能算真实源 CIF；
-    - 现场生成的 CIF 默认 ``source_ref_only`` 或 ``unverified``；
-    - 没有 sha256 的模型不会通过 ``validate_formal``。
+    P0b 起，只有 ``Motif.cif_path`` 指向**外部真实 CIF**（不在
+    ``_structure_lib/<元素>/_cif/`` 下）时，才有可能升级为
+    ``verified_source_cif``。现场生成的 CIF 永远不进入 ``source_cif``。
     """
     src = dict(getattr(motif, "source", None) or {})
+    fields = classify_motif(motif)
+    real_cif = fields["_source_cif"]
+
     src_type = (source_type or src.get("type") or "none")
     ref = (source_ref if source_ref is not None
-           else src.get("ref") or src.get("id"))
-    cif_path = getattr(motif, "cif_path", None)
-    sha = source_cif_sha256
-    if sha is None and src_type in ("user_cif", "database_cif") and cif_path:
-        path = Path(cif_path)
-        if path.exists():
-            sha = sha256_file(path)
+           else fields["source_ref"])
+    site = (absorber_site if absorber_site is not None
+            else fields["absorber_site"])
+    sha = (source_cif_sha256 if source_cif_sha256 is not None
+           else fields["source_cif_sha256"])
+    status = fields["provenance_status"]
+    level = model_level if model_level is not None else fields["model_level"]
 
-    if model_level is None:
-        if (src_type in ("user_cif", "database_cif") and sha
-                and getattr(motif, "kind", None) == "crystal"):
-            model_level = "crystal_cif"
-        elif getattr(motif, "kind", None) == "cluster":
-            model_level = "cluster"
-        else:
-            model_level = "prototype"
+    # 调用方显式补充吸收位/哈希时，允许把真实 CIF 升级；但绝不从
+    # 现场生成 CIF 升级。
+    if real_cif is not None and sha and site:
+        status = "verified_source_cif"
+        if level not in ("crystal_cif", "crystal_edited"):
+            level = "crystal_edited" if fields.get("edits") else "crystal_cif"
+    elif status == "verified_source_cif":
+        status = "unverified"
+        level = "prototype"
+
+    if status != "verified_source_cif":
+        sha = None
+    if src_type not in CRYSTAL_SOURCE_TYPES and status == "verified_source_cif":
+        src_type = "user_cif"
 
     if occupancy_policy is None:
-        occs_lt_one = any(
-            float(site.get("occ", 1.0)) < 0.999
-            for site in (getattr(motif, "asym_sites", None) or []))
-        occupancy_policy = ("explicit" if (cif_path or occs_lt_one)
-                            else "implicit_1.0")
-
-    if src_type in ("user_cif", "database_cif") and sha and cif_path:
-        provenance = "verified_source_cif"
-    elif ref:
-        provenance = "source_ref_only"
-    elif getattr(motif, "kind", None) == "cluster":
-        provenance = "constructed"
-    else:
-        provenance = "unverified"
+        occupancy_policy = fields["occupancy_source"]
 
     shells: list[ShellN0] = []
     for i, shell in enumerate(getattr(motif, "shell_expect", None) or []):
@@ -166,43 +156,45 @@ def model_from_motif(motif, *, source_type: str | None = None,
         ))
 
     warnings: list[str] = []
-    if provenance != "verified_source_cif":
+    if status != "verified_source_cif":
         warnings.append(
-            "P0a 保守分类：该 motif 未提供可校验的源 CIF + sha256，"
+            f"P0b 来源分层：provenance_status={status!r}，"
             "不得进入正式 CN 表")
-    if cif_path and provenance != "verified_source_cif":
+    if fields["_has_generated_cif"]:
         warnings.append(
-            "motif.cif_path 可能是现场生成文件；只有显式声明为 "
-            "user_cif/database_cif 并提供 sha256 才能升级")
+            "motif 的 _cif 文件由 structure_lib 现场生成，"
+            "不能作为 source_cif")
 
     return StructureModel(
         model_id=str(getattr(motif, "id", "unknown")),
         absorber=str(getattr(motif, "absorber", "")),
-        absorber_site=absorber_site,
-        model_level=model_level,
+        absorber_site=site,
+        model_level=level,
         source_type=src_type,
         source_ref=str(ref) if ref is not None else None,
-        source_cif=str(cif_path) if cif_path else None,
+        source_cif=real_cif if status == "verified_source_cif" else None,
         source_cif_sha256=sha,
         cell=dict(getattr(motif, "cell", None) or {}) or None,
         spacegroup=getattr(motif, "spacegroup", None),
         asym_sites=(list(getattr(motif, "asym_sites", None) or [])
                     or None),
-        cif_path=str(cif_path) if cif_path else None,
+        cif_path=(str(getattr(motif, "cif_path", None))
+                  if getattr(motif, "cif_path", None) else None),
         occupancy_policy=occupancy_policy,
-        edits=[],
-        assumptions={"p0a": "provenance scaffold only; no N0 gate yet"},
+        edits=list(fields.get("edits") or []),
+        assumptions={"p0b": "provenance classified; "
+                             "formal CN requires verified source CIF"},
         n0_shells=shells,
         warnings=warnings,
-        provenance_status=provenance,
+        provenance_status=status,
     )
 
 
 def validate_formal(model: StructureModel | None) -> dict:
-    """P0a 的正式来源校验；返回 ``{ok, code, reason}``，不抛异常。
+    """P0b 的正式来源校验；返回 ``{ok, code, reason}``，不抛异常。
 
-    P0a 只校验“来源是否可能合格”，不校验 CIF 门禁、占据度、键长、
-    一致性拟合；这些在 P0b/P2 实现。
+    P0b 只校验“来源是否可能合格”，不校验 CIF 门禁、占据度、键长、
+    一致性拟合；这些在 P2 实现。
     """
     if model is None:
         return {"ok": False, "code": "no_cif",
@@ -228,6 +220,13 @@ def validate_formal(model: StructureModel | None) -> dict:
     if not path.exists():
         return {"ok": False, "code": "source_cif_missing",
                 "reason": f"源 CIF 不存在: {path}"}
+    if is_generated_cif(path):
+        return {
+            "ok": False,
+            "code": "generated_cif_not_formal",
+            "reason": ("source_cif 位于 _structure_lib/*/_cif/ 或带生成标记；"
+                       "现场生成 CIF 不得作为正式来源"),
+        }
     if not model.source_cif_sha256:
         return {"ok": False, "code": "source_hash_missing",
                 "reason": "缺少 source_cif_sha256，无法复核来源"}

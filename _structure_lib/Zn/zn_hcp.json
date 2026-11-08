@@ -414,5 +414,10 @@
     }
   ],
   "notes": "金属 Zn（hcp）。面内 Zn-Zn 2.6649×6，面外 2.9131×6（c/a=1.856 非理想）。",
-  "version": 1
+  "version": 1,
+  "absorber_site": "2c@(0.333333,0.666667,0.25)",
+  "occupancy_source": "generated",
+  "model_level": "prototype",
+  "provenance_status": "generated_only",
+  "edits": []
 }

@@ -463,5 +463,10 @@
     }
   ],
   "notes": "Cu2O 赤铜矿。第一壳 Cu-O 2×1.849（线性二配位），第二壳 Cu-Cu 12×3.019。",
-  "version": 1
+  "version": 1,
+  "absorber_site": "frac:(0.25,0.25,0.25)",
+  "occupancy_source": "generated",
+  "model_level": "prototype",
+  "provenance_status": "generated_only",
+  "edits": []
 }

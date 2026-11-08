@@ -74,5 +74,9 @@
     }
   ],
   "notes": "Fe-N-C 双原子位候选。Fe-Fe≈2.45 与 α-Fe(2.48)/Fe5C2(~2.6) 同区间——误判高危，需第二壳+XANES 联判。",
-  "version": 1
+  "version": 1,
+  "occupancy_source": "generated",
+  "model_level": "cluster",
+  "provenance_status": "constructed",
+  "edits": []
 }

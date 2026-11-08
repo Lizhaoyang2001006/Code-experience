@@ -80,5 +80,9 @@
     }
   ],
   "notes": "判定要点：Fe-Fe≈3.32 且 Fe-Fe CN=1；与 Fe2O3 颗粒的边共享峰位近，必须靠 CN 定量区分（见 skill 文档）。",
-  "version": 1
+  "version": 1,
+  "occupancy_source": "generated",
+  "model_level": "cluster",
+  "provenance_status": "constructed",
+  "edits": []
 }

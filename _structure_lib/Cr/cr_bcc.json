@@ -445,5 +445,10 @@
     }
   ],
   "notes": "金属 Cr（bcc）。第一壳 Cr-Cr 2.4981×8。",
-  "version": 1
+  "version": 1,
+  "absorber_site": "2a@(0,0,0)",
+  "occupancy_source": "generated",
+  "model_level": "prototype",
+  "provenance_status": "generated_only",
+  "edits": []
 }

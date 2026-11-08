@@ -626,5 +626,10 @@
     }
   ],
   "notes": "Fe3O4 反尖晶石。吸收位=8a 四面体（占 1/3）；第一壳 Fe-O 1.886×4。与 magnetite_oct 共用同一晶体骨架，只换吸收位点（asym_sites 未变）。",
-  "version": 1
+  "version": 1,
+  "absorber_site": "frac:(0.125,0.125,0.125)",
+  "occupancy_source": "generated",
+  "model_level": "prototype",
+  "provenance_status": "generated_only",
+  "edits": []
 }

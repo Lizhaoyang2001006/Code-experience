@@ -590,5 +590,10 @@
     }
   ],
   "notes": "Fe3O4 反尖晶石。吸收位=16d 八面体（占 2/3）；混合价 Fe2+/Fe3+，XANES 边位低于 Fe3O4 名义+2.67。完整多位点模型见 magnetite_tet + magnetite_mixed。",
-  "version": 1
+  "version": 1,
+  "absorber_site": "frac:(0.5,0.5,0.5)",
+  "occupancy_source": "generated",
+  "model_level": "prototype",
+  "provenance_status": "generated_only",
+  "edits": []
 }

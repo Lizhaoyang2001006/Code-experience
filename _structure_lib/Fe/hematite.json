@@ -700,5 +700,10 @@
     }
   ],
   "notes": "α-Fe2O3。Fe-O 1.94x3/2.11x3，Fe-Fe 2.89/2.97/3.36。",
-  "version": 1
+  "version": 1,
+  "absorber_site": "12c@(0,0,0.3553)",
+  "occupancy_source": "generated",
+  "model_level": "prototype",
+  "provenance_status": "generated_only",
+  "edits": []
 }

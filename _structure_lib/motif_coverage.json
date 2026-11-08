@@ -1,0 +1,283 @@
+{
+  "schema_version": 1,
+  "generated_by": "tools/backfill_motif_provenance.py",
+  "note": "motif 覆盖只用于候选索引与审计；正式 CN 由真实 CIF / phase pack 决定，不因 motif 稀疏而放行 prototype。",
+  "absorber_elements": [
+    "Ag",
+    "Au",
+    "Ce",
+    "Co",
+    "Cr",
+    "Cu",
+    "Fe",
+    "Ir",
+    "Mn",
+    "Mo",
+    "Ni",
+    "Pd",
+    "Pt",
+    "Rh",
+    "Ru",
+    "U",
+    "Zn"
+  ],
+  "covered_elements": [
+    "Au",
+    "Co",
+    "Cr",
+    "Cu",
+    "Fe",
+    "Mo",
+    "Ni",
+    "Pt",
+    "Zn"
+  ],
+  "missing_elements": [
+    "Ag",
+    "Ce",
+    "Ir",
+    "Mn",
+    "Pd",
+    "Rh",
+    "Ru",
+    "U"
+  ],
+  "library_extra_elements": [],
+  "summary": {
+    "elements_total": 17,
+    "elements_covered": 9,
+    "elements_missing": 8,
+    "motifs": 32,
+    "formal_cn_ready_elements": []
+  },
+  "elements": {
+    "Ag": {
+      "motifs": 0,
+      "motif_ids": [],
+      "verified_source_cif": 0,
+      "source_ref_only": 0,
+      "generated_only": 0,
+      "constructed": 0,
+      "unverified": 0,
+      "real_source_cifs": 0,
+      "formal_cn_ready": false
+    },
+    "Au": {
+      "motifs": 1,
+      "motif_ids": [
+        "au_fcc"
+      ],
+      "verified_source_cif": 0,
+      "source_ref_only": 0,
+      "generated_only": 1,
+      "constructed": 0,
+      "unverified": 0,
+      "real_source_cifs": 0,
+      "formal_cn_ready": false
+    },
+    "Ce": {
+      "motifs": 0,
+      "motif_ids": [],
+      "verified_source_cif": 0,
+      "source_ref_only": 0,
+      "generated_only": 0,
+      "constructed": 0,
+      "unverified": 0,
+      "real_source_cifs": 0,
+      "formal_cn_ready": false
+    },
+    "Co": {
+      "motifs": 6,
+      "motif_ids": [
+        "co3o4_mixed",
+        "co3o4_oct",
+        "co3o4_tet",
+        "co_hcp",
+        "con4_planar",
+        "coo_rocksalt"
+      ],
+      "verified_source_cif": 0,
+      "source_ref_only": 0,
+      "generated_only": 4,
+      "constructed": 2,
+      "unverified": 0,
+      "real_source_cifs": 0,
+      "formal_cn_ready": false
+    },
+    "Cr": {
+      "motifs": 1,
+      "motif_ids": [
+        "cr_bcc"
+      ],
+      "verified_source_cif": 0,
+      "source_ref_only": 0,
+      "generated_only": 1,
+      "constructed": 0,
+      "unverified": 0,
+      "real_source_cifs": 0,
+      "formal_cn_ready": false
+    },
+    "Cu": {
+      "motifs": 4,
+      "motif_ids": [
+        "cu2o_cuprite",
+        "cu_fcc",
+        "cun4_planar",
+        "cuo_tenorite"
+      ],
+      "verified_source_cif": 0,
+      "source_ref_only": 0,
+      "generated_only": 3,
+      "constructed": 1,
+      "unverified": 0,
+      "real_source_cifs": 0,
+      "formal_cn_ready": false
+    },
+    "Fe": {
+      "motifs": 11,
+      "motif_ids": [
+        "fe2_mu_oxo",
+        "fe2n6_dual",
+        "fe_bcc",
+        "fen4_planar",
+        "goethite",
+        "hematite",
+        "lepidocrocite",
+        "magnetite_mixed",
+        "magnetite_oct",
+        "magnetite_tet",
+        "wustite"
+      ],
+      "verified_source_cif": 0,
+      "source_ref_only": 2,
+      "generated_only": 5,
+      "constructed": 4,
+      "unverified": 0,
+      "real_source_cifs": 0,
+      "formal_cn_ready": false
+    },
+    "Ir": {
+      "motifs": 0,
+      "motif_ids": [],
+      "verified_source_cif": 0,
+      "source_ref_only": 0,
+      "generated_only": 0,
+      "constructed": 0,
+      "unverified": 0,
+      "real_source_cifs": 0,
+      "formal_cn_ready": false
+    },
+    "Mn": {
+      "motifs": 0,
+      "motif_ids": [],
+      "verified_source_cif": 0,
+      "source_ref_only": 0,
+      "generated_only": 0,
+      "constructed": 0,
+      "unverified": 0,
+      "real_source_cifs": 0,
+      "formal_cn_ready": false
+    },
+    "Mo": {
+      "motifs": 1,
+      "motif_ids": [
+        "mo_bcc"
+      ],
+      "verified_source_cif": 0,
+      "source_ref_only": 0,
+      "generated_only": 1,
+      "constructed": 0,
+      "unverified": 0,
+      "real_source_cifs": 0,
+      "formal_cn_ready": false
+    },
+    "Ni": {
+      "motifs": 4,
+      "motif_ids": [
+        "ni_fcc",
+        "ni_oh2_brucite",
+        "nin4_planar",
+        "nio_rocksalt"
+      ],
+      "verified_source_cif": 0,
+      "source_ref_only": 0,
+      "generated_only": 3,
+      "constructed": 1,
+      "unverified": 0,
+      "real_source_cifs": 0,
+      "formal_cn_ready": false
+    },
+    "Pd": {
+      "motifs": 0,
+      "motif_ids": [],
+      "verified_source_cif": 0,
+      "source_ref_only": 0,
+      "generated_only": 0,
+      "constructed": 0,
+      "unverified": 0,
+      "real_source_cifs": 0,
+      "formal_cn_ready": false
+    },
+    "Pt": {
+      "motifs": 3,
+      "motif_ids": [
+        "pt_fcc",
+        "ptcl4_square",
+        "pto2_beta"
+      ],
+      "verified_source_cif": 0,
+      "source_ref_only": 0,
+      "generated_only": 2,
+      "constructed": 1,
+      "unverified": 0,
+      "real_source_cifs": 0,
+      "formal_cn_ready": false
+    },
+    "Rh": {
+      "motifs": 0,
+      "motif_ids": [],
+      "verified_source_cif": 0,
+      "source_ref_only": 0,
+      "generated_only": 0,
+      "constructed": 0,
+      "unverified": 0,
+      "real_source_cifs": 0,
+      "formal_cn_ready": false
+    },
+    "Ru": {
+      "motifs": 0,
+      "motif_ids": [],
+      "verified_source_cif": 0,
+      "source_ref_only": 0,
+      "generated_only": 0,
+      "constructed": 0,
+      "unverified": 0,
+      "real_source_cifs": 0,
+      "formal_cn_ready": false
+    },
+    "U": {
+      "motifs": 0,
+      "motif_ids": [],
+      "verified_source_cif": 0,
+      "source_ref_only": 0,
+      "generated_only": 0,
+      "constructed": 0,
+      "unverified": 0,
+      "real_source_cifs": 0,
+      "formal_cn_ready": false
+    },
+    "Zn": {
+      "motifs": 1,
+      "motif_ids": [
+        "zn_hcp"
+      ],
+      "verified_source_cif": 0,
+      "source_ref_only": 0,
+      "generated_only": 1,
+      "constructed": 0,
+      "unverified": 0,
+      "real_source_cifs": 0,
+      "formal_cn_ready": false
+    }
+  }
+}

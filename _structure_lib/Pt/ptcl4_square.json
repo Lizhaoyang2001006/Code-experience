@@ -70,5 +70,9 @@
     }
   ],
   "notes": "Pt(II) 平面四方氯配合物。第一壳 Pt-Cl 4×2.31 Å；第二壳 4×Cl@3.45 Å 解释实测 3.13 Å（表观）峰。用于区分 Pt 箔（Pt-Pt 2.774 Å）与 PtCl2 标样。",
-  "version": 1
+  "version": 1,
+  "occupancy_source": "generated",
+  "model_level": "cluster",
+  "provenance_status": "constructed",
+  "edits": []
 }
