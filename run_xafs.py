@@ -153,6 +153,7 @@ def process_sample(paths, outdir, align: bool = False,
                    self_absorption_line: str | None = None,
                    verbose: bool = True,
                    formal_cn: bool = False,
+                   legacy_auto_fit: bool = False,
           # ---- P1b 相解析（正式 CN 结构来源）----
           phase_cif: list[str] | None = None,
           phase_id: str | None = None,
@@ -320,6 +321,10 @@ def process_sample(paths, outdir, align: bool = False,
         meta["fit"] = _fit_outputs(result.fit, outdir, stem)
         if formal_cn:
             formal = result.fit.get("formal_cn") or {}
+            if legacy_auto_fit:
+                formal["status"] = "legacy_unverified"
+                formal["reject_reason"] = formal.get("reject_reason") or "legacy_auto_fit: 旧版自动拟合，不进正式表"
+                formal["legacy_auto_fit"] = True
             rows = list(formal.get("rows") or [])
             model = formal.get("model") or {}
             if not rows:
@@ -410,6 +415,8 @@ def main():
     parser.add_argument("--formal-cn", action="store_true",
                         help="P0a 正式 CN 链：无合格结构来源时写拒绝行到 "
                              "cn_table.csv；诊断拟合照常输出（需 --fit）")
+    parser.add_argument("--legacy-auto-fit", action="store_true",
+                        help="P4 旧版自动拟合：标记 legacy_unverified，不进正式 CN 表")
     parser.add_argument("--phase-cif", action="append", default=None,
                         help="P1b 用户真实 CIF 路径（可重复，最高优先级）；"
                              "必须可被 gemmi 解析，且不得是现场生成 CIF")
@@ -865,7 +872,9 @@ def main():
                     self_absorption_angles=sa_angles,
                     self_absorption_line=args.self_absorption_line,
                     verbose=False,
-                    formal_cn=args.formal_cn,                    phase_cif=args.phase_cif,
+                    formal_cn=args.formal_cn,
+                    legacy_auto_fit=args.legacy_auto_fit,
+                    phase_cif=args.phase_cif,
                     phase_id=args.phase_id,
                     phase_spec=args.phase,
                     phase_index_path=args.phase_index,
@@ -915,7 +924,9 @@ def main():
         self_absorption_density=args.self_absorption_density,
         self_absorption_angles=sa_angles,
         self_absorption_line=args.self_absorption_line,
-        formal_cn=args.formal_cn,                    phase_cif=args.phase_cif,
+        formal_cn=args.formal_cn,
+                    legacy_auto_fit=args.legacy_auto_fit,
+                    phase_cif=args.phase_cif,
                     phase_id=args.phase_id,
                     phase_spec=args.phase,
                     phase_index_path=args.phase_index,
