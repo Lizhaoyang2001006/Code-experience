@@ -61,9 +61,10 @@ P4+ 新增：
     - T7 多元素综合报告：自动分元素、并列结果、不推荐 Top-1
     - T8 XANES–EXAFS 软校验：只产生警告，不改变 cn_reliable
     - P5-A T5 标定产物完整性 / --only 增量合并 / --s02-from-t5 溯源
+    - P5-B Mo 双壳 bcc 标定 / Ce σ² 压界与归一化伪迹拒绝
 
-当前共 123 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+
-CIF 抓取/条件 CN/T7/T8/P5-A 契约）。
+当前共 124 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+
+CIF 抓取/条件 CN/T7/T8/P5-A/P5-B 契约）。
 
 运行:
     python regression_test.py
@@ -5446,12 +5447,12 @@ O1 O 0 0 0 0.5
         rows = {r["absorber"]: r for r in index["elements"]}
         self.assertEqual(set(rows), set(calibrate_t5.ELEMENTS))
         self.assertEqual(index["pass_count"] + index["fail_count"], 12)
-        self.assertGreaterEqual(index["pass_count"], 6)
+        self.assertGreaterEqual(index["pass_count"], 7)
         self.assertNotIn("C:\\\\", index_path.read_text(encoding="utf-8"))
-        for el in ("Cr", "Mn", "Zn", "Ru", "Ag", "Au"):
+        for el in ("Cr", "Mn", "Zn", "Mo", "Ru", "Ag", "Au"):
             self.assertEqual(rows[el]["status"], "calibrated", el)
             self.assertIsNotNone(rows[el]["s02"], el)
-        for el in ("Mo", "Rh", "Pd", "Ir", "Ce", "U"):
+        for el in ("Rh", "Pd", "Ir", "Ce", "U"):
             self.assertEqual(rows[el]["status"], "not_calibrated", el)
             self.assertIsNone(rows[el]["s02"], el)
             self.assertTrue(rows[el].get("reason"), el)
@@ -5519,7 +5520,7 @@ O1 O 0 0 0 0.5
         self.assertIn("standard_sha256:", source)
 
         with self.assertRaises(XAFSConfigError) as cm:
-            run_xafs.load_t5_s02("Mo")
+            run_xafs.load_t5_s02("Ce")
         self.assertIn("未通过", str(cm.exception))
         with self.assertRaises(XAFSConfigError):
             run_xafs.load_t5_s02("Xx")
@@ -5542,6 +5543,77 @@ O1 O 0 0 0 0.5
             get_absorber("Cr"), "s02_calibration:x"))
         self.assertFalse(xafs_fit._s02_calibrated_flag(
             get_absorber("Cr"), "--s02 runtime override"))
+
+    def test_p5b_mo_double_shell_and_ce_rejection(self):
+        """#124 P5-B：Mo 双壳 bcc 标定；Ce σ² 压界/伪迹明确拒绝。"""
+        import inspect
+        import calibrate_s02
+        import calibrate_t5
+        import run_xafs
+
+        sig = inspect.signature(calibrate_s02.calibrate_s02)
+        for name in ("e0_method", "manual_e0", "fit_shells"):
+            self.assertIn(name, sig.parameters)
+
+        mo_cases = calibrate_t5.CASES["Mo"]
+        mo_foil = next(c for c in mo_cases
+                       if Path(c["standard"]).name ==
+                       "Mo-K-MolybdenumFoil.xdi")
+        self.assertEqual(mo_foil.get("e0_method"), "half_height")
+        self.assertEqual(mo_foil.get("fit_shells"), 2)
+        self.assertTrue(mo_foil.get("strict"))
+        ce_cases = calibrate_t5.CASES["Ce"]
+        self.assertEqual(len(ce_cases), 2)
+        self.assertTrue(ce_cases[1].get("strict"))
+
+        mo = json.loads((ROOT / "data" / "s02_calibration" / "Mo" /
+                         "calibration.json").read_text(encoding="utf-8"))
+        self.assertEqual(mo["status"], "calibrated")
+        self.assertAlmostEqual(mo["s02"], 0.8322, places=4)
+        self.assertEqual(mo["n_shells"], 2)
+        self.assertEqual([s["degen"] for s in mo["shell_paths"]],
+                         [8.0, 6.0])
+        self.assertAlmostEqual(mo["shell_paths"][0]["reff"], 2.7254,
+                               places=4)
+        self.assertAlmostEqual(mo["shell_paths"][1]["reff"], 3.147,
+                               places=3)
+        self.assertEqual(mo["e0_method"], "half_height")
+        self.assertAlmostEqual(mo["e0"], 20012.8624, places=3)
+        self.assertIn("sigma2_not_at_bound", mo["checks"])
+        self.assertTrue(all(mo["checks"].values()))
+        self.assertEqual(mo["n_variables"], 6)
+        self.assertGreater(mo["n_independent"], mo["n_variables"])
+        for run in mo["runs"]:
+            self.assertTrue(run["interior"])
+            self.assertEqual(len(run["paths"]), 2)
+            self.assertFalse(run["sigma2_at_bound"])
+            self.assertFalse(any(p["sigma2_at_bound"]
+                                 for p in run["paths"]))
+
+        ce = json.loads((ROOT / "data" / "s02_calibration" / "Ce" /
+                         "calibration.json").read_text(encoding="utf-8"))
+        self.assertEqual(ce["status"], "not_calibrated")
+        self.assertIsNone(ce["s02"])
+        first = next(a for a in ce["attempts"]
+                     if a["standard"].endswith("Ce-L3-CeO2.xdi"))
+        self.assertEqual(first["status"], "gated_out")
+        self.assertFalse(first["result"]["checks"]["sigma2_not_at_bound"])
+        self.assertTrue(all(r["sigma2_at_bound"]
+                            for r in first["result"]["runs"]))
+        second = next(a for a in ce["attempts"]
+                      if a["standard"].endswith(
+                          "Ce-L3-CeriumDioxide.xdi"))
+        self.assertEqual(second["status"], "error")
+        self.assertIn("归一化失败", second["error"])
+        self.assertIn("2.271", second["error"])
+
+        s02, source = run_xafs.load_t5_s02("Mo")
+        self.assertAlmostEqual(s02, 0.8322, places=4)
+        self.assertIn("Mo", source)
+        self.assertIn("sha256:", source)
+        with self.assertRaises(XAFSConfigError) as cm:
+            run_xafs.load_t5_s02("Ce")
+        self.assertIn("未通过", str(cm.exception))
 
 
 if __name__ == "__main__":

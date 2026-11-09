@@ -139,13 +139,24 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
                   s02_start: float = 0.85, strict: bool = True,
                   verbose: bool = True,
                   allow_recalibrate: bool = False,
-                  motif_file=None, rmin: float | None = None) -> dict:
+                  motif_file=None, rmin: float | None = None,
+                  e0_method: str = "derivative",
+                  manual_e0: float | None = None,
+                  fit_shells: int = 1) -> dict:
     """标样箔 → 标定 S₀²。返回 dict；不改 absorber.py（写入见 apply_s02）。
 
     ``motif_file``：标定专用 motif JSON（必须带展开 sites），用于
     氧化物/化合物标样——不写生产 _structure_lib，不影响 #119 覆盖率。
     ``rmin``：显式 R 窗下限，用于第一壳很近（如 CeO₂ Ce–O 2.34 Å +
     N_idp 不足）时扩大窗口、让 4 变量拟合有足够独立点数。
+    ``e0_method`` / ``manual_e0``：E₀ 判定方法，透传 S2。bcc 金属箔的
+    导数峰可能落在近边肩峰上（Mo 箔导数峰 20018.8 eV、半高点
+    20012.9 eV），导致归一化平台偏低或 ΔE₀ 偏大；改用 half_height
+    是数据物理判定，不是放宽门禁。
+    ``fit_shells``：一起拟合的壳层数（默认 1）。bcc 金属第一壳
+    （8×2.73 Å）与第二壳（6×3.15 Å）同属 Mo–Mo，单壳模型会把
+    第二壳尾巴折进第一壳振幅，S₀² 撞上界；双壳模型让两壳各自
+    拥有 ΔR/σ²、共享 S₀²/ΔE₀，才能得到稳定的 S₀²。
     """
     cfg = absorber_mod.get_absorber(absorber_symbol)
     if cfg.s02 is not None and not allow_recalibrate:
@@ -153,7 +164,9 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
             "CAL", f"{cfg.symbol} 已有标定值 {cfg.s02}——重标定是显式决定，"
                    f"调用方需要 --force 或改 absorber.py 后再跑")
     res = xafs_pipeline.process_sample(list(files), absorber=cfg.symbol,
-                                       strict=strict, verbose=verbose)
+                                       strict=strict, verbose=verbose,
+                                       e0_method=e0_method,
+                                       manual_e0=manual_e0)
     kmin = res.ft.kmin if kmin is None else kmin
     kmax = min(res.ft.kmax, cfg.kmax_ceiling if kmax is None else kmax)
 
@@ -163,7 +176,16 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
         motif, edge=cfg.edge, kmin=kmin, kmax=kmax, rmin=rmin)
     if len(plan["shells"]) < 1:
         raise XAFSDataError("CAL", f"{motif.id}: 无第一壳路径")
+    n_shells = max(1, int(fit_shells))
+    if n_shells > len(plan["files"]):
+        raise XAFSDataError(
+            "CAL", f"{motif.id}: 请求 {n_shells} 壳，但信息量/路径只允许 "
+                   f"{len(plan['files'])} 壳")
     first = plan["shells"][0]
+    fit_files = plan["files"][:n_shells]
+    fit_degens = plan["degens"][:n_shells]
+    fit_labels = plan["labels"][:n_shells]
+    upper_reff = plan["shells"][n_shells - 1]["reff"]
 
     # ---- 生产等效拟合（窗口鲁棒性 × 3）----
     # 数学上 "定 N 变 S₀²" ≡ "定 S₀²=1 变 N"（振幅都是 s02·N 乘积），
@@ -172,15 +194,17 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
     # 晶体学简并度上，管线的幅度-形状失配都被 S₀² 相对值吸收。
     runs = []
     for frac in WINDOW_FRACS:
-        r_fit = (plan["rmin"], first["reff"] + frac)
+        r_fit = (plan["rmin"], upper_reff + frac)
         fit = artemis.fit_r_space(
-            res.chi_k, res.ft, [plan["files"][0]],
+            res.chi_k, res.ft, fit_files,
             rmin=r_fit[0], rmax=r_fit[1], kmin=kmin, kmax=kmax,
             kweight=res.ft.kweight,
             s02=s02_start, vary_delta_e0=True, vary_n=False, vary_s02=True,
             deltar_lim=DELTAR_LIM_CAL,
-            path_degen=[first["degen"]], path_labels=[first["label"]])
+            path_degen=fit_degens, path_labels=fit_labels)
         p0 = fit.paths[0]
+        s2_at_bound = any(bool(getattr(p, "sigma2_at_bound", False))
+                          for p in fit.paths)
         run = {"r_window": [round(r_fit[0], 3), round(r_fit[1], 3)],
                "s02": round(float(fit.s02), 4),
                "s02_err": round(float(fit.s02_err), 4),
@@ -188,11 +212,20 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
                "delta_e0": round(float(fit.delta_e0), 2),
                "sigma2": round(float(p0.sigma2), 4),
                "delta_r": round(float(p0.delta_r), 4),
+               "sigma2_at_bound": s2_at_bound,
+               "paths": [{"label": p.label,
+                          "degen": round(float(p.degeneracy), 1),
+                          "sigma2": round(float(p.sigma2), 4),
+                          "delta_r": round(float(p.delta_r), 4),
+                          "sigma2_at_bound": bool(
+                              getattr(p, "sigma2_at_bound", False))}
+                         for p in fit.paths],
                "interior": (fit.s02_err is not None and
                             S02_PASS[0] < float(fit.s02) < S02_PASS[1] and
                             float(fit.s02_err) < S02_ERR_MAX and
                             float(fit.r_factor) <= RF_MAX and
                             abs(float(fit.delta_e0)) < E0_MAX and
+                            not s2_at_bound and
                             fit.n_variables < fit.n_independent)}
         runs.append(run)
 
@@ -209,14 +242,14 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
     kw_diag = {}
     for kw_probe in (1, 3):
         try:
-            r_fit = (plan["rmin"], first["reff"] + 0.18)
+            r_fit = (plan["rmin"], upper_reff + 0.18)
             f_kw = artemis.fit_r_space(
-                res.chi_k, res.ft, [plan["files"][0]],
+                res.chi_k, res.ft, fit_files,
                 rmin=r_fit[0], rmax=r_fit[1], kmin=kmin, kmax=kmax,
                 kweight=kw_probe, s02=s02_start,
                 vary_delta_e0=True, vary_n=False, vary_s02=True,
                 deltar_lim=DELTAR_LIM_CAL,
-                path_degen=[first["degen"]], path_labels=[first["label"]])
+                path_degen=fit_degens, path_labels=fit_labels)
             kw_diag[str(kw_probe)] = {
                 "s02": round(float(f_kw.s02), 4),
                 "rf": round(float(f_kw.r_factor), 4),
@@ -228,9 +261,16 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
         "absorber": cfg.symbol, "edge": cfg.edge, "motif": motif.id,
         "motif_file": (str(motif_file) if motif_file is not None else None),
         "fixed_CN": first["degen"], "R_first": first["reff"],
+        "n_shells": n_shells,
+        "shell_paths": [{"label": s["label"], "scatterer": s["scatterer"],
+                         "reff": s["reff"], "degen": s["degen"]}
+                        for s in plan["shells"][:n_shells]],
+        "e0_method": res.e0.get("e0_method"),
+        "e0": round(float(res.e0.get("e0_sample")), 4),
         "k_window": [round(kmin, 3), round(kmax, 3)],
-        "protocol": ("production_equivalent: N fixed, vary s02 + "
-                     "(dR, sigma2) per path + dE0; kw=2; robustness x3"),
+        "protocol": (f"production_equivalent: {n_shells}-shell, N fixed to "
+                     f"crystallographic degeneracy, vary s02 + "
+                     f"(dR, sigma2) per path + dE0; kw=2; robustness x3"),
         "runs": runs,
         "s02": (round(s02_final, 4) if s02_final is not None else None),
         "s02_err": (round(s02_err_final, 4) if s02_err_final is not None
@@ -239,9 +279,9 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
         "spread": round(spread, 4) if spread == spread else None,
         "delta_e0": good[-1]["delta_e0"] if good else None,
         "sigma2": good[-1]["sigma2"] if good else None,
-        "n_variables": 4, "n_independent": round(
+        "n_variables": 2 + 2 * n_shells, "n_independent": round(
             artemis.independent_points(kmin, kmax, plan["rmin"],
-                                       first["reff"] + 0.18), 2),
+                                       upper_reff + 0.18), 2),
         "plateau": round(float(res.norm.plateau), 4),
         "rbkg_choice": res.rbkg.get("rbkg"),
         "kw_sensitivity": kw_diag,
@@ -254,6 +294,7 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
                       and out["s02_err"] < S02_ERR_MAX,
         "window_spread_ok": (out["spread"] is not None
                              and out["spread"] <= WINDOW_SPREAD_MAX),
+        "sigma2_not_at_bound": not any(r["sigma2_at_bound"] for r in runs),
     }
     out["checks"] = checks
     out["pass"] = all(checks.values())
@@ -348,6 +389,15 @@ def main(argv=None):
     ap.add_argument("--rmin", type=float, default=None,
                     help="拟合 R 窗下限（默认按第一壳自动；"
                          "第一壳很近时显式放宽以增加 N_idp）")
+    ap.add_argument("--e0-method", default="derivative",
+                    choices=("derivative", "half_height", "manual"),
+                    help="E₀ 判定方法；厚样/近边肩峰导致平台偏低时可用 "
+                         "half_height（默认 derivative）")
+    ap.add_argument("--manual-e0", type=float, default=None,
+                    help="--e0-method manual 时的 E₀ (eV)")
+    ap.add_argument("--fit-shells", type=int, default=1,
+                    help="一起拟合的壳层数（默认 1；bcc 金属可用 2 让"
+                         "第一/第二壳同属 Mo–Mo 并共享 S₀²/ΔE₀）")
     ap.add_argument("--s02-start", type=float, default=0.85)
     ap.add_argument("--strict", dest="strict", action="store_true", default=True)
     ap.add_argument("--no-strict", dest="strict", action="store_false")
@@ -362,7 +412,10 @@ def main(argv=None):
                         kmin=args.kmin, kmax=args.kmax,
                         s02_start=args.s02_start, strict=args.strict,
                         allow_recalibrate=args.force,
-                        motif_file=args.motif_file, rmin=args.rmin)
+                        motif_file=args.motif_file, rmin=args.rmin,
+                        e0_method=args.e0_method,
+                        manual_e0=args.manual_e0,
+                        fit_shells=args.fit_shells)
     if args.outdir:
         xafs_io.write_json(Path(args.outdir) / "calibration.json", res)
         print(f"  → {Path(args.outdir) / 'calibration.json'}")
@@ -375,7 +428,8 @@ def main(argv=None):
                 f"  --apply 拒绝：{cap} 属于 #60 锁定的 12 个元素，"
                 f"静态 s02 必须保持 None。\n"
                 f"  标定结果已写入独立产物；运行时用 "
-                f"run_xafs.py --s02 {res['s02']} 显式覆盖。")
+                f"run_xafs.py --s02 {res['s02']} 或 --s02-from-t5 "
+                f"显式覆盖。")
         note = (f"{args.absorber} 标样 {res['motif']} N={res['fixed_CN']:.0f}, "
                 f"Rf={res['rf']}, {_dt.date.today().isoformat()}")
         p = apply_s02(args.absorber, res["s02"], note=note,

@@ -1,7 +1,7 @@
 {
  "absorber": "Zn",
  "status": "calibrated",
- "generated_at": "2026-11-09T12:18:52",
+ "generated_at": "2026-11-09T15:06:59",
  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
  "static_absorber_py_unchanged": true,
  "apply_to_absorber_py": false,
@@ -16,6 +16,9 @@
    "kmin": null,
    "kmax": null,
    "rmin": null,
+   "e0_method": "derivative",
+   "manual_e0": null,
+   "fit_shells": 1,
    "note": "",
    "provenance": {
     "source_path": "data\\bmm_standards\\Data\\Zn\\Zn-Zincite.xdi",
@@ -32,11 +35,22 @@
     "motif_file": "data\\s02_calibration\\motifs\\zno_wurtzite.json",
     "fixed_CN": 4.0,
     "R_first": 1.9741,
+    "n_shells": 1,
+    "shell_paths": [
+     {
+      "label": "Zn-O@1.98",
+      "scatterer": "O",
+      "reff": 1.9741,
+      "degen": 4.0
+     }
+    ],
+    "e0_method": "derivative",
+    "e0": 9663.8,
     "k_window": [
      3.0,
      12.0
     ],
-    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
     "runs": [
      {
       "r_window": [
@@ -49,6 +63,16 @@
       "delta_e0": 0.84,
       "sigma2": 0.0039,
       "delta_r": -0.0182,
+      "sigma2_at_bound": false,
+      "paths": [
+       {
+        "label": "Zn-O@1.98",
+        "degen": 4.0,
+        "sigma2": 0.0039,
+        "delta_r": -0.0182,
+        "sigma2_at_bound": false
+       }
+      ],
       "interior": true
      },
      {
@@ -62,6 +86,16 @@
       "delta_e0": 0.86,
       "sigma2": 0.0039,
       "delta_r": -0.0181,
+      "sigma2_at_bound": false,
+      "paths": [
+       {
+        "label": "Zn-O@1.98",
+        "degen": 4.0,
+        "sigma2": 0.0039,
+        "delta_r": -0.0181,
+        "sigma2_at_bound": false
+       }
+      ],
       "interior": true
      },
      {
@@ -75,6 +109,16 @@
       "delta_e0": 1.06,
       "sigma2": 0.0038,
       "delta_r": -0.0171,
+      "sigma2_at_bound": false,
+      "paths": [
+       {
+        "label": "Zn-O@1.98",
+        "degen": 4.0,
+        "sigma2": 0.0038,
+        "delta_r": -0.0171,
+        "sigma2_at_bound": false
+       }
+      ],
       "interior": true
      }
     ],
@@ -104,7 +148,8 @@
      "window_runs_interior": true,
      "s02_in_range": true,
      "s02_err_ok": true,
-     "window_spread_ok": true
+     "window_spread_ok": true,
+     "sigma2_not_at_bound": true
     },
     "pass": true
    },
@@ -136,6 +181,16 @@
    "delta_e0": 0.84,
    "sigma2": 0.0039,
    "delta_r": -0.0182,
+   "sigma2_at_bound": false,
+   "paths": [
+    {
+     "label": "Zn-O@1.98",
+     "degen": 4.0,
+     "sigma2": 0.0039,
+     "delta_r": -0.0182,
+     "sigma2_at_bound": false
+    }
+   ],
    "interior": true
   },
   {
@@ -149,6 +204,16 @@
    "delta_e0": 0.86,
    "sigma2": 0.0039,
    "delta_r": -0.0181,
+   "sigma2_at_bound": false,
+   "paths": [
+    {
+     "label": "Zn-O@1.98",
+     "degen": 4.0,
+     "sigma2": 0.0039,
+     "delta_r": -0.0181,
+     "sigma2_at_bound": false
+    }
+   ],
    "interior": true
   },
   {
@@ -162,6 +227,16 @@
    "delta_e0": 1.06,
    "sigma2": 0.0038,
    "delta_r": -0.0171,
+   "sigma2_at_bound": false,
+   "paths": [
+    {
+     "label": "Zn-O@1.98",
+     "degen": 4.0,
+     "sigma2": 0.0038,
+     "delta_r": -0.0171,
+     "sigma2_at_bound": false
+    }
+   ],
    "interior": true
   }
  ],
@@ -169,7 +244,8 @@
   "window_runs_interior": true,
   "s02_in_range": true,
   "s02_err_ok": true,
-  "window_spread_ok": true
+  "window_spread_ok": true,
+  "sigma2_not_at_bound": true
  },
  "kw_sensitivity": {
   "1": {
@@ -185,6 +261,17 @@
  },
  "n_variables": 4,
  "n_independent": 4.47,
+ "n_shells": 1,
+ "shell_paths": [
+  {
+   "label": "Zn-O@1.98",
+   "scatterer": "O",
+   "reff": 1.9741,
+   "degen": 4.0
+  }
+ ],
+ "e0": 9663.8,
+ "e0_method": "derivative",
  "motif": "zno_wurtzite",
  "edge": "K",
  "provenance": {
@@ -206,11 +293,22 @@
   "motif_file": "data\\s02_calibration\\motifs\\zno_wurtzite.json",
   "fixed_CN": 4.0,
   "R_first": 1.9741,
+  "n_shells": 1,
+  "shell_paths": [
+   {
+    "label": "Zn-O@1.98",
+    "scatterer": "O",
+    "reff": 1.9741,
+    "degen": 4.0
+   }
+  ],
+  "e0_method": "derivative",
+  "e0": 9663.8,
   "k_window": [
    3.0,
    12.0
   ],
-  "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+  "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
   "runs": [
    {
     "r_window": [
@@ -223,6 +321,16 @@
     "delta_e0": 0.84,
     "sigma2": 0.0039,
     "delta_r": -0.0182,
+    "sigma2_at_bound": false,
+    "paths": [
+     {
+      "label": "Zn-O@1.98",
+      "degen": 4.0,
+      "sigma2": 0.0039,
+      "delta_r": -0.0182,
+      "sigma2_at_bound": false
+     }
+    ],
     "interior": true
    },
    {
@@ -236,6 +344,16 @@
     "delta_e0": 0.86,
     "sigma2": 0.0039,
     "delta_r": -0.0181,
+    "sigma2_at_bound": false,
+    "paths": [
+     {
+      "label": "Zn-O@1.98",
+      "degen": 4.0,
+      "sigma2": 0.0039,
+      "delta_r": -0.0181,
+      "sigma2_at_bound": false
+     }
+    ],
     "interior": true
    },
    {
@@ -249,6 +367,16 @@
     "delta_e0": 1.06,
     "sigma2": 0.0038,
     "delta_r": -0.0171,
+    "sigma2_at_bound": false,
+    "paths": [
+     {
+      "label": "Zn-O@1.98",
+      "degen": 4.0,
+      "sigma2": 0.0038,
+      "delta_r": -0.0171,
+      "sigma2_at_bound": false
+     }
+    ],
     "interior": true
    }
   ],
@@ -278,7 +406,8 @@
    "window_runs_interior": true,
    "s02_in_range": true,
    "s02_err_ok": true,
-   "window_spread_ok": true
+   "window_spread_ok": true,
+   "sigma2_not_at_bound": true
   },
   "pass": true,
   "provenance": {

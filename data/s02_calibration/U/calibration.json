@@ -1,7 +1,7 @@
 {
  "absorber": "U",
  "status": "not_calibrated",
- "generated_at": "2026-11-09T12:18:56",
+ "generated_at": "2026-11-09T15:05:58",
  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
  "static_absorber_py_unchanged": true,
  "apply_to_absorber_py": false,
@@ -16,6 +16,9 @@
    "kmin": 2.5,
    "kmax": 7.5,
    "rmin": null,
+   "e0_method": "derivative",
+   "manual_e0": null,
+   "fit_shells": 1,
    "note": "",
    "provenance": {
     "source_path": "_standards_lib\\U\\U_metal_foil.dat",
@@ -32,11 +35,22 @@
     "motif_file": null,
     "fixed_CN": 4.0,
     "R_first": 2.7425,
+    "n_shells": 1,
+    "shell_paths": [
+     {
+      "label": "U-U@2.79",
+      "scatterer": "U",
+      "reff": 2.7425,
+      "degen": 4.0
+     }
+    ],
+    "e0_method": "derivative",
+    "e0": 17163.1,
     "k_window": [
      2.5,
      7.5
     ],
-    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
     "runs": [
      {
       "r_window": [
@@ -49,6 +63,7 @@
       "delta_e0": 10.94,
       "sigma2": 0.0001,
       "delta_r": 0.03,
+      "sigma2_at_bound": true,
       "interior": false
      },
      {
@@ -62,6 +77,7 @@
       "delta_e0": 10.29,
       "sigma2": 0.001,
       "delta_r": 0.03,
+      "sigma2_at_bound": false,
       "interior": false
      },
      {
@@ -75,6 +91,7 @@
       "delta_e0": 9.41,
       "sigma2": 0.0015,
       "delta_r": 0.03,
+      "sigma2_at_bound": false,
       "interior": false
      }
     ],
@@ -104,16 +121,17 @@
      "window_runs_interior": false,
      "s02_in_range": false,
      "s02_err_ok": false,
-     "window_spread_ok": false
+     "window_spread_ok": false,
+     "sigma2_not_at_bound": false
     },
     "pass": false
    },
    "status": "gated_out",
-   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok"
+   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound"
   }
  ],
  "s02": null,
- "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok",
+ "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
  "attempts_compact": [
   {
    "standard": "_standards_lib\\U\\U_metal_foil.dat",
@@ -122,13 +140,15 @@
    "kmin": 2.5,
    "kmax": 7.5,
    "rmin": null,
+   "e0_method": "derivative",
+   "fit_shells": 1,
    "status": "gated_out",
    "s02": null,
    "s02_err": null,
    "rf": null,
    "spread": null,
    "plateau": 0.9319,
-   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok"
+   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound"
   }
  ]
 }

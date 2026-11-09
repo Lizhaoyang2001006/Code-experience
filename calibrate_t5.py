@@ -70,7 +70,13 @@ CASES = {
          "motif_file": MOTIFS / "mos2_2h.json",
          "strict": True, "kmin": 2.5, "kmax": 11.0},
         {"standard": BMM / "Mo" / "Mo-K-MolybdenumFoil.xdi",
-         "motif": "mo_bcc", "strict": True},
+         "motif": "mo_bcc", "strict": True,
+         "e0_method": "half_height", "fit_shells": 2,
+         "note": "bcc Mo 第一壳 8×2.73 Å + 第二壳 6×3.15 Å 同属 Mo–Mo；"
+                 "单壳会把第二壳尾巴折进第一壳振幅（S₀² 撞上界），"
+                 "双壳共享 S₀²/ΔE₀、各壳独立 ΔR/σ²。导数峰落在近边"
+                 "肩峰（20018.8 eV）导致平台 0.842，改用半高点 E₀"
+                 "（20012.9 eV）后平台 0.863，属数据物理判定"},
     ],
     "Ru": [
         {"standard": BMM / "Ru" / "Ru-K-RuO2.xdi",
@@ -106,7 +112,18 @@ CASES = {
          "motif": "ceo2_fluorite_cod_1562989", "strict": False,
          "kmin": 3.5, "kmax": 12.0, "rmin": 1.6,
          "note": "CeO2 荧光计数 xmu，larch 归一化 plateau≈1.20；"
-                 "rmin=1.6 覆盖第一壳并增加 N_idp"},
+                 "rmin=1.6 覆盖第一壳并增加 N_idp。P5-B 复核："
+                 "导数 E0 下 ΔE0≈9.8–10.2 eV 贴 E0_MAX；"
+                 "half_height 使 ΔE0 升到 12.9–13.5 eV；"
+                 "自由 σ² 塌到 1e-4 下界，固定 σ² 时 S₀² 随假设值"
+                 "从 0.54 漂到 0.80（无唯一解）；加 Ce–Ce 第二壳"
+                 "Rf=0.127、ΔR 撞界。不能作为可靠标定"},
+        {"standard": BMM / "Ce" / "Ce-L3-CeriumDioxide.xdi",
+         "motif": "ceo2_fluorite_cod_1562989", "strict": True,
+         "kmin": 3.5, "kmax": 12.0, "rmin": 1.6,
+         "note": "同相透射谱，但边步被背景淹没（归一化平台≈2.27）；"
+                 "数值上虽可通过宽松拟合，属于归一化伪迹，"
+                 "严格归一化门禁必须拒绝，不得用于标定"},
     ],
     "U": [
         {"standard": STD / "U" / "U_metal_foil.dat",
@@ -203,6 +220,9 @@ def _run_case(element, case, outdir: Path) -> dict:
         "kmin": case.get("kmin"),
         "kmax": case.get("kmax"),
         "rmin": case.get("rmin"),
+        "e0_method": case.get("e0_method", "derivative"),
+        "manual_e0": case.get("manual_e0"),
+        "fit_shells": case.get("fit_shells", 1),
         "note": case.get("note", ""),
     }
     if not src.is_file():
@@ -218,7 +238,8 @@ def _run_case(element, case, outdir: Path) -> dict:
         used, prov = _prepare_standard(case, element, outdir)
         attempt["provenance"] = prov
         kw = {}
-        for key in ("kmin", "kmax", "rmin"):
+        for key in ("kmin", "kmax", "rmin", "e0_method", "manual_e0",
+                    "fit_shells"):
             if case.get(key) is not None:
                 kw[key] = case[key]
         result = calibrate_s02.calibrate_s02(
@@ -258,6 +279,8 @@ def _compact_attempt(attempt: dict) -> dict:
         "strict": attempt.get("strict"),
         "kmin": attempt.get("kmin"), "kmax": attempt.get("kmax"),
         "rmin": attempt.get("rmin"),
+        "e0_method": attempt.get("e0_method"),
+        "fit_shells": attempt.get("fit_shells"),
         "status": attempt.get("status"),
         "s02": result.get("s02"),
         "s02_err": result.get("s02_err"),
@@ -300,6 +323,7 @@ def _run_element(element, outdir: Path) -> dict:
             "s02", "s02_err", "rf", "spread", "delta_e0", "sigma2",
             "plateau", "k_window", "fixed_CN", "R_first", "runs",
             "checks", "kw_sensitivity", "n_variables", "n_independent",
+            "n_shells", "shell_paths", "e0", "e0_method",
             "motif", "edge", "provenance", "standard", "standard_sha256",
             "motif_file", "motif_file_sha256")})
         payload["result"] = result

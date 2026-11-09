@@ -1,26 +1,26 @@
 # T5 S₀² 标定报告（独立产物）
 
-- 生成时间：2026-11-09T12:18:56
+- 生成时间：2026-11-09T15:07:03
 - 静态表：`absorber.py` **未改动**（#60：12 元素 s02=None）
 - 运行时使用：`run_xafs.py --s02 <值>`
 - 协议：larch 归一化 + 生产等效拟合（N 固定、S₀²/ΔR/σ²/ΔE₀，kw=2，3 窗口鲁棒性）
 
-通过 6 / 12，未通过 6。
+通过 7 / 12，未通过 5。
 
 | 元素 | 状态 | S₀² | err | Rf | spread | motif | 标准谱 | 未通过原因 |
 |------|------|-----|-----|----|--------|-------|--------|------------|
 | Cr | calibrated | 0.6482 | 0.0198 | 0.0074 | 0.0053 | cr2o3_corundum | data\bmm_standards\Data\Cr\Cr-K-Cr2O3.xdi | — |
 | Mn | calibrated | 0.4311 | 0.0313 | 0.0402 | 0.0213 | mno2_rutile | data\bmm_standards\Data\Mn\Mn-Pyrolucite.xdi | — |
 | Zn | calibrated | 0.6071 | 0.0213 | 0.0090 | 0.0070 | zno_wurtzite | data\bmm_standards\Data\Zn\Zn-Zincite.xdi | — |
-| Mo | not_calibrated | — | — | — | — | — | — | 门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok |
+| Mo | calibrated | 0.8322 | 0.0334 | 0.0040 | 0.0017 | mo_bcc | data\bmm_standards\Data\Mo\Mo-K-MolybdenumFoil.xdi | — |
 | Ru | calibrated | 0.7002 | 0.0275 | 0.0154 | 0.0123 | ruo2_rutile | data\bmm_standards\Data\Ru\Ru-K-RuO2.xdi | — |
 | Rh | not_calibrated | — | — | — | — | — | — | 标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格 |
 | Pd | not_calibrated | — | — | — | — | — | — | 标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格 |
 | Ag | calibrated | 0.7513 | 0.0115 | 0.0030 | 0.0141 | ag_fcc_cod_9008459 | _standards_lib\Ag\Ag_metal_foil.dat | — |
 | Ir | not_calibrated | — | — | — | — | — | — | 标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格 |
 | Au | calibrated | 0.8602 | 0.0060 | 0.0003 | 0.0073 | au_fcc | data\bmm_standards\Data\Au\Au-L3-GoldFoil.xdi | — |
-| Ce | not_calibrated | — | — | — | — | — | — | 门禁未通过: window_runs_interior, window_spread_ok |
-| U | not_calibrated | — | — | — | — | — | — | 门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok |
+| Ce | not_calibrated | — | — | — | — | — | — | 门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound |
+| U | not_calibrated | — | — | — | — | — | — | 门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound |
 
 ## 诚实边界
 

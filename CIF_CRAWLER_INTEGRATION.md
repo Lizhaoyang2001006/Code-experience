@@ -14,7 +14,7 @@
 - 17 个 COD motif 入库，结构库共 **43 个 motif**，覆盖 **17/17** 吸收元素；
 - T5 12 条 IIT-Lytle 真实谱全部落盘，**0 个 placeholder**；
 - 旧 ID 迁移完成：`LEGACY_MOTIFS_LEFT 0`、`QUARANTINE_FILES 0`；
-- `regression_test.py` **123 项** + 4 个压力测试全部通过（`run_ci.py --stress` PASS）。
+- `regression_test.py` **124 项** + 4 个压力测试全部通过（`run_ci.py --stress` PASS）。
 
 运行期仍然完全离线：`run_xafs.py` 不导入根爬虫，不读取 `data/cif_crawler_index.json` 取几何，只通过
 `structure_lib.load_library(absorber)` 读取 `_structure_lib`。
@@ -112,9 +112,15 @@ python cif_crawler.py --t5
 - 运行时通过 `run_xafs.py --s02 <值>` 显式覆盖，或对已通过元素用
   `run_xafs.py --s02-from-t5 --identify/--fit` 从独立产物读取（只接受
   `status="calibrated"` 且 `static_absorber_py_unchanged=True`；未通过
-  元素明确拒绝）；通过 6/12（Cr/Mn/Zn/Ru/Ag/Au），Mo/Rh/Pd/Ir/Ce/U
+  元素明确拒绝）；通过 7/12（Cr/Mn/Zn/Mo/Ru/Ag/Au），Rh/Pd/Ir/Ce/U
   记录未通过原因、不强行给值；`s02_source` 溯源串写入 L1/motif 输出与
   `<stem>_meta.json.fit`；
+- Mo 于 P5-B 通过：BMM Mo 箔用 `half_height` E₀（20012.86 eV，平台
+  0.863）+ 双壳 bcc（8×2.725 + 6×3.147 Å，共享 S₀²/ΔE₀、各壳独立
+  ΔR/σ²），S₀²=0.8322±0.0334、Rf=0.0040、窗口极差 0.0017、ΔE₀=−0.73 eV；
+  门禁含新增 `sigma2_not_at_bound`（σ² 压到 1e-4 下界即失败）。
+  Ce 仍不通过：自由 σ² 压界、固定 σ² 无唯一解、加第二壳 Rf=0.127；
+  备选透射谱平台 2.27 属归一化伪迹，严格门禁拒绝；
 - `_standards_lib/` 与 `data/standards_raw/` 因许可未明确不提交；Ag 标定依赖本地 IIT-Lytle 谱，产物记录源文件 SHA256，但不保证无本地标准时可复现。
 
 ## 5. 验收
@@ -122,8 +128,8 @@ python cif_crawler.py --t5
 ### 5.1 回归与压力
 
 ```text
-regression_test.py: 123 tests OK
-run_ci.py --stress: PASS (183.1s)
+regression_test.py: 124 tests OK
+run_ci.py --stress: PASS (202.5s)
   stress_test_co.py   PASS
   stress_test_ni.py   PASS
   stress_test_cu.py   PASS
@@ -179,11 +185,11 @@ python cif_crawler.py --t5
 
 ## 7. 仍然存在的缺口
 
-1. **T5 S₀² 部分标定**：已产出独立标定产物并通过 6/12；Mo/Rh/Pd/Ir/Ce/U 仍缺高质量宽能区标准，未标定元素仍需运行时 `--s02` 才能做正式 CN（已通过元素可用 `--s02-from-t5`）；
+1. **T5 S₀² 部分标定**：已产出独立标定产物并通过 7/12；Rh/Pd/Ir 缺足够宽能区标准、Ce 的 CeO₂ 标准 σ² 与 S₀² 强相关（无唯一解）、U 撞界；未标定元素仍需运行时 `--s02` 才能做正式 CN（已通过元素可用 `--s02-from-t5`）；
 2. **常见相仍缺**：FeO、FeOOH、PtO2、Cr2O3、MnO/MnO2/Mn3O4、ZnO、MoO2/MoO3、RuO2、Rh2O3、PdO、Ag2O、IrO2、Au2O3、UO2/U3O8；
 3. **多位点联合模型未自动构建**：当前需显式 `--absorber-site` 或 `absorber_fract`；
 4. **T7/T8 已实现**：`--multi-element` 逐元素并列报告、不推荐 Top-1；`--xanes-cross-check` 只报警告、不改 `cn_reliable`（#120/#121）。
 
 ## 8. 一句话状态
 
-**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 123+4 CI 全部通过；T5 已产出 6/12 独立标定产物（静态表未改），运行期可用 `--s02-from-t5` 溯源，T7 多元素与 T8 联合校验已实现。**
+**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 124+4 CI 全部通过；T5 已产出 7/12 独立标定产物（静态表未改），运行期可用 `--s02-from-t5` 溯源，T7 多元素与 T8 联合校验已实现。**

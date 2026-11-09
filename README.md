@@ -76,7 +76,7 @@ python xafs_report.py
 | `calibrate_s02.py` | 标定 S₀²（金属箔/氧化物标样，生产等效协议；`--motif-file` 用标定专用结构） |
 | `calibrate_t5.py` | T5 批量标定 12 元素，产物落 `data/s02_calibration/`（不改静态表） |
 | `absorber.py` | 吸收元素配置表（边能量/S₀²/kmax），元素泛化唯一入口 |
-| `regression_test.py` | 123 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源） |
+| `regression_test.py` | 124 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝） |
 | `run_ci.py` | 跨平台 CI：编译 + 契约回归 + 可选压力测试，输出 ci_report.json/md |
 | `stress_test_{co,ni,cu,nio}.py` | 元素泛化/护栏/CN 回收压力测试 |
 | `xafs_config.py` | 配置文件支持（.yaml/.json）、批处理入口（--batch-dir） |
@@ -105,21 +105,24 @@ python xafs_report.py
 `calibration.json`、`REPORT.md`）。**不写 `absorber.py`**——#60 要求
 静态表中这 12 个元素保持 `s02=None`/`calibrated=False`；运行时用
 `run_xafs.py --s02 <值>` 显式覆盖，或对已通过元素用
-`run_xafs.py --s02-from-t5 --fit` 读取独立产物（见下文 P5-A）。
+`run_xafs.py --s02-from-t5 --fit` 读取独立产物（见下文 P5-A/P5-B）。
 
 | 元素 | S₀² | 标样 / motif | Rf | 窗口极差 |
 |------|------|--------------|----|----------|
 | Cr | 0.6482 | BMM Cr₂O₃ / `cr2o3_corundum` | 0.0074 | 0.0053 |
 | Mn | 0.4311 | BMM Pyrolusite / `mno2_rutile` | 0.0402 | 0.0213 |
 | Zn | 0.6071 | BMM Zincite / `zno_wurtzite` | 0.0090 | 0.0070 |
+| Mo | 0.8322 | BMM Mo foil / `mo_bcc`（双壳 + `half_height` E₀） | 0.0040 | 0.0017 |
 | Ru | 0.7002 | BMM RuO₂（`-xmu` 派生）/ `ruo2_rutile` | 0.0154 | 0.0123 |
 | Ag | 0.7513 | IIT-Lytle Ag foil / `ag_fcc_cod_9008459` | 0.0030 | 0.0141 |
 | Au | 0.8602 | BMM Au foil / `au_fcc` | 0.0003 | 0.0073 |
 
-未通过 6/12（不强行给值）：Mo（四面体标准 s02≈0.38 低于下界、
-Tugarinovite s02_err>0.06、MoS₂ 单窗口、Mo 箔撞上界）、Rh/Pd/Ir
-（IIT-Lytle 谱仅约 170–195 eV above E0，k_max 不足）、Ce
-（rmin=1.6 下前两窗口 ΔE₀>10 eV）、U（α-U 撞下界、Rf 差）。
+未通过 5/12（不强行给值）：Rh/Pd/Ir（IIT-Lytle 谱仅约 170–195 eV
+above E0，k_max 不足）、Ce（自由 σ² 塌到 1e-4 下界；固定 σ² 时
+S₀² 随假设值从 0.54 漂到 0.80；加 Ce–Ce 第二壳 Rf=0.127；备选透射谱
+平台 2.27、属归一化伪迹）、U（α-U 撞下界、Rf 差）。Mo 已在 P5-B
+通过：双壳 bcc（8×2.725 + 6×3.147 Å）+ `half_height` E₀，
+S₀²=0.8322，门禁 5/5；详见下文 P5-B。
 `_standards_lib/` 与 `data/standards_raw/` 因 IIT-Lytle 许可未明确
 **不提交**；Ag 的标定依赖本地标准，产物记录源文件 SHA256，但不保证
 在无本地标准的机器上可复现。
@@ -715,6 +718,41 @@ Cr₂O₃ 真实谱冒烟：`fit.s02=0.6482`，`s02_source` 以
 `s02_calibration:` 开头；L1 `N=6.34±0.21`、`R=1.975 Å`、`Rf=0.0216`。
 契约 #122 锁定产物完整性与 `--only` 增量合并，#123 锁定加载器与
 来源优先级。
+
+### P5-B Mo 双壳 bcc 与 Ce 物理排查（2026-11-09）
+**Mo：已通过。** BMM Mo 箔的导数峰 20018.8 eV 落在近边肩峰上，
+归一化平台 0.842（低于 0.85）；改用半高点 E₀=20012.86 eV 后平台
+0.863。bcc Mo 第一壳 8×2.725 Å 与第二壳 6×3.147 Å 同属 Mo–Mo，
+单壳模型把第二壳尾巴折进第一壳振幅（S₀² 撞 1.3 上界）；双壳模型
+共享 S₀²/ΔE₀、各壳独立 ΔR/σ²，得到：
+
+| 指标 | 值 |
+|------|-----|
+| S₀² | 0.8322 ± 0.0334 |
+| Rf | 0.0040 |
+| 窗口极差 | 0.0017 |
+| ΔE₀ | −0.73 eV |
+| n_variables / N_idp | 6 / 6.88 |
+
+三个窗口全部 `interior`，门禁 5/5（含新增 `sigma2_not_at_bound`）。
+`python calibrate_t5.py --only Mo` 重跑，产物 `data/s02_calibration/Mo/calibration.json`；
+运行期需同时指定 E₀ 方法：
+`run_xafs.py <Mo 谱> --absorber Mo --e0-method half_height --s02-from-t5 --fit`
+（不带 `--e0-method half_height` 时导数 E₀ 会让平台落回 0.842，被严格归一化
+门禁拒绝——这是物理门禁，不是缺陷）。
+
+**Ce：仍未通过，不放宽门禁。** 唯一可用的 CeO₂ 荧光谱在导数 E₀ 下
+ΔE₀=9.8–10.2 eV，贴 `E0_MAX=10`；`half_height` 把 ΔE₀ 推到
+12.9–13.5 eV。自由 σ² 在窄窗内塌到 1e-4 下界（`sigma2_at_bound`），
+S₀²=0.46 与这个非物理 σ² 绑定；固定 σ² 时 S₀² 随假设值从 0.54
+单调漂到 0.80，无唯一解；加入 Ce–Ce 3.82 Å 第二壳后 Rf=0.127
+（超 0.12）、ΔR 撞界。备选 `Ce-L3-CeriumDioxide.xdi` 是透射谱，
+边步被背景淹没（归一化平台 2.27），数值上虽可通过宽松拟合，但属于
+归一化伪迹，严格门禁必须拒绝。以上均记录在 `Ce/calibration.json`
+的 `attempts` 中，静态表仍 `s02=None`。
+
+新增门禁 `sigma2_not_at_bound`：任一窗口 σ² 压到 1e-4 下界即判失败。
+这是更严格的物理约束，不放松任何原有阈值；契约 #124 锁定。
 
 ### B19-1 原位序列 EXAFS 联合精修
 `xafs_fit.run_operando_exafs_series(results, absorber_symbol, motif=None,
