@@ -66,6 +66,7 @@ import xafs_io          # noqa: E402
 import xafs_lcf         # noqa: E402
 import xafs_pipeline    # noqa: E402
 import xafs_provenance  # noqa: E402
+import xafs_figure_pack  # noqa: E402
 import xafs_window_tuner  # noqa: E402
 import structure_id     # noqa: E402
 from absorber import get_absorber    # noqa: E402
@@ -1493,6 +1494,13 @@ def main(argv=None):
                         help="不生成交互式 k 窗口 HTML（<stem>_window_tuner.html）")
     parser.add_argument("--no-html", action="store_true",
                         help="不生成单文件 HTML 报告（默认生成 <stem>_report.html）")
+    parser.add_argument("--figure-pack", action="store_true",
+                        help="P6.5 生成催化剂结构总图包：Figure1 结构总图 + "
+                             "Figure2 置信/过程仪表盘 + 逐面板 CSV")
+    parser.add_argument("--figure-formats", default="png",
+                        help="图包格式，逗号分隔（默认 png；可 png,pdf）")
+    parser.add_argument("--figure-dpi", type=int, default=300,
+                        help="图包 DPI（默认 300）")
     parser.add_argument("--demo", action="store_true",
                         help="运行内置 lepidocrocite + Fe 箔演示")
     parser.add_argument("--config", default=None,
@@ -1870,6 +1878,9 @@ def main(argv=None):
         for key, path in made.items():
             print(f"  → {path}")
         print(f"  → {html_path}")
+        if args.figure_pack:
+            print("  ⚠ --figure-pack 暂不支持 operando；"
+                  "请对 scan_XX 目录单独运行 xafs_figure_pack.py")
         return
 
     stem = args.stem or Path(args.files[0]).stem
@@ -2320,6 +2331,16 @@ def main(argv=None):
             fit_out=fout, diagnostics_dir=diagnostics_dir,
             extra_images=extra_images, tuner_path=tuner_path)
         print(f"  → {html_path}")
+
+    if args.figure_pack:
+        formats = tuple(x.strip() for x in args.figure_formats.split(",")
+                        if x.strip()) or ("png",)
+        try:
+            xafs_figure_pack.build_pack(
+                out, stem=stem, formats=formats, dpi=args.figure_dpi,
+                verbose=True)
+        except Exception as exc:  # noqa: BLE001 - 图包失败不应毁掉已落盘结果
+            print(f"  ⚠ 图包生成失败：{exc}")
 
     print(f"\n输出目录 {out}:")
     for f in sorted(out.glob(f"{stem}*")):

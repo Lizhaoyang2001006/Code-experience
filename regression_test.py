@@ -6297,6 +6297,353 @@ O1 O 0 0 0 0.5
             self.assertIn(flag, buf.getvalue(),
                           f"{module.__name__} 缺少 {flag}")
 
+    def test_p6_5_figure_pack(self):
+        """#133 P6.5：催化剂结构图包、逐面板 CSV、表格图与两个入口开关。"""
+        import contextlib
+        import csv as _csv
+        import io
+        from unittest.mock import patch
+
+        import run_xafs
+        import xafs_figure_pack
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            xanes_rows = []
+            for i in range(40):
+                energy = 7100.0 + i * 2.0
+                mu = 0.001 * (i + 1)
+                xanes_rows.append((energy, mu, 0.0, mu, mu))
+            with (out / "fe_xanes.csv").open(
+                    "w", encoding="utf-8", newline="") as fh:
+                w = _csv.writer(fh)
+                w.writerow(["energy_eV", "mu", "pre_edge_line",
+                            "mu_norm", "mu_flat"])
+                w.writerows(xanes_rows)
+            with (out / "fe_chik.csv").open(
+                    "w", encoding="utf-8", newline="") as fh:
+                w = _csv.writer(fh)
+                w.writerow(["k_inv_A", "chi", "k2chi"])
+                for i in range(1, 21):
+                    kk = 0.5 * i
+                    w.writerow([f"{kk:.4f}", "0.12", f"{0.12 * kk * kk:.6g}"])
+            with (out / "fe_chir.csv").open(
+                    "w", encoding="utf-8", newline="") as fh:
+                w = _csv.writer(fh)
+                w.writerow(["R_A", "chi_R_re", "chi_R_im", "magnitude"])
+                for i in range(30):
+                    rr = 0.1 * i
+                    mag = (math.exp(-((rr - 2.0) / 0.30) ** 2) +
+                           0.6 * math.exp(-((rr - 2.85) / 0.25) ** 2))
+                    w.writerow([f"{rr:.4f}", f"{0.8 * mag:.6g}",
+                                f"{0.6 * mag:.6g}", f"{mag:.6g}"])
+            with (out / "fe_wavelet.csv").open(
+                    "w", encoding="utf-8", newline="") as fh:
+                w = _csv.writer(fh)
+                w.writerow(["k\\R", "0.0", "0.5", "1.0", "1.5", "2.0"])
+                for i in range(6):
+                    kk = 3.0 + i
+                    w.writerow([f"{kk:.2f}"] +
+                               [f"{0.1 + 0.01 * j:.4f}" for j in range(5)])
+            with (out / "fe_chiq.csv").open(
+                    "w", encoding="utf-8", newline="") as fh:
+                w = _csv.writer(fh)
+                w.writerow(["q_inv_A", "chiq_re", "chiq_im", "chiq_mag"])
+                for i in range(20):
+                    qq = 0.2 * i
+                    w.writerow([f"{qq:.3f}", "0.01", "0.02", "0.0224"])
+            with (out / "cn_table.csv").open(
+                    "w", encoding="utf-8", newline="") as fh:
+                w = _csv.writer(fh)
+                w.writerow(["phase_id", "model_level", "absorber_site",
+                            "shell_group", "shell_label", "n0", "n_fit",
+                            "n_err_formal", "n_ratio", "r_cif", "delta_r",
+                            "sigma2", "rf", "gate_status", "n_status",
+                            "reject_reason"])
+                w.writerow(["fe_bcc", "crystal", "Fe1", "first", "Fe-O",
+                            "6", "5.8", "0.3", "0.9667", "2.00", "0.02",
+                            "0.004", "0.02", "passed", "ok", ""])
+                w.writerow(["fe_bcc", "crystal", "Fe1", "second", "Fe-Fe",
+                            "8", "7.5", "0.8", "0.9375", "2.84", "0.01",
+                            "0.006", "0.02", "passed", "ok", ""])
+            meta = {
+                "absorber": "Fe",
+                "e0": {"e0_sample": 7112.0},
+                "source": {
+                    "path": "fe.060", "mode": "trans",
+                    "format_detected": "XDAC", "n_points": 40,
+                    "n_scans": 1, "scan_rms": 0.0,
+                    "repeatability_note": "单扫描，无法评估重复性",
+                    "merge_info": {
+                        "n_input": 1, "n_kept": 1,
+                        "rejected_indices": [], "z_threshold": 3.5,
+                        "reject_outliers": False}},
+                "normalization": {
+                    "edge_step": 3.0, "plateau": 0.98,
+                    "plateau_ok": True, "strict": False},
+                "rbkg": {
+                    "selected": 0.8, "confidence": "medium",
+                    "table": [
+                        {"rbkg": 0.7, "r1": 2.0, "amplitude": 4.0,
+                         "leakage": 0.30, "ratio": 0.08, "score": 0.90,
+                         "veto": False},
+                        {"rbkg": 0.8, "r1": 2.0, "amplitude": 4.1,
+                         "leakage": 0.10, "ratio": 0.02, "score": 0.975,
+                         "veto": False, "confidence": "medium",
+                         "confidence_metrics": {"valid_fraction": 1.0,
+                                                "roughness": 0.004,
+                                                "margin": 0.0}},
+                        {"rbkg": 0.9, "r1": 2.0, "amplitude": 4.1,
+                         "leakage": 0.11, "ratio": 0.02, "score": 0.977,
+                         "veto": False},
+                    ]},
+                "params": {
+                    "effective": {"kmin": 3.0, "kmax": 12.0, "s02": 0.8,
+                                  "phase_id": "fe_bcc", "fit": True,
+                                  "identify": True},
+                    "sources": {"kmin": "cli", "kmax": "default",
+                                "s02": "calibrated"},
+                    "stages": {"kmin": "S4", "kmax": "S4", "s02": "S7"},
+                    "units": {"kmin": "Å^-1", "kmax": "Å^-1"},
+                    "affects_formal_cn": ["kmin", "kmax", "s02"],
+                },
+                "gates": {
+                    "normalization": {
+                        "status": "passed", "threshold": [0.85, 1.15],
+                        "observed": 1.0, "action": "none"},
+                    "self_absorption": {
+                        "status": "passed",
+                        "observed": {"mode": "trans", "risk": "none",
+                                     "corrected": False},
+                        "action": "none"},
+                    "structure_id": {
+                        "status": "passed",
+                        "observed": {"status": "confident",
+                                     "best_id": "fe_bcc",
+                                     "best_score": 0.05,
+                                     "coverage_ok": True},
+                        "action": "none"},
+                    "fit": {
+                        "status": "passed",
+                        "observed": {"mode": "motif", "r_factor": 0.02,
+                                     "delta_e0": 1.0,
+                                     "cn_reliable": True},
+                        "action": "none"},
+                    "formal_cn": {
+                        "status": "passed",
+                        "observed": {"formal_status": "passed",
+                                     "n_ratio": 0.9667,
+                                     "conditional_rf": 0.02},
+                        "action": "none"},
+                    "summary": {"passed": ["normalization", "fit"],
+                                "warned": ["structure_id"],
+                                "failed": [], "not_applicable": []},
+                },
+                "decisions": [
+                    {"step": "S1", "decision": "read", "status": "passed",
+                     "detail": "1 scan"},
+                    {"step": "S7", "decision": "fit", "status": "passed",
+                     "detail": "motif fit converged"},
+                ],
+                "formal_cn": {
+                    "status": "passed",
+                    "model": {"model_id": "fe_bcc",
+                              "model_level": "crystal",
+                              "source_type": "verified_source_cif",
+                              "absorber_site": "Fe1",
+                              "source_cif_sha256": "abc123",
+                              "n0_shells": [
+                                  {"el": "O", "r": 2.0, "n": 6, "n0": 6.0,
+                                   "n0_members": [{"el": "O", "r": 2.0}]},
+                                  {"el": "Fe", "r": 2.85, "n": 8, "n0": 8.0,
+                                   "n0_members": [{"el": "Fe", "r": 2.85}],
+                                   "sub_rayleigh_grouped": True},
+                              ]},
+                },
+                "fit": {"kmin": 3.0, "kmax": 12.0, "r_factor": 0.02,
+                        "delta_e0": 1.0, "cn_reliable": True,
+                        "cn_status": "ok"},
+                "ft": {"kmin": 3.0, "kmax": 12.0, "r_first_peak": 2.2},
+                "wt": {"r_peak": 2.2, "k_peak": 8.0, "sigma": 1.5},
+            }
+            (out / "fe_meta.json").write_text(
+                json.dumps(meta), encoding="utf-8")
+            fit = {
+                "mode": "motif", "status": "confident",
+                "cn_status": "ok", "cn_reliable": True,
+                "rmin": 1.0, "rmax": 3.0, "fit_space": "r",
+                "s02": 0.8, "s02_source": "calibrated",
+                "shells": [{"label": "Fe-O", "degen": 6, "reff": 2.0},
+                           {"label": "Fe-Fe", "degen": 8, "reff": 2.84}],
+                "flags": {
+                    "overfit": False, "sigma2_at_bound": False,
+                    "c3_at_bound": False, "c4_at_bound": False,
+                    "weight_at_bound": False,
+                    "weight_degenerate": False,
+                    "sub_rayleigh_z_degeneracy": False,
+                    "c3_dropped_by_nidp": False,
+                    "c4_dropped_by_nidp": False},
+                "self_absorption": {
+                    "mode": "trans", "risk": "none", "corrected": False,
+                    "cn_gate": False, "note": "非荧光模式"},
+                "resolution_check": {
+                    "resolvable": True, "delta_k": 9.0,
+                    "rayleigh_limit_A": 0.175,
+                    "recommendation": "可独立拟合"},
+                "cn_systematics": {
+                    "relative_1sigma": 0.3162,
+                    "components": {"S02_transfer": 0.15,
+                                   "shell_merge": 0.25,
+                                   "correlation": 0.15,
+                                   "normalization": 0.1},
+                    "extra_components": {"parameter_correlation": 0.1},
+                    "note": "系统误差按平方和合成"},
+                "conditional_cn": {
+                    "n_ratio": 0.9667, "n_status": "ok",
+                    "consistency_passed": True,
+                    "fixed_n_paths": [
+                        {"label": "Fe-O", "reff": 2.0, "N": 6.0,
+                         "delta_r": 0.02, "sigma2": 0.004},
+                        {"label": "Fe-Fe", "reff": 2.84, "N": 8.0,
+                         "delta_r": 0.01, "sigma2": 0.006}],
+                    "conditional_n_paths": [
+                        {"label": "Fe-O", "reff": 2.0, "N": 5.8,
+                         "N_err": 0.3, "delta_r": 0.02, "sigma2": 0.004},
+                        {"label": "Fe-Fe", "reff": 2.84, "N": 7.5,
+                         "N_err": 0.8, "delta_r": 0.01, "sigma2": 0.006}],
+                    "free_n_paths": [
+                        {"label": "Fe-O", "reff": 2.0, "N": 5.8,
+                         "N_err": 0.3, "delta_r": 0.02, "sigma2": 0.004},
+                        {"label": "Fe-Fe", "reff": 2.84, "N": 7.5,
+                         "N_err": 0.8, "delta_r": 0.01, "sigma2": 0.006}],
+                    "fixed_n_fit": {"r_factor": 0.05, "n_variables": 5,
+                                    "n_independent": 9.0, "delta_e0": 1.0,
+                                    "overfit": False},
+                    "conditional_n_fit": {"r_factor": 0.02,
+                                          "n_variables": 7,
+                                          "n_independent": 9.0,
+                                          "delta_e0": 0.5,
+                                          "overfit": False},
+                    "free_n_fit": {"r_factor": 0.02, "n_variables": 9,
+                                   "n_independent": 9.0,
+                                   "delta_e0": 0.5, "overfit": False},
+                    "hamilton_f_test": {"F": 1.5, "p_value": 0.2,
+                                        "significant": False},
+                },
+                "fit": {
+                    "r_factor": 0.02, "delta_e0": 0.5,
+                    "delta_e0_err": 1.0, "n_independent": 9.0,
+                    "n_variables": 5, "overfit": False,
+                    "kmin": 3.0, "kmax": 12.0, "rmin": 1.0, "rmax": 3.0,
+                    "kweights": [2], "s02": 0.8,
+                    "chi_square": 10.0, "reduced_chi_square": 2.0,
+                    "epsilon_r": 0.01,
+                    "parameter_names": ["Fe-O:N", "Fe-O:ΔR", "Fe-O:σ²",
+                                        "Fe-Fe:N", "Fe-Fe:ΔR"],
+                    "correlation": [[1.0, 0.2, 0.3, 0.4, 0.1],
+                                    [0.2, 1.0, -0.5, 0.2, 0.3],
+                                    [0.3, -0.5, 1.0, 0.6, 0.4],
+                                    [0.4, 0.2, 0.6, 1.0, 0.8],
+                                    [0.1, 0.3, 0.4, 0.8, 1.0]],
+                    "paths": [
+                        {"label": "Fe-O", "N": 5.8, "N_err": 0.3,
+                         "R": 2.02, "R_err": 0.01, "sigma2": 0.004,
+                         "sigma2_err": 0.001, "reff": 2.0},
+                        {"label": "Fe-Fe", "N": 7.5, "N_err": 0.8,
+                         "R": 2.85, "R_err": 0.01, "sigma2": 0.006,
+                         "sigma2_err": 0.002, "reff": 2.84},
+                    ],
+                },
+            }
+            (out / "fe_fit.json").write_text(
+                json.dumps(fit), encoding="utf-8")
+            structure = {
+                "ranked": [
+                    {"id": "fe_bcc", "kind": "crystal", "score": 0.05,
+                     "sigma2": 0.004, "de0": 1.0},
+                    {"id": "fe_fcc", "kind": "crystal", "score": 0.12,
+                     "sigma2": 0.005, "de0": 2.0},
+                ],
+                "status": "confident", "coverage_ok": True,
+                "confidence": {"best_score": 0.05, "second_score": 0.12,
+                               "margin": 0.07, "score_limit": 0.16,
+                               "margin_limit": 0.03},
+            }
+            (out / "fe_structure_id.json").write_text(
+                json.dumps(structure), encoding="utf-8")
+
+            manifest = xafs_figure_pack.build_pack(
+                out, stem="fe", formats=("png",), dpi=72, verbose=False)
+            figures = out / "figures"
+
+            for name in ("Figure1_master.png", "Figure2_confidence.png",
+                         "Figure3_diagnostics.png", "Figure4_features.png",
+                         "Figure1a_xanes.csv", "Figure2d_gate_table.png",
+                         "Figure2h_fit_table.png", "Figure3a_fitcorr.csv",
+                         "Figure3d_rbkg.png", "Figure4a_derivative.csv",
+                         "Figure4d_cif_shells.png", "figure_manifest.json",
+                         "figure_pack.md", "data/summary.json",
+                         "data/panel_index.csv", "data/all_fit_paths.csv",
+                         "data/fit_variants.csv",
+                         "data/fit_correlation.csv",
+                         "data/cif_shells.csv"):
+                self.assertTrue((figures / name).is_file(),
+                                f"缺少图包文件 {name}")
+
+            on_disk = json.loads(
+                (figures / "figure_manifest.json").read_text(
+                    encoding="utf-8"))
+            self.assertEqual(len(on_disk["panels"]), 30)
+            self.assertTrue(all(p["status"] == "ok"
+                                for p in on_disk["panels"]),
+                            on_disk["notes"])
+            by_label = {p["label"]: p for p in on_disk["panels"]}
+            self.assertEqual(by_label["Figure 1(a)"]["csv"],
+                             "Figure1a_xanes.csv")
+            self.assertEqual(by_label["Table S1"]["image"],
+                             "Figure2g_cn_table.png")
+            self.assertEqual(by_label["Figure 3(a)"]["csv"],
+                             "Figure3a_fitcorr.csv")
+            for panel in on_disk["panels"]:
+                self.assertIsNotNone(panel["image"], panel["label"])
+                self.assertIsNotNone(panel["csv"], panel["label"])
+                self.assertTrue((figures / panel["csv"]).is_file(),
+                                f"{panel['label']} CSV 缺失")
+
+            for key in ("Figure1", "Figure2", "Figure3", "Figure4"):
+                self.assertIn(key, on_disk["masters"])
+            self.assertGreaterEqual(len(on_disk["data_files"]), 10)
+
+            summary = json.loads(
+                (figures / "data" / "summary.json").read_text(
+                    encoding="utf-8"))
+            self.assertEqual(summary["sample"], "fe")
+            self.assertEqual(summary["fit"]["r_factor"], 0.02)
+            self.assertGreaterEqual(summary["counts"]["fit_paths"], 2)
+            self.assertGreaterEqual(summary["counts"]["cif_shells"], 2)
+
+            header = (figures / "Figure2h_fit_table.csv").read_text(
+                encoding="utf-8").splitlines()[0]
+            for col in ("shell", "n", "n_err", "n0", "r", "sigma2"):
+                self.assertIn(col, header)
+            header = (figures / "Figure4c_ft_peaks.csv").read_text(
+                encoding="utf-8").splitlines()[0]
+            for col in ("rank", "r_A", "amplitude", "assignment"):
+                self.assertIn(col, header)
+
+        # 两个入口都暴露 --figure-pack；独立 CLI 也暴露 --formats
+        for module, flag in ((run_xafs, "--figure-pack"),
+                             (xafs_report, "--figure-pack"),
+                             (xafs_figure_pack, "--formats")):
+            buf = io.StringIO()
+            with patch.object(sys, "argv", ["prog", "--help"]), \
+                    contextlib.redirect_stdout(buf), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit):
+                    module.main()
+            self.assertIn(flag, buf.getvalue(),
+                          f"{module.__name__} 缺少 {flag}")
+
     def test_p6_2_edge_entry_alignments(self):
         """#130 P6.2：frac:(x,y,z) 吸收位、P1b/P5 配置键镜像、XDI 自动元素回退与 report 异常分支。"""
         import json

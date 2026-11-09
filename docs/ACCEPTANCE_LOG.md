@@ -1436,3 +1436,70 @@ crawler 入库后按同一三扫描命令重跑，上述 r_factor/N/R 与 fit_ta
 - [x] 通过
 - 物理门禁、`absorber.py` 静态表（12 元素 `s02=None, calibrated=False`）、
   `calibrate_s02.py` 常量、44 条 phase pack 均未改动。
+
+
+## 14. P6.5：催化剂结构图包与自包含数据包（2026-11-09）
+
+### 14.1 范围
+
+- 新增 `xafs_figure_pack.py`：只读 `run_xafs.py` / `xafs_report.py` 已落盘
+  的输出，不重新拟合、不改 `cn_table.csv` / `fit.json` / `_meta.json` 或
+  任何拒签逻辑；旧绘图代码保留不删。
+- Figure 1（a–h）：XANES、χ(k)、FT、小波、拟合壳层、结构识别、正式 CN
+  门禁、结构卡片；一张图解释“这个催化剂是什么结构、拟合到了什么、
+  CN 是否过门禁”。
+- Figure 2（a–f）：门禁状态板、决策轨迹、参数来源、门禁表、决策表、
+  关键参数表；把 P6.4 台账直接变成可读图。
+- Figure 3（a–h）：参数相关矩阵、路径 N–R、CN 系统误差预算、Rbkg 寻优、
+  归一化分解、拟合窗口与设置、稳定性检查、扫描/数据质量。
+- Figure 4（a–f）：dμ/dE、q 空间、FT 峰识别、CIF 配位壳层、特征总表、
+  输入文件清单（行数/大小/SHA256 前缀）。
+- Table S1/S2 直接出图（`Figure2g_cn_table.png` / `Figure2h_fit_table.png`）。
+- 每个面板同名 `.csv` 保存实际绘图数据；缺失数据写 `status=skipped`，
+  不伪造。
+- `figures/data/` 自包含数据包：`meta.json`、`fit.json`、
+  `structure_id.json`、`cn_table.csv`、`fit_table.csv` 源副本，以及
+  `all_fit_paths.csv`、`fit_variants.csv`、`all_parameters.csv`、
+  `fit_correlation.csv`、`cif_shells.csv`、`structure_candidates.csv`、
+  `gate_checks.csv`、`decisions.csv`、`panel_index.csv`、`summary.json`、
+  `README.md`（逐文件说明）。
+- `figure_manifest.json` 记录“面板 ↔ 图 ↔ CSV ↔ 源文件 ↔ 图注”；
+  `figure_pack.md` 为人可读索引。
+- 两个入口新增 `--figure-pack` / `--figure-formats` / `--figure-dpi`；
+  `--operando` 明确不支持单结构总图，需对 `scan_XX` 单独运行图包。
+- 契约 `#133` 锁定 30 面板、逐面板 CSV、表格图、数据包与两个入口开关。
+
+### 14.2 结果
+
+- RuO2（`COD:9007541`，`--s02-from-t5`）：30 面板；28 个面板 CSV；
+  Figure 3(a) 因 L1 拟合无相关矩阵跳过、Figure 3(d) 因该输出无
+  `meta.rbkg.table` 跳过；`figures/data/` 15 个文件（含 `README.md`）。
+- Fe 箔 `run_xafs --figure-pack`：30 面板；27 个面板 CSV；
+  Figure 1(g)（无正式 CN）、Figure 4(b)（无 q 空间）、Table S1
+  （无 `cn_table.csv`）跳过；`figures/data/` 14 个文件。
+- Fe 箔 `xafs_report.py --fit-motif fe_bcc --figure-pack`：30 面板；
+  27 个面板 CSV；Figure 1(g)（无正式 CN）、Figure 3(d)（无 Rbkg 表）、
+  Table S1（无 `cn_table.csv`）跳过；`figures/data/` 15 个文件；
+  含 q 空间与参数相关矩阵；报告入口 `--figure-pack` exit 0。
+- 图包不改变任何物理判定、`cn_table.csv` 列、拒签逻辑或门禁常量。
+
+### 14.3 测试
+
+- `regression_test.py`：**133 项 OK**（207.6 s；契约 `#133` 独立运行
+  19.8–22.0 s）；
+- `run_ci.py --stress`：133 契约 + 4 压力 PASS（CI PASS，237.5 s）。
+
+### 14.4 提交与补丁
+
+- 提交：`P6.5: add catalyst structure figure pack with per-panel CSV`
+- 补丁：`patches/P6.5-figure-pack.patch`（`a7d37b8..HEAD`）；
+  P6.4 补丁 `patches/P6.4-output-ledger.patch`（`db6321a..a7d37b8`）；
+  累计补丁 `patches/P6.1-single-site-formal-cn.patch`（`eb01675..HEAD`）。
+- `_standards_lib/`、`data/standards_raw/`、`logs/` 未提交；
+  根目录 `lepidocrocite.cif` 保留。
+
+### 14.5 结论
+
+- [x] 通过
+- 物理门禁、`absorber.py` 静态表（12 元素 `s02=None, calibrated=False`）、
+  `calibrate_s02.py` 常量、44 条 phase pack 均未改动。

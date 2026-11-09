@@ -50,6 +50,7 @@ import xafs_io
 import xafs_lcf
 import xafs_pipeline
 import xafs_provenance
+import xafs_figure_pack
 from xafs_core import XAFSConfigError
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -474,7 +475,10 @@ def process_sample(paths, outdir, align: bool = False,
           offline: bool = False,
           provenance=None,
           print_gates: bool = False,
-          print_params: bool = False):
+          print_params: bool = False,
+          figure_pack: bool = False,
+          figure_formats: tuple[str, ...] = ("png",),
+          figure_dpi: int = 300):
     """
     跑完 S1–S6 并落盘。返回 PipelineResult。
 
@@ -884,6 +888,16 @@ def process_sample(paths, outdir, align: bool = False,
                 print(f"  [B14-2] χ² 等高线：min_chi2={cc['min_chi2']:.3f} "
                       f"→ {cc['png']}")
 
+    # P6.5：催化剂结构总图包（只读已有输出，不改物理结果）。
+    if figure_pack:
+        try:
+            xafs_figure_pack.build_pack(
+                outdir, stem=stem, formats=tuple(figure_formats),
+                dpi=int(figure_dpi), verbose=verbose)
+        except Exception as exc:  # noqa: BLE001 - 图包失败不应毁掉已落盘结果
+            if verbose:
+                print(f"  ⚠ 图包生成失败：{exc}")
+
     return result
 
 
@@ -899,6 +913,13 @@ def main():
                              "--no-strict 降级为警告，供已知厚样/标样使用）")
     parser.add_argument("--diagnostics", action="store_true",
                         help="输出 S1–S6 各阶段诊断图（<outdir>/diagnostics/）")
+    parser.add_argument("--figure-pack", action="store_true",
+                        help="P6.5 生成催化剂结构总图包：Figure1 结构总图 + "
+                             "Figure2 置信/过程仪表盘 + 逐面板 CSV")
+    parser.add_argument("--figure-formats", default="png",
+                        help="图包格式，逗号分隔（默认 png；可 png,pdf）")
+    parser.add_argument("--figure-dpi", type=int, default=300,
+                        help="图包 DPI（默认 300）")
     parser.add_argument("--phase-correct", action="store_true",
                         help="B14-2 相移校正真键长 FT/WT 诊断"
                              "（默认关闭；需 --identify 或 --fit）")
@@ -1082,6 +1103,8 @@ def main():
                         help="T7 逐元素运行时 S₀² 覆盖，如 'Fe=0.803,"
                              "Co=0.7308'（未列出的元素沿用 --s02/静态表）")
     args = parser.parse_args()
+    fig_formats = tuple(x.strip() for x in args.figure_formats.split(",")
+                        if x.strip()) or ("png",)
 
     # ---- 解析 --shared-sigma2（'all' 或 JSON 列表如 '[[0,1],[2]]'）----
     shared_sigma2 = None
@@ -1434,7 +1457,10 @@ def main():
                 phase_pack_path=args.phase_pack,
                 absorber_site=args.absorber_site,
                 offline=args.offline,
-                provenance=prov)
+                provenance=prov,
+                figure_pack=args.figure_pack,
+                figure_formats=fig_formats,
+                figure_dpi=args.figure_dpi)
 
         run_multi_element(
             files, args.outdir, fallback_absorber=args.absorber,
@@ -1445,6 +1471,9 @@ def main():
     if args.operando:
         if args.batch_dir:
             parser.error("--operando 与 --batch-dir 不能同时使用")
+        if args.figure_pack:
+            parser.error("--figure-pack 暂不支持 --operando；"
+                         "请对 scan_XX 目录单独运行 xafs_figure_pack.py")
         if len(files) < 3:
             parser.error("--operando 至少需要 3 个样品文件")
         _incompatible = [name for name, on in (
@@ -1591,7 +1620,10 @@ def main():
                     phase_pack_path=args.phase_pack,
                     absorber_site=args.absorber_site,
                     offline=args.offline,
-                    provenance=prov)
+                    provenance=prov,
+                    figure_pack=args.figure_pack,
+                    figure_formats=fig_formats,
+                    figure_dpi=args.figure_dpi)
             except Exception as exc:  # 批处理：单个失败不中断整批
                 errors.append({"file": fpath, "error": str(exc)})
                 print(f"  ❌ 失败: {exc}")
@@ -1652,7 +1684,10 @@ def main():
         offline=args.offline,
         provenance=prov,
         print_gates=args.print_gates,
-        print_params=args.print_params)
+        print_params=args.print_params,
+        figure_pack=args.figure_pack,
+        figure_formats=fig_formats,
+        figure_dpi=args.figure_dpi)
 
     print("-" * 66)
     for f in sorted(result.outdir.glob(f"{result.stem}*")):

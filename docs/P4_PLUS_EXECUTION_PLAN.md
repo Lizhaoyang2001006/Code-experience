@@ -284,3 +284,28 @@
 - 新增 `docs/CATALYSIS_CAPABILITY_AND_GATES.md`：体系能力矩阵、
   逐输出“对催化剂分析的价值”、指标解读、门禁卡、参数分组与工作流；
 - 契约 `#132` 锁定台账、参数来源、门禁状态与打印开关。
+
+
+## P6.5：催化剂结构图包与数据包（已完成）
+
+- 新增 `xafs_figure_pack.py`：只读 `run_xafs.py` / `xafs_report.py` 输出，
+  不重新拟合、不改 `cn_table.csv` / `fit.json` / `_meta.json` 或任何拒签
+  逻辑；
+- Figure 1（a–h）：XANES、χ(k)、FT、小波、拟合壳层、结构识别、正式 CN
+  门禁、结构卡片；
+- Figure 2（a–f）：门禁状态板、决策轨迹、参数来源、门禁表、决策表、
+  关键参数表；
+- Figure 3（a–h）：参数相关矩阵、路径 N–R、CN 误差预算、Rbkg 寻优、
+  归一化分解、拟合窗口、稳定性检查、扫描/数据质量；
+- Figure 4（a–f）：dμ/dE、q 空间、FT 峰识别、CIF 配位壳层、特征总表、
+  输入文件清单（行数/大小/SHA256）；
+- Table S1/S2 直接出图；每个面板同名 CSV 保存实际绘图数据；
+- `figures/data/` 自包含数据包：源 JSON/CSV 副本、`all_fit_paths.csv`、
+  `all_parameters.csv`、`fit_variants.csv`、`fit_correlation.csv`、
+  `cif_shells.csv`、`structure_candidates.csv`、`gate_checks.csv`、
+  `decisions.csv`、`panel_index.csv`、`summary.json`、`README.md`；
+- `figure_manifest.json` 记录“面板 ↔ 图 ↔ CSV ↔ 源文件 ↔ 图注”，
+  `figure_pack.md` 为人可读索引；缺失数据写 `status=skipped`，不伪造；
+- 两个入口新增 `--figure-pack` / `--figure-formats` / `--figure-dpi`；
+  `--operando` 明确不支持单结构总图；
+- 契约 `#133` 锁定图包文件、逐面板 CSV、表格图、数据包与两个入口开关。

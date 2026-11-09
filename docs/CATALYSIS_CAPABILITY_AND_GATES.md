@@ -1,6 +1,6 @@
 # 催化剂 XAFS 分析：能力、结果、置信门禁与参数台账
 
-> 适用版本：P6.4（HEAD `db6321a` 之后的收尾提交）
+> 适用版本：P6.5（HEAD `a7d37b8` 之后的图包提交）
 > 代码依据：所有阈值均来自当前代码常量，不是文档口径。
 > 配套契约：`regression_test.py` 第 `#132` 项。
 
@@ -55,7 +55,7 @@
 | **正式 CN** | CIF 门禁 → N₀ 分壳 → 固定 N → 条件 N → Hamilton F | N/N₀、条件 Rf、F-test | `cn_table.csv` |
 | **报告** | 汇总 HTML、XANES/EXAFS 图、拟合表、小波、LCF、置信椭圆 | — | `_report.html` 等 |
 
-### 2.1 四个入口
+### 2.1 五个入口
 
 | 入口 | 用途 | 关键限制 |
 |---|---|---|
@@ -64,6 +64,7 @@
 | `run_xafs.py --multi-element` | 多元素各自处理并汇总 | `--phase-id` 为单一值 |
 | `run_xafs.py --operando` | 时间序列逐点 S1–S6 + PCA/MCR-ALS/LCF | 不执行 S6.5/S7 |
 | `xafs_report.py` | 单样品完整报告 | 需要 `--absorber` |
+| `xafs_figure_pack.py` | 对已有输出补 Figure 1–4 图包与数据包 | 只读、不重新拟合；operando 需对 `scan_XX` 单独运行 |
 
 ---
 
@@ -211,7 +212,29 @@
 | `_exafs_evolution.csv/.png` | FT 随时间的演化 | **键长/无序变化**：反应条件下活性位是否重构、是否有金属–金属键生成 | FT 峰位是表观值；关键时间点应做正式拟合 |
 | `operando_meta.json` | 原位序列参数 + PCA/SPOIL/MCR 门禁 | 记录 `n_components`、接受/拒绝的标准谱、MCR Rf；保证原位分析可复现 | 与逐扫描的 `_meta.json` 分开 |
 
-### 4.8 诊断图
+### 4.9 催化剂结构图包（P6.5）
+
+`xafs_figure_pack.py` 只读已有输出，整理为可直接用于论文/组会/审稿回复
+的图包；不重新拟合、不改变 `cn_table.csv`、`fit.json`、`_meta.json` 或
+任何拒签逻辑。
+
+| 输出 | 是什么 | 对催化剂分析的价值 | 注意事项 |
+|---|---|---|---|
+| `figures/Figure1_master.png` | 8 面板结构总图：(a) XANES (b) χ(k) (c) FT (d) 小波 (e) 拟合壳层 (f) 结构识别 (g) 正式 CN 门禁 (h) 结构卡片 | 一张图解释“这个催化剂是什么结构、拟合到了什么、CN 是否过门禁” | 每个面板都有同名 CSV；缺失数据写 `skipped`，不伪造 |
+| `figures/Figure2_confidence.png` | 6 面板置信/过程仪表盘：门禁状态板、决策轨迹、参数来源、门禁表、决策表、关键参数表 | 回答“结果为什么可信/为什么被拒”，把 P6.4 台账直接变成图 | 阈值与 `_meta.json:gates` 一致 |
+| `figures/Figure3_diagnostics.png` | 8 面板拟合与误差诊断：参数相关矩阵、路径 N–R、CN 误差预算、Rbkg 寻优、归一化分解、拟合窗口、稳定性检查、扫描/数据质量 | 证明 N 的不确定度不是拍脑袋；定位 N–σ² 补偿、撞界、自吸收和过拟合 | 相关矩阵来自 `fit.json`；Rbkg 曲线需 `_meta.json:rbkg.table` |
+| `figures/Figure4_features.png` | 6 面板数据特征与输入清单：dμ/dE、q 空间、FT 峰识别、CIF 配位壳层、特征总表、输入文件清单（行数/大小/SHA256） | 补齐“峰在哪、q 空间是否正常、CIF 有哪些壳层、结果基于哪些文件” | 未识别峰提示模型缺壳层或多位点 |
+| `figures/Figure2g_cn_table.png` / `Figure2h_fit_table.png` | Table S1/S2 表格直接出图 | 论文补充材料；无需再用 Excel 排版 | CSV 保留完整列 |
+| `figures/<panel>.csv` | 每个面板实际绘图数据 | 图与数据一一对应，可直接重绘/复查 | 面板 `status=skipped` 时无 CSV |
+| `figures/data/` | 自包含数据包：源 JSON/CSV 副本、`all_fit_paths.csv`、`all_parameters.csv`、`fit_variants.csv`、`fit_correlation.csv`、`cif_shells.csv`、`structure_candidates.csv`、`gate_checks.csv`、`decisions.csv`、`panel_index.csv`、`summary.json`、`README.md` | 后续补图/补表不再回头挖输出目录；审稿回复可直接给长表 | 源副本不替代正式输出 |
+| `figures/figure_manifest.json` | Figure 1(a) ↔ CSV ↔ 源文件 ↔ 图注映射 | 机器可读索引，便于批量排版与追溯 | 记录面板状态与 skip 原因 |
+| `figures/figure_pack.md` | 人可读索引 | 快速定位每个面板解释什么 | 与 manifest 同步生成 |
+
+两个入口均支持 `--figure-pack` / `--figure-formats` / `--figure-dpi`；
+`--operando` 明确不支持单结构总图，需对 `scan_XX` 目录单独运行
+`xafs_figure_pack.py`。
+
+### 4.10 诊断图
 
 | 输出 | 是什么 | 对催化剂分析的价值 |
 |---|---|---|
@@ -579,7 +602,8 @@ gates.structure_id.action=library_miss_l1_fallback
 ## 11. 版本与契约
 
 - 参数/门禁/决策/摘要台账：`xafs_provenance.py`
-- 契约：`regression_test.py` 第 `#132` 项
-- 当前契约基线：132 项（P6.4 收尾后）
+- 催化剂结构图包：`xafs_figure_pack.py`
+- 契约：`regression_test.py` 第 `#132` 项（台账）与 `#133` 项（图包）
+- 当前契约基线：133 项（P6.5 收尾后）
 - 软件版本：`xafs-cn-p4plus`
 - 门禁常量冻结：`absorber.py` 静态 S₀² 表、`calibrate_s02.py` 门禁、44 条 phase pack 均未改动
