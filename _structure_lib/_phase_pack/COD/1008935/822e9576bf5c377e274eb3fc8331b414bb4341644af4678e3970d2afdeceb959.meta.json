@@ -1,0 +1,34 @@
+{
+  "source": "COD",
+  "id": "1008935",
+  "formula": "PtO2",
+  "spacegroup": "P n n m",
+  "cell": {
+    "a": 4.486,
+    "b": 4.537,
+    "c": 3.138,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Pt1"
+  ],
+  "absorber_elements": [
+    "Pt"
+  ],
+  "cif_path": "COD/1008935/822e9576bf5c377e274eb3fc8331b414bb4341644af4678e3970d2afdeceb959.cif",
+  "cif_sha256": "822e9576bf5c377e274eb3fc8331b414bb4341644af4678e3970d2afdeceb959",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "PtO2",
+    "oxide",
+    "platinum_dioxide",
+    "beta",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "PtO2_COD_1008935.cif",
+  "notes": "P5C beta-PtO2; COD:1008935; source_url=https://www.crystallography.net/cod/1008935.cif; COD 无常压 PtO2 结构；采用高压合成 β-PtO2（非环境相）"
+}

@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "2101854",
+  "formula": "IrO2",
+  "spacegroup": "P 42/m n m",
+  "cell": {
+    "a": 4.5051,
+    "b": 4.5051,
+    "c": 3.1586,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Ir"
+  ],
+  "absorber_elements": [
+    "Ir"
+  ],
+  "cif_path": "COD/2101854/a475838a182a5a235458a9d63e59a63d393276ece71f90ae161be03796316a78.cif",
+  "cif_sha256": "a475838a182a5a235458a9d63e59a63d393276ece71f90ae161be03796316a78",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "IrO2",
+    "oxide",
+    "rutile",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "IrO2_COD_2101854.cif",
+  "notes": "P5C rutile; COD:2101854; source_url=https://www.crystallography.net/cod/2101854.cif"
+}

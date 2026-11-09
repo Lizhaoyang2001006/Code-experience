@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "9009081",
+  "formula": "MnO2",
+  "spacegroup": "P 42/m n m",
+  "cell": {
+    "a": 4.396,
+    "b": 4.396,
+    "c": 2.871,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Mn"
+  ],
+  "absorber_elements": [
+    "Mn"
+  ],
+  "cif_path": "COD/9009081/dc13bafe954d0b71916f2400ab6eeb6985ca3e46f850f86d760205cddec791a2.cif",
+  "cif_sha256": "dc13bafe954d0b71916f2400ab6eeb6985ca3e46f850f86d760205cddec791a2",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "MnO2",
+    "oxide",
+    "pyrolusite",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "MnO2_COD_9009081.cif",
+  "notes": "P5C pyrolusite; COD:9009081; source_url=https://www.crystallography.net/cod/9009081.cif"
+}

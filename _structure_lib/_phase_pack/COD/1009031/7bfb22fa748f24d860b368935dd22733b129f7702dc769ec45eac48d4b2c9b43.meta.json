@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "1009031",
+  "formula": "PdO",
+  "spacegroup": "P 42/m m c (a,b+1/2,c)",
+  "cell": {
+    "a": 3.03,
+    "b": 3.03,
+    "c": 5.33,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Pd1"
+  ],
+  "absorber_elements": [
+    "Pd"
+  ],
+  "cif_path": "COD/1009031/7bfb22fa748f24d860b368935dd22733b129f7702dc769ec45eac48d4b2c9b43.cif",
+  "cif_sha256": "7bfb22fa748f24d860b368935dd22733b129f7702dc769ec45eac48d4b2c9b43",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "PdO",
+    "oxide",
+    "palladinite",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "PdO_COD_1009031.cif",
+  "notes": "P5C palladinite; COD:1009031; source_url=https://www.crystallography.net/cod/1009031.cif"
+}

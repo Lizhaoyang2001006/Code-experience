@@ -5,6 +5,73 @@
   "entries": [
     {
       "source": "COD",
+      "id": "1008935",
+      "formula": "PtO2",
+      "spacegroup": "P n n m",
+      "cell": {
+        "a": 4.486,
+        "b": 4.537,
+        "c": 3.138,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Pt1"
+      ],
+      "absorber_elements": [
+        "Pt"
+      ],
+      "cif_path": "COD/1008935/822e9576bf5c377e274eb3fc8331b414bb4341644af4678e3970d2afdeceb959.cif",
+      "cif_sha256": "822e9576bf5c377e274eb3fc8331b414bb4341644af4678e3970d2afdeceb959",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "PtO2",
+        "oxide",
+        "platinum_dioxide",
+        "beta",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "PtO2_COD_1008935.cif",
+      "notes": "P5C beta-PtO2; COD:1008935; source_url=https://www.crystallography.net/cod/1008935.cif; COD 无常压 PtO2 结构；采用高压合成 β-PtO2（非环境相）"
+    },
+    {
+      "source": "COD",
+      "id": "1009031",
+      "formula": "PdO",
+      "spacegroup": "P 42/m m c (a,b+1/2,c)",
+      "cell": {
+        "a": 3.03,
+        "b": 3.03,
+        "c": 5.33,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Pd1"
+      ],
+      "absorber_elements": [
+        "Pd"
+      ],
+      "cif_path": "COD/1009031/7bfb22fa748f24d860b368935dd22733b129f7702dc769ec45eac48d4b2c9b43.cif",
+      "cif_sha256": "7bfb22fa748f24d860b368935dd22733b129f7702dc769ec45eac48d4b2c9b43",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "PdO",
+        "oxide",
+        "palladinite",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "PdO_COD_1009031.cif",
+      "notes": "P5C palladinite; COD:1009031; source_url=https://www.crystallography.net/cod/1009031.cif"
+    },
+    {
+      "source": "COD",
       "id": "1010093",
       "formula": "NiO",
       "spacegroup": "F m -3 m",
@@ -71,6 +138,72 @@
       "added_by": "tools/cif_crawler.py",
       "original_filename": "Fe3O4_COD_1010369.cif",
       "notes": "T3 magnetite; COD:1010369; source_url=https://www.crystallography.net/cod/1010369.cif"
+    },
+    {
+      "source": "COD",
+      "id": "1010486",
+      "formula": "Ag2O",
+      "spacegroup": "P n -3 m :1",
+      "cell": {
+        "a": 4.718,
+        "b": 4.718,
+        "c": 4.718,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Ag1"
+      ],
+      "absorber_elements": [
+        "Ag"
+      ],
+      "cif_path": "COD/1010486/9a8554902dfa6749ff1b04703125eddaae6ccdad9bc51d66d366486abed7341e.cif",
+      "cif_sha256": "9a8554902dfa6749ff1b04703125eddaae6ccdad9bc51d66d366486abed7341e",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Ag2O",
+        "oxide",
+        "cuprite",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Ag2O_COD_1010486.cif",
+      "notes": "P5C cuprite; COD:1010486; source_url=https://www.crystallography.net/cod/1010486.cif"
+    },
+    {
+      "source": "COD",
+      "id": "1010584",
+      "formula": "Rh2O3",
+      "spacegroup": "R -3 c :R",
+      "cell": {
+        "a": 5.45,
+        "b": 5.45,
+        "c": 5.45,
+        "alpha": 55.7,
+        "beta": 55.7,
+        "gamma": 55.7
+      },
+      "absorber_sites": [
+        "Rh1"
+      ],
+      "absorber_elements": [
+        "Rh"
+      ],
+      "cif_path": "COD/1010584/04e3b1d9bb00230064a493550483d0af7d7d302dcf142290536a7f142ddda66b.cif",
+      "cif_sha256": "04e3b1d9bb00230064a493550483d0af7d7d302dcf142290536a7f142ddda66b",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Rh2O3",
+        "oxide",
+        "corundum",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Rh2O3_COD_1010584.cif",
+      "notes": "P5C corundum; COD:1010584; source_url=https://www.crystallography.net/cod/1010584.cif"
     },
     {
       "source": "COD",
@@ -169,6 +302,39 @@
     },
     {
       "source": "COD",
+      "id": "1011169",
+      "formula": "FeO",
+      "spacegroup": "F m -3 m",
+      "cell": {
+        "a": 4.332,
+        "b": 4.332,
+        "c": 4.332,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Fe1"
+      ],
+      "absorber_elements": [
+        "Fe"
+      ],
+      "cif_path": "COD/1011169/cb24b198da6c970ad54f54731a10c59e9bc5c2067257462cb342f41364287ec3.cif",
+      "cif_sha256": "cb24b198da6c970ad54f54731a10c59e9bc5c2067257462cb342f41364287ec3",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "FeO",
+        "oxide",
+        "wuestite",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "FeO_COD_1011169.cif",
+      "notes": "P5C wuestite; COD:1011169; source_url=https://www.crystallography.net/cod/1011169.cif"
+    },
+    {
+      "source": "COD",
       "id": "1011240",
       "formula": "Fe2O3",
       "spacegroup": "R -3 c :R",
@@ -228,6 +394,41 @@
       ],
       "added_by": "tools/import_phase_pack.py",
       "original_filename": "COD-1100108.cif"
+    },
+    {
+      "source": "COD",
+      "id": "1514120",
+      "formula": "Mn3O4",
+      "spacegroup": "I 41/a m d :1",
+      "cell": {
+        "a": 5.763,
+        "b": 5.763,
+        "c": 9.456,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Mn1",
+        "Mn2"
+      ],
+      "absorber_elements": [
+        "Mn"
+      ],
+      "cif_path": "COD/1514120/072a4d12bc73a08261f2dbdee4e81b9e06b44345198b95fc354af9ff78233d4e.cif",
+      "cif_sha256": "072a4d12bc73a08261f2dbdee4e81b9e06b44345198b95fc354af9ff78233d4e",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Mn3O4",
+        "oxide",
+        "hausmannite",
+        "spinel",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Mn3O4_COD_1514120.cif",
+      "notes": "P5C hausmannite; COD:1514120; source_url=https://www.crystallography.net/cod/1514120.cif"
     },
     {
       "source": "COD",
@@ -392,6 +593,106 @@
     },
     {
       "source": "COD",
+      "id": "2101854",
+      "formula": "IrO2",
+      "spacegroup": "P 42/m n m",
+      "cell": {
+        "a": 4.5051,
+        "b": 4.5051,
+        "c": 3.1586,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Ir"
+      ],
+      "absorber_elements": [
+        "Ir"
+      ],
+      "cif_path": "COD/2101854/a475838a182a5a235458a9d63e59a63d393276ece71f90ae161be03796316a78.cif",
+      "cif_sha256": "a475838a182a5a235458a9d63e59a63d393276ece71f90ae161be03796316a78",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "IrO2",
+        "oxide",
+        "rutile",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "IrO2_COD_2101854.cif",
+      "notes": "P5C rutile; COD:2101854; source_url=https://www.crystallography.net/cod/2101854.cif"
+    },
+    {
+      "source": "COD",
+      "id": "2105390",
+      "formula": "Au2O3",
+      "spacegroup": "F d d 2",
+      "cell": {
+        "a": 12.827,
+        "b": 10.52,
+        "c": 3.838,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Au1"
+      ],
+      "absorber_elements": [
+        "Au"
+      ],
+      "cif_path": "COD/2105390/88c501cb3978e34e3386ba7b5d3c77c37c06c8df16094f3082abf5f8100ec084.cif",
+      "cif_sha256": "88c501cb3978e34e3386ba7b5d3c77c37c06c8df16094f3082abf5f8100ec084",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Au2O3",
+        "oxide",
+        "gold_oxide",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Au2O3_COD_2105390.cif",
+      "notes": "P5C gold_oxide; COD:2105390; source_url=https://www.crystallography.net/cod/2105390.cif"
+    },
+    {
+      "source": "COD",
+      "id": "2310519",
+      "formula": "U3O8",
+      "spacegroup": "C 2 2 2",
+      "cell": {
+        "a": 6.704,
+        "b": 11.95,
+        "c": 4.142,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "U1",
+        "U2"
+      ],
+      "absorber_elements": [
+        "U"
+      ],
+      "cif_path": "COD/2310519/409276cea18da25deb97985305b56b493c7ae4a9160f3934b5fa766af1945d31.cif",
+      "cif_sha256": "409276cea18da25deb97985305b56b493c7ae4a9160f3934b5fa766af1945d31",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "U3O8",
+        "oxide",
+        "triuranium_octoxide",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "U3O8_COD_2310519.cif",
+      "notes": "P5C alpha-U3O8; COD:2310519; source_url=https://www.crystallography.net/cod/2310519.cif"
+    },
+    {
+      "source": "COD",
       "id": "4105040",
       "formula": "Cu",
       "spacegroup": "F m -3 m",
@@ -418,6 +719,72 @@
       ],
       "added_by": "tools/import_phase_pack.py",
       "original_filename": "COD-4105040.cif"
+    },
+    {
+      "source": "COD",
+      "id": "9002158",
+      "formula": "FeOOH",
+      "spacegroup": "P n m a",
+      "cell": {
+        "a": 9.9134,
+        "b": 3.0128,
+        "c": 4.58,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Fe"
+      ],
+      "absorber_elements": [
+        "Fe"
+      ],
+      "cif_path": "COD/9002158/6ba7eb0e1891b8337442032c0c999c73c838a600cd0a12c185a9fe09edf0abdc.cif",
+      "cif_sha256": "6ba7eb0e1891b8337442032c0c999c73c838a600cd0a12c185a9fe09edf0abdc",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "FeOOH",
+        "hydroxide",
+        "goethite",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "FeOOH_COD_9002158.cif",
+      "notes": "P5C goethite; COD:9002158; source_url=https://www.crystallography.net/cod/9002158.cif"
+    },
+    {
+      "source": "COD",
+      "id": "9004178",
+      "formula": "ZnO",
+      "spacegroup": "P 63 m c",
+      "cell": {
+        "a": 3.2494,
+        "b": 3.2494,
+        "c": 5.2038,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 120.0
+      },
+      "absorber_sites": [
+        "Zn"
+      ],
+      "absorber_elements": [
+        "Zn"
+      ],
+      "cif_path": "COD/9004178/dbc92c19b101d4fabb5594cc89f2a31629a0e8adab6539edd248c40c585649a1.cif",
+      "cif_sha256": "dbc92c19b101d4fabb5594cc89f2a31629a0e8adab6539edd248c40c585649a1",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "ZnO",
+        "oxide",
+        "zincite",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "ZnO_COD_9004178.cif",
+      "notes": "P5C zincite; COD:9004178; source_url=https://www.crystallography.net/cod/9004178.cif"
     },
     {
       "source": "COD",
@@ -452,6 +819,72 @@
       "added_by": "tools/cif_crawler.py",
       "original_filename": "Co3O4_COD_9005888.cif",
       "notes": "T3 spinel; COD:9005888; source_url=https://www.crystallography.net/cod/9005888.cif"
+    },
+    {
+      "source": "COD",
+      "id": "9006658",
+      "formula": "MnO",
+      "spacegroup": "F m -3 m",
+      "cell": {
+        "a": 4.4459,
+        "b": 4.4459,
+        "c": 4.4459,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Mn"
+      ],
+      "absorber_elements": [
+        "Mn"
+      ],
+      "cif_path": "COD/9006658/96e89281276f4b7abede444c4e08a22bbc63b09e781cf1e279b3acd3e2c99518.cif",
+      "cif_sha256": "96e89281276f4b7abede444c4e08a22bbc63b09e781cf1e279b3acd3e2c99518",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "MnO",
+        "oxide",
+        "manganosite",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "MnO_COD_9006658.cif",
+      "notes": "P5C manganosite; COD:9006658; source_url=https://www.crystallography.net/cod/9006658.cif"
+    },
+    {
+      "source": "COD",
+      "id": "9007541",
+      "formula": "RuO2",
+      "spacegroup": "P 42/m n m",
+      "cell": {
+        "a": 4.4919,
+        "b": 4.4919,
+        "c": 3.1066,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Ru"
+      ],
+      "absorber_elements": [
+        "Ru"
+      ],
+      "cif_path": "COD/9007541/5e8ba6c58302d83f8c3379690114b1788553425e483c1c04e85fe5093e0345ec.cif",
+      "cif_sha256": "5e8ba6c58302d83f8c3379690114b1788553425e483c1c04e85fe5093e0345ec",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "RuO2",
+        "oxide",
+        "rutile",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "RuO2_COD_9007541.cif",
+      "notes": "P5C rutile; COD:9007541; source_url=https://www.crystallography.net/cod/9007541.cif"
     },
     {
       "source": "COD",
@@ -817,6 +1250,138 @@
     },
     {
       "source": "COD",
+      "id": "9009049",
+      "formula": "UO2",
+      "spacegroup": "F m -3 m",
+      "cell": {
+        "a": 5.4682,
+        "b": 5.4682,
+        "c": 5.4682,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "U"
+      ],
+      "absorber_elements": [
+        "U"
+      ],
+      "cif_path": "COD/9009049/d9a769ad693d79f01155c6d218d3b490beff1889f98472b691c45095be8441fe.cif",
+      "cif_sha256": "d9a769ad693d79f01155c6d218d3b490beff1889f98472b691c45095be8441fe",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "UO2",
+        "oxide",
+        "uraninite",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "UO2_COD_9009049.cif",
+      "notes": "P5C uraninite; COD:9009049; source_url=https://www.crystallography.net/cod/9009049.cif"
+    },
+    {
+      "source": "COD",
+      "id": "9009081",
+      "formula": "MnO2",
+      "spacegroup": "P 42/m n m",
+      "cell": {
+        "a": 4.396,
+        "b": 4.396,
+        "c": 2.871,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Mn"
+      ],
+      "absorber_elements": [
+        "Mn"
+      ],
+      "cif_path": "COD/9009081/dc13bafe954d0b71916f2400ab6eeb6985ca3e46f850f86d760205cddec791a2.cif",
+      "cif_sha256": "dc13bafe954d0b71916f2400ab6eeb6985ca3e46f850f86d760205cddec791a2",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "MnO2",
+        "oxide",
+        "pyrolusite",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "MnO2_COD_9009081.cif",
+      "notes": "P5C pyrolusite; COD:9009081; source_url=https://www.crystallography.net/cod/9009081.cif"
+    },
+    {
+      "source": "COD",
+      "id": "9009090",
+      "formula": "MoO2",
+      "spacegroup": "P 1 21/c 1",
+      "cell": {
+        "a": 5.584,
+        "b": 4.842,
+        "c": 5.608,
+        "alpha": 90.0,
+        "beta": 120.983,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Mo"
+      ],
+      "absorber_elements": [
+        "Mo"
+      ],
+      "cif_path": "COD/9009090/38dd59e9f92af428bc7c93d0fc2ac246d294e95251dae05c64062677d76f93c4.cif",
+      "cif_sha256": "38dd59e9f92af428bc7c93d0fc2ac246d294e95251dae05c64062677d76f93c4",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "MoO2",
+        "oxide",
+        "tugarinovite",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "MoO2_COD_9009090.cif",
+      "notes": "P5C tugarinovite; COD:9009090; source_url=https://www.crystallography.net/cod/9009090.cif"
+    },
+    {
+      "source": "COD",
+      "id": "9009669",
+      "formula": "MoO3",
+      "spacegroup": "P b n m",
+      "cell": {
+        "a": 3.9616,
+        "b": 13.856,
+        "c": 3.6978,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Mo"
+      ],
+      "absorber_elements": [
+        "Mo"
+      ],
+      "cif_path": "COD/9009669/1e2e51b1a0e870c762e16872542426bbdbbc5343902948f0427d31d3c2d3b579.cif",
+      "cif_sha256": "1e2e51b1a0e870c762e16872542426bbdbbc5343902948f0427d31d3c2d3b579",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "MoO3",
+        "oxide",
+        "molybdite",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "MoO3_COD_9009669.cif",
+      "notes": "P5C molybdite; COD:9009669; source_url=https://www.crystallography.net/cod/9009669.cif"
+    },
+    {
+      "source": "COD",
       "id": "9010987",
       "formula": "Ce",
       "spacegroup": "F m -3 m",
@@ -847,6 +1412,39 @@
       "added_by": "tools/cif_crawler.py",
       "original_filename": "Ce_COD_9010987.cif",
       "notes": "T4 fcc; COD:9010987; source_url=https://www.crystallography.net/cod/9010987.cif"
+    },
+    {
+      "source": "COD",
+      "id": "9014036",
+      "formula": "Cr2O3",
+      "spacegroup": "R -3 c :H",
+      "cell": {
+        "a": 4.957,
+        "b": 4.957,
+        "c": 13.5923,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 120.0
+      },
+      "absorber_sites": [
+        "Cr"
+      ],
+      "absorber_elements": [
+        "Cr"
+      ],
+      "cif_path": "COD/9014036/41edcf78a02a22eac1c6dc347c810ce1cda0a8ac49e76b0c37d6cdaacad2d2bf.cif",
+      "cif_sha256": "41edcf78a02a22eac1c6dc347c810ce1cda0a8ac49e76b0c37d6cdaacad2d2bf",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Cr2O3",
+        "oxide",
+        "eskolaite",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Cr2O3_COD_9014036.cif",
+      "notes": "P5C eskolaite; COD:9014036; source_url=https://www.crystallography.net/cod/9014036.cif"
     }
   ]
 }

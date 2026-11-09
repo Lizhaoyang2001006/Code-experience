@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "1011169",
+  "formula": "FeO",
+  "spacegroup": "F m -3 m",
+  "cell": {
+    "a": 4.332,
+    "b": 4.332,
+    "c": 4.332,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Fe1"
+  ],
+  "absorber_elements": [
+    "Fe"
+  ],
+  "cif_path": "COD/1011169/cb24b198da6c970ad54f54731a10c59e9bc5c2067257462cb342f41364287ec3.cif",
+  "cif_sha256": "cb24b198da6c970ad54f54731a10c59e9bc5c2067257462cb342f41364287ec3",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "FeO",
+    "oxide",
+    "wuestite",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "FeO_COD_1011169.cif",
+  "notes": "P5C wuestite; COD:1011169; source_url=https://www.crystallography.net/cod/1011169.cif"
+}

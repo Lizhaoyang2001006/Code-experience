@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "9007541",
+  "formula": "RuO2",
+  "spacegroup": "P 42/m n m",
+  "cell": {
+    "a": 4.4919,
+    "b": 4.4919,
+    "c": 3.1066,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Ru"
+  ],
+  "absorber_elements": [
+    "Ru"
+  ],
+  "cif_path": "COD/9007541/5e8ba6c58302d83f8c3379690114b1788553425e483c1c04e85fe5093e0345ec.cif",
+  "cif_sha256": "5e8ba6c58302d83f8c3379690114b1788553425e483c1c04e85fe5093e0345ec",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "RuO2",
+    "oxide",
+    "rutile",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "RuO2_COD_9007541.cif",
+  "notes": "P5C rutile; COD:9007541; source_url=https://www.crystallography.net/cod/9007541.cif"
+}

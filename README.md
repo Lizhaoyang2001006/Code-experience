@@ -76,7 +76,7 @@ python xafs_report.py
 | `calibrate_s02.py` | 标定 S₀²（金属箔/氧化物标样，生产等效协议；`--motif-file` 用标定专用结构） |
 | `calibrate_t5.py` | T5 批量标定 12 元素，产物落 `data/s02_calibration/`（不改静态表） |
 | `absorber.py` | 吸收元素配置表（边能量/S₀²/kmax），元素泛化唯一入口 |
-| `regression_test.py` | 124 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝） |
+| `regression_test.py` | 125 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝、P5-C 18 个常见相 COD 补齐/coverage 无缺口） |
 | `run_ci.py` | 跨平台 CI：编译 + 契约回归 + 可选压力测试，输出 ci_report.json/md |
 | `stress_test_{co,ni,cu,nio}.py` | 元素泛化/护栏/CN 回收压力测试 |
 | `xafs_config.py` | 配置文件支持（.yaml/.json）、批处理入口（--batch-dir） |
@@ -753,6 +753,42 @@ S₀²=0.46 与这个非物理 σ² 绑定；固定 σ² 时 S₀² 随假设值
 
 新增门禁 `sigma2_not_at_bound`：任一窗口 σ² 压到 1e-4 下界即判失败。
 这是更严格的物理约束，不放松任何原有阈值；契约 #124 锁定。
+
+### P5-C 固定 COD ID 补齐常见相（2026-11-09）
+`tools/cif_crawler.py` 新增 `--p5c` 目标组（tier=`P5C`），按固定 COD ID
+补齐 `phase_pack.COMMON_PHASES` 中的 18 个 `missing_common_phases`：
+
+| 元素 | 常见相 | COD ID | 空间群 | 说明 |
+|------|--------|--------|--------|------|
+| Fe | FeO | 1011169 | 225 | wüstite |
+| Fe | FeOOH | 9002158 | 62 | goethite，298 K |
+| Pt | PtO2 | 1008935 | 58 | β-PtO2；COD 无常压结构，已标注高压合成 |
+| Cr | Cr2O3 | 9014036 | 167 | eskolaite，常压 |
+| Mn | MnO | 9006658 | 225 | manganosite，P=0 |
+| Mn | MnO2 | 9009081 | 136 | pyrolusite |
+| Mn | Mn3O4 | 1514120 | 141 | hausmannite（Mn1/Mn2 两位点） |
+| Zn | ZnO | 9004178 | 186 | zincite，293 K |
+| Mo | MoO2 | 9009090 | 14 | tugarinovite |
+| Mo | MoO3 | 9009669 | 62 | molybdite |
+| Ru | RuO2 | 9007541 | 136 | rutile |
+| Rh | Rh2O3 | 1010584 | 167 | corundum |
+| Pd | PdO | 1009031 | 131 | palladinite |
+| Ag | Ag2O | 1010486 | 224 | cuprite |
+| Ir | IrO2 | 2101854 | 136 | rutile |
+| Au | Au2O3 | 2105390 | 43 | gold(III) oxide |
+| U | UO2 | 9009049 | 225 | uraninite |
+| U | U3O8 | 2310519 | 21 | α-U3O8（中子衍射，U1/U2 两位点） |
+
+结果：phase pack 由 26 条增至 **44 条**；`tools/cif_crawler.py` 固定目标
+由 21 个增至 **39 个**；`phase_coverage.json` 的 `missing_common_phases`
+全部为空。18 条全部为实验 `crystal_cif`，每条都通过 gemmi 解析、IT 空间群
+与化学计量核验。高压/高温/DFT 条目显式排除（如 Cr2O3 的 63.9 GPa 条目、
+β-U3O8、高温 U3O8）。Mn3O4 与 U3O8 有多个吸收位点，正式 CN 仍必须显式
+`--absorber-site`，不自动 Top-1。
+
+运行期仍只读 `_structure_lib/_phase_pack/`；`data/cif_raw/` 保持 17 个
+根索引 CIF，P5-C 下载缓存仅用于构建，导入后清理。契约 #125 锁定
+18 个目标、44 条索引与全覆盖。
 
 ### B19-1 原位序列 EXAFS 联合精修
 `xafs_fit.run_operando_exafs_series(results, absorber_symbol, motif=None,

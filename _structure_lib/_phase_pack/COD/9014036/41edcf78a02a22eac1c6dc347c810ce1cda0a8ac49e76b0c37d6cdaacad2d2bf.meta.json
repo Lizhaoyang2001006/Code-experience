@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "9014036",
+  "formula": "Cr2O3",
+  "spacegroup": "R -3 c :H",
+  "cell": {
+    "a": 4.957,
+    "b": 4.957,
+    "c": 13.5923,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 120.0
+  },
+  "absorber_sites": [
+    "Cr"
+  ],
+  "absorber_elements": [
+    "Cr"
+  ],
+  "cif_path": "COD/9014036/41edcf78a02a22eac1c6dc347c810ce1cda0a8ac49e76b0c37d6cdaacad2d2bf.cif",
+  "cif_sha256": "41edcf78a02a22eac1c6dc347c810ce1cda0a8ac49e76b0c37d6cdaacad2d2bf",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "Cr2O3",
+    "oxide",
+    "eskolaite",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "Cr2O3_COD_9014036.cif",
+  "notes": "P5C eskolaite; COD:9014036; source_url=https://www.crystallography.net/cod/9014036.cif"
+}

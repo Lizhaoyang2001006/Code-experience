@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "9009090",
+  "formula": "MoO2",
+  "spacegroup": "P 1 21/c 1",
+  "cell": {
+    "a": 5.584,
+    "b": 4.842,
+    "c": 5.608,
+    "alpha": 90.0,
+    "beta": 120.983,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Mo"
+  ],
+  "absorber_elements": [
+    "Mo"
+  ],
+  "cif_path": "COD/9009090/38dd59e9f92af428bc7c93d0fc2ac246d294e95251dae05c64062677d76f93c4.cif",
+  "cif_sha256": "38dd59e9f92af428bc7c93d0fc2ac246d294e95251dae05c64062677d76f93c4",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "MoO2",
+    "oxide",
+    "tugarinovite",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "MoO2_COD_9009090.cif",
+  "notes": "P5C tugarinovite; COD:9009090; source_url=https://www.crystallography.net/cod/9009090.cif"
+}

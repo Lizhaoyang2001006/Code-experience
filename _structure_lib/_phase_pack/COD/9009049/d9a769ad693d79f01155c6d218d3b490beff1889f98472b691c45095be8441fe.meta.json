@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "9009049",
+  "formula": "UO2",
+  "spacegroup": "F m -3 m",
+  "cell": {
+    "a": 5.4682,
+    "b": 5.4682,
+    "c": 5.4682,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "U"
+  ],
+  "absorber_elements": [
+    "U"
+  ],
+  "cif_path": "COD/9009049/d9a769ad693d79f01155c6d218d3b490beff1889f98472b691c45095be8441fe.cif",
+  "cif_sha256": "d9a769ad693d79f01155c6d218d3b490beff1889f98472b691c45095be8441fe",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "UO2",
+    "oxide",
+    "uraninite",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "UO2_COD_9009049.cif",
+  "notes": "P5C uraninite; COD:9009049; source_url=https://www.crystallography.net/cod/9009049.cif"
+}

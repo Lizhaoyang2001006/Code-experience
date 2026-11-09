@@ -1,0 +1,77 @@
+#------------------------------------------------------------------------------
+#$Date: 2025-11-01 14:29:51 +0200 (Sat, 01 Nov 2025) $
+#$Revision: 303136 $
+#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/9/00/21/9002158.cif $
+#------------------------------------------------------------------------------
+#
+# This file is available in the Crystallography Open Database (COD),
+# http://www.crystallography.net/. The original data for this entry
+# were provided the American Mineralogist Crystal Structure Database,
+# http://rruff.geo.arizona.edu/AMS/amcsd.php
+#
+# The file may be used within the scientific community so long as
+# proper attribution is given to the journal article from which the
+# data were obtained.
+#
+data_9002158
+loop_
+_publ_author_name
+'Gualtieri, A.'
+'Venturelli, P.'
+_publ_section_title
+;
+ In situ study of the goethite-hematite phase transformation by real time
+ synchrotron powder diffraction
+ Sample at T = 25 C
+;
+_journal_name_full               'American Mineralogist'
+_journal_page_first              895
+_journal_page_last               904
+_journal_volume                  84
+_journal_year                    1999
+_chemical_formula_sum            'Fe H O2'
+_chemical_name_mineral           Goethite
+_space_group_crystal_system      orthorhombic
+_space_group_IT_number           62
+_space_group_name_Hall           '-P 2ac 2n'
+_space_group_name_H-M_alt        'P n m a'
+_symmetry_space_group_name_H-M   'P n m a'
+_cell_angle_alpha                90
+_cell_angle_beta                 90
+_cell_angle_gamma                90
+_cell_formula_units_Z            4
+_cell_length_a                   9.9134
+_cell_length_b                   3.0128
+_cell_length_c                   4.5800
+_cell_volume                     136.791
+_database_code_amcsd             0002226
+_diffrn_ambient_temperature      298.15
+_exptl_crystal_density_diffrn    4.314
+_cod_database_code               9002158
+loop_
+_space_group_symop_id
+_space_group_symop_operation_xyz
+1 x,y,z
+2 x,1/2-y,z
+3 -x,1/2+y,-z
+4 1/2-x,1/2+y,1/2+z
+5 1/2+x,1/2-y,1/2-z
+6 1/2+x,y,1/2-z
+7 1/2-x,-y,1/2+z
+8 -x,-y,-z
+loop_
+_atom_site_label
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_U_iso_or_equiv
+Fe 0.14590 0.25000 -0.04860 0.04900
+H -0.10100 0.25000 -0.39900 0.06000
+O1 -0.19900 0.25000 0.28500 0.04600
+O2 -0.05170 0.25000 -0.19600 0.04600
+loop_
+_cod_related_entry_id
+_cod_related_entry_database
+_cod_related_entry_code
+1 AMCSD 0002226
+2 ROD 3500033

@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "9004178",
+  "formula": "ZnO",
+  "spacegroup": "P 63 m c",
+  "cell": {
+    "a": 3.2494,
+    "b": 3.2494,
+    "c": 5.2038,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 120.0
+  },
+  "absorber_sites": [
+    "Zn"
+  ],
+  "absorber_elements": [
+    "Zn"
+  ],
+  "cif_path": "COD/9004178/dbc92c19b101d4fabb5594cc89f2a31629a0e8adab6539edd248c40c585649a1.cif",
+  "cif_sha256": "dbc92c19b101d4fabb5594cc89f2a31629a0e8adab6539edd248c40c585649a1",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "ZnO",
+    "oxide",
+    "zincite",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "ZnO_COD_9004178.cif",
+  "notes": "P5C zincite; COD:9004178; source_url=https://www.crystallography.net/cod/9004178.cif"
+}

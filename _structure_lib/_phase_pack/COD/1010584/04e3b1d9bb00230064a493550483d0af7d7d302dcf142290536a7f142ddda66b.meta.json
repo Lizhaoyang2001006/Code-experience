@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "1010584",
+  "formula": "Rh2O3",
+  "spacegroup": "R -3 c :R",
+  "cell": {
+    "a": 5.45,
+    "b": 5.45,
+    "c": 5.45,
+    "alpha": 55.7,
+    "beta": 55.7,
+    "gamma": 55.7
+  },
+  "absorber_sites": [
+    "Rh1"
+  ],
+  "absorber_elements": [
+    "Rh"
+  ],
+  "cif_path": "COD/1010584/04e3b1d9bb00230064a493550483d0af7d7d302dcf142290536a7f142ddda66b.cif",
+  "cif_sha256": "04e3b1d9bb00230064a493550483d0af7d7d302dcf142290536a7f142ddda66b",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "Rh2O3",
+    "oxide",
+    "corundum",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "Rh2O3_COD_1010584.cif",
+  "notes": "P5C corundum; COD:1010584; source_url=https://www.crystallography.net/cod/1010584.cif"
+}

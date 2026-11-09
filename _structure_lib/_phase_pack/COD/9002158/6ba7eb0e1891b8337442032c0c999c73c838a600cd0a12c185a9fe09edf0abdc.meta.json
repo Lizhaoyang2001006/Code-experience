@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "9002158",
+  "formula": "FeOOH",
+  "spacegroup": "P n m a",
+  "cell": {
+    "a": 9.9134,
+    "b": 3.0128,
+    "c": 4.58,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Fe"
+  ],
+  "absorber_elements": [
+    "Fe"
+  ],
+  "cif_path": "COD/9002158/6ba7eb0e1891b8337442032c0c999c73c838a600cd0a12c185a9fe09edf0abdc.cif",
+  "cif_sha256": "6ba7eb0e1891b8337442032c0c999c73c838a600cd0a12c185a9fe09edf0abdc",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "FeOOH",
+    "hydroxide",
+    "goethite",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "FeOOH_COD_9002158.cif",
+  "notes": "P5C goethite; COD:9002158; source_url=https://www.crystallography.net/cod/9002158.cif"
+}

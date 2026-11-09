@@ -1,0 +1,35 @@
+{
+  "source": "COD",
+  "id": "1514120",
+  "formula": "Mn3O4",
+  "spacegroup": "I 41/a m d :1",
+  "cell": {
+    "a": 5.763,
+    "b": 5.763,
+    "c": 9.456,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Mn1",
+    "Mn2"
+  ],
+  "absorber_elements": [
+    "Mn"
+  ],
+  "cif_path": "COD/1514120/072a4d12bc73a08261f2dbdee4e81b9e06b44345198b95fc354af9ff78233d4e.cif",
+  "cif_sha256": "072a4d12bc73a08261f2dbdee4e81b9e06b44345198b95fc354af9ff78233d4e",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "Mn3O4",
+    "oxide",
+    "hausmannite",
+    "spinel",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "Mn3O4_COD_1514120.cif",
+  "notes": "P5C hausmannite; COD:1514120; source_url=https://www.crystallography.net/cod/1514120.cif"
+}

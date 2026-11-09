@@ -14,7 +14,7 @@
 - 17 个 COD motif 入库，结构库共 **43 个 motif**，覆盖 **17/17** 吸收元素；
 - T5 12 条 IIT-Lytle 真实谱全部落盘，**0 个 placeholder**；
 - 旧 ID 迁移完成：`LEGACY_MOTIFS_LEFT 0`、`QUARANTINE_FILES 0`；
-- `regression_test.py` **124 项** + 4 个压力测试全部通过（`run_ci.py --stress` PASS）。
+- `regression_test.py` **125 项** + 4 个压力测试全部通过（`run_ci.py --stress` PASS；P5-C 后）。
 
 运行期仍然完全离线：`run_xafs.py` 不导入根爬虫，不读取 `data/cif_crawler_index.json` 取几何，只通过
 `structure_lib.load_library(absorber)` 读取 `_structure_lib`。
@@ -24,7 +24,7 @@
 | 工具 | 职责 | 产物 | 运行期依赖 |
 |---|---|---|---|
 | 根目录 `cif_crawler.py` | COD motif 抓取/核验/入库 + T5 标准谱抓取 | `data/cif_raw/`、`data/standards_raw/`、`data/cif_crawler_index.json`、`_structure_lib/<元素>/*.json`、`_standards_lib/<元素>/*.dat` | **否** |
-| `tools/cif_crawler.py` | 仅做 phase pack 的固定 ID CIF 导入与索引重建 | `_structure_lib/_phase_pack/`、`phase_index.json`、`phase_coverage.json` | **否** |
+| `tools/cif_crawler.py` | 仅做 phase pack 的固定 ID CIF 导入与索引重建（T3/T4/P5-C） | `_structure_lib/_phase_pack/`、`phase_index.json`、`phase_coverage.json` | **否** |
 | `structure_lib.load_library()` | 运行期读取诊断 motif 库 | `_structure_lib/<元素>/*.json` | **是** |
 
 硬边界：
@@ -123,13 +123,46 @@ python cif_crawler.py --t5
   备选透射谱平台 2.27 属归一化伪迹，严格门禁拒绝；
 - `_standards_lib/` 与 `data/standards_raw/` 因许可未明确不提交；Ag 标定依赖本地 IIT-Lytle 谱，产物记录源文件 SHA256，但不保证无本地标准时可复现。
 
+### 4.5 P5-C 常见相补齐
+
+`tools/cif_crawler.py --p5c --online` 按固定 COD ID 补齐 18 个
+`missing_common_phases`，phase pack 由 26 条增至 **44 条**，固定抓取目标
+由 21 个增至 **39 个**。18 条全部为实验 `crystal_cif`，逐条通过 gemmi
+解析、IT 空间群号与化学计量核验：
+
+| 元素 | 相 | COD ID | 空间群 | 备注 |
+|------|----|--------|--------|------|
+| Fe | FeO | 1011169 | 225 | wüstite |
+| Fe | FeOOH | 9002158 | 62 | goethite，298 K |
+| Pt | PtO2 | 1008935 | 58 | β-PtO2；COD 无常压结构，已标注高压合成 |
+| Cr | Cr2O3 | 9014036 | 167 | eskolaite，常压 |
+| Mn | MnO | 9006658 | 225 | manganosite，P=0 |
+| Mn | MnO2 | 9009081 | 136 | pyrolusite |
+| Mn | Mn3O4 | 1514120 | 141 | hausmannite，Mn1/Mn2 |
+| Zn | ZnO | 9004178 | 186 | zincite，293 K |
+| Mo | MoO2 | 9009090 | 14 | tugarinovite |
+| Mo | MoO3 | 9009669 | 62 | molybdite |
+| Ru | RuO2 | 9007541 | 136 | rutile |
+| Rh | Rh2O3 | 1010584 | 167 | corundum |
+| Pd | PdO | 1009031 | 131 | palladinite |
+| Ag | Ag2O | 1010486 | 224 | cuprite |
+| Ir | IrO2 | 2101854 | 136 | rutile |
+| Au | Au2O3 | 2105390 | 43 | gold(III) oxide |
+| U | UO2 | 9009049 | 225 | uraninite |
+| U | U3O8 | 2310519 | 21 | α-U3O8，中子衍射，U1/U2 |
+
+高压/高温/DFT 条目显式排除（Cr2O3 的 63.9 GPa 条目、β-U3O8、高温
+U3O8 均未采用）。`phase_coverage.json` 的 `missing_common_phases` 全部
+为空；Mn3O4 与 U3O8 多位点仍需显式 `--absorber-site`。P5-C 下载缓存
+只用于构建期导入，导入后清理，`data/cif_raw/` 仍保持 17 个根索引 CIF。
+
 ## 5. 验收
 
 ### 5.1 回归与压力
 
 ```text
-regression_test.py: 124 tests OK
-run_ci.py --stress: PASS (202.5s)
+regression_test.py: 125 tests OK (142.474s)
+run_ci.py --stress: PASS (215.1s)
   stress_test_co.py   PASS
   stress_test_ni.py   PASS
   stress_test_cu.py   PASS
@@ -163,7 +196,7 @@ fit_table SHA256 = E098D0EDC24E49296710E44518F8A8F010DCD03D7D7EB8CB2E26831A7532E
 - `_structure_lib/**/*.json`、`_structure_lib/*/_cif/*.cif`、`_structure_lib/_phase_pack/`；
 - 整合文档与测试修改。
 
-未索引的 9 个重复/旁路 CIF 已清理（5 个大小写重复副本 + Cr/Zn/Mo/Au 4 个仅 phase pack 使用的旁路缓存）。
+未索引的 9 个重复/旁路 CIF 已清理（5 个大小写重复副本 + Cr/Zn/Mo/Au 4 个仅 phase pack 使用的旁路缓存）。P5-C 新增的 18 个下载缓存同样只在构建期使用，导入后清理；phase pack 内的 `<sha256>.cif` 才是权威副本。
 
 ### 6.2 不随仓库提交
 
@@ -186,10 +219,10 @@ python cif_crawler.py --t5
 ## 7. 仍然存在的缺口
 
 1. **T5 S₀² 部分标定**：已产出独立标定产物并通过 7/12；Rh/Pd/Ir 缺足够宽能区标准、Ce 的 CeO₂ 标准 σ² 与 S₀² 强相关（无唯一解）、U 撞界；未标定元素仍需运行时 `--s02` 才能做正式 CN（已通过元素可用 `--s02-from-t5`）；
-2. **常见相仍缺**：FeO、FeOOH、PtO2、Cr2O3、MnO/MnO2/Mn3O4、ZnO、MoO2/MoO3、RuO2、Rh2O3、PdO、Ag2O、IrO2、Au2O3、UO2/U3O8；
+2. **常见相已补齐（P5-C）**：18 个 `missing_common_phases` 全部有 verified CIF；唯一边界是 PtO2 在 COD 中只有高压合成 β-PtO2、没有常压 α 相，已在条目 notes 标注；Mn3O4/U3O8 为多位点，正式 CN 仍需显式 `--absorber-site`；
 3. **多位点联合模型未自动构建**：当前需显式 `--absorber-site` 或 `absorber_fract`；
 4. **T7/T8 已实现**：`--multi-element` 逐元素并列报告、不推荐 Top-1；`--xanes-cross-check` 只报警告、不改 `cn_reliable`（#120/#121）。
 
 ## 8. 一句话状态
 
-**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 124+4 CI 全部通过；T5 已产出 7/12 独立标定产物（静态表未改），运行期可用 `--s02-from-t5` 溯源，T7 多元素与 T8 联合校验已实现。**
+**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 125+4 CI 全部通过；phase pack 已由 P5-C 扩到 44 条；T5 已产出 7/12 独立标定产物（静态表未改），运行期可用 `--s02-from-t5` 溯源，T7 多元素与 T8 联合校验已实现。**

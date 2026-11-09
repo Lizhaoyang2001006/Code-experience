@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "1010486",
+  "formula": "Ag2O",
+  "spacegroup": "P n -3 m :1",
+  "cell": {
+    "a": 4.718,
+    "b": 4.718,
+    "c": 4.718,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Ag1"
+  ],
+  "absorber_elements": [
+    "Ag"
+  ],
+  "cif_path": "COD/1010486/9a8554902dfa6749ff1b04703125eddaae6ccdad9bc51d66d366486abed7341e.cif",
+  "cif_sha256": "9a8554902dfa6749ff1b04703125eddaae6ccdad9bc51d66d366486abed7341e",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "Ag2O",
+    "oxide",
+    "cuprite",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "Ag2O_COD_1010486.cif",
+  "notes": "P5C cuprite; COD:1010486; source_url=https://www.crystallography.net/cod/1010486.cif"
+}

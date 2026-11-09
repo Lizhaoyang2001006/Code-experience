@@ -1,0 +1,34 @@
+{
+  "source": "COD",
+  "id": "2310519",
+  "formula": "U3O8",
+  "spacegroup": "C 2 2 2",
+  "cell": {
+    "a": 6.704,
+    "b": 11.95,
+    "c": 4.142,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "U1",
+    "U2"
+  ],
+  "absorber_elements": [
+    "U"
+  ],
+  "cif_path": "COD/2310519/409276cea18da25deb97985305b56b493c7ae4a9160f3934b5fa766af1945d31.cif",
+  "cif_sha256": "409276cea18da25deb97985305b56b493c7ae4a9160f3934b5fa766af1945d31",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "U3O8",
+    "oxide",
+    "triuranium_octoxide",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "U3O8_COD_2310519.cif",
+  "notes": "P5C alpha-U3O8; COD:2310519; source_url=https://www.crystallography.net/cod/2310519.cif"
+}

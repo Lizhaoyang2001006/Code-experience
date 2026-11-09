@@ -62,9 +62,10 @@ P4+ 新增：
     - T8 XANES–EXAFS 软校验：只产生警告，不改变 cn_reliable
     - P5-A T5 标定产物完整性 / --only 增量合并 / --s02-from-t5 溯源
     - P5-B Mo 双壳 bcc 标定 / Ce σ² 压界与归一化伪迹拒绝
+    - P5-C 固定 COD ID 补齐 18 个常见相 / coverage 无缺口
 
-当前共 124 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+
-CIF 抓取/条件 CN/T7/T8/P5-A/P5-B 契约）。
+当前共 125 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+
+CIF 抓取/条件 CN/T7/T8/P5-A/P5-B/P5-C 契约）。
 
 运行:
     python regression_test.py
@@ -4199,12 +4200,14 @@ Ru1 Ru 0.5 0.5 0.5 0.3
         self.assertEqual(report["summary"]["motifs"], 43)
 
     def test_phase_pack_import_and_index(self):
-        """#84 P1a：26 条来源（5 金属种子 + 21 抓取目标）可校验、可索引。"""
+        """#84 P1a：44 条来源（5 金属种子 + 39 抓取目标）可校验、可索引。"""
+        from tools import cif_crawler
+
         pack_root = ROOT / "_structure_lib" / "_phase_pack"
         manifest = phase_pack.load_manifest(pack_root)
         self.assertEqual(manifest["schema_version"], 1)
         self.assertEqual(manifest["pack_id"], "formal-cn-phase-pack")
-        self.assertEqual(len(manifest["entries"]), 26)
+        self.assertEqual(len(manifest["entries"]), 44)
 
         seeds = {
             "1100108": ("Fe", ["Fe1"]),
@@ -4251,11 +4254,17 @@ Ru1 Ru 0.5 0.5 0.5 0.3
             self.assertEqual(entry["absorber_elements"], [element])
             self.assertEqual(entry["absorber_sites"], sites)
 
+        # P5-C：18 个常见相补齐目标必须都已导入。
+        p5c_ids = {t["cod_id"] for t in cif_crawler.VERIFIED_TARGETS.values()
+                   if t["tier"] == "P5C"}
+        self.assertEqual(len(p5c_ids), 18)
+        self.assertTrue(p5c_ids <= set(by_id), p5c_ids - set(by_id))
+
         index = json.loads((ROOT / "_structure_lib" /
                             "phase_index.json").read_text(encoding="utf-8"))
         self.assertEqual(index["schema_version"], 1)
         self.assertEqual(index["pack_id"], manifest["pack_id"])
-        self.assertEqual(len(index["entries"]), 26)
+        self.assertEqual(len(index["entries"]), 44)
         self.assertEqual(set(index["summary"]["elements_covered"]), {
             "Fe", "Co", "Ni", "Cu", "Pt", "Cr", "Mn", "Zn", "Mo",
             "Ru", "Rh", "Pd", "Ag", "Ir", "Au", "Ce", "U"})
@@ -4270,10 +4279,9 @@ Ru1 Ru 0.5 0.5 0.5 0.3
                                "phase_coverage.json")
                               .read_text(encoding="utf-8"))
         self.assertEqual(len(coverage["absorber_elements"]), 17)
-        self.assertEqual(coverage["summary"]["elements_with_motif"], 9)
-        self.assertEqual(coverage["summary"]["elements_without_motif"], 8)
-        self.assertEqual(set(coverage["summary"]["without_motif_elements"]),
-                         {"Ag", "Ce", "Ir", "Mn", "Pd", "Rh", "Ru", "U"})
+        self.assertEqual(coverage["summary"]["elements_with_motif"], 17)
+        self.assertEqual(coverage["summary"]["elements_without_motif"], 0)
+        self.assertEqual(coverage["summary"]["without_motif_elements"], [])
         self.assertEqual(set(coverage["summary"]["verified_elements"]), {
             "Fe", "Co", "Ni", "Cu", "Pt", "Cr", "Mn", "Zn", "Mo",
             "Ru", "Rh", "Pd", "Ag", "Ir", "Au", "Ce", "U"})
@@ -4365,7 +4373,7 @@ Ru1 Ru 0.5 0.5 0.5 0.3
                               .read_text(encoding="utf-8"))
         index = json.loads((ROOT / "_structure_lib" /
                             "phase_index.json").read_text(encoding="utf-8"))
-        # P4+ 已用 21 条真实 CIF 补齐全部 17 个吸收元素。
+        # P4+ 的 21 条 + P5-C 的 18 条真实 CIF 已补齐全部 17 个吸收元素。
         self.assertEqual(coverage["summary"]["elements_verified"], 17)
         self.assertEqual(coverage["summary"]["elements_not_covered"], 0)
         self.assertEqual(coverage["summary"]["not_covered_elements"], [])
@@ -4573,8 +4581,8 @@ Ru1 Ru 0.5 0.5 0.5 0.3
         self.assertIn("pack_root", index)
         self.assertIn("manifest_sha256", index)
         self.assertIn("summary", index)
-        self.assertEqual(index["summary"]["entries"], 26)
-        self.assertEqual(index["summary"]["verified_cif"], 26)
+        self.assertEqual(index["summary"]["entries"], 44)
+        self.assertEqual(index["summary"]["verified_cif"], 44)
         self.assertEqual(set(index["summary"]["elements_covered"]), {
             "Fe", "Co", "Ni", "Cu", "Pt", "Cr", "Mn", "Zn", "Mo",
             "Ru", "Rh", "Pd", "Ag", "Ir", "Au", "Ce", "U"})
@@ -5114,15 +5122,15 @@ O1 O 0 0 0 0.5
     # 115–119. P4+：CIF crawler 目标表、离线导入、多位点门禁与正式 CN 行
     # ------------------------------------------------------------
     def test_cif_crawler_target_table(self):
-        """#115 P4+：21 个抓取目标 ID 唯一、元素/化学式/空间群自洽。"""
+        """#115 P4+：39 个抓取目标 ID 唯一、元素/化学式/空间群自洽。"""
         from tools import cif_crawler
-        self.assertEqual(len(cif_crawler.VERIFIED_TARGETS), 21)
+        self.assertEqual(len(cif_crawler.VERIFIED_TARGETS), 39)
         cod_ids = [t["cod_id"] for t in
                    cif_crawler.VERIFIED_TARGETS.values()]
         self.assertEqual(len(cod_ids), len(set(cod_ids)))
         seen_elements = set()
         for name, target in cif_crawler.VERIFIED_TARGETS.items():
-            self.assertIn(target["tier"], ("T3", "T4"), name)
+            self.assertIn(target["tier"], ("T3", "T4", "P5C"), name)
             self.assertIn(target["absorber"],
                           phase_pack.ABSORBER_ELEMENTS, name)
             parsed = cif_crawler.parse_formula(target["formula"])
@@ -5133,8 +5141,7 @@ O1 O 0 0 0 0.5
                                 for n in target["spg_nums"]), name)
             self.assertTrue(target["tags"], name)
             seen_elements.add(target["absorber"])
-        self.assertEqual(seen_elements,
-                         set(phase_pack.ABSORBER_ELEMENTS) - {"Pt"})
+        self.assertEqual(seen_elements, set(phase_pack.ABSORBER_ELEMENTS))
 
     def test_cif_crawler_offline_import(self):
         """#116 P4+：离线缓存 → 核验 → phase pack 导入，sha256 可追溯。"""
@@ -5614,6 +5621,65 @@ O1 O 0 0 0 0.5
         with self.assertRaises(XAFSConfigError) as cm:
             run_xafs.load_t5_s02("Ce")
         self.assertIn("未通过", str(cm.exception))
+
+    def test_p5c_common_phase_coverage(self):
+        """#125 P5-C：18 个固定 COD ID 补齐常见相，coverage 无缺口。"""
+        from types import SimpleNamespace
+        from tools import cif_crawler
+        import phase_resolver
+
+        expected = {
+            ("Fe", "FeO"), ("Fe", "FeOOH"), ("Pt", "PtO2"),
+            ("Cr", "Cr2O3"), ("Mn", "MnO"), ("Mn", "MnO2"),
+            ("Mn", "Mn3O4"), ("Zn", "ZnO"), ("Mo", "MoO2"),
+            ("Mo", "MoO3"), ("Ru", "RuO2"), ("Rh", "Rh2O3"),
+            ("Pd", "PdO"), ("Ag", "Ag2O"), ("Ir", "IrO2"),
+            ("Au", "Au2O3"), ("U", "UO2"), ("U", "U3O8"),
+        }
+        p5c = {name: target for name, target in
+               cif_crawler.VERIFIED_TARGETS.items()
+               if target["tier"] == "P5C"}
+        self.assertEqual(len(p5c), 18)
+        self.assertEqual({(t["absorber"], name) for name, t in p5c.items()},
+                         expected)
+        selected = cif_crawler._select_targets(SimpleNamespace(
+            all=False, t3=False, t4=False, p5c=True, target=None))
+        self.assertEqual(len(selected), 18)
+
+        pack_root = ROOT / "_structure_lib" / "_phase_pack"
+        manifest = phase_pack.load_manifest(pack_root)
+        by_id = {entry["id"]: entry for entry in manifest["entries"]}
+        for name, target in p5c.items():
+            self.assertIn(target["cod_id"], by_id, name)
+            entry = by_id[target["cod_id"]]
+            self.assertEqual(entry["formula"], target["formula"], name)
+            self.assertEqual(entry["absorber_elements"],
+                             [target["absorber"]], name)
+            self.assertEqual(entry["model_level"], "crystal_cif", name)
+            self.assertTrue(entry["experimental"], name)
+            self.assertEqual(entry["source"], "COD", name)
+            check = phase_pack.validate_entry(pack_root, entry)
+            self.assertTrue(check["ok"], (name, check))
+
+        coverage = json.loads((ROOT / "_structure_lib" /
+                               "phase_coverage.json")
+                              .read_text(encoding="utf-8"))
+        self.assertEqual(coverage["summary"]["verified_cif"], 44)
+        for element, row in coverage["elements"].items():
+            self.assertEqual(row["missing_common_phases"], [], element)
+            self.assertTrue(row["formal_cn_ready"], element)
+
+        # 多位点常见相仍必须显式 --absorber-site，不能自动 Top-1。
+        for element, phase_name in (("Mn", "Mn3O4"), ("U", "U3O8")):
+            target = p5c[phase_name]
+            entry = by_id[target["cod_id"]]
+            self.assertGreaterEqual(len(entry["absorber_sites"]), 2,
+                                    phase_name)
+            res = phase_resolver.resolve_phase(
+                element, phase_id=f"COD:{target['cod_id']}")
+            self.assertEqual(res.status, "resolved", phase_name)
+            self.assertIsNone(res.structure_model, phase_name)
+            self.assertIn("多个吸收位点", res.reason, phase_name)
 
 
 if __name__ == "__main__":

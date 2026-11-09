@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "2105390",
+  "formula": "Au2O3",
+  "spacegroup": "F d d 2",
+  "cell": {
+    "a": 12.827,
+    "b": 10.52,
+    "c": 3.838,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Au1"
+  ],
+  "absorber_elements": [
+    "Au"
+  ],
+  "cif_path": "COD/2105390/88c501cb3978e34e3386ba7b5d3c77c37c06c8df16094f3082abf5f8100ec084.cif",
+  "cif_sha256": "88c501cb3978e34e3386ba7b5d3c77c37c06c8df16094f3082abf5f8100ec084",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "Au2O3",
+    "oxide",
+    "gold_oxide",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "Au2O3_COD_2105390.cif",
+  "notes": "P5C gold_oxide; COD:2105390; source_url=https://www.crystallography.net/cod/2105390.cif"
+}

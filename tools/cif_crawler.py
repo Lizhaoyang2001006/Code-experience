@@ -29,6 +29,7 @@
     python tools/cif_crawler.py --list
     python tools/cif_crawler.py --t3 --online
     python tools/cif_crawler.py --t4 --online
+    python tools/cif_crawler.py --p5c --online
     python tools/cif_crawler.py --all --online
     python tools/cif_crawler.py --target Fe2O3 --offline
 
@@ -200,6 +201,120 @@ VERIFIED_TARGETS = {
         "formula": "Au", "stoich": {"Au": 1},
         "cod_id": "9008463", "spg_nums": [225],
         "tags": ["metal", "fcc", "element_seed"],
+    },
+    # ---- P5-C: 常见氧化物/氢氧化物补齐（固定 COD ID）----
+    # 目标来自 phase_pack.COMMON_PHASES 的 missing_common_phases。优先
+    # 常压/室温实验结构；高压、高温或 DFT 条目一律排除（例如 Cr2O3 的
+    # 63.9 GPa 条目、β-U3O8 与高温 U3O8）。PtO2 在 COD 中没有常压
+    # 结构，只能采用高压合成 β-PtO2，已在 phase/notes 明确标注。
+    "FeO": {
+        "tier": "P5C", "phase": "wuestite", "absorber": "Fe",
+        "formula": "FeO", "stoich": {"Fe": 1, "O": 1},
+        "cod_id": "1011169", "spg_nums": [225],
+        "tags": ["oxide", "wuestite", "catalyst"],
+    },
+    "FeOOH": {
+        "tier": "P5C", "phase": "goethite", "absorber": "Fe",
+        "formula": "FeOOH", "stoich": {"Fe": 1, "O": 2, "H": 1},
+        "cod_id": "9002158", "spg_nums": [62],
+        "tags": ["hydroxide", "goethite", "catalyst"],
+    },
+    "PtO2": {
+        "tier": "P5C", "phase": "beta-PtO2", "absorber": "Pt",
+        "formula": "PtO2", "stoich": {"Pt": 1, "O": 2},
+        "cod_id": "1008935", "spg_nums": [58],
+        "tags": ["oxide", "platinum_dioxide", "beta", "catalyst"],
+        "note": "COD 无常压 PtO2 结构；采用高压合成 β-PtO2（非环境相）",
+    },
+    "Cr2O3": {
+        "tier": "P5C", "phase": "eskolaite", "absorber": "Cr",
+        "formula": "Cr2O3", "stoich": {"Cr": 2, "O": 3},
+        "cod_id": "9014036", "spg_nums": [167],
+        "tags": ["oxide", "eskolaite", "catalyst"],
+    },
+    "MnO": {
+        "tier": "P5C", "phase": "manganosite", "absorber": "Mn",
+        "formula": "MnO", "stoich": {"Mn": 1, "O": 1},
+        "cod_id": "9006658", "spg_nums": [225],
+        "tags": ["oxide", "manganosite", "catalyst"],
+    },
+    "MnO2": {
+        "tier": "P5C", "phase": "pyrolusite", "absorber": "Mn",
+        "formula": "MnO2", "stoich": {"Mn": 1, "O": 2},
+        "cod_id": "9009081", "spg_nums": [136],
+        "tags": ["oxide", "pyrolusite", "catalyst"],
+    },
+    "Mn3O4": {
+        "tier": "P5C", "phase": "hausmannite", "absorber": "Mn",
+        "formula": "Mn3O4", "stoich": {"Mn": 3, "O": 4},
+        "cod_id": "1514120", "spg_nums": [141],
+        "tags": ["oxide", "hausmannite", "spinel", "catalyst"],
+    },
+    "ZnO": {
+        "tier": "P5C", "phase": "zincite", "absorber": "Zn",
+        "formula": "ZnO", "stoich": {"Zn": 1, "O": 1},
+        "cod_id": "9004178", "spg_nums": [186],
+        "tags": ["oxide", "zincite", "catalyst"],
+    },
+    "MoO2": {
+        "tier": "P5C", "phase": "tugarinovite", "absorber": "Mo",
+        "formula": "MoO2", "stoich": {"Mo": 1, "O": 2},
+        "cod_id": "9009090", "spg_nums": [14],
+        "tags": ["oxide", "tugarinovite", "catalyst"],
+    },
+    "MoO3": {
+        "tier": "P5C", "phase": "molybdite", "absorber": "Mo",
+        "formula": "MoO3", "stoich": {"Mo": 1, "O": 3},
+        "cod_id": "9009669", "spg_nums": [62],
+        "tags": ["oxide", "molybdite", "catalyst"],
+    },
+    "RuO2": {
+        "tier": "P5C", "phase": "rutile", "absorber": "Ru",
+        "formula": "RuO2", "stoich": {"Ru": 1, "O": 2},
+        "cod_id": "9007541", "spg_nums": [136],
+        "tags": ["oxide", "rutile", "catalyst"],
+    },
+    "Rh2O3": {
+        "tier": "P5C", "phase": "corundum", "absorber": "Rh",
+        "formula": "Rh2O3", "stoich": {"Rh": 2, "O": 3},
+        "cod_id": "1010584", "spg_nums": [167],
+        "tags": ["oxide", "corundum", "catalyst"],
+    },
+    "PdO": {
+        "tier": "P5C", "phase": "palladinite", "absorber": "Pd",
+        "formula": "PdO", "stoich": {"Pd": 1, "O": 1},
+        "cod_id": "1009031", "spg_nums": [131],
+        "tags": ["oxide", "palladinite", "catalyst"],
+    },
+    "Ag2O": {
+        "tier": "P5C", "phase": "cuprite", "absorber": "Ag",
+        "formula": "Ag2O", "stoich": {"Ag": 2, "O": 1},
+        "cod_id": "1010486", "spg_nums": [224],
+        "tags": ["oxide", "cuprite", "catalyst"],
+    },
+    "IrO2": {
+        "tier": "P5C", "phase": "rutile", "absorber": "Ir",
+        "formula": "IrO2", "stoich": {"Ir": 1, "O": 2},
+        "cod_id": "2101854", "spg_nums": [136],
+        "tags": ["oxide", "rutile", "catalyst"],
+    },
+    "Au2O3": {
+        "tier": "P5C", "phase": "gold_oxide", "absorber": "Au",
+        "formula": "Au2O3", "stoich": {"Au": 2, "O": 3},
+        "cod_id": "2105390", "spg_nums": [43],
+        "tags": ["oxide", "gold_oxide", "catalyst"],
+    },
+    "UO2": {
+        "tier": "P5C", "phase": "uraninite", "absorber": "U",
+        "formula": "UO2", "stoich": {"U": 1, "O": 2},
+        "cod_id": "9009049", "spg_nums": [225],
+        "tags": ["oxide", "uraninite", "catalyst"],
+    },
+    "U3O8": {
+        "tier": "P5C", "phase": "alpha-U3O8", "absorber": "U",
+        "formula": "U3O8", "stoich": {"U": 3, "O": 8},
+        "cod_id": "2310519", "spg_nums": [21],
+        "tags": ["oxide", "triuranium_octoxide", "catalyst"],
     },
 }
 
@@ -580,6 +695,7 @@ def import_target(name: str, cif_path: Path, *, pack_root: Path,
         "notes": (
             f"{target['tier']} {target['phase']}; "
             f"COD:{target['cod_id']}; source_url={source_url}"
+            + (f"; {target['note']}" if target.get("note") else "")
         ),
     }
     return phase_pack.import_cif(
@@ -600,6 +716,9 @@ def _select_targets(args) -> list[str]:
     if args.t4:
         selected.extend(n for n, t in VERIFIED_TARGETS.items()
                         if t["tier"] == "T4")
+    if getattr(args, "p5c", False):
+        selected.extend(n for n, t in VERIFIED_TARGETS.items()
+                        if t["tier"] == "P5C")
     if args.target:
         lowered = {n.lower(): n for n in VERIFIED_TARGETS}
         for raw in args.target:
@@ -641,6 +760,8 @@ def main(argv=None) -> int:
                         help="目标名，可重复，例如 --target Fe2O3")
     parser.add_argument("--t3", action="store_true", help="全部 T3 目标")
     parser.add_argument("--t4", action="store_true", help="全部 T4 目标")
+    parser.add_argument("--p5c", action="store_true",
+                        help="全部 P5-C 常见相补齐目标")
     parser.add_argument("--all", action="store_true", help="全部目标")
     parser.add_argument("--list", action="store_true", help="列出目标后退出")
     parser.add_argument("--online", action="store_true",
