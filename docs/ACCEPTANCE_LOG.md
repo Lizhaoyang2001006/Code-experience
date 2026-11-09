@@ -1299,7 +1299,8 @@ crawler 入库后按同一三扫描命令重跑，上述 r_factor/N/R 与 fit_ta
 - `xafs_report.py`：新增 `--s02-from-t5` 与 `--phase-*` /
   `--absorber-site` / `--offline`，接入 T5 标定、相解析与 CIF 门禁；
 - `xafs_fit.py` 三处 S₀² 报错补 `--s02-from-t5` 提示；
-- 契约 `#129` 锁定 RuO2 单晶位端到端正式 CN。
+- 契约 `#129` 锁定 RuO2 单晶位端到端正式 CN；
+- 契约 `#130` 锁定 `frac:(x,y,z)` 分数坐标吸收位、`cif_gate` 晶胞正交化、P1b/P5 配置文件键镜像、XDI 文件头元素回退与 `xafs_report.py` 异常分支对齐。
 
 ### 11.2 结果
 
@@ -1314,9 +1315,9 @@ crawler 入库后按同一三扫描命令重跑，上述 r_factor/N/R 与 fit_ta
 
 ### 11.3 测试
 
-- `regression_test.py`：**129 项 OK**（127.3 s）；
-- `run_ci.py --stress`：129 契约 + 4 压力 PASS（186.8 s）；
-- 定向 `#75 / #76 / #127 / #128 / #129`：5/5 OK。
+- `regression_test.py`：**130 项 OK**；
+- `run_ci.py --stress`：130 契约 + 4 压力 PASS；
+- 定向 `#75 / #76 / #127 / #128 / #129 / #130`：6/6 OK。
 
 ### 11.4 提交与补丁
 

@@ -1833,11 +1833,18 @@ def main(argv=None):
         print(f"  [B2-2] XANES LCF: {w}   Rf={lcf_res['r_factor']:.2e}"
               f"  → {out / f'{stem}_lcf.json'}")
 
+    eff_absorber = args.absorber or getattr(st["result"], "absorber_symbol", None)
+    if not eff_absorber and args.files:
+        import run_xafs
+        eff_absorber, _ = run_xafs.detect_absorber(args.files[0])
     s02_val = args.s02
     s02_source = "--s02 runtime override" if s02_val is not None else None
     if s02_val is None and args.s02_from_t5:
         import run_xafs
-        s02_val, s02_source = run_xafs.load_t5_s02(args.absorber)
+        if not eff_absorber:
+            raise XAFSConfigError(
+                "T5", "启用 --s02-from-t5 但无法判定吸收元素；请显式给 --absorber")
+        s02_val, s02_source = run_xafs.load_t5_s02(eff_absorber)
 
     structure_model = None
     structure_models: list = []
@@ -1845,10 +1852,13 @@ def main(argv=None):
     gate_results: list = []
     if args.formal_cn and (args.phase_cif or args.phase_id
                            or args.phase or args.phase_index):
+        if not eff_absorber:
+            raise XAFSConfigError(
+                "FIT", "--formal-cn + --phase-* requires --absorber to specify absorber element")
         import cif_gate
         import phase_resolver
         resolution = phase_resolver.resolve_phase(
-            args.absorber,
+            eff_absorber,
             phase_cif=args.phase_cif,
             phase_id=args.phase_id,
             phase_spec=args.phase,
@@ -1858,9 +1868,13 @@ def main(argv=None):
             offline=args.offline)
         if resolution.status != "resolved":
             raise XAFSConfigError(
-                "FIT", f"--phase-* 解析失败 ({resolution.code}): "
+                "FIT", f"--phase-* 解析失败 ({resolution.status}): "
                        f"{resolution.reason}")
         structure_model = resolution.structure_model
+        if structure_model is None:
+            raise XAFSConfigError(
+                "FIT", f"Phase resolution did not produce a usable structure model: "
+                       f"{resolution.reason}")
         structure_models = list(resolution.site_models)
         multi_site = len(structure_models) > 1
         gate_kwargs = dict(
@@ -1869,7 +1883,7 @@ def main(argv=None):
             is_computed=not resolution.selected.experimental)
         if multi_site:
             gate_results = cif_gate.gate_cif_all_sites(
-                resolution.selected.cif_path, args.absorber, **gate_kwargs)
+                resolution.selected.cif_path, eff_absorber, **gate_kwargs)
             failed = [g for g in gate_results if not g.ok]
             if failed:
                 raise XAFSConfigError(
@@ -1881,7 +1895,7 @@ def main(argv=None):
                 m.warnings = list(g.warnings)
         else:
             gate_result = cif_gate.gate_cif(
-                resolution.selected.cif_path, args.absorber,
+                resolution.selected.cif_path, eff_absorber,
                 absorber_site=resolution.absorber_site, **gate_kwargs)
             if not gate_result.ok:
                 raise XAFSConfigError(

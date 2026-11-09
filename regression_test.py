@@ -6066,6 +6066,71 @@ O1 O 0 0 0 0.5
         self.assertAlmostEqual(float(rows[0]["n0"]), 6.0, places=3)
         self.assertAlmostEqual(float(rows[0]["n_fit"]), 6.0, delta=0.35)
 
+    def test_p6_2_edge_entry_alignments(self):
+        """#130 P6.2：frac:(x,y,z) 吸收位、P1b/P5 配置键镜像、XDI 自动元素回退与 report 异常分支。"""
+        import json
+        import run_xafs
+        from xafs_core import XAFSConfigError
+
+        # 1) --absorber-site "frac:(x,y,z)" 在 phase_resolver -> cif_gate -> _site_motif_from_model 贯通
+        pr = phase_resolver.resolve_phase(
+            "Ru", phase_id="COD:9007541", absorber_site="frac:(0,0,0)",
+            offline=True)
+        self.assertEqual(pr.status, "resolved")
+        self.assertIsNotNone(pr.structure_model)
+        self.assertEqual(pr.structure_model.absorber_site, "frac:(0,0,0)")
+        gate = cif_gate.gate_cif(
+            pr.selected.cif_path, "Ru",
+            absorber_site=pr.absorber_site, kmin=3.0, kmax=12.0)
+        self.assertTrue(gate.ok, gate.reason)
+        motif = xafs_fit._site_motif_from_model(pr.structure_model)
+        self.assertGreaterEqual(len(motif.sites), 2)
+        self.assertGreaterEqual(len(motif.shell_expect), 1)
+
+        # 非法 frac:(...) 坐标仍被拒绝
+        pr_bad = phase_resolver.resolve_phase(
+            "Ru", phase_id="COD:9007541", absorber_site="frac:(a,b,c)",
+            offline=True)
+        self.assertIsNone(pr_bad.structure_model)
+        self.assertIn("非法分数坐标", pr_bad.reason)
+
+        # 2) xafs_config.DEFAULTS 与 apply_config_to_kwargs 覆盖 P1b/P5 开关
+        for k in ("s02_from_t5", "xanes_cross_check", "phase_cif",
+                  "phase_id", "phase", "phase_index", "phase_pack",
+                  "absorber_site", "offline"):
+            self.assertIn(k, xafs_config.DEFAULTS)
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg_path = Path(tmp) / "p62.json"
+            cfg_path.write_text(json.dumps({
+                "s02_from_t5": True,
+                "xanes_cross_check": True,
+                "phase_cif": "a.cif,b.cif",
+                "phase_id": "COD:9007541",
+                "absorber_site": "all",
+                "offline": True,
+            }), encoding="utf-8")
+            loaded = xafs_config.load_config(cfg_path)
+            base_kw = {k: v for k, v in xafs_config.DEFAULTS.items()
+                       if k not in ("self_absorption", "batch")}
+            merged = xafs_config.apply_config_to_kwargs(loaded, base_kw)
+        self.assertTrue(merged["s02_from_t5"])
+        self.assertTrue(merged["xanes_cross_check"])
+        self.assertEqual(merged["phase_cif"], ["a.cif", "b.cif"])
+        self.assertEqual(merged["phase_id"], "COD:9007541")
+        self.assertEqual(merged["absorber_site"], "all")
+        self.assertTrue(merged["offline"])
+
+        # 3) process_sample 在 absorber=None（靠 XDI 文件头自动识别元素）时支持 --formal-cn + --phase-id
+        fe_xdi = ROOT / "data" / "bmm_standards" / "Data" / "Fe" / "Fe-Lepidocrocite.xdi"
+        with tempfile.TemporaryDirectory() as tmp:
+            res = run_xafs.process_sample(
+                [str(fe_xdi)], tmp, absorber=None, strict=False,
+                identify=True, fit=True, formal_cn=True,
+                phase_id="COD:1011240", offline=True, verbose=False)
+            self.assertEqual(res.absorber_symbol, "Fe")
+            self.assertIsNotNone(res.fit.get("formal_cn"))
+            self.assertNotEqual(res.fit["cn_status"], "no_cif")
+
 
 if __name__ == "__main__":
     # unittest 默认写 stderr；PowerShell 会把任何 stderr 记录当成

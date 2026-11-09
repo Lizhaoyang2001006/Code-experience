@@ -517,16 +517,21 @@ def process_sample(paths, outdir, align: bool = False,
             print(f"  [B2-2] XANES LCF: {w}   Rf={lcf_res['r_factor']:.2e}")
 
     # P1b phase resolution: parse --phase-* into StructureModel (formal CN strict track)
+    eff_absorber = absorber or getattr(result, "absorber_symbol", None)
+    if not eff_absorber and paths:
+        eff_absorber, _ = detect_absorber(paths[0])
     structure_model = None
     structure_models: list = []
     gate_result = None
     gate_results: list = []
     if formal_cn and (phase_cif or phase_id or phase_spec or phase_index_path):
-        if not absorber:
+        if not eff_absorber:
             raise XAFSConfigError(
                 "FIT", "--formal-cn + --phase-* requires --absorber to specify absorber element")
+        absorber = eff_absorber
+        result.absorber_symbol = eff_absorber
         resolution = phase_resolver.resolve_phase(
-            absorber,
+            eff_absorber,
             phase_cif=phase_cif,
             phase_id=phase_id,
             phase_spec=phase_spec,
@@ -566,7 +571,7 @@ def process_sample(paths, outdir, align: bool = False,
             # P5-D：每个不等价吸收位独立过门禁；任一位点失败即拒绝，
             # 不做“部分位点成功即放行”。
             gate_results = cif_gate.gate_cif_all_sites(
-                resolution.selected.cif_path, absorber, **gate_kwargs)
+                resolution.selected.cif_path, eff_absorber, **gate_kwargs)
             failed = [g for g in gate_results if not g.ok]
             if failed:
                 labels = ", ".join(
@@ -581,7 +586,7 @@ def process_sample(paths, outdir, align: bool = False,
                 m.warnings = list(g.warnings)
         else:
             gate_result = cif_gate.gate_cif(
-                resolution.selected.cif_path, absorber,
+                resolution.selected.cif_path, eff_absorber,
                 absorber_site=resolution.absorber_site,
                 **gate_kwargs)
             if not gate_result.ok:
@@ -1022,12 +1027,20 @@ def main():
     if args.constraints is None and config.get("constraints") is not None:
         args.constraints = config["constraints"]
 
-    # ---- Phase I–III 开关：CLI 显式 > 配置文件 > 默认 ----
+    # ---- Phase I–III + P1b/P5 开关：CLI 显式 > 配置文件 > 默认 ----
     for _key in ("deadtime", "reject_outlier_scans", "include_ms",
                  "isotropic_deltar", "mback", "hetero_cocupancy",
-                 "phase_correct", "chi2_contour", "operando"):
+                 "phase_correct", "chi2_contour", "operando",
+                 "s02_from_t5", "xanes_cross_check", "offline"):
         if not getattr(args, _key, False) and config.get(_key):
             setattr(args, _key, True)
+    for _key in ("phase_id", "phase", "phase_index", "phase_pack",
+                 "absorber_site"):
+        if getattr(args, _key, None) is None and config.get(_key) is not None:
+            setattr(args, _key, config[_key])
+    if args.phase_cif is None and config.get("phase_cif") is not None:
+        args.phase_cif = xafs_config._coerce_config_value(
+            "phase_cif", config["phase_cif"])
     if args.deglitch is None and config.get("deglitch") is not None:
         args.deglitch = config["deglitch"]
     if args.fit_kweights is None and config.get("fit_kweights") is not None:

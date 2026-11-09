@@ -509,7 +509,7 @@ def gate_cif(
                                   site.fract.y - site_frac[1],
                                   site.fract.z - site_frac[2]])
                     d -= np.round(d)
-                    p = site.cell.orthogonalize(gemmi.Fractional(*d))
+                    p = st.cell.orthogonalize(gemmi.Fractional(*d))
                     d2 = p.x ** 2 + p.y ** 2 + p.z ** 2
                     if d2 < best_d2:
                         best_d2 = d2

@@ -324,14 +324,28 @@ def _candidate_to_structure_model(
     """
     sites = list(candidate.absorber_sites or [])
     if absorber_site:
-        canonical = {s.lower(): s for s in sites}.get(
-            str(absorber_site).strip().lower())
-        if canonical is None:
-            raise PhaseResolutionError(
-                "absorber_site_missing",
-                f"{candidate.source}:{candidate.id} 没有吸收位 "
-                f"{absorber_site!r}；可用位点: {sites}")
-        site = canonical
+        raw_site = str(absorber_site).strip()
+        m_frac = re.match(r"^frac:\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)$", raw_site)
+        if m_frac and sites:
+            try:
+                coords = [float(m_frac.group(i)) for i in (1, 2, 3)]
+            except ValueError as exc:
+                raise PhaseResolutionError(
+                    "absorber_site_missing",
+                    f"非法分数坐标 {absorber_site!r}") from exc
+            if not all(math.isfinite(c) for c in coords):
+                raise PhaseResolutionError(
+                    "absorber_site_missing",
+                    f"非法分数坐标 {absorber_site!r}")
+            site = raw_site
+        else:
+            canonical = {s.lower(): s for s in sites}.get(raw_site.lower())
+            if canonical is None:
+                raise PhaseResolutionError(
+                    "absorber_site_missing",
+                    f"{candidate.source}:{candidate.id} 没有吸收位 "
+                    f"{absorber_site!r}；可用位点: {sites}")
+            site = canonical
     elif len(sites) == 1:
         site = sites[0]
     elif len(sites) > 1:

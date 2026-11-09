@@ -94,6 +94,16 @@ DEFAULTS: dict[str, Any] = {
     "s02": None,
     # P0a：正式 CN 双轨开关；默认关闭，保持诊断输出零退化。
     "formal_cn": False,
+    # ---- P1b / P5：独立 S₀²、联合校验与相来源 ----
+    "s02_from_t5": False,
+    "xanes_cross_check": False,
+    "phase_cif": None,
+    "phase_id": None,
+    "phase": None,
+    "phase_index": None,
+    "phase_pack": None,
+    "absorber_site": None,
+    "offline": False,
     "self_absorption": {
         "formula": None,
         "thickness": None,
@@ -183,6 +193,11 @@ def _coerce_config_value(key: str, value):
         if low not in ("r", "q", "wt"):
             raise ValueError(f"fit_space 只支持 r/q/wt，收到 {value!r}")
         return low
+    if key == "phase_cif":
+        if isinstance(value, str):
+            return [s.strip() for s in value.split(",") if s.strip()]
+        if isinstance(value, (list, tuple)):
+            return [str(v) for v in value]
     return value
 
 
