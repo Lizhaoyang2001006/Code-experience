@@ -5833,8 +5833,8 @@ O1 O 0 0 0 0.5
         self.assertAlmostEqual(weighted_n0, 16.0 / 3.0, places=6)
         self.assertAlmostEqual(weighted_n0, 5.333333, places=6)
 
-        # Co3O4：8a:16d → 1/3 : 2/3；但该 COD CIF 缺少
-        # _atom_site_occupancy，冻结门禁必须拒绝（无合格来源不出 CN）。
+        # Co3O4：8a:16d → 1/3 : 2/3；声明化学式 Co3 O4 与全占据晶胞一致，
+        # 按 implicit_1.0 放行，加权第一壳 N₀ = 1/3×4 + 2/3×6 = 16/3。
         co = phase_resolver.resolve_phase(
             "Co", phase_id="COD:9005888", absorber_site="all", offline=True)
         self.assertEqual([m.absorber_site for m in co.site_models],
@@ -5847,8 +5847,13 @@ O1 O 0 0 0 0.5
         self.assertAlmostEqual(co_sites[1]["weight"], 2.0 / 3.0, places=12)
         co_gates = cif_gate.gate_cif_all_sites(
             co.selected.cif_path, "Co", kmin=3.0, kmax=12.0)
-        self.assertTrue(all(not g.ok for g in co_gates))
-        self.assertTrue(all(g.code == "occupancy_missing" for g in co_gates))
+        self.assertTrue(all(g.ok for g in co_gates),
+                        [g.reason for g in co_gates])
+        self.assertTrue(all(g.occupancy_source == "implicit_1.0"
+                            for g in co_gates))
+        co_weighted_n0 = sum(g.site_weight * g.first_shell_cn
+                             for g in co_gates)
+        self.assertAlmostEqual(co_weighted_n0, 16.0 / 3.0, places=6)
 
         # run_multi_site_formal_cn：全部位点 ok 才输出 ALL_WEIGHTED。
         res = SimpleNamespace(ft=SimpleNamespace(kmin=3.0, kmax=12.0))
@@ -5927,6 +5932,85 @@ O1 O 0 0 0 0.5
         finally:
             for patcher in common:
                 patcher.stop()
+
+    def test_p6_all_phase_pack_entries_pass_cif_gate(self):
+        """#128 P6：phase_pack 全部 44 个入库晶体相 100% 通过 cif_gate。"""
+        pack_root = ROOT / "_structure_lib" / "_phase_pack"
+        manifest = phase_pack.load_manifest(pack_root)
+        self.assertEqual(len(manifest["entries"]), 44)
+
+        single_count = 0
+        multi_count = 0
+        for entry in manifest["entries"]:
+            el = entry["absorber_elements"][0]
+            cif_path = pack_root / entry["cif_path"]
+            sites = entry["absorber_sites"]
+            is_comp = not entry.get("experimental", True)
+            if len(sites) == 1:
+                single_count += 1
+                g = cif_gate.gate_cif(cif_path, el, absorber_site=None,
+                                      is_computed=is_comp)
+                self.assertTrue(
+                    g.ok, f"{entry['id']} {entry['formula']} failed: "
+                          f"{g.code} ({g.reason})")
+                self.assertEqual(g.absorber_site, sites[0])
+                self.assertGreaterEqual(g.first_shell_cn, 2.0)
+                self.assertLessEqual(g.first_shell_cn, 16.0)
+            else:
+                multi_count += 1
+                g_amb = cif_gate.gate_cif(cif_path, el, absorber_site=None,
+                                          is_computed=is_comp)
+                parsed = phase_pack.parse_cif(cif_path)
+                if len(parsed["formula_elements"]) == 1:
+                    # 单元素多晶位：所有位点对称等价，自动选第一个
+                    self.assertTrue(g_amb.ok, g_amb.reason)
+                else:
+                    # 多元素多晶位：未传 --absorber-site 必须继续拒绝
+                    self.assertFalse(g_amb.ok)
+                    self.assertEqual(g_amb.code, "absorber_site_ambiguous")
+                gs = cif_gate.gate_cif_all_sites(
+                    cif_path, el, is_computed=is_comp)
+                self.assertEqual(len(gs), len(sites))
+                self.assertTrue(
+                    all(g.ok for g in gs),
+                    f"{entry['id']} {entry['formula']} multi-site failed: "
+                    f"{[(g.absorber_site, g.code, g.reason) for g in gs]}")
+                self.assertAlmostEqual(
+                    sum(g.site_weight for g in gs), 1.0, places=9)
+        self.assertEqual(single_count, 39)
+        self.assertEqual(multi_count, 5)
+
+        # 催化位点假设模型与 --formal-cn 同时开启：明确写 hypothesis_model_only
+        from larch.xafs import feffpath
+        from types import SimpleNamespace
+
+        motif = structure_lib.parse_catalytic_cluster_spec(
+            "Fe", "sac:N4@2.00,axial=O@2.10,C=none")
+        plan = xafs_fit.select_shell_paths(
+            motif, edge="K", rmin=1.0, rmax=2.6, kmin=3.0, kmax=12.0)
+        k = np.arange(3.0, 12.0, 0.05)
+        plist = []
+        for sh, f in zip(plan["shells"], plan["files"]):
+            p = feffpath(str(f), s02=0.803, sigma2=0.004, e0=2.0,
+                         deltar=0.0)
+            p.degen = float(sh["degen"])
+            p._calc_chi()
+            plist.append(p)
+        chi = artemis.exafs_model_k(plist, k)
+        rng = np.random.default_rng(7)
+        chi = chi + rng.normal(0.0, 1e-3, size=chi.shape)
+        chi_k = ChiK(k=k, chi=chi, background=np.zeros_like(k),
+                     mu_norm=np.ones_like(k), rbkg=1.0)
+        ft = athena.ft_to_r_space(k, chi, None, 3.0, 12.0, 2)
+        res = SimpleNamespace(
+            chi_k=chi_k, ft=ft, absorber_symbol="Fe", structure=None,
+            merged=None, norm=None, self_absorption=None)
+        out = xafs_fit.fit_identified(
+            res, absorber_symbol="Fe",
+            catalytic_model="sac:N4@2.00,axial=O@2.10,C=none",
+            rmin=1.0, rmax=2.6, verbose=False, formal_cn=True)
+        self.assertEqual(out["formal_cn"]["status"], "hypothesis_model_only")
+        self.assertEqual(out["cn_status"], "hypothesis_model_only")
 
 
 if __name__ == "__main__":

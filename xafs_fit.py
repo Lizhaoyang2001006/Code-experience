@@ -1753,6 +1753,17 @@ def fit_identified(res, motif_id: str | None = None,
                 }
             out["formal_cn"] = block
             out["cn_status"] = block["status"]
+    if formal_cn and catalytic_model is not None:
+        out["formal_cn"] = {
+            "status": "hypothesis_model_only",
+            "rows": [],
+            "reject_reason": (
+                "catalytic_model 属于无实验 CIF 的催化位点假设模型，"
+                "仅输出诊断 CN，不产出正式 CN"
+            ),
+            "model": None,
+        }
+        out["cn_status"] = "hypothesis_model_only"
     return out
 
 

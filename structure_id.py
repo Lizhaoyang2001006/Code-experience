@@ -243,9 +243,14 @@ def identify(ft, k, absorber_symbol: str | None = None, kmin: float = 3.0,
     absorber = (get_absorber(absorber_symbol) if s02 is None
                 else absorber_with_s02(absorber_symbol, s02))
     if not absorber.calibrated:
+        t5_cal = (Path(__file__).resolve().parent / "data"
+                  / "s02_calibration" / absorber.symbol / "calibration.json")
+        t5_hint = (
+            "（该元素已有 T5 独立标定值，CLI 可加 --s02-from-t5 或显式传 --s02）"
+            if t5_cal.is_file() else "")
         raise XAFSDataError(
             "structure_id", f"{absorber.symbol} 未标定 S₀²，"
-                            f"识别结果不能用于 CN 定量，拒绝运行")
+                            f"识别结果不能用于 CN 定量，拒绝运行{t5_hint}")
     library = structure_lib.load_library(absorber.symbol)
     if not library:
         raise XAFSDataError("structure_id",

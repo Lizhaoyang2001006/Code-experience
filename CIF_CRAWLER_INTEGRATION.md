@@ -150,7 +150,7 @@ python cif_crawler.py --t5
 | Mo | MoO2 | 9009090 | 14 | tugarinovite |
 | Mo | MoO3 | 9009669 | 62 | molybdite |
 | Ru | RuO2 | 9007541 | 136 | rutile |
-| Rh | Rh2O3 | 1010584 | 167 | corundum |
+| Rh | Rh2O3 | 1544346 | 60 | orthorhombic-II（Shannon & Prewitt 1970） |
 | Pd | PdO | 1009031 | 131 | palladinite |
 | Ag | Ag2O | 1010486 | 224 | cuprite |
 | Ir | IrO2 | 2101854 | 136 | rutile |

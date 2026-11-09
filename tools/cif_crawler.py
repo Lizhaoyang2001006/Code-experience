@@ -275,9 +275,9 @@ VERIFIED_TARGETS = {
         "tags": ["oxide", "rutile", "catalyst"],
     },
     "Rh2O3": {
-        "tier": "P5C", "phase": "corundum", "absorber": "Rh",
+        "tier": "P5C", "phase": "orthorhombic-II", "absorber": "Rh",
         "formula": "Rh2O3", "stoich": {"Rh": 2, "O": 3},
-        "cod_id": "1010584", "spg_nums": [167],
+        "cod_id": "1544346", "spg_nums": [60],
         "tags": ["oxide", "corundum", "catalyst"],
     },
     "PdO": {

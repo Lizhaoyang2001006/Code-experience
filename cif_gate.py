@@ -57,7 +57,7 @@ COVALENT_RADIUS = {
     "Er": 1.89, "Tm": 1.90, "Yb": 1.90, "Lu": 1.88, "Hf": 1.85, "Ta": 1.80,
     "W": 1.80, "Re": 1.76, "Os": 1.76, "Ir": 1.76, "Pt": 1.76, "Au": 1.74,
     "Hg": 1.74, "Tl": 1.87, "Pb": 1.87, "Bi": 1.82, "Po": 1.82, "At": 1.82,
-    "Rn": 1.82,
+    "Rn": 1.82, "U": 1.70,
 }
 
 # 第一壳 CN 范围（§5.1）
@@ -65,6 +65,29 @@ CN_NORMAL_LO, CN_NORMAL_HI = 2, 12
 CN_WARN_LO, CN_WARN_HI = 12, 16
 BOND_TOL = 0.25           # 键长容差：共价半径之和 ±0.25 Å
 OCCUPANCY_TOL = 0.08      # 共占位合并距离容差（Å），与 artemis 一致
+
+# 常见催化金属–配体第一壳实验键长允许区间 (Å)，解决高价态/重金属氧化物
+# 与金属单质共价半径之和系统性偏离 0.3–0.45 Å 的问题。
+PAIR_BOND_REF: dict[tuple[str, str], tuple[float, float]] = {
+    ("Cr", "O"): (1.85, 2.15),
+    ("Mn", "O"): (1.80, 2.30),
+    ("Fe", "O"): (1.78, 2.25),
+    ("Co", "O"): (1.80, 2.22),
+    ("Ni", "O"): (1.90, 2.20),
+    ("Cu", "O"): (1.78, 2.10),
+    ("Zn", "O"): (1.88, 2.12),
+    ("Mo", "O"): (1.65, 2.15),
+    ("Ru", "O"): (1.88, 2.10),
+    ("Rh", "O"): (1.92, 2.15),
+    ("Pd", "O"): (1.92, 2.15),
+    ("Ag", "O"): (1.95, 2.20),
+    ("Ir", "O"): (1.90, 2.12),
+    ("Pt", "O"): (1.90, 2.12),
+    ("Au", "O"): (1.90, 2.15),
+    ("Ce", "O"): (2.20, 2.50),
+    ("U", "O"):  (1.75, 2.50),
+}
+PAIR_BOND_SLACK = 0.08    # Å，实验参考区间外的测量容差
 
 
 class CIFGateError(XAFSConfigError):
@@ -157,6 +180,54 @@ def _detect_cocupancy(st, cell) -> bool:
         if len(uniq) > 1:
             return True
     return False
+
+
+_FORMULA_TOKEN_RE = re.compile(r"([A-Z][a-z]?)(\d*\.?\d*)")
+
+
+def _formula_matches_unit_cell(block, st) -> bool:
+    """检查 CIF 声明的 _chemical_formula_sum 是否与隐式 occ=1.0 的晶胞计量比严格一致。
+
+    注意：若 CIF 未声明 _chemical_formula_sum（如 #98 测试的无化学式缺陷 CIF），
+    必须返回 False，继续拒绝为 occupancy_missing。
+    """
+    raw = block.find_value("_chemical_formula_sum")
+    if not raw:
+        return False
+    text = str(raw).strip().strip("'").strip('"').strip()
+    if not text or text in ("?", "."):
+        return False
+    declared: dict[str, float] = {}
+    for el, num in _FORMULA_TOKEN_RE.findall(text):
+        if el in ("H", "D"):
+            continue
+        val = float(num) if num else 1.0
+        if val <= 0:
+            return False
+        declared[el] = declared.get(el, 0.0) + val
+    if not declared:
+        return False
+
+    cell_counts: dict[str, float] = {}
+    for site in st.get_all_unit_cell_sites():
+        el = _symbol(site)
+        if not el or el in ("H", "D"):
+            continue
+        occ = float(site.occ) if site.occ is not None else 1.0
+        if abs(occ - 1.0) > 1e-3:
+            return False
+        cell_counts[el] = cell_counts.get(el, 0.0) + 1.0
+
+    if set(declared.keys()) != set(cell_counts.keys()):
+        return False
+    d_sum = sum(declared.values())
+    c_sum = sum(cell_counts.values())
+    if d_sum <= 0 or c_sum <= 0:
+        return False
+    for el in declared:
+        if abs(declared[el] / d_sum - cell_counts[el] / c_sum) > 0.01:
+            return False
+    return True
 
 
 def _absorber_positions(st, cell, absorber: str) -> list:
@@ -401,29 +472,27 @@ def gate_cif(
         result.cn_hypothesis_only = True
         result.warnings.append("计算结构已放行（--allow-computed），CN 仅作 hypothesis_only")
 
-    # ---- 4. 吸收位：同元素多个晶位时必须 --absorber-site ----
+    # ---- 4. 吸收位：不对称单元中同元素存在多个不等价晶位时必须 --absorber-site ----
     groups = _absorber_positions(st, st.cell, absorber)
-    if len(groups) == 0:
+    asym_abs_sites = [s for s in st.sites if _symbol(s) == absorber]
+    if len(groups) == 0 or len(asym_abs_sites) == 0:
         return CIFGateResult(
             ok=False, code="absorber_missing", absorber=absorber,
             reason=f"{cif_path.name} 中找不到元素 {absorber} 的位点",
             cif_path=result.cif_path, cif_sha256=result.cif_sha256)
-    if len(groups) > 1 and absorber_site is None:
+    if len(asym_abs_sites) > 1 and absorber_site is None:
         # 单元素结构：所有吸收元素位点对称等价，自动选第一个，不报 ambiguous
         if len(elements) == 1:
             result.warnings.append(
-                f"{cif_path.name} 中元素 {absorber} 有 {len(groups)} 个对称等价晶位，"
-                f"自动选 {groups[0]['members'][0].label}")
-            abs_site = groups[0]["members"][0]
+                f"{cif_path.name} 中元素 {absorber} 有 {len(asym_abs_sites)} 个对称等价晶位，"
+                f"自动选 {asym_abs_sites[0].label}")
+            abs_site = asym_abs_sites[0]
             result.absorber_site = str(abs_site.label)
         else:
-            site_labels = []
-            for g in groups:
-                rep = g["members"][0]
-                site_labels.append(str(rep.label))
+            site_labels = [str(s.label) for s in asym_abs_sites]
             return CIFGateResult(
                 ok=False, code="absorber_site_ambiguous", absorber=absorber,
-                reason=(f"{cif_path.name} 中元素 {absorber} 有 {len(groups)} 个晶位 "
+                reason=(f"{cif_path.name} 中元素 {absorber} 有 {len(asym_abs_sites)} 个晶位 "
                         f"{site_labels}，必须 --absorber-site 指定；禁止按 occ×多重度自动挑主位点"),
                 cif_path=result.cif_path, cif_sha256=result.cif_sha256)
 
@@ -469,8 +538,8 @@ def gate_cif(
                     cif_path=result.cif_path, cif_sha256=result.cif_sha256)
             result.absorber_site = absorber_site
     else:
-        # 只有一个晶位，自动选
-        abs_site = groups[0]["members"][0]
+        # 只有一个不等价晶位，自动选不对称单元代表位点
+        abs_site = asym_abs_sites[0]
         result.absorber_site = str(abs_site.label)
 
     origin = np.array([abs_site.fract.x, abs_site.fract.y, abs_site.fract.z],
@@ -481,20 +550,21 @@ def gate_cif(
     cocupancy = _detect_cocupancy(st, st.cell)
 
     if not has_occ_tag:
-        # 缺失 occupancy：判断是否允许隐式 1.0
+        # 缺失 occupancy：单元素有序，或声明化学式与全占据晶胞计量比严格一致的有序晶体允许隐式 1.0
         single_elem = len(elements) == 1
         ordered = not cocupancy
-        # 化学式一致：单元素且没有共占位，化学式自然一致
-        formula_consistent = single_elem and ordered
-        if single_elem and ordered and formula_consistent:
+        formula_consistent = ordered and (
+            single_elem or _formula_matches_unit_cell(block, st)
+        )
+        if ordered and formula_consistent:
             result.occupancy_source = "implicit_1.0"
             result.warnings.append(
-                f"{cif_path.name} 缺少 _atom_site_occupancy，但为单元素有序结构，"
+                f"{cif_path.name} 缺少 _atom_site_occupancy，但为有序化学计量结构，"
                 f"隐式 occupancy=1.0")
         else:
             return CIFGateResult(
                 ok=False, code="occupancy_missing", absorber=absorber,
-                reason=(f"{cif_path.name} 缺少 _atom_site_occupancy，且不是单元素有序结构；"
+                reason=(f"{cif_path.name} 缺少 _atom_site_occupancy，且不是有序化学计量结构；"
                         f"无序/共占位/缺陷模型/化学式不匹配 → occupancy_missing"),
                 cif_path=result.cif_path, cif_sha256=result.cif_sha256)
     else:
@@ -559,15 +629,27 @@ def gate_cif(
     # ---- 8. 键长合理性（第一壳） ----
     first_el = first_shell["el"]
     if first_el != absorber:
-        r_sum = (COVALENT_RADIUS.get(absorber) and COVALENT_RADIUS.get(first_el))
-        if COVALENT_RADIUS.get(absorber) and COVALENT_RADIUS.get(first_el):
-            expected = COVALENT_RADIUS[absorber] + COVALENT_RADIUS[first_el]
-            r_obs = first_shell["r"]
-            if abs(r_obs - expected) > BOND_TOL:
+        r_obs = first_shell["r"]
+        pair_ref = (PAIR_BOND_REF.get((absorber, first_el))
+                    or PAIR_BOND_REF.get((first_el, absorber)))
+        if pair_ref is not None:
+            r_lo, r_hi = pair_ref
+            if (r_obs < r_lo - PAIR_BOND_SLACK
+                    or r_obs > r_hi + PAIR_BOND_SLACK):
                 return CIFGateResult(
                     ok=False, code="bond_length_implausible", absorber=absorber,
-                    reason=(f"第一壳 {absorber}–{first_el} 键长 {r_obs:.3f} Å 与共价半径之和 "
-                            f"{expected:.3f} Å 偏差 > {BOND_TOL} Å；未知元素对请提供参考键长"),
+                    reason=(f"第一壳 {absorber}–{first_el} 键长 {r_obs:.3f} Å "
+                            f"超出实验参考范围 [{r_lo:.2f}, {r_hi:.2f}] Å"
+                            f"（容差 ±{PAIR_BOND_SLACK} Å）"),
+                    cif_path=result.cif_path, cif_sha256=result.cif_sha256)
+        elif COVALENT_RADIUS.get(absorber) and COVALENT_RADIUS.get(first_el):
+            r_expected = COVALENT_RADIUS[absorber] + COVALENT_RADIUS[first_el]
+            if abs(r_obs - r_expected) > BOND_TOL:
+                return CIFGateResult(
+                    ok=False, code="bond_length_implausible", absorber=absorber,
+                    reason=(f"第一壳 {absorber}–{first_el} 键长 {r_obs:.3f} Å "
+                            f"与共价半径之和 {r_expected:.3f} Å 偏差 > {BOND_TOL} Å；"
+                            f"未知元素对请提供参考键长"),
                     cif_path=result.cif_path, cif_sha256=result.cif_sha256)
     # 未知元素对：记录警告，不硬失败（用户可在后续提供参考键长）
 

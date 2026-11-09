@@ -18,4 +18,5 @@ data/standards_raw/
 _standards_lib/
 # 本地产物 / 日志 / 补丁不进入版本库
 *.log
+logs/
 patches/

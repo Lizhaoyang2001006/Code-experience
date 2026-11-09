@@ -7,6 +7,23 @@
 物理计算基于 xraylarch，结构展开基于 gemmi/FEFF6，不依赖 Athena /
 Artemis 的图形界面。
 
+## 项目目录结构与文档导航
+
+| 类别 | 路径 | 职责 |
+|---|---|---|
+| 核心入口 | `run_xafs.py` | 单样品全流程（处理 / 识别 / 拟合 / 正式 CN） |
+| 核心入口 | `calibrate_t5.py` | T5 独立 S₀² 标定（冻结门禁，不放宽） |
+| 核心入口 | `run_ci.py` | 回归契约 + 压力测试总入口 |
+| 构建期工具 | `tools/cif_crawler.py` | 固定 COD ID → 正式 phase pack（44 条真实 CIF） |
+| 构建期工具 | `tools/build_source_pool.py` | T5 谱源隔离池生成与校验 |
+| 结构库 | `_structure_lib/` | 诊断 motif + `_phase_pack/` 正式 CIF |
+| 标定资产 | `data/s02_calibration/` | T5 标定产物、motifs、source_pool |
+| 设计规范 | `docs/REVIEW_AND_REVISED_PLAN.md` | 正式 CN 物理门禁总纲（§1–§6） |
+| 执行计划 | `docs/P4_PLUS_EXECUTION_PLAN.md` | P4+/P5/P6 催化能力扩展计划 |
+| 验收账本 | `docs/ACCEPTANCE_LOG.md` | P0a–P6 完整验收记录 |
+| 爬虫说明 | `docs/CIF_CRAWLER_INTEGRATION.md` | COD 目标表、P5-C 入库与 T5 谱源整合 |
+| 执行记录 | `docs/P6_EXECUTION_INSTRUCTIONS.md` | P6 门禁修复与项目整合的权威执行指令 |
+
 ## 安装
 
 ```powershell
@@ -771,7 +788,7 @@ S₀²=0.46 与这个非物理 σ² 绑定；固定 σ² 时 S₀² 随假设值
 | Mo | MoO2 | 9009090 | 14 | tugarinovite |
 | Mo | MoO3 | 9009669 | 62 | molybdite |
 | Ru | RuO2 | 9007541 | 136 | rutile |
-| Rh | Rh2O3 | 1010584 | 167 | corundum |
+| Rh | Rh2O3 | 1544346 | 60 | orthorhombic-II（Shannon & Prewitt 1970） |
 | Pd | PdO | 1009031 | 131 | palladinite |
 | Ag | Ag2O | 1010486 | 224 | cuprite |
 | Ir | IrO2 | 2101854 | 136 | rutile |

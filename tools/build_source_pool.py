@@ -120,7 +120,7 @@ POOL_META = {
         ],
         "replacement_candidates": [
             "Rh K 边 Rh 箔透射/荧光谱（k_max ≥ 10 Å⁻¹）",
-            "Rh2O3 corundum（P5-C COD 1010584）配套谱",
+            "Rh2O3（P5-C COD 1544346）配套谱",
         ],
     },
     "Pd": {
