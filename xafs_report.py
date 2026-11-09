@@ -92,6 +92,7 @@ SHELLS = [("Fe–O", 1.0, 1.8), ("Fe–Fe(1)", 2.2, 3.2), ("Fe–Fe(2)", 3.3, 3.
 
 def process_scans(files, absorber: str = "Fe", strict: bool = False,
                   kmin: float = KMIN, kmax: float = KMAX,
+                  post_window=(150.0, 600.0),
                   despike: bool = False,
                   deglitch: list[tuple[float, float]] | None = None,
                   deadtime: bool = False,
@@ -111,6 +112,7 @@ def process_scans(files, absorber: str = "Fe", strict: bool = False,
     """
     res = xafs_pipeline.process_sample(
         files, align=True, absorber=absorber, kmin=kmin, kmax=kmax, kweight=2,
+        post_window=post_window,
         strict=strict, despike=despike, deglitch=deglitch,
         deadtime=deadtime,
         reject_outlier_scans=reject_outlier_scans,
@@ -1427,6 +1429,15 @@ def main(argv=None):
     parser.add_argument("--s02-from-t5", action="store_true",
                         help="P5 从 data/s02_calibration/<El>/calibration.json "
                              "加载通过冻结门禁的独立 S₀²（显式 --s02 优先）")
+    parser.add_argument("--xanes-cross-check", action="store_true",
+                        help="T8 XANES–EXAFS 联合软校验：白线/边步/归一化"
+                             "异常时警告；不改变 cn_reliable/正式 CN")
+    parser.add_argument("--post-window", default=None,
+                        help="S3 归一化边后窗口（E-E0, eV）：'150,600'；"
+                             "默认 150,600")
+    parser.add_argument("--allow-unusual-coordination", action="store_true",
+                        help="CIF 门禁：允许键长超出 PAIR_BOND_REF±0.08 Å；"
+                             "默认拒绝")
     parser.add_argument("--phase-cif", action="append", default=None,
                         help="P1b 用户真实 CIF 路径（可重复，最高优先级）")
     parser.add_argument("--phase-id", default=None,
@@ -1611,6 +1622,19 @@ def main(argv=None):
         args.vary_c3 = config["vary_c3"]
     if args.vary_c4 is None and config.get("vary_c4") is not None:
         args.vary_c4 = config["vary_c4"]
+    # P1b/P5（与 run_xafs 共用同一套键）
+    xafs_config.apply_p1b_config(args, config)
+    post_window = (150.0, 600.0)
+    if args.post_window is not None:
+        try:
+            _pw = xafs_config._coerce_config_value(
+                "post_window", args.post_window)
+        except (TypeError, ValueError):
+            parser.error(f"--post-window 需要两个数字，收到 {args.post_window!r}")
+        if len(_pw) != 2 or not (0 < _pw[0] < _pw[1]):
+            parser.error(
+                f"--post-window 必须满足 0 < lo < hi，收到 {args.post_window!r}")
+        post_window = (float(_pw[0]), float(_pw[1]))
     try:
         fit_kweights = (xafs_config.parse_kweights(args.fit_kweights)
                         if not isinstance(args.fit_kweights, (list, tuple))
@@ -1737,6 +1761,19 @@ def main(argv=None):
     if args.operando:
         if args.no_fit:
             parser.error("--operando 需要逐样品跑 S1–S6.5，不能与 --no-fit 同用")
+        _incompatible = [name for name, on in (
+            ("--formal-cn", args.formal_cn),
+            ("--xanes-cross-check", args.xanes_cross_check),
+            ("--fit-weights", args.fit_weights),
+            ("--phase-cif", args.phase_cif is not None),
+            ("--phase-id", args.phase_id is not None),
+            ("--phase", args.phase is not None),
+            ("--phase-index", args.phase_index is not None),
+        ) if on]
+        if _incompatible:
+            parser.error(
+                "--operando 只执行 S1–S6 + PCA/MCR/LCF，不执行 S6.5/S7；"
+                "以下参数不适用: " + ", ".join(_incompatible))
         if len(args.files) < 3:
             parser.error("--operando 至少需要 3 个样品文件")
         op_root = (Path(args.outdir) if args.outdir
@@ -1747,7 +1784,8 @@ def main(argv=None):
             print(f"[operando {i}/{len(args.files)}] {Path(fpath).name}")
             st = process_scans(
                 [fpath], absorber=args.absorber, strict=args.strict,
-                kmin=args.kmin, kmax=args.kmax, despike=args.despike,
+                kmin=args.kmin, kmax=args.kmax, post_window=post_window,
+                despike=args.despike,
                 deglitch=deglitch, deadtime=args.deadtime,
                 reject_outlier_scans=args.reject_outlier_scans,
                 mback=args.mback, chi_std=chi_std, chi_std_k=chi_std_k,
@@ -1765,7 +1803,9 @@ def main(argv=None):
                 std = xafs_pipeline.process_sample(
                     [p], absorber=args.absorber, strict=False, verbose=False)
                 std_scans[Path(p).stem] = std.norm
-        op = xafs_lcf.run_operando_series(results, standards=std_scans)
+        op = xafs_lcf.run_operando_series(
+            results, standards=std_scans,
+            **xafs_config.operando_kwargs_from_config(config))
         made = xafs_diagnostics.write_operando_diagnostics(
             op, op_root / "operando", stem="operando")
         indicator_rows = [
@@ -1804,6 +1844,7 @@ def main(argv=None):
     print(f"== 数据处理：{sample}（{len(args.files)} 个文件）==")
     st = process_scans(args.files, absorber=args.absorber,
                        strict=args.strict, kmin=args.kmin, kmax=args.kmax,
+                       post_window=post_window,
                        despike=args.despike, deglitch=deglitch,
                        deadtime=args.deadtime,
                        reject_outlier_scans=args.reject_outlier_scans,
@@ -1879,7 +1920,8 @@ def main(argv=None):
         multi_site = len(structure_models) > 1
         gate_kwargs = dict(
             kmin=args.kmin, kmax=args.kmax, rmax=6.0,
-            allow_computed=False, allow_unusual_coordination=False,
+            allow_computed=False,
+            allow_unusual_coordination=args.allow_unusual_coordination,
             is_computed=not resolution.selected.experimental)
         if multi_site:
             gate_results = cif_gate.gate_cif_all_sites(
@@ -1910,7 +1952,7 @@ def main(argv=None):
     print("== S6.5 结构识别 + S7 拟合 ==")
     out_fit = xafs_fit.run(
         st["result"], identify=True, fit=not args.no_fit,
-        absorber_symbol=args.absorber, fit_motif=args.fit_motif,
+        absorber_symbol=eff_absorber, fit_motif=args.fit_motif,
         fit_rmin=args.fit_rmin, fit_rmax=args.fit_rmax,
         allow_ambiguous=args.allow_ambiguous,
         l1_ligand=args.l1_ligand, l1_geometry=args.l1_geometry,
@@ -1927,6 +1969,7 @@ def main(argv=None):
         formal_cn=args.formal_cn and not multi_site_formal,
         structure_model=structure_model,
         gate_result=gate_result,
+        xanes_cross_check=args.xanes_cross_check,
         verbose=True)
     if multi_site_formal and out_fit.get("fit") is not None:
         multi = xafs_fit.run_multi_site_formal_cn(

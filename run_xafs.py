@@ -422,6 +422,7 @@ def process_sample(paths, outdir, align: bool = False,
                    e0_method: str = "derivative", manual_e0: float | None = None,
                    rbkg: float | None = None, kmin: float = 3.0, kmax: float = 12.0,
                    kweight: int = 2, post_window=(150, 600),
+                   allow_unusual_coordination: bool = False,
                    strict: bool = True,
                    diagnostics: bool = False, identify: bool = False,
                    fit: bool = False, fit_motif: str | None = None,
@@ -565,7 +566,7 @@ def process_sample(paths, outdir, align: bool = False,
         gate_kwargs = dict(
             kmin=kmin, kmax=kmax, rmax=6.0,
             allow_computed=False,
-            allow_unusual_coordination=False,
+            allow_unusual_coordination=allow_unusual_coordination,
             is_computed=not resolution.selected.experimental)
         if multi_site:
             # P5-D：每个不等价吸收位独立过门禁；任一位点失败即拒绝，
@@ -879,6 +880,12 @@ def main():
                         choices=["derivative", "half_height", "manual"])
     parser.add_argument("--manual-e0", type=float, default=None)
     parser.add_argument("--rbkg", type=float, default=None, help="指定 Rbkg，跳过寻优")
+    parser.add_argument("--post-window", default=None,
+                        help="S3 归一化边后窗口（E-E0, eV）：'150,600'；"
+                             "默认 150,600；也可用配置文件键 post_window")
+    parser.add_argument("--allow-unusual-coordination", action="store_true",
+                        help="CIF 门禁：允许键长超出 PAIR_BOND_REF±0.08 Å 的"
+                             "非常规配位；默认拒绝，需显式打开")
     parser.add_argument("--self-absorption-formula", default=None,
                         help="荧光自吸收校正的样品总化学式（如 Fe3O4）；"
                              "仅荧光模式，且必须同时给厚度/密度")
@@ -1030,17 +1037,11 @@ def main():
     # ---- Phase I–III + P1b/P5 开关：CLI 显式 > 配置文件 > 默认 ----
     for _key in ("deadtime", "reject_outlier_scans", "include_ms",
                  "isotropic_deltar", "mback", "hetero_cocupancy",
-                 "phase_correct", "chi2_contour", "operando",
-                 "s02_from_t5", "xanes_cross_check", "offline"):
+                 "phase_correct", "chi2_contour", "operando"):
         if not getattr(args, _key, False) and config.get(_key):
             setattr(args, _key, True)
-    for _key in ("phase_id", "phase", "phase_index", "phase_pack",
-                 "absorber_site"):
-        if getattr(args, _key, None) is None and config.get(_key) is not None:
-            setattr(args, _key, config[_key])
-    if args.phase_cif is None and config.get("phase_cif") is not None:
-        args.phase_cif = xafs_config._coerce_config_value(
-            "phase_cif", config["phase_cif"])
+    # P1b/P5（两个 CLI 共用同一套键，避免 report 端静默忽略）
+    xafs_config.apply_p1b_config(args, config)
     if args.deglitch is None and config.get("deglitch") is not None:
         args.deglitch = config["deglitch"]
     if args.fit_kweights is None and config.get("fit_kweights") is not None:
@@ -1091,6 +1092,19 @@ def main():
         shared_sigma2 = args.shared_sigma2
     vary_c3 = xafs_config.normalize_cumulant_switch(args.vary_c3)
     vary_c4 = xafs_config.normalize_cumulant_switch(args.vary_c4)
+
+    # ---- S3 归一化窗口：CLI > 配置文件 > 默认 (150, 600) ----
+    post_window = (150.0, 600.0)
+    if args.post_window is not None:
+        try:
+            _pw = xafs_config._coerce_config_value(
+                "post_window", args.post_window)
+        except (TypeError, ValueError):
+            parser.error(f"--post-window 需要两个数字，收到 {args.post_window!r}")
+        if len(_pw) != 2 or not (0 < _pw[0] < _pw[1]):
+            parser.error(
+                f"--post-window 必须满足 0 < lo < hi，收到 {args.post_window!r}")
+        post_window = (float(_pw[0]), float(_pw[1]))
 
     # ---- B10-1 chi_std 先验谱：两列 k, chi(k) ----
     chi_std = chi_std_k = None
@@ -1240,7 +1254,10 @@ def main():
                 [fpath], sub_out, align=args.align, absorber=element,
                 edge_energy=args.edge_energy, e0_method=args.e0_method,
                 manual_e0=args.manual_e0, rbkg=args.rbkg, kmin=args.kmin,
-                kmax=args.kmax, kweight=args.kweight, strict=args.strict,
+                kmax=args.kmax, kweight=args.kweight,
+                post_window=post_window,
+                allow_unusual_coordination=args.allow_unusual_coordination,
+                strict=args.strict,
                 diagnostics=args.diagnostics, identify=args.identify,
                 fit=args.fit, fit_motif=args.fit_motif,
                 fit_rmin=args.fit_rmin, fit_rmax=args.fit_rmax,
@@ -1293,6 +1310,25 @@ def main():
             parser.error("--operando 与 --batch-dir 不能同时使用")
         if len(files) < 3:
             parser.error("--operando 至少需要 3 个样品文件")
+        _incompatible = [name for name, on in (
+            ("--fit", args.fit),
+            ("--identify", args.identify),
+            ("--formal-cn", args.formal_cn),
+            ("--xanes-cross-check", args.xanes_cross_check),
+            ("--fit-motif", args.fit_motif is not None),
+            ("--fit-weights", args.fit_weights),
+            ("--catalytic-model", args.catalytic_model is not None),
+            ("--legacy-auto-fit", args.legacy_auto_fit),
+            ("--phase-cif", args.phase_cif is not None),
+            ("--phase-id", args.phase_id is not None),
+            ("--phase", args.phase is not None),
+            ("--phase-index", args.phase_index is not None),
+            ("--absorber-site", args.absorber_site is not None),
+        ) if on]
+        if _incompatible:
+            parser.error(
+                "--operando 只执行 S1–S6 + PCA/MCR/LCF，不执行 S6.5/S7；"
+                "以下参数不适用: " + ", ".join(_incompatible))
         op_s02, op_s02_src = _resolve_s02_for_paths(args, files, args.absorber)
         results = []
         for i, fpath in enumerate(files, 1):
@@ -1302,8 +1338,12 @@ def main():
                 align=args.align, absorber=args.absorber,
                 edge_energy=args.edge_energy, e0_method=args.e0_method,
                 manual_e0=args.manual_e0, rbkg=args.rbkg, kmin=args.kmin,
-                kmax=args.kmax, kweight=args.kweight, strict=args.strict,
-                despike=args.despike,
+                kmax=args.kmax, kweight=args.kweight,
+                post_window=post_window,
+                allow_unusual_coordination=args.allow_unusual_coordination,
+                strict=args.strict,
+                diagnostics=args.diagnostics,
+                despike=args.despike, deglitch=deglitch,
                 deadtime=args.deadtime,
                 reject_outlier_scans=args.reject_outlier_scans,
                 mback=args.mback, chi_std=chi_std, chi_std_k=chi_std_k,
@@ -1323,7 +1363,9 @@ def main():
                 std = xafs_pipeline.process_sample(
                     [p], absorber=args.absorber, strict=False, verbose=False)
                 std_scans[Path(p).stem] = std.norm
-        op = xafs_lcf.run_operando_series(results, standards=std_scans)
+        op = xafs_lcf.run_operando_series(
+            results, standards=std_scans,
+            **xafs_config.operando_kwargs_from_config(config))
         op_dir = Path(args.outdir) / "operando"
         made = xafs_diagnostics.write_operando_diagnostics(
             op, op_dir, stem="operando")
@@ -1359,7 +1401,10 @@ def main():
                     [fpath], sub_out, align=args.align, absorber=args.absorber,
                     edge_energy=args.edge_energy, e0_method=args.e0_method,
                     manual_e0=args.manual_e0, rbkg=args.rbkg, kmin=args.kmin,
-                    kmax=args.kmax, kweight=args.kweight, strict=args.strict,
+                    kmax=args.kmax, kweight=args.kweight,
+                    post_window=post_window,
+                    allow_unusual_coordination=args.allow_unusual_coordination,
+                    strict=args.strict,
                     diagnostics=args.diagnostics, identify=args.identify,
                     fit=args.fit, fit_motif=args.fit_motif,
                     fit_rmin=args.fit_rmin, fit_rmax=args.fit_rmax,
@@ -1418,7 +1463,10 @@ def main():
         files, args.outdir, align=args.align, absorber=args.absorber,
         edge_energy=args.edge_energy, e0_method=args.e0_method,
         manual_e0=args.manual_e0, rbkg=args.rbkg, kmin=args.kmin,
-        kmax=args.kmax, kweight=args.kweight, strict=args.strict,
+        kmax=args.kmax, kweight=args.kweight,
+        post_window=post_window,
+        allow_unusual_coordination=args.allow_unusual_coordination,
+        strict=args.strict,
         diagnostics=args.diagnostics, identify=args.identify, fit=args.fit,
         fit_motif=args.fit_motif, fit_rmin=args.fit_rmin,
         fit_rmax=args.fit_rmax, allow_ambiguous=args.allow_ambiguous,

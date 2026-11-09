@@ -1331,3 +1331,47 @@ crawler 入库后按同一三扫描命令重跑，上述 r_factor/N/R 与 fit_ta
 - 遗留问题：
   - 稀释样品（如 Ru-K-RuO2.xdi）边后平台 0.106，仍须 `--no-strict`；
   - 条件 CN 的物理拒绝（N/N₀ 越界、Rf 超限）保持硬拒绝，不放宽。
+
+
+## 12. P6.3：入口层执行障碍清理（2026-11-09）
+
+### 12.1 范围
+
+- `xafs_config.py`：新增 `apply_p1b_config()` 与
+  `operando_kwargs_from_config()`；P1b/P5 的 9 个键（`s02_from_t5` /
+  `xanes_cross_check` / `phase_cif` / `phase_id` / `phase` /
+  `phase_index` / `phase_pack` / `absorber_site` / `offline`）与
+  `post_window` 由两个 CLI 共用同一套合并逻辑；
+- `xafs_report.py`：配置文件正式支持上述键；新增
+  `--xanes-cross-check`、`--post-window`、
+  `--allow-unusual-coordination`；`xafs_fit.run` 改用自动识别的
+  `eff_absorber` 并透传 `xanes_cross_check`；
+- `run_xafs.py`：新增 `--post-window` 与
+  `--allow-unusual-coordination`；operando 模式对 `--fit` /
+  `--identify` / `--formal-cn` / `--xanes-cross-check` /
+  `--fit-motif` / `--fit-weights` / `--catalytic-model` /
+  `--legacy-auto-fit` / `--phase-*` 显式报错（不再静默忽略）；
+  operando 补传 `kweight` / `deglitch` / `diagnostics`；
+- `xafs_pipeline.py`：S3 strict 报错追加 `--no-strict` 提示；
+- B10 配置接线：`target_transform.spoil_good/spoil_poor` 与
+  `mcr_als.n_components/max_iter/closure` 正式传入
+  `run_operando_series`。
+
+### 12.2 结果
+
+- 仅凭配置文件（`s02_from_t5` + `phase_id=COD:9007541` + `offline` +
+  `formal_cn`）即可跑通 RuO2 报告并写出 `cn_table.csv`
+  （`s02=0.7002`，条件 CN 物理拒绝保留）；
+- `--operando --fit/--formal-cn` 等组合现在退出码 2 并列出不适用参数；
+- 契约 `#131` 锁定双入口配置对齐、operando 守卫、B10 接线与 S3 提示。
+
+### 12.3 测试
+
+- `regression_test.py`：**131 项 OK**；
+- `run_ci.py --stress`：131 契约 + 4 压力 PASS。
+
+### 12.4 结论
+
+- [x] 通过
+- 物理门禁、`absorber.py` 静态表、`calibrate_s02.py` 常量、
+  44 条 phase pack 均未改动。

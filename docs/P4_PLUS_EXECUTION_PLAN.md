@@ -257,3 +257,14 @@
   `n0_shells` / `warnings`；
 - `xafs_report.py` 接入 `--s02-from-t5` 与 `--phase-*` 正式 CN 入口；
 - 契约 `#129` 锁定 RuO2 单晶位端到端正式 CN。
+
+
+## P6.3：入口层执行障碍清理（已完成）
+
+- `xafs_config.apply_p1b_config` / `operando_kwargs_from_config`：
+  两个 CLI 共用 P1b/P5 配置合并，B10 配置键正式接线；
+- `xafs_report.py` 新增 `--xanes-cross-check` / `--post-window` /
+  `--allow-unusual-coordination`，配置文件与 `run_xafs` 对齐；
+- `run_xafs.py` operando 模式对 S6.5/S7 参数显式报错，不再静默忽略；
+- S3 strict 报错补 `--no-strict` 提示；
+- 契约 `#131` 锁定上述入口对齐。

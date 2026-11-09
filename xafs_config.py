@@ -33,6 +33,7 @@ xafs_config.py — 管线配置文件支持（YAML / JSON / INI）
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -183,6 +184,9 @@ def _coerce_config_value(key: str, value):
             return json.loads(value)
         return value
     if key == "post_window":
+        if isinstance(value, str):
+            parts = [p for p in re.split(r"[,:;\s]+", value.strip()) if p]
+            return tuple(float(p) for p in parts)
         return tuple(float(v) for v in value)
     if key == "bvs_restraint":
         if isinstance(value, str):
@@ -290,6 +294,58 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
         else:
             out[k] = v
     return out
+
+
+# P1b/P5 入口配置键：两个 CLI（run_xafs / xafs_report）必须完全一致，
+# 否则配置文件里的相来源、T5 与离线开关会被静默忽略。
+P1B_BOOL_KEYS = ("s02_from_t5", "xanes_cross_check", "offline")
+P1B_VALUE_KEYS = ("phase_id", "phase", "phase_index", "phase_pack",
+                  "absorber_site")
+
+
+def apply_p1b_config(args, config: dict[str, Any]):
+    """把 P1b/P5 配置键合并进 argparse.Namespace（CLI 显式值优先）。
+
+    ``args`` 里已有的非默认值（布尔 True / 非 None）不会被配置覆盖；
+    因此两个入口都可以在解析完 CLI 后无条件调用。
+    """
+    for key in P1B_BOOL_KEYS:
+        if not getattr(args, key, False) and config.get(key):
+            setattr(args, key, True)
+    for key in P1B_VALUE_KEYS:
+        if getattr(args, key, None) is None and config.get(key) is not None:
+            setattr(args, key, config[key])
+    if (getattr(args, "phase_cif", None) is None
+            and config.get("phase_cif") is not None):
+        args.phase_cif = _coerce_config_value("phase_cif", config["phase_cif"])
+    if (getattr(args, "post_window", None) is None
+            and config.get("post_window") is not None):
+        args.post_window = _coerce_config_value(
+            "post_window", config["post_window"])
+    return args
+
+
+def operando_kwargs_from_config(config: dict[str, Any]) -> dict[str, Any]:
+    """把 B10 的 target_transform / mcr_als 配置映射到 run_operando_series。
+
+    DEFAULTS 里的这两个键此前只是"声明"，从未被消费；这里接线后
+    ``target_transform.spoil_good/spoil_poor`` 与
+    ``mcr_als.n_components/max_iter/closure`` 才会真正生效。
+    """
+    kw: dict[str, Any] = {}
+    tt = config.get("target_transform") or {}
+    mcr = config.get("mcr_als") or {}
+    if tt.get("spoil_good") is not None:
+        kw["spoil_good"] = float(tt["spoil_good"])
+    if tt.get("spoil_poor") is not None:
+        kw["spoil_poor"] = float(tt["spoil_poor"])
+    if mcr.get("n_components") is not None:
+        kw["n_components"] = int(mcr["n_components"])
+    if mcr.get("max_iter") is not None:
+        kw["max_iter"] = int(mcr["max_iter"])
+    if mcr.get("closure") is not None:
+        kw["closure"] = bool(mcr["closure"])
+    return kw
 
 
 def apply_config_to_kwargs(config: dict[str, Any], kwargs: dict[str, Any],

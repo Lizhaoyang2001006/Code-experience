@@ -200,7 +200,9 @@ def process_sample(paths, align: bool = False, absorber: str | None = None,
         # strict=True（run_xafs 默认）：未知样品宁可中断也不产出误导结果；
         # strict=False（xafs_report）：已知标样（如厚 Fe 箔平台 0.79）降级为警告。
         if strict:
-            raise XAFSError("S3", f"归一化失败：{msg}")
+            raise XAFSError(
+                "S3", f"归一化失败：{msg}"
+                      "（如为已知厚样/稀释标样，可加 --no-strict 降级为警告）")
         if verbose:
             print(f"       ⚠ {msg}（strict=False，仅警告）")
 

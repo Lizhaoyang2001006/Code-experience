@@ -6066,6 +6066,91 @@ O1 O 0 0 0 0.5
         self.assertAlmostEqual(float(rows[0]["n0"]), 6.0, places=3)
         self.assertAlmostEqual(float(rows[0]["n_fit"]), 6.0, delta=0.35)
 
+    def test_p6_3_entry_parity_and_operando_guards(self):
+        """#131 P6.3：双入口配置键对齐、operando 冲突守卫、B10 配置接线与 S3 提示。"""
+        import argparse
+        import contextlib
+        import io
+        from unittest.mock import patch
+
+        # 1) P1b/P5 配置合并：9 键 + post_window；CLI 显式值优先
+        args = argparse.Namespace(
+            s02_from_t5=False, xanes_cross_check=False, offline=False,
+            phase_id=None, phase=None, phase_index=None, phase_pack=None,
+            absorber_site=None, phase_cif=None, post_window=None)
+        cfg = {
+            "s02_from_t5": True, "xanes_cross_check": True, "offline": True,
+            "phase_cif": "a.cif,b.cif", "phase_id": "COD:9007541",
+            "phase": "name=rutile", "phase_index": "idx.json",
+            "phase_pack": "pack", "absorber_site": "all",
+            "post_window": [180, 650],
+        }
+        xafs_config.apply_p1b_config(args, cfg)
+        self.assertTrue(args.s02_from_t5)
+        self.assertTrue(args.xanes_cross_check)
+        self.assertTrue(args.offline)
+        self.assertEqual(args.phase_cif, ["a.cif", "b.cif"])
+        self.assertEqual(args.phase_id, "COD:9007541")
+        self.assertEqual(args.phase, "name=rutile")
+        self.assertEqual(args.phase_index, "idx.json")
+        self.assertEqual(args.phase_pack, "pack")
+        self.assertEqual(args.absorber_site, "all")
+        self.assertEqual(args.post_window, (180.0, 650.0))
+
+        args2 = argparse.Namespace(
+            s02_from_t5=True, xanes_cross_check=False, offline=False,
+            phase_id="COD:1", phase=None, phase_index=None, phase_pack=None,
+            absorber_site="Fe1", phase_cif=["explicit.cif"],
+            post_window="140,620")
+        xafs_config.apply_p1b_config(args2, cfg)
+        self.assertEqual(args2.phase_id, "COD:1")
+        self.assertEqual(args2.absorber_site, "Fe1")
+        self.assertEqual(args2.phase_cif, ["explicit.cif"])
+        self.assertEqual(args2.post_window, "140,620")
+
+        # 2) B10 配置键接线：target_transform / mcr_als
+        kw = xafs_config.operando_kwargs_from_config({
+            "target_transform": {"spoil_good": 2.5, "spoil_poor": 5.0},
+            "mcr_als": {"n_components": 3, "max_iter": 500, "closure": False},
+        })
+        self.assertEqual(kw, {"spoil_good": 2.5, "spoil_poor": 5.0,
+                              "n_components": 3, "max_iter": 500,
+                              "closure": False})
+
+        # 3) --operando 与 S6.5/S7 参数显式冲突（不再静默忽略）
+        import run_xafs
+        for extra in (["--formal-cn", "--fit"], ["--fit"],
+                      ["--xanes-cross-check"]):
+            argv = (["run_xafs.py", str(FE_FOIL), str(FE_FOIL), str(FE_FOIL),
+                     "--operando", "--absorber", "Fe"] + extra)
+            with patch.object(sys, "argv", argv), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit):
+                    run_xafs.main()
+
+        # 4) 新入口开关在后端可见（--help 即解析器全量）
+        for module, flag in (
+                (run_xafs, "--allow-unusual-coordination"),
+                (run_xafs, "--post-window"),
+                (xafs_report, "--xanes-cross-check"),
+                (xafs_report, "--allow-unusual-coordination"),
+                (xafs_report, "--post-window"),
+                (xafs_report, "--phase-id")):
+            buf = io.StringIO()
+            with patch.object(sys, "argv", ["prog", "--help"]), \
+                    contextlib.redirect_stdout(buf), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit):
+                    module.main()
+            self.assertIn(flag, buf.getvalue(), f"{module.__name__} 缺少 {flag}")
+
+        # 5) S3 strict 报错给出 --no-strict 出口
+        with self.assertRaises(XAFSError) as ctx:
+            xafs_pipeline.process_sample([FE_FOIL], absorber="Fe",
+                                         strict=True, verbose=False)
+        self.assertIn("归一化失败", str(ctx.exception))
+        self.assertIn("--no-strict", str(ctx.exception))
+
     def test_p6_2_edge_entry_alignments(self):
         """#130 P6.2：frac:(x,y,z) 吸收位、P1b/P5 配置键镜像、XDI 自动元素回退与 report 异常分支。"""
         import json
