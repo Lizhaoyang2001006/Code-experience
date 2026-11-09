@@ -1,0 +1,134 @@
+{
+ "absorber": "U",
+ "status": "not_calibrated",
+ "generated_at": "2026-11-09T12:18:56",
+ "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+ "static_absorber_py_unchanged": true,
+ "apply_to_absorber_py": false,
+ "runtime_override": "--s02",
+ "attempts": [
+  {
+   "standard": "_standards_lib\\U\\U_metal_foil.dat",
+   "standard_exists": true,
+   "motif": "u_alpha_u_cod_1527120",
+   "motif_file": null,
+   "strict": false,
+   "kmin": 2.5,
+   "kmax": 7.5,
+   "rmin": null,
+   "note": "",
+   "provenance": {
+    "source_path": "_standards_lib\\U\\U_metal_foil.dat",
+    "source_sha256": "5b31461e25fe6379d30197199d31a59bb44af6e8f4855e3cb2c0b995c9510dfe",
+    "committed": false,
+    "transform": null,
+    "used_path": "_standards_lib\\U\\U_metal_foil.dat",
+    "used_sha256": "5b31461e25fe6379d30197199d31a59bb44af6e8f4855e3cb2c0b995c9510dfe"
+   },
+   "result": {
+    "absorber": "U",
+    "edge": "L3",
+    "motif": "u_alpha_u_cod_1527120",
+    "motif_file": null,
+    "fixed_CN": 4.0,
+    "R_first": 2.7425,
+    "k_window": [
+     2.5,
+     7.5
+    ],
+    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+    "runs": [
+     {
+      "r_window": [
+       2.143,
+       2.863
+      ],
+      "s02": 0.3,
+      "s02_err": 0.1753,
+      "rf": 0.5537,
+      "delta_e0": 10.94,
+      "sigma2": 0.0001,
+      "delta_r": 0.03,
+      "interior": false
+     },
+     {
+      "r_window": [
+       2.143,
+       2.923
+      ],
+      "s02": 0.3,
+      "s02_err": 0.1727,
+      "rf": 0.5838,
+      "delta_e0": 10.29,
+      "sigma2": 0.001,
+      "delta_r": 0.03,
+      "interior": false
+     },
+     {
+      "r_window": [
+       2.143,
+       3.003
+      ],
+      "s02": 0.3,
+      "s02_err": 0.174,
+      "rf": 0.601,
+      "delta_e0": 9.41,
+      "sigma2": 0.0015,
+      "delta_r": 0.03,
+      "interior": false
+     }
+    ],
+    "s02": null,
+    "s02_err": null,
+    "rf": null,
+    "spread": null,
+    "delta_e0": null,
+    "sigma2": null,
+    "n_variables": 4,
+    "n_independent": 2.48,
+    "plateau": 0.9319,
+    "rbkg_choice": 1.4000000000000001,
+    "kw_sensitivity": {
+     "1": {
+      "s02": 0.3,
+      "rf": 0.1098,
+      "delta_e0": 10.28
+     },
+     "3": {
+      "s02": 0.3012,
+      "rf": 0.2469,
+      "delta_e0": 7.04
+     }
+    },
+    "checks": {
+     "window_runs_interior": false,
+     "s02_in_range": false,
+     "s02_err_ok": false,
+     "window_spread_ok": false
+    },
+    "pass": false
+   },
+   "status": "gated_out",
+   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok"
+  }
+ ],
+ "s02": null,
+ "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok",
+ "attempts_compact": [
+  {
+   "standard": "_standards_lib\\U\\U_metal_foil.dat",
+   "motif": "u_alpha_u_cod_1527120",
+   "strict": false,
+   "kmin": 2.5,
+   "kmax": 7.5,
+   "rmin": null,
+   "status": "gated_out",
+   "s02": null,
+   "s02_err": null,
+   "rf": null,
+   "spread": null,
+   "plateau": 0.9319,
+   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok"
+  }
+ ]
+}

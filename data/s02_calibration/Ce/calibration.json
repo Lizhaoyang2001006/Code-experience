@@ -1,0 +1,134 @@
+{
+ "absorber": "Ce",
+ "status": "not_calibrated",
+ "generated_at": "2026-11-09T12:18:55",
+ "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+ "static_absorber_py_unchanged": true,
+ "apply_to_absorber_py": false,
+ "runtime_override": "--s02",
+ "attempts": [
+  {
+   "standard": "data\\bmm_standards\\Data\\Ce\\Ce-L3-CeO2.xdi",
+   "standard_exists": true,
+   "motif": "ceo2_fluorite_cod_1562989",
+   "motif_file": null,
+   "strict": false,
+   "kmin": 3.5,
+   "kmax": 12.0,
+   "rmin": 1.6,
+   "note": "CeO2 荧光计数 xmu，larch 归一化 plateau≈1.20；rmin=1.6 覆盖第一壳并增加 N_idp",
+   "provenance": {
+    "source_path": "data\\bmm_standards\\Data\\Ce\\Ce-L3-CeO2.xdi",
+    "source_sha256": "1f679ebd0fb31ed37bca9e8ba125ad06fc0b08554052f8329a2ce7386b8c1e7e",
+    "committed": true,
+    "transform": null,
+    "used_path": "data\\bmm_standards\\Data\\Ce\\Ce-L3-CeO2.xdi",
+    "used_sha256": "1f679ebd0fb31ed37bca9e8ba125ad06fc0b08554052f8329a2ce7386b8c1e7e"
+   },
+   "result": {
+    "absorber": "Ce",
+    "edge": "L3",
+    "motif": "ceo2_fluorite_cod_1562989",
+    "motif_file": null,
+    "fixed_CN": 8.0,
+    "R_first": 2.3414,
+    "k_window": [
+     3.5,
+     12.0
+    ],
+    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+    "runs": [
+     {
+      "r_window": [
+       1.6,
+       2.461
+      ],
+      "s02": 0.466,
+      "s02_err": 0.0223,
+      "rf": 0.0234,
+      "delta_e0": 10.2,
+      "sigma2": 0.0001,
+      "delta_r": 0.0164,
+      "interior": false
+     },
+     {
+      "r_window": [
+       1.6,
+       2.521
+      ],
+      "s02": 0.4641,
+      "s02_err": 0.0284,
+      "rf": 0.0406,
+      "delta_e0": 10.04,
+      "sigma2": 0.0001,
+      "delta_r": 0.016,
+      "interior": false
+     },
+     {
+      "r_window": [
+       1.6,
+       2.601
+      ],
+      "s02": 0.4627,
+      "s02_err": 0.0343,
+      "rf": 0.0617,
+      "delta_e0": 9.78,
+      "sigma2": 0.0001,
+      "delta_r": 0.0154,
+      "interior": true
+     }
+    ],
+    "s02": 0.4627,
+    "s02_err": 0.0343,
+    "rf": 0.0617,
+    "spread": null,
+    "delta_e0": 9.78,
+    "sigma2": 0.0001,
+    "n_variables": 4,
+    "n_independent": 4.99,
+    "plateau": 1.203,
+    "rbkg_choice": 0.9,
+    "kw_sensitivity": {
+     "1": {
+      "s02": 0.4123,
+      "rf": 0.0225,
+      "delta_e0": 10.69
+     },
+     "3": {
+      "s02": 0.4517,
+      "rf": 0.0402,
+      "delta_e0": 12.69
+     }
+    },
+    "checks": {
+     "window_runs_interior": false,
+     "s02_in_range": true,
+     "s02_err_ok": true,
+     "window_spread_ok": false
+    },
+    "pass": false
+   },
+   "status": "gated_out",
+   "reason": "门禁未通过: window_runs_interior, window_spread_ok"
+  }
+ ],
+ "s02": null,
+ "reason": "门禁未通过: window_runs_interior, window_spread_ok",
+ "attempts_compact": [
+  {
+   "standard": "data\\bmm_standards\\Data\\Ce\\Ce-L3-CeO2.xdi",
+   "motif": "ceo2_fluorite_cod_1562989",
+   "strict": false,
+   "kmin": 3.5,
+   "kmax": 12.0,
+   "rmin": 1.6,
+   "status": "gated_out",
+   "s02": 0.4627,
+   "s02_err": 0.0343,
+   "rf": 0.0617,
+   "spread": null,
+   "plateau": 1.203,
+   "reason": "门禁未通过: window_runs_interior, window_spread_ok"
+  }
+ ]
+}

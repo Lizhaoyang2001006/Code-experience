@@ -1,0 +1,47 @@
+{
+ "id": "moo4_tetra",
+ "absorber": "Mo",
+ "kind": "cluster",
+ "nuclearity": "m1",
+ "source": {
+  "type": "manual",
+  "ref": "MoO4 tetrahedron Mo-O 1.76 A x4"
+ },
+ "sites": [
+  [
+   1.76,
+   0.0,
+   0.0,
+   "O"
+  ],
+  [
+   -1.76,
+   0.0,
+   0.0,
+   "O"
+  ],
+  [
+   0.0,
+   1.76,
+   0.0,
+   "O"
+  ],
+  [
+   0.0,
+   0.0,
+   1.76,
+   "O"
+  ]
+ ],
+ "shell_expect": [
+  {
+   "el": "O",
+   "r": 1.76,
+   "n": 4
+  }
+ ],
+ "notes": "T5 calibration-only: MoO4 tetrahedron Mo-O 1.76 A x4",
+ "version": 1,
+ "calibration_only": true,
+ "production_library": false
+}

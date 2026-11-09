@@ -1,0 +1,408 @@
+{
+ "absorber": "Mo",
+ "status": "not_calibrated",
+ "generated_at": "2026-11-09T12:18:53",
+ "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+ "static_absorber_py_unchanged": true,
+ "apply_to_absorber_py": false,
+ "runtime_override": "--s02",
+ "attempts": [
+  {
+   "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-Na2MoO4.xdi",
+   "standard_exists": true,
+   "motif": "moo4_tetra",
+   "motif_file": "data\\s02_calibration\\motifs\\moo4_tetra.json",
+   "strict": true,
+   "kmin": null,
+   "kmax": null,
+   "rmin": null,
+   "note": "",
+   "provenance": {
+    "source_path": "data\\bmm_standards\\Data\\Mo\\Mo-K-Na2MoO4.xdi",
+    "source_sha256": "7502bb267a76d8408ec338b45c4000081cdab25ef840c0063dca3b4c226869fb",
+    "committed": true,
+    "transform": null,
+    "used_path": "data\\bmm_standards\\Data\\Mo\\Mo-K-Na2MoO4.xdi",
+    "used_sha256": "7502bb267a76d8408ec338b45c4000081cdab25ef840c0063dca3b4c226869fb"
+   },
+   "result": {
+    "absorber": "Mo",
+    "edge": "K",
+    "motif": "moo4_tetra",
+    "motif_file": "data\\s02_calibration\\motifs\\moo4_tetra.json",
+    "fixed_CN": 4.0,
+    "R_first": 1.76,
+    "k_window": [
+     3.0,
+     12.0
+    ],
+    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+    "runs": [
+     {
+      "r_window": [
+       1.16,
+       1.88
+      ],
+      "s02": 0.3801,
+      "s02_err": 0.0166,
+      "rf": 0.0144,
+      "delta_e0": 4.97,
+      "sigma2": 0.0001,
+      "delta_r": -0.0028,
+      "interior": false
+     },
+     {
+      "r_window": [
+       1.16,
+       1.94
+      ],
+      "s02": 0.3797,
+      "s02_err": 0.016,
+      "rf": 0.0148,
+      "delta_e0": 4.93,
+      "sigma2": 0.0001,
+      "delta_r": -0.003,
+      "interior": false
+     },
+     {
+      "r_window": [
+       1.16,
+       2.02
+      ],
+      "s02": 0.3792,
+      "s02_err": 0.0154,
+      "rf": 0.0153,
+      "delta_e0": 5.02,
+      "sigma2": 0.0001,
+      "delta_r": -0.0028,
+      "interior": false
+     }
+    ],
+    "s02": null,
+    "s02_err": null,
+    "rf": null,
+    "spread": null,
+    "delta_e0": null,
+    "sigma2": null,
+    "n_variables": 4,
+    "n_independent": 4.47,
+    "plateau": 0.9482,
+    "rbkg_choice": 1.1,
+    "kw_sensitivity": {
+     "1": {
+      "s02": 0.3418,
+      "rf": 0.0204,
+      "delta_e0": 5.74
+     },
+     "3": {
+      "s02": 0.4592,
+      "rf": 0.0115,
+      "delta_e0": 3.77
+     }
+    },
+    "checks": {
+     "window_runs_interior": false,
+     "s02_in_range": false,
+     "s02_err_ok": false,
+     "window_spread_ok": false
+    },
+    "pass": false
+   },
+   "status": "gated_out",
+   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok"
+  },
+  {
+   "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-Tugarinovite.xdi",
+   "standard_exists": true,
+   "motif": "moo2_rutile",
+   "motif_file": "data\\s02_calibration\\motifs\\moo2_rutile.json",
+   "strict": false,
+   "kmin": null,
+   "kmax": null,
+   "rmin": null,
+   "note": "",
+   "provenance": {
+    "source_path": "data\\bmm_standards\\Data\\Mo\\Mo-K-Tugarinovite.xdi",
+    "source_sha256": "aa4444e6d2af344aaaaa74f756b86dcf2ba31062fba79925b50e29c84d1e3566",
+    "committed": true,
+    "transform": null,
+    "used_path": "data\\bmm_standards\\Data\\Mo\\Mo-K-Tugarinovite.xdi",
+    "used_sha256": "aa4444e6d2af344aaaaa74f756b86dcf2ba31062fba79925b50e29c84d1e3566"
+   },
+   "result": {
+    "absorber": "Mo",
+    "edge": "K",
+    "motif": "moo2_rutile",
+    "motif_file": "data\\s02_calibration\\motifs\\moo2_rutile.json",
+    "fixed_CN": 6.0,
+    "R_first": 1.9519,
+    "k_window": [
+     3.0,
+     12.0
+    ],
+    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+    "runs": [
+     {
+      "r_window": [
+       1.352,
+       2.072
+      ],
+      "s02": 0.6776,
+      "s02_err": 0.0687,
+      "rf": 0.0569,
+      "delta_e0": -2.29,
+      "sigma2": 0.0012,
+      "delta_r": 0.03,
+      "interior": false
+     },
+     {
+      "r_window": [
+       1.352,
+       2.132
+      ],
+      "s02": 0.6848,
+      "s02_err": 0.0746,
+      "rf": 0.0723,
+      "delta_e0": -2.2,
+      "sigma2": 0.0012,
+      "delta_r": 0.03,
+      "interior": false
+     },
+     {
+      "r_window": [
+       1.352,
+       2.212
+      ],
+      "s02": 0.7026,
+      "s02_err": 0.0927,
+      "rf": 0.1187,
+      "delta_e0": -1.88,
+      "sigma2": 0.0015,
+      "delta_r": 0.03,
+      "interior": false
+     }
+    ],
+    "s02": null,
+    "s02_err": null,
+    "rf": null,
+    "spread": null,
+    "delta_e0": null,
+    "sigma2": null,
+    "n_variables": 4,
+    "n_independent": 4.47,
+    "plateau": 0.8297,
+    "rbkg_choice": 1.3,
+    "kw_sensitivity": {
+     "1": {
+      "s02": 0.6036,
+      "rf": 0.0668,
+      "delta_e0": 0.53
+     },
+     "3": {
+      "s02": 0.8259,
+      "rf": 0.0902,
+      "delta_e0": -5.29
+     }
+    },
+    "checks": {
+     "window_runs_interior": false,
+     "s02_in_range": false,
+     "s02_err_ok": false,
+     "window_spread_ok": false
+    },
+    "pass": false
+   },
+   "status": "gated_out",
+   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok"
+  },
+  {
+   "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumDisulfide.xdi",
+   "standard_exists": true,
+   "motif": "mos2_2h",
+   "motif_file": "data\\s02_calibration\\motifs\\mos2_2h.json",
+   "strict": true,
+   "kmin": 2.5,
+   "kmax": 11.0,
+   "rmin": null,
+   "note": "",
+   "provenance": {
+    "source_path": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumDisulfide.xdi",
+    "source_sha256": "4b6d09091ff369b443c5db002b2775758e7c68ae6b2f31434f74ebbddb24f241",
+    "committed": true,
+    "transform": null,
+    "used_path": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumDisulfide.xdi",
+    "used_sha256": "4b6d09091ff369b443c5db002b2775758e7c68ae6b2f31434f74ebbddb24f241"
+   },
+   "result": {
+    "absorber": "Mo",
+    "edge": "K",
+    "motif": "mos2_2h",
+    "motif_file": "data\\s02_calibration\\motifs\\mos2_2h.json",
+    "fixed_CN": 6.0,
+    "R_first": 2.4182,
+    "k_window": [
+     2.5,
+     11.0
+    ],
+    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+    "runs": [
+     {
+      "r_window": [
+       1.818,
+       2.538
+      ],
+      "s02": 0.68,
+      "s02_err": 0.0442,
+      "rf": 0.0176,
+      "delta_e0": 4.58,
+      "sigma2": 0.0001,
+      "delta_r": -0.0061,
+      "interior": false
+     },
+     {
+      "r_window": [
+       1.818,
+       2.598
+      ],
+      "s02": 0.6787,
+      "s02_err": 0.055,
+      "rf": 0.0309,
+      "delta_e0": 4.99,
+      "sigma2": 0.0001,
+      "delta_r": -0.0036,
+      "interior": true
+     },
+     {
+      "r_window": [
+       1.818,
+       2.678
+      ],
+      "s02": 0.6682,
+      "s02_err": 0.0737,
+      "rf": 0.0693,
+      "delta_e0": 6.26,
+      "sigma2": 0.0001,
+      "delta_r": 0.0036,
+      "interior": false
+     }
+    ],
+    "s02": 0.6787,
+    "s02_err": 0.055,
+    "rf": 0.0309,
+    "spread": null,
+    "delta_e0": 4.99,
+    "sigma2": 0.0001,
+    "n_variables": 4,
+    "n_independent": 4.22,
+    "plateau": 0.8668,
+    "rbkg_choice": 0.9,
+    "kw_sensitivity": {
+     "1": {
+      "s02": 0.6687,
+      "rf": 0.029,
+      "delta_e0": 2.47
+     },
+     "3": {
+      "s02": 0.6666,
+      "rf": 0.067,
+      "delta_e0": 9.35
+     }
+    },
+    "checks": {
+     "window_runs_interior": false,
+     "s02_in_range": true,
+     "s02_err_ok": true,
+     "window_spread_ok": false
+    },
+    "pass": false
+   },
+   "status": "gated_out",
+   "reason": "门禁未通过: window_runs_interior, window_spread_ok"
+  },
+  {
+   "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumFoil.xdi",
+   "standard_exists": true,
+   "motif": "mo_bcc",
+   "motif_file": null,
+   "strict": true,
+   "kmin": null,
+   "kmax": null,
+   "rmin": null,
+   "note": "",
+   "provenance": {
+    "source_path": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumFoil.xdi",
+    "source_sha256": "bfd033f231987908c039d72ee1ec63d8fb873329e385b1fd60168a3551360f44",
+    "committed": true,
+    "transform": null,
+    "used_path": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumFoil.xdi",
+    "used_sha256": "bfd033f231987908c039d72ee1ec63d8fb873329e385b1fd60168a3551360f44"
+   },
+   "status": "error",
+   "error": "XAFSError: [S3] 归一化失败：边后平台 = 0.842（阈值 0.85–1.15）。稀释样品的低 Z 基体呈 E^-3 衰减，直线外推扣不掉，此时 FT 峰位与幅度均不可引用"
+  }
+ ],
+ "s02": null,
+ "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok",
+ "attempts_compact": [
+  {
+   "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-Na2MoO4.xdi",
+   "motif": "moo4_tetra",
+   "strict": true,
+   "kmin": null,
+   "kmax": null,
+   "rmin": null,
+   "status": "gated_out",
+   "s02": null,
+   "s02_err": null,
+   "rf": null,
+   "spread": null,
+   "plateau": 0.9482,
+   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok"
+  },
+  {
+   "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-Tugarinovite.xdi",
+   "motif": "moo2_rutile",
+   "strict": false,
+   "kmin": null,
+   "kmax": null,
+   "rmin": null,
+   "status": "gated_out",
+   "s02": null,
+   "s02_err": null,
+   "rf": null,
+   "spread": null,
+   "plateau": 0.8297,
+   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok"
+  },
+  {
+   "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumDisulfide.xdi",
+   "motif": "mos2_2h",
+   "strict": true,
+   "kmin": 2.5,
+   "kmax": 11.0,
+   "rmin": null,
+   "status": "gated_out",
+   "s02": 0.6787,
+   "s02_err": 0.055,
+   "rf": 0.0309,
+   "spread": null,
+   "plateau": 0.8668,
+   "reason": "门禁未通过: window_runs_interior, window_spread_ok"
+  },
+  {
+   "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumFoil.xdi",
+   "motif": "mo_bcc",
+   "strict": true,
+   "kmin": null,
+   "kmax": null,
+   "rmin": null,
+   "status": "error",
+   "s02": null,
+   "s02_err": null,
+   "rf": null,
+   "spread": null,
+   "plateau": null,
+   "reason": "XAFSError: [S3] 归一化失败：边后平台 = 0.842（阈值 0.85–1.15）。稀释样品的低 Z 基体呈 E^-3 衰减，直线外推扣不掉，此时 FT 峰位与幅度均不可引用"
+  }
+ ]
+}

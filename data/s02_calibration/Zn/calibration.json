@@ -1,0 +1,297 @@
+{
+ "absorber": "Zn",
+ "status": "calibrated",
+ "generated_at": "2026-11-09T12:18:52",
+ "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+ "static_absorber_py_unchanged": true,
+ "apply_to_absorber_py": false,
+ "runtime_override": "--s02",
+ "attempts": [
+  {
+   "standard": "data\\bmm_standards\\Data\\Zn\\Zn-Zincite.xdi",
+   "standard_exists": true,
+   "motif": "zno_wurtzite",
+   "motif_file": "data\\s02_calibration\\motifs\\zno_wurtzite.json",
+   "strict": true,
+   "kmin": null,
+   "kmax": null,
+   "rmin": null,
+   "note": "",
+   "provenance": {
+    "source_path": "data\\bmm_standards\\Data\\Zn\\Zn-Zincite.xdi",
+    "source_sha256": "7eb73032a4328a354b492afb8f04514289daf4d4e57fcad6479822d4317aae2f",
+    "committed": true,
+    "transform": null,
+    "used_path": "data\\bmm_standards\\Data\\Zn\\Zn-Zincite.xdi",
+    "used_sha256": "7eb73032a4328a354b492afb8f04514289daf4d4e57fcad6479822d4317aae2f"
+   },
+   "result": {
+    "absorber": "Zn",
+    "edge": "K",
+    "motif": "zno_wurtzite",
+    "motif_file": "data\\s02_calibration\\motifs\\zno_wurtzite.json",
+    "fixed_CN": 4.0,
+    "R_first": 1.9741,
+    "k_window": [
+     3.0,
+     12.0
+    ],
+    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+    "runs": [
+     {
+      "r_window": [
+       1.374,
+       2.094
+      ],
+      "s02": 0.6085,
+      "s02_err": 0.0213,
+      "rf": 0.008,
+      "delta_e0": 0.84,
+      "sigma2": 0.0039,
+      "delta_r": -0.0182,
+      "interior": true
+     },
+     {
+      "r_window": [
+       1.374,
+       2.154
+      ],
+      "s02": 0.6071,
+      "s02_err": 0.0203,
+      "rf": 0.0081,
+      "delta_e0": 0.86,
+      "sigma2": 0.0039,
+      "delta_r": -0.0181,
+      "interior": true
+     },
+     {
+      "r_window": [
+       1.374,
+       2.234
+      ],
+      "s02": 0.6015,
+      "s02_err": 0.02,
+      "rf": 0.009,
+      "delta_e0": 1.06,
+      "sigma2": 0.0038,
+      "delta_r": -0.0171,
+      "interior": true
+     }
+    ],
+    "s02": 0.6071,
+    "s02_err": 0.0213,
+    "rf": 0.009,
+    "spread": 0.007,
+    "delta_e0": 1.06,
+    "sigma2": 0.0038,
+    "n_variables": 4,
+    "n_independent": 4.47,
+    "plateau": 0.919,
+    "rbkg_choice": 1.2000000000000002,
+    "kw_sensitivity": {
+     "1": {
+      "s02": 0.5267,
+      "rf": 0.0053,
+      "delta_e0": 0.97
+     },
+     "3": {
+      "s02": 0.7296,
+      "rf": 0.0128,
+      "delta_e0": 0.74
+     }
+    },
+    "checks": {
+     "window_runs_interior": true,
+     "s02_in_range": true,
+     "s02_err_ok": true,
+     "window_spread_ok": true
+    },
+    "pass": true
+   },
+   "status": "passed"
+  }
+ ],
+ "s02": 0.6071,
+ "s02_err": 0.0213,
+ "rf": 0.009,
+ "spread": 0.007,
+ "delta_e0": 1.06,
+ "sigma2": 0.0038,
+ "plateau": 0.919,
+ "k_window": [
+  3.0,
+  12.0
+ ],
+ "fixed_CN": 4.0,
+ "R_first": 1.9741,
+ "runs": [
+  {
+   "r_window": [
+    1.374,
+    2.094
+   ],
+   "s02": 0.6085,
+   "s02_err": 0.0213,
+   "rf": 0.008,
+   "delta_e0": 0.84,
+   "sigma2": 0.0039,
+   "delta_r": -0.0182,
+   "interior": true
+  },
+  {
+   "r_window": [
+    1.374,
+    2.154
+   ],
+   "s02": 0.6071,
+   "s02_err": 0.0203,
+   "rf": 0.0081,
+   "delta_e0": 0.86,
+   "sigma2": 0.0039,
+   "delta_r": -0.0181,
+   "interior": true
+  },
+  {
+   "r_window": [
+    1.374,
+    2.234
+   ],
+   "s02": 0.6015,
+   "s02_err": 0.02,
+   "rf": 0.009,
+   "delta_e0": 1.06,
+   "sigma2": 0.0038,
+   "delta_r": -0.0171,
+   "interior": true
+  }
+ ],
+ "checks": {
+  "window_runs_interior": true,
+  "s02_in_range": true,
+  "s02_err_ok": true,
+  "window_spread_ok": true
+ },
+ "kw_sensitivity": {
+  "1": {
+   "s02": 0.5267,
+   "rf": 0.0053,
+   "delta_e0": 0.97
+  },
+  "3": {
+   "s02": 0.7296,
+   "rf": 0.0128,
+   "delta_e0": 0.74
+  }
+ },
+ "n_variables": 4,
+ "n_independent": 4.47,
+ "motif": "zno_wurtzite",
+ "edge": "K",
+ "provenance": {
+  "source_path": "data\\bmm_standards\\Data\\Zn\\Zn-Zincite.xdi",
+  "source_sha256": "7eb73032a4328a354b492afb8f04514289daf4d4e57fcad6479822d4317aae2f",
+  "committed": true,
+  "transform": null,
+  "used_path": "data\\bmm_standards\\Data\\Zn\\Zn-Zincite.xdi",
+  "used_sha256": "7eb73032a4328a354b492afb8f04514289daf4d4e57fcad6479822d4317aae2f"
+ },
+ "standard": "data\\bmm_standards\\Data\\Zn\\Zn-Zincite.xdi",
+ "standard_sha256": "7eb73032a4328a354b492afb8f04514289daf4d4e57fcad6479822d4317aae2f",
+ "motif_file": "data\\s02_calibration\\motifs\\zno_wurtzite.json",
+ "motif_file_sha256": "185bff1c5a477b42b7c09b2cb5c6d3f3f91043e463dde715207990c2145d710b",
+ "result": {
+  "absorber": "Zn",
+  "edge": "K",
+  "motif": "zno_wurtzite",
+  "motif_file": "data\\s02_calibration\\motifs\\zno_wurtzite.json",
+  "fixed_CN": 4.0,
+  "R_first": 1.9741,
+  "k_window": [
+   3.0,
+   12.0
+  ],
+  "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+  "runs": [
+   {
+    "r_window": [
+     1.374,
+     2.094
+    ],
+    "s02": 0.6085,
+    "s02_err": 0.0213,
+    "rf": 0.008,
+    "delta_e0": 0.84,
+    "sigma2": 0.0039,
+    "delta_r": -0.0182,
+    "interior": true
+   },
+   {
+    "r_window": [
+     1.374,
+     2.154
+    ],
+    "s02": 0.6071,
+    "s02_err": 0.0203,
+    "rf": 0.0081,
+    "delta_e0": 0.86,
+    "sigma2": 0.0039,
+    "delta_r": -0.0181,
+    "interior": true
+   },
+   {
+    "r_window": [
+     1.374,
+     2.234
+    ],
+    "s02": 0.6015,
+    "s02_err": 0.02,
+    "rf": 0.009,
+    "delta_e0": 1.06,
+    "sigma2": 0.0038,
+    "delta_r": -0.0171,
+    "interior": true
+   }
+  ],
+  "s02": 0.6071,
+  "s02_err": 0.0213,
+  "rf": 0.009,
+  "spread": 0.007,
+  "delta_e0": 1.06,
+  "sigma2": 0.0038,
+  "n_variables": 4,
+  "n_independent": 4.47,
+  "plateau": 0.919,
+  "rbkg_choice": 1.2000000000000002,
+  "kw_sensitivity": {
+   "1": {
+    "s02": 0.5267,
+    "rf": 0.0053,
+    "delta_e0": 0.97
+   },
+   "3": {
+    "s02": 0.7296,
+    "rf": 0.0128,
+    "delta_e0": 0.74
+   }
+  },
+  "checks": {
+   "window_runs_interior": true,
+   "s02_in_range": true,
+   "s02_err_ok": true,
+   "window_spread_ok": true
+  },
+  "pass": true,
+  "provenance": {
+   "source_path": "data\\bmm_standards\\Data\\Zn\\Zn-Zincite.xdi",
+   "source_sha256": "7eb73032a4328a354b492afb8f04514289daf4d4e57fcad6479822d4317aae2f",
+   "committed": true,
+   "transform": null,
+   "used_path": "data\\bmm_standards\\Data\\Zn\\Zn-Zincite.xdi",
+   "used_sha256": "7eb73032a4328a354b492afb8f04514289daf4d4e57fcad6479822d4317aae2f"
+  },
+  "standard": "data\\bmm_standards\\Data\\Zn\\Zn-Zincite.xdi",
+  "standard_sha256": "7eb73032a4328a354b492afb8f04514289daf4d4e57fcad6479822d4317aae2f",
+  "motif_file_sha256": "185bff1c5a477b42b7c09b2cb5c6d3f3f91043e463dde715207990c2145d710b",
+  "static_absorber_py_unchanged": true
+ }
+}

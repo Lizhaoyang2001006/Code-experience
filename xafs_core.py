@@ -299,3 +299,4 @@ class PipelineResult:
     fit: Optional[dict] = None        # S7 拟合结果（由 xafs_fit.run 填充）
     xanes_features: dict = field(default_factory=dict)  # B2-1 XANES 定量特征/颈部指纹
     snr: Optional[dict] = None        # B9-2 高 k 信噪比诊断（high_k_snr 输出）
+    xanes_cross_check: Optional[dict] = None  # T8 XANES–EXAFS 软校验（只警告）

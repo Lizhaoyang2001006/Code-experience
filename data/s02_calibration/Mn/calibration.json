@@ -1,0 +1,297 @@
+{
+ "absorber": "Mn",
+ "status": "calibrated",
+ "generated_at": "2026-11-09T12:18:52",
+ "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+ "static_absorber_py_unchanged": true,
+ "apply_to_absorber_py": false,
+ "runtime_override": "--s02",
+ "attempts": [
+  {
+   "standard": "data\\bmm_standards\\Data\\Mn\\Mn-Pyrolucite.xdi",
+   "standard_exists": true,
+   "motif": "mno2_rutile",
+   "motif_file": "data\\s02_calibration\\motifs\\mno2_rutile.json",
+   "strict": true,
+   "kmin": null,
+   "kmax": null,
+   "rmin": null,
+   "note": "",
+   "provenance": {
+    "source_path": "data\\bmm_standards\\Data\\Mn\\Mn-Pyrolucite.xdi",
+    "source_sha256": "fc32af10660232968bcd5166497a74a5516063096b0ebe1d58f817f1c9e9f80f",
+    "committed": true,
+    "transform": null,
+    "used_path": "data\\bmm_standards\\Data\\Mn\\Mn-Pyrolucite.xdi",
+    "used_sha256": "fc32af10660232968bcd5166497a74a5516063096b0ebe1d58f817f1c9e9f80f"
+   },
+   "result": {
+    "absorber": "Mn",
+    "edge": "K",
+    "motif": "mno2_rutile",
+    "motif_file": "data\\s02_calibration\\motifs\\mno2_rutile.json",
+    "fixed_CN": 6.0,
+    "R_first": 1.8822,
+    "k_window": [
+     3.0,
+     12.0
+    ],
+    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+    "runs": [
+     {
+      "r_window": [
+       1.282,
+       2.002
+      ],
+      "s02": 0.4214,
+      "s02_err": 0.0245,
+      "rf": 0.0242,
+      "delta_e0": -2.23,
+      "sigma2": 0.0033,
+      "delta_r": 0.0122,
+      "interior": true
+     },
+     {
+      "r_window": [
+       1.282,
+       2.062
+      ],
+      "s02": 0.4311,
+      "s02_err": 0.0281,
+      "rf": 0.0321,
+      "delta_e0": -2.79,
+      "sigma2": 0.0035,
+      "delta_r": 0.0099,
+      "interior": true
+     },
+     {
+      "r_window": [
+       1.282,
+       2.142
+      ],
+      "s02": 0.4427,
+      "s02_err": 0.0313,
+      "rf": 0.0402,
+      "delta_e0": -3.49,
+      "sigma2": 0.0037,
+      "delta_r": 0.0068,
+      "interior": true
+     }
+    ],
+    "s02": 0.4311,
+    "s02_err": 0.0313,
+    "rf": 0.0402,
+    "spread": 0.0213,
+    "delta_e0": -3.49,
+    "sigma2": 0.0037,
+    "n_variables": 4,
+    "n_independent": 4.47,
+    "plateau": 0.9075,
+    "rbkg_choice": 1.0,
+    "kw_sensitivity": {
+     "1": {
+      "s02": 0.4913,
+      "rf": 0.0185,
+      "delta_e0": -6.59
+     },
+     "3": {
+      "s02": 0.4029,
+      "rf": 0.0287,
+      "delta_e0": 1.91
+     }
+    },
+    "checks": {
+     "window_runs_interior": true,
+     "s02_in_range": true,
+     "s02_err_ok": true,
+     "window_spread_ok": true
+    },
+    "pass": true
+   },
+   "status": "passed"
+  }
+ ],
+ "s02": 0.4311,
+ "s02_err": 0.0313,
+ "rf": 0.0402,
+ "spread": 0.0213,
+ "delta_e0": -3.49,
+ "sigma2": 0.0037,
+ "plateau": 0.9075,
+ "k_window": [
+  3.0,
+  12.0
+ ],
+ "fixed_CN": 6.0,
+ "R_first": 1.8822,
+ "runs": [
+  {
+   "r_window": [
+    1.282,
+    2.002
+   ],
+   "s02": 0.4214,
+   "s02_err": 0.0245,
+   "rf": 0.0242,
+   "delta_e0": -2.23,
+   "sigma2": 0.0033,
+   "delta_r": 0.0122,
+   "interior": true
+  },
+  {
+   "r_window": [
+    1.282,
+    2.062
+   ],
+   "s02": 0.4311,
+   "s02_err": 0.0281,
+   "rf": 0.0321,
+   "delta_e0": -2.79,
+   "sigma2": 0.0035,
+   "delta_r": 0.0099,
+   "interior": true
+  },
+  {
+   "r_window": [
+    1.282,
+    2.142
+   ],
+   "s02": 0.4427,
+   "s02_err": 0.0313,
+   "rf": 0.0402,
+   "delta_e0": -3.49,
+   "sigma2": 0.0037,
+   "delta_r": 0.0068,
+   "interior": true
+  }
+ ],
+ "checks": {
+  "window_runs_interior": true,
+  "s02_in_range": true,
+  "s02_err_ok": true,
+  "window_spread_ok": true
+ },
+ "kw_sensitivity": {
+  "1": {
+   "s02": 0.4913,
+   "rf": 0.0185,
+   "delta_e0": -6.59
+  },
+  "3": {
+   "s02": 0.4029,
+   "rf": 0.0287,
+   "delta_e0": 1.91
+  }
+ },
+ "n_variables": 4,
+ "n_independent": 4.47,
+ "motif": "mno2_rutile",
+ "edge": "K",
+ "provenance": {
+  "source_path": "data\\bmm_standards\\Data\\Mn\\Mn-Pyrolucite.xdi",
+  "source_sha256": "fc32af10660232968bcd5166497a74a5516063096b0ebe1d58f817f1c9e9f80f",
+  "committed": true,
+  "transform": null,
+  "used_path": "data\\bmm_standards\\Data\\Mn\\Mn-Pyrolucite.xdi",
+  "used_sha256": "fc32af10660232968bcd5166497a74a5516063096b0ebe1d58f817f1c9e9f80f"
+ },
+ "standard": "data\\bmm_standards\\Data\\Mn\\Mn-Pyrolucite.xdi",
+ "standard_sha256": "fc32af10660232968bcd5166497a74a5516063096b0ebe1d58f817f1c9e9f80f",
+ "motif_file": "data\\s02_calibration\\motifs\\mno2_rutile.json",
+ "motif_file_sha256": "6d1dcd93fffc80271174362e9725e17d5a63f5e76f6a531c696279c6a3efb00a",
+ "result": {
+  "absorber": "Mn",
+  "edge": "K",
+  "motif": "mno2_rutile",
+  "motif_file": "data\\s02_calibration\\motifs\\mno2_rutile.json",
+  "fixed_CN": 6.0,
+  "R_first": 1.8822,
+  "k_window": [
+   3.0,
+   12.0
+  ],
+  "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+  "runs": [
+   {
+    "r_window": [
+     1.282,
+     2.002
+    ],
+    "s02": 0.4214,
+    "s02_err": 0.0245,
+    "rf": 0.0242,
+    "delta_e0": -2.23,
+    "sigma2": 0.0033,
+    "delta_r": 0.0122,
+    "interior": true
+   },
+   {
+    "r_window": [
+     1.282,
+     2.062
+    ],
+    "s02": 0.4311,
+    "s02_err": 0.0281,
+    "rf": 0.0321,
+    "delta_e0": -2.79,
+    "sigma2": 0.0035,
+    "delta_r": 0.0099,
+    "interior": true
+   },
+   {
+    "r_window": [
+     1.282,
+     2.142
+    ],
+    "s02": 0.4427,
+    "s02_err": 0.0313,
+    "rf": 0.0402,
+    "delta_e0": -3.49,
+    "sigma2": 0.0037,
+    "delta_r": 0.0068,
+    "interior": true
+   }
+  ],
+  "s02": 0.4311,
+  "s02_err": 0.0313,
+  "rf": 0.0402,
+  "spread": 0.0213,
+  "delta_e0": -3.49,
+  "sigma2": 0.0037,
+  "n_variables": 4,
+  "n_independent": 4.47,
+  "plateau": 0.9075,
+  "rbkg_choice": 1.0,
+  "kw_sensitivity": {
+   "1": {
+    "s02": 0.4913,
+    "rf": 0.0185,
+    "delta_e0": -6.59
+   },
+   "3": {
+    "s02": 0.4029,
+    "rf": 0.0287,
+    "delta_e0": 1.91
+   }
+  },
+  "checks": {
+   "window_runs_interior": true,
+   "s02_in_range": true,
+   "s02_err_ok": true,
+   "window_spread_ok": true
+  },
+  "pass": true,
+  "provenance": {
+   "source_path": "data\\bmm_standards\\Data\\Mn\\Mn-Pyrolucite.xdi",
+   "source_sha256": "fc32af10660232968bcd5166497a74a5516063096b0ebe1d58f817f1c9e9f80f",
+   "committed": true,
+   "transform": null,
+   "used_path": "data\\bmm_standards\\Data\\Mn\\Mn-Pyrolucite.xdi",
+   "used_sha256": "fc32af10660232968bcd5166497a74a5516063096b0ebe1d58f817f1c9e9f80f"
+  },
+  "standard": "data\\bmm_standards\\Data\\Mn\\Mn-Pyrolucite.xdi",
+  "standard_sha256": "fc32af10660232968bcd5166497a74a5516063096b0ebe1d58f817f1c9e9f80f",
+  "motif_file_sha256": "6d1dcd93fffc80271174362e9725e17d5a63f5e76f6a531c696279c6a3efb00a",
+  "static_absorber_py_unchanged": true
+ }
+}

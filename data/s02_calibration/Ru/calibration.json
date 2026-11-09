@@ -1,0 +1,300 @@
+{
+ "absorber": "Ru",
+ "status": "calibrated",
+ "generated_at": "2026-11-09T12:18:54",
+ "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+ "static_absorber_py_unchanged": true,
+ "apply_to_absorber_py": false,
+ "runtime_override": "--s02",
+ "attempts": [
+  {
+   "standard": "data\\bmm_standards\\Data\\Ru\\Ru-K-RuO2.xdi",
+   "standard_exists": true,
+   "motif": "ruo2_rutile",
+   "motif_file": "data\\s02_calibration\\motifs\\ruo2_rutile.json",
+   "strict": false,
+   "kmin": null,
+   "kmax": null,
+   "rmin": null,
+   "note": "BMM RuO2 的 xmu 列符号为负（xmu=-ln(It/Ir)）；用 -xmu 作为吸收谱，provenance 记录变换",
+   "provenance": {
+    "source_path": "data\\bmm_standards\\Data\\Ru\\Ru-K-RuO2.xdi",
+    "source_sha256": "8088f08ed0084254acf3b1dc7d572800cb1a596c523faa1d8adf88ce3801d4f7",
+    "committed": true,
+    "transform": "negate_xmu",
+    "used_path": "data\\s02_calibration\\Ru\\corrected_standard.dat",
+    "used_sha256": "926808a046ef43f5360ddc1cfdcbb219a6209fa947b0ecb42cd54fed4e6f9dbe",
+    "note": "BMM RuO2 的 xmu 列符号为负（xmu=-ln(It/Ir)）；用 -xmu 作为吸收谱，provenance 记录变换"
+   },
+   "result": {
+    "absorber": "Ru",
+    "edge": "K",
+    "motif": "ruo2_rutile",
+    "motif_file": "data\\s02_calibration\\motifs\\ruo2_rutile.json",
+    "fixed_CN": 6.0,
+    "R_first": 1.9856,
+    "k_window": [
+     3.0,
+     12.0
+    ],
+    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+    "runs": [
+     {
+      "r_window": [
+       1.339,
+       2.106
+      ],
+      "s02": 0.7034,
+      "s02_err": 0.0266,
+      "rf": 0.0111,
+      "delta_e0": 2.1,
+      "sigma2": 0.0034,
+      "delta_r": 0.0088,
+      "interior": true
+     },
+     {
+      "r_window": [
+       1.339,
+       2.166
+      ],
+      "s02": 0.7002,
+      "s02_err": 0.027,
+      "rf": 0.0126,
+      "delta_e0": 1.99,
+      "sigma2": 0.0033,
+      "delta_r": 0.008,
+      "interior": true
+     },
+     {
+      "r_window": [
+       1.339,
+       2.246
+      ],
+      "s02": 0.6911,
+      "s02_err": 0.0275,
+      "rf": 0.0154,
+      "delta_e0": 1.82,
+      "sigma2": 0.0032,
+      "delta_r": 0.0071,
+      "interior": true
+     }
+    ],
+    "s02": 0.7002,
+    "s02_err": 0.0275,
+    "rf": 0.0154,
+    "spread": 0.0123,
+    "delta_e0": 1.82,
+    "sigma2": 0.0032,
+    "n_variables": 4,
+    "n_independent": 4.73,
+    "plateau": 0.8197,
+    "rbkg_choice": 1.0,
+    "kw_sensitivity": {
+     "1": {
+      "s02": 0.6195,
+      "rf": 0.0137,
+      "delta_e0": 0.61
+     },
+     "3": {
+      "s02": 0.7683,
+      "rf": 0.0076,
+      "delta_e0": 3.67
+     }
+    },
+    "checks": {
+     "window_runs_interior": true,
+     "s02_in_range": true,
+     "s02_err_ok": true,
+     "window_spread_ok": true
+    },
+    "pass": true
+   },
+   "status": "passed"
+  }
+ ],
+ "s02": 0.7002,
+ "s02_err": 0.0275,
+ "rf": 0.0154,
+ "spread": 0.0123,
+ "delta_e0": 1.82,
+ "sigma2": 0.0032,
+ "plateau": 0.8197,
+ "k_window": [
+  3.0,
+  12.0
+ ],
+ "fixed_CN": 6.0,
+ "R_first": 1.9856,
+ "runs": [
+  {
+   "r_window": [
+    1.339,
+    2.106
+   ],
+   "s02": 0.7034,
+   "s02_err": 0.0266,
+   "rf": 0.0111,
+   "delta_e0": 2.1,
+   "sigma2": 0.0034,
+   "delta_r": 0.0088,
+   "interior": true
+  },
+  {
+   "r_window": [
+    1.339,
+    2.166
+   ],
+   "s02": 0.7002,
+   "s02_err": 0.027,
+   "rf": 0.0126,
+   "delta_e0": 1.99,
+   "sigma2": 0.0033,
+   "delta_r": 0.008,
+   "interior": true
+  },
+  {
+   "r_window": [
+    1.339,
+    2.246
+   ],
+   "s02": 0.6911,
+   "s02_err": 0.0275,
+   "rf": 0.0154,
+   "delta_e0": 1.82,
+   "sigma2": 0.0032,
+   "delta_r": 0.0071,
+   "interior": true
+  }
+ ],
+ "checks": {
+  "window_runs_interior": true,
+  "s02_in_range": true,
+  "s02_err_ok": true,
+  "window_spread_ok": true
+ },
+ "kw_sensitivity": {
+  "1": {
+   "s02": 0.6195,
+   "rf": 0.0137,
+   "delta_e0": 0.61
+  },
+  "3": {
+   "s02": 0.7683,
+   "rf": 0.0076,
+   "delta_e0": 3.67
+  }
+ },
+ "n_variables": 4,
+ "n_independent": 4.73,
+ "motif": "ruo2_rutile",
+ "edge": "K",
+ "provenance": {
+  "source_path": "data\\bmm_standards\\Data\\Ru\\Ru-K-RuO2.xdi",
+  "source_sha256": "8088f08ed0084254acf3b1dc7d572800cb1a596c523faa1d8adf88ce3801d4f7",
+  "committed": true,
+  "transform": "negate_xmu",
+  "used_path": "data\\s02_calibration\\Ru\\corrected_standard.dat",
+  "used_sha256": "926808a046ef43f5360ddc1cfdcbb219a6209fa947b0ecb42cd54fed4e6f9dbe",
+  "note": "BMM RuO2 的 xmu 列符号为负（xmu=-ln(It/Ir)）；用 -xmu 作为吸收谱，provenance 记录变换"
+ },
+ "standard": "data\\bmm_standards\\Data\\Ru\\Ru-K-RuO2.xdi",
+ "standard_sha256": "926808a046ef43f5360ddc1cfdcbb219a6209fa947b0ecb42cd54fed4e6f9dbe",
+ "motif_file": "data\\s02_calibration\\motifs\\ruo2_rutile.json",
+ "motif_file_sha256": "3f927cdfc425d46d0666cb96778c89bbb66de19defa5cebccdbab72d998993b2",
+ "result": {
+  "absorber": "Ru",
+  "edge": "K",
+  "motif": "ruo2_rutile",
+  "motif_file": "data\\s02_calibration\\motifs\\ruo2_rutile.json",
+  "fixed_CN": 6.0,
+  "R_first": 1.9856,
+  "k_window": [
+   3.0,
+   12.0
+  ],
+  "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+  "runs": [
+   {
+    "r_window": [
+     1.339,
+     2.106
+    ],
+    "s02": 0.7034,
+    "s02_err": 0.0266,
+    "rf": 0.0111,
+    "delta_e0": 2.1,
+    "sigma2": 0.0034,
+    "delta_r": 0.0088,
+    "interior": true
+   },
+   {
+    "r_window": [
+     1.339,
+     2.166
+    ],
+    "s02": 0.7002,
+    "s02_err": 0.027,
+    "rf": 0.0126,
+    "delta_e0": 1.99,
+    "sigma2": 0.0033,
+    "delta_r": 0.008,
+    "interior": true
+   },
+   {
+    "r_window": [
+     1.339,
+     2.246
+    ],
+    "s02": 0.6911,
+    "s02_err": 0.0275,
+    "rf": 0.0154,
+    "delta_e0": 1.82,
+    "sigma2": 0.0032,
+    "delta_r": 0.0071,
+    "interior": true
+   }
+  ],
+  "s02": 0.7002,
+  "s02_err": 0.0275,
+  "rf": 0.0154,
+  "spread": 0.0123,
+  "delta_e0": 1.82,
+  "sigma2": 0.0032,
+  "n_variables": 4,
+  "n_independent": 4.73,
+  "plateau": 0.8197,
+  "rbkg_choice": 1.0,
+  "kw_sensitivity": {
+   "1": {
+    "s02": 0.6195,
+    "rf": 0.0137,
+    "delta_e0": 0.61
+   },
+   "3": {
+    "s02": 0.7683,
+    "rf": 0.0076,
+    "delta_e0": 3.67
+   }
+  },
+  "checks": {
+   "window_runs_interior": true,
+   "s02_in_range": true,
+   "s02_err_ok": true,
+   "window_spread_ok": true
+  },
+  "pass": true,
+  "provenance": {
+   "source_path": "data\\bmm_standards\\Data\\Ru\\Ru-K-RuO2.xdi",
+   "source_sha256": "8088f08ed0084254acf3b1dc7d572800cb1a596c523faa1d8adf88ce3801d4f7",
+   "committed": true,
+   "transform": "negate_xmu",
+   "used_path": "data\\s02_calibration\\Ru\\corrected_standard.dat",
+   "used_sha256": "926808a046ef43f5360ddc1cfdcbb219a6209fa947b0ecb42cd54fed4e6f9dbe",
+   "note": "BMM RuO2 的 xmu 列符号为负（xmu=-ln(It/Ir)）；用 -xmu 作为吸收谱，provenance 记录变换"
+  },
+  "standard": "data\\bmm_standards\\Data\\Ru\\Ru-K-RuO2.xdi",
+  "standard_sha256": "926808a046ef43f5360ddc1cfdcbb219a6209fa947b0ecb42cd54fed4e6f9dbe",
+  "motif_file_sha256": "3f927cdfc425d46d0666cb96778c89bbb66de19defa5cebccdbab72d998993b2",
+  "static_absorber_py_unchanged": true
+ }
+}

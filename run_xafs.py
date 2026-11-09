@@ -32,11 +32,13 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import re
 import sys
 from pathlib import Path
 
 import numpy as np
 
+import absorber as absorber_mod
 import cn_table
 import cif_gate
 import phase_resolver
@@ -111,6 +113,207 @@ def _fit_outputs(fit_out, outdir: Path, stem: str) -> dict:
     return meta
 
 
+_ELEMENT_RE = re.compile(r"^[A-Za-z]{1,2}$")
+
+
+def _normalize_element(value) -> str | None:
+    """元素符号归一化并验证是否在 absorber 表内；不猜未知符号。"""
+    if not value:
+        return None
+    s = str(value).strip()
+    if not _ELEMENT_RE.match(s):
+        return None
+    el = s[0].upper() + s[1:].lower()
+    try:
+        absorber_mod.get_absorber(el)
+    except Exception:  # noqa: BLE001 - 未知元素按“未检测到”处理
+        return None
+    return el
+
+
+def detect_absorber(path, fallback: str | None = None) -> tuple[str | None, str]:
+    """从 XDI/纯文本头自动判定吸收元素。
+
+    优先级：XDI ``Element.symbol`` / 纯文本 ``Absorber:`` 头 >
+    ``RawScan.meta['element']`` > CLI ``--absorber`` 兜底。
+    返回 ``(element, source)``；``source`` 用于报告溯源。
+    """
+    p = Path(path)
+    try:
+        head = p.read_text(encoding="utf-8", errors="replace")[:8192]
+    except OSError:
+        head = ""
+    patterns = [
+        ("xdi_element", r"(?im)^\s*#\s*Element\.symbol\s*:\s*([A-Za-z]{1,2})\b"),
+        ("xdi_element", r"(?im)^\s*#\s*Element\s*:\s*([A-Za-z]{1,2})\b"),
+        ("header_absorber", r"(?im)^\s*#\s*Absorber\s*[:=]\s*([A-Za-z]{1,2})\b"),
+    ]
+    for source, pat in patterns:
+        m = re.search(pat, head)
+        if m:
+            el = _normalize_element(m.group(1))
+            if el:
+                return el, source
+    try:
+        scan = xafs_io.read_scan(p)
+        el = _normalize_element((scan.meta or {}).get("element"))
+        if el:
+            return el, "scan_meta"
+    except Exception:  # noqa: BLE001 - 头信息已失败，读整谱失败不致命
+        pass
+    el = _normalize_element(fallback)
+    if el:
+        return el, "cli_fallback"
+    return None, "not_found"
+
+
+def _multi_row(element, path, res, outdir) -> dict:
+    """把一个元素的 PipelineResult 压成综合报告行（不排名、不推荐）。"""
+    structure = getattr(res, "structure", None) or {}
+    fit = getattr(res, "fit", None) or {}
+    ranked = structure.get("ranked") or []
+    candidates = [{"id": r.get("id"), "score": r.get("score")}
+                  for r in ranked[:3]]
+    row = {
+        "absorber": element,
+        "file": str(path),
+        "output_dir": str(outdir),
+        "identify_status": structure.get("status"),
+        "candidates": candidates,
+        "fit_mode": fit.get("mode"),
+        "fit_motif": fit.get("motif"),
+        "cn_reliable": fit.get("cn_reliable"),
+        "r_factor": None,
+        "first_shell": None,
+        "warnings": [],
+        "xanes_cross_check": getattr(res, "xanes_cross_check", None),
+        "status": "ok",
+    }
+    first = xafs_fit._first_shell_cn(fit) if fit else None
+    if first:
+        row["first_shell"] = {
+            "label": first.get("label"), "n_fit": first.get("n_fit"),
+            "n0": first.get("n0"), "reff": first.get("reff")}
+    fit_obj = fit.get("fit") if isinstance(fit, dict) else None
+    if fit_obj is not None:
+        row["r_factor"] = getattr(fit_obj, "r_factor", None)
+    for section in (structure, fit):
+        if isinstance(section, dict) and section.get("warning"):
+            row["warnings"].append(section["warning"])
+    if row["xanes_cross_check"]:
+        row["warnings"].extend(
+            w["message"] for w in
+            (row["xanes_cross_check"].get("warnings") or []))
+    return row
+
+
+def run_multi_element(files, outdir, *, fallback_absorber=None,
+                      s02_map=None, run_one=None, verbose=True) -> dict:
+    """T7：逐文件自动判定吸收元素，分元素独立处理并输出综合报告。
+
+    ``run_one(file, element, sub_outdir) -> PipelineResult`` 是注入点：
+    生产入口传入绑定好 CLI 参数的 ``process_sample``；回归测试可传入
+    轻量假实现，避免为多元素路由重复跑 FEFF。
+
+    报告**并列**各元素结果：不含 ``recommended``/``best_element``，
+    也不按分数跨元素排序——多元素样品的“哪个元素最重要”必须由
+    用户依据科学问题决定，工具不自动选择。
+    """
+    outdir = Path(outdir)
+    outdir.mkdir(parents=True, exist_ok=True)
+    s02_map = dict(s02_map or {})
+    rows, errors = [], []
+    seen = set()
+    for f in files:
+        element, source = detect_absorber(f, fallback_absorber)
+        if element is None:
+            errors.append({"file": str(f),
+                           "error": "无法判定吸收元素：头信息缺失且未给 --absorber"})
+            if verbose:
+                print(f"  ❌ {Path(f).name}: 无法判定吸收元素")
+            continue
+        stem = re.sub(r"[^A-Za-z0-9_.-]+", "_", Path(f).stem)[:60]
+        sub = outdir / f"{element}_{stem}"
+        # 同名同元素文件不应互相覆盖；出现时加序号。
+        base, i = sub, 1
+        while sub in seen:
+            i += 1
+            sub = Path(f"{base}_{i}")
+        seen.add(sub)
+        if verbose:
+            print(f"[multi {len(rows) + len(errors) + 1}/{len(files)}] "
+                  f"{element} <- {Path(f).name} ({source})")
+        try:
+            res = (run_one(f, element, sub) if run_one is not None
+                   else process_sample([f], sub, absorber=element,
+                                       s02=s02_map.get(element)))
+            row = _multi_row(element, f, res, sub)
+            row["absorber_source"] = source
+            row["s02_override"] = s02_map.get(element)
+            rows.append(row)
+        except Exception as exc:  # noqa: BLE001 - 单元素失败不中断整批
+            errors.append({"file": str(f), "absorber": element,
+                           "error": f"{type(exc).__name__}: {exc}"})
+            if verbose:
+                print(f"  ❌ 失败: {exc}")
+    elements = sorted({r["absorber"] for r in rows})
+    summary = {
+        "mode": "multi_element",
+        "n_files": len(files),
+        "n_ok": len(rows),
+        "n_failed": len(errors),
+        "elements": elements,
+        "recommended": None,
+        "best_element": None,
+        "recommendation_policy": (
+            "none: 并列各元素结果，不自动选择/推荐 Top-1 元素或相"),
+        "s02_overrides": s02_map,
+        "rows": rows,
+        "errors": errors,
+    }
+    xafs_io.write_json(outdir / "multi_element_summary.json", summary)
+    md = _multi_markdown(summary)
+    (outdir / "multi_element_summary.md").write_text(md, encoding="utf-8")
+    if verbose:
+        print("-" * 66)
+        print(f"多元素完成：成功 {len(rows)}/{len(files)}，"
+              f"元素 {', '.join(elements) if elements else '—'}")
+        print(f"  → {outdir / 'multi_element_summary.json'}")
+    return summary
+
+
+def _multi_markdown(summary: dict) -> str:
+    lines = [
+        "# 多元素联合报告（T7）",
+        "",
+        f"- 输入文件：{summary['n_files']}；成功：{summary['n_ok']}；"
+        f"失败：{summary['n_failed']}",
+        f"- 元素：{', '.join(summary['elements']) or '—'}",
+        "- **不自动选择/推荐 Top-1 元素或相**；各元素结果并列，"
+        "由用户依据科学问题判断。",
+        "",
+        "| 元素 | 文件 | 识别状态 | 拟合 motif | 第一壳 | N_fit | N0 | Rf | CN 可靠 | 警告 |",
+        "|------|------|----------|------------|--------|-------|----|----|---------|------|",
+    ]
+    for r in summary["rows"]:
+        fs = r.get("first_shell") or {}
+        def fmt(v, nd=3):
+            return "—" if v is None else f"{float(v):.{nd}f}"
+        warns = "；".join(r.get("warnings") or []) or "—"
+        lines.append(
+            f"| {r['absorber']} | {Path(r['file']).name} | "
+            f"{r.get('identify_status') or '—'} | {r.get('fit_motif') or '—'} | "
+            f"{fs.get('label') or '—'} | {fmt(fs.get('n_fit'))} | "
+            f"{fmt(fs.get('n0'))} | {fmt(r.get('r_factor'), 4)} | "
+            f"{r.get('cn_reliable')} | {warns} |")
+    if summary["errors"]:
+        lines += ["", "## 失败文件", ""]
+        for e in summary["errors"]:
+            lines.append(f"- `{e['file']}`：{e['error']}")
+    lines += ["", "> 顺序为输入文件顺序，不代表优先级或推荐。" ]
+    return "\n".join(lines) + "\n"
+
+
 def process_sample(paths, outdir, align: bool = False,
                    absorber: str | None = None,
                    edge_energy: float | None = None,
@@ -155,6 +358,7 @@ def process_sample(paths, outdir, align: bool = False,
                    verbose: bool = True,
                    formal_cn: bool = False,
                    legacy_auto_fit: bool = False,
+                   xanes_cross_check: bool = False,
           # ---- P1b 相解析（正式 CN 结构来源）----
           phase_cif: list[str] | None = None,
           phase_id: str | None = None,
@@ -259,7 +463,7 @@ def process_sample(paths, outdir, align: bool = False,
                   f"n0_shells={len(gate_result.n0_shells)}")
 
     # S6.5/S7 only triggered via the fitting chain (entry -> xafs_fit -> structure_id, linear no cycle)
-    if identify or fit:
+    if identify or fit or xanes_cross_check:
         xafs_fit.run(
             result, identify=identify or fit, fit=fit,
             absorber_symbol=absorber, fit_motif=fit_motif,
@@ -278,7 +482,8 @@ def process_sample(paths, outdir, align: bool = False,
             verbose=verbose,
             formal_cn=formal_cn,
             structure_model=structure_model,
-            gate_result=gate_result)
+            gate_result=gate_result,
+            xanes_cross_check=xanes_cross_check)
 
     # ---- 落盘 ----
     stem, norm, chi_k, ft, wave_map = (result.stem, result.norm, result.chi_k,
@@ -373,6 +578,8 @@ def process_sample(paths, outdir, align: bool = False,
             if rdf_tab["rows"]:
                 xafs_fit.write_rdf_csv(outdir / f"{stem}_rdf.csv", rdf_tab)
                 meta["rdf"] = rdf_tab["summary"]
+    if result.xanes_cross_check:
+        meta["xanes_cross_check"] = result.xanes_cross_check
     xafs_io.write_json(outdir / f"{stem}_meta.json", meta)
 
     if diagnostics:
@@ -437,6 +644,10 @@ def main():
     parser.add_argument("--formal-cn", action="store_true",
                         help="P0a 正式 CN 链：无合格结构来源时写拒绝行到 "
                              "cn_table.csv；诊断拟合照常输出（需 --fit）")
+    parser.add_argument("--xanes-cross-check", action="store_true",
+                        help="T8 XANES–EXAFS 联合软校验：白线/边步/归一化"
+                             "异常时警告；只警告，不改变 cn_reliable/正式 CN"
+                             "（可与 --identify/--fit 同用）")
     parser.add_argument("--legacy-auto-fit", action="store_true",
                         help="P4 旧版自动拟合：标记 legacy_unverified，不进正式 CN 表")
     parser.add_argument("--phase-cif", action="append", default=None,
@@ -569,6 +780,13 @@ def main():
                         help="批处理目录：对该目录下所有匹配的数据文件循环处理，"
                              "失败隔离到 batch_errors.json，与 files 互斥；"
                              "输出目录用 -o 指定（否则取配置 batch.outdir）")
+    parser.add_argument("--multi-element", action="store_true",
+                        help="T7 多元素模式：逐文件自动判定吸收元素，分元素"
+                             "独立跑批并输出 multi_element_summary.json/.md；"
+                             "并列结果，不自动选择/推荐 Top-1")
+    parser.add_argument("--multi-element-s02", default=None,
+                        help="T7 逐元素运行时 S₀² 覆盖，如 'Fe=0.803,"
+                             "Co=0.7308'（未列出的元素沿用 --s02/静态表）")
     args = parser.parse_args()
 
     # ---- 解析 --shared-sigma2（'all' 或 JSON 列表如 '[[0,1],[2]]'）----
@@ -789,12 +1007,93 @@ def main():
             parser.error(f"--batch-dir {batch_dir} 下未匹配到 {pattern}")
     elif args.files:
         files = args.files
+    elif args.multi_element:
+        parser.error("--multi-element 需要 files 或 --batch-dir")
     else:   # 内置演示 = Fe 标样，元素已知
         files = [str(Path(__file__).resolve().parent / "data" / "练手数据" /
                      "02_Fe_standards" / "Fe_lepidocrocite.000")]
         args.absorber = args.absorber or "Fe"
 
+    # ---- T7 多元素布局：逐元素 s02 覆盖表 ----
+    multi_s02 = {}
+    if args.multi_element_s02:
+        for part in args.multi_element_s02.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            if "=" not in part:
+                parser.error("--multi-element-s02 格式为 'Fe=0.803,Co=0.73'")
+            key, val = part.split("=", 1)
+            el = _normalize_element(key)
+            if el is None:
+                parser.error(f"--multi-element-s02 未知元素: {key!r}")
+            try:
+                v = float(val)
+            except ValueError:
+                parser.error(f"--multi-element-s02 {el} 的值不是数字: {val!r}")
+            if not (0.4 <= v <= 1.3):
+                parser.error(f"--multi-element-s02 {el}={v} 必须在 [0.4, 1.3]")
+            multi_s02[el] = v
+
     xafs_pipeline.configure_console()
+
+    # ---- T7 多元素：逐文件自动判定吸收元素，各自独立跑批 ----
+    if args.multi_element:
+        if args.operando:
+            parser.error("--multi-element 与 --operando 不能同时使用")
+        if not files:
+            parser.error("--multi-element 没有可处理文件")
+
+        def _run_one_element(fpath, element, sub_out):
+            return process_sample(
+                [fpath], sub_out, align=args.align, absorber=element,
+                edge_energy=args.edge_energy, e0_method=args.e0_method,
+                manual_e0=args.manual_e0, rbkg=args.rbkg, kmin=args.kmin,
+                kmax=args.kmax, kweight=args.kweight, strict=args.strict,
+                diagnostics=args.diagnostics, identify=args.identify,
+                fit=args.fit, fit_motif=args.fit_motif,
+                fit_rmin=args.fit_rmin, fit_rmax=args.fit_rmax,
+                allow_ambiguous=args.allow_ambiguous,
+                l1_ligand=args.l1_ligand, l1_geometry=args.l1_geometry,
+                fit_weights=args.fit_weights,
+                fit_kweights=fit_kweights, include_ms=args.include_ms,
+                despike=args.despike, deglitch=deglitch,
+                deadtime=args.deadtime,
+                reject_outlier_scans=args.reject_outlier_scans,
+                lcf_standards=lcf_standards,
+                vary_c3=vary_c3, vary_c4=vary_c4,
+                isotropic_deltar=args.isotropic_deltar,
+                shared_sigma2=shared_sigma2,
+                mback=args.mback, chi_std=chi_std, chi_std_k=chi_std_k,
+                clamp_lo=args.clamp_lo, clamp_hi=args.clamp_hi,
+                fit_space=args.fit_space, bvs_restraint=bvs_restraint,
+                catalytic_model=args.catalytic_model,
+                hetero_cocupancy=args.hetero_cocupancy,
+                constraints=constraints,
+                s02=multi_s02.get(element, args.s02),
+                phase_correct=args.phase_correct,
+                chi2_contour=args.chi2_contour,
+                self_absorption_formula=args.self_absorption_formula,
+                self_absorption_thickness=args.self_absorption_thickness,
+                self_absorption_density=args.self_absorption_density,
+                self_absorption_angles=sa_angles,
+                self_absorption_line=args.self_absorption_line,
+                verbose=False,
+                formal_cn=args.formal_cn,
+                legacy_auto_fit=args.legacy_auto_fit,
+                xanes_cross_check=args.xanes_cross_check,
+                phase_cif=args.phase_cif,
+                phase_id=args.phase_id,
+                phase_spec=args.phase,
+                phase_index_path=args.phase_index,
+                phase_pack_path=args.phase_pack,
+                absorber_site=args.absorber_site,
+                offline=args.offline)
+
+        run_multi_element(
+            files, args.outdir, fallback_absorber=args.absorber,
+            s02_map=multi_s02, run_one=_run_one_element)
+        return
 
     # ---- B15-1 原位序列：每个文件=一个时间点，不合并 ----
     if args.operando:
@@ -896,6 +1195,7 @@ def main():
                     verbose=False,
                     formal_cn=args.formal_cn,
                     legacy_auto_fit=args.legacy_auto_fit,
+                    xanes_cross_check=args.xanes_cross_check,
                     phase_cif=args.phase_cif,
                     phase_id=args.phase_id,
                     phase_spec=args.phase,
@@ -948,6 +1248,7 @@ def main():
         self_absorption_line=args.self_absorption_line,
         formal_cn=args.formal_cn,
                     legacy_auto_fit=args.legacy_auto_fit,
+                    xanes_cross_check=args.xanes_cross_check,
                     phase_cif=args.phase_cif,
                     phase_id=args.phase_id,
                     phase_spec=args.phase,

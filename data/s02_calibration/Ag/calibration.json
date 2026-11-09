@@ -1,0 +1,297 @@
+{
+ "absorber": "Ag",
+ "status": "calibrated",
+ "generated_at": "2026-11-09T12:18:55",
+ "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+ "static_absorber_py_unchanged": true,
+ "apply_to_absorber_py": false,
+ "runtime_override": "--s02",
+ "attempts": [
+  {
+   "standard": "_standards_lib\\Ag\\Ag_metal_foil.dat",
+   "standard_exists": true,
+   "motif": "ag_fcc_cod_9008459",
+   "motif_file": null,
+   "strict": false,
+   "kmin": null,
+   "kmax": null,
+   "rmin": null,
+   "note": "",
+   "provenance": {
+    "source_path": "_standards_lib\\Ag\\Ag_metal_foil.dat",
+    "source_sha256": "739fa24231f691910314d30735af3b3115cfe219e0e29edd021cbd44586a5db6",
+    "committed": false,
+    "transform": null,
+    "used_path": "_standards_lib\\Ag\\Ag_metal_foil.dat",
+    "used_sha256": "739fa24231f691910314d30735af3b3115cfe219e0e29edd021cbd44586a5db6"
+   },
+   "result": {
+    "absorber": "Ag",
+    "edge": "K",
+    "motif": "ag_fcc_cod_9008459",
+    "motif_file": null,
+    "fixed_CN": 12.0,
+    "R_first": 2.8894,
+    "k_window": [
+     3.0,
+     12.0
+    ],
+    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+    "runs": [
+     {
+      "r_window": [
+       2.289,
+       3.009
+      ],
+      "s02": 0.76,
+      "s02_err": 0.0092,
+      "rf": 0.0015,
+      "delta_e0": 0.99,
+      "sigma2": 0.0092,
+      "delta_r": -0.03,
+      "interior": true
+     },
+     {
+      "r_window": [
+       2.289,
+       3.069
+      ],
+      "s02": 0.7513,
+      "s02_err": 0.0104,
+      "rf": 0.0022,
+      "delta_e0": 0.99,
+      "sigma2": 0.0091,
+      "delta_r": -0.03,
+      "interior": true
+     },
+     {
+      "r_window": [
+       2.289,
+       3.149
+      ],
+      "s02": 0.7459,
+      "s02_err": 0.0115,
+      "rf": 0.003,
+      "delta_e0": 0.97,
+      "sigma2": 0.009,
+      "delta_r": -0.03,
+      "interior": true
+     }
+    ],
+    "s02": 0.7513,
+    "s02_err": 0.0115,
+    "rf": 0.003,
+    "spread": 0.0141,
+    "delta_e0": 0.97,
+    "sigma2": 0.009,
+    "n_variables": 4,
+    "n_independent": 4.47,
+    "plateau": 0.8313,
+    "rbkg_choice": 0.7999999999999999,
+    "kw_sensitivity": {
+     "1": {
+      "s02": 0.7622,
+      "rf": 0.0029,
+      "delta_e0": 0.75
+     },
+     "3": {
+      "s02": 0.7526,
+      "rf": 0.0014,
+      "delta_e0": 1.23
+     }
+    },
+    "checks": {
+     "window_runs_interior": true,
+     "s02_in_range": true,
+     "s02_err_ok": true,
+     "window_spread_ok": true
+    },
+    "pass": true
+   },
+   "status": "passed"
+  }
+ ],
+ "s02": 0.7513,
+ "s02_err": 0.0115,
+ "rf": 0.003,
+ "spread": 0.0141,
+ "delta_e0": 0.97,
+ "sigma2": 0.009,
+ "plateau": 0.8313,
+ "k_window": [
+  3.0,
+  12.0
+ ],
+ "fixed_CN": 12.0,
+ "R_first": 2.8894,
+ "runs": [
+  {
+   "r_window": [
+    2.289,
+    3.009
+   ],
+   "s02": 0.76,
+   "s02_err": 0.0092,
+   "rf": 0.0015,
+   "delta_e0": 0.99,
+   "sigma2": 0.0092,
+   "delta_r": -0.03,
+   "interior": true
+  },
+  {
+   "r_window": [
+    2.289,
+    3.069
+   ],
+   "s02": 0.7513,
+   "s02_err": 0.0104,
+   "rf": 0.0022,
+   "delta_e0": 0.99,
+   "sigma2": 0.0091,
+   "delta_r": -0.03,
+   "interior": true
+  },
+  {
+   "r_window": [
+    2.289,
+    3.149
+   ],
+   "s02": 0.7459,
+   "s02_err": 0.0115,
+   "rf": 0.003,
+   "delta_e0": 0.97,
+   "sigma2": 0.009,
+   "delta_r": -0.03,
+   "interior": true
+  }
+ ],
+ "checks": {
+  "window_runs_interior": true,
+  "s02_in_range": true,
+  "s02_err_ok": true,
+  "window_spread_ok": true
+ },
+ "kw_sensitivity": {
+  "1": {
+   "s02": 0.7622,
+   "rf": 0.0029,
+   "delta_e0": 0.75
+  },
+  "3": {
+   "s02": 0.7526,
+   "rf": 0.0014,
+   "delta_e0": 1.23
+  }
+ },
+ "n_variables": 4,
+ "n_independent": 4.47,
+ "motif": "ag_fcc_cod_9008459",
+ "edge": "K",
+ "provenance": {
+  "source_path": "_standards_lib\\Ag\\Ag_metal_foil.dat",
+  "source_sha256": "739fa24231f691910314d30735af3b3115cfe219e0e29edd021cbd44586a5db6",
+  "committed": false,
+  "transform": null,
+  "used_path": "_standards_lib\\Ag\\Ag_metal_foil.dat",
+  "used_sha256": "739fa24231f691910314d30735af3b3115cfe219e0e29edd021cbd44586a5db6"
+ },
+ "standard": "_standards_lib\\Ag\\Ag_metal_foil.dat",
+ "standard_sha256": "739fa24231f691910314d30735af3b3115cfe219e0e29edd021cbd44586a5db6",
+ "motif_file": null,
+ "motif_file_sha256": null,
+ "result": {
+  "absorber": "Ag",
+  "edge": "K",
+  "motif": "ag_fcc_cod_9008459",
+  "motif_file": null,
+  "fixed_CN": 12.0,
+  "R_first": 2.8894,
+  "k_window": [
+   3.0,
+   12.0
+  ],
+  "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+  "runs": [
+   {
+    "r_window": [
+     2.289,
+     3.009
+    ],
+    "s02": 0.76,
+    "s02_err": 0.0092,
+    "rf": 0.0015,
+    "delta_e0": 0.99,
+    "sigma2": 0.0092,
+    "delta_r": -0.03,
+    "interior": true
+   },
+   {
+    "r_window": [
+     2.289,
+     3.069
+    ],
+    "s02": 0.7513,
+    "s02_err": 0.0104,
+    "rf": 0.0022,
+    "delta_e0": 0.99,
+    "sigma2": 0.0091,
+    "delta_r": -0.03,
+    "interior": true
+   },
+   {
+    "r_window": [
+     2.289,
+     3.149
+    ],
+    "s02": 0.7459,
+    "s02_err": 0.0115,
+    "rf": 0.003,
+    "delta_e0": 0.97,
+    "sigma2": 0.009,
+    "delta_r": -0.03,
+    "interior": true
+   }
+  ],
+  "s02": 0.7513,
+  "s02_err": 0.0115,
+  "rf": 0.003,
+  "spread": 0.0141,
+  "delta_e0": 0.97,
+  "sigma2": 0.009,
+  "n_variables": 4,
+  "n_independent": 4.47,
+  "plateau": 0.8313,
+  "rbkg_choice": 0.7999999999999999,
+  "kw_sensitivity": {
+   "1": {
+    "s02": 0.7622,
+    "rf": 0.0029,
+    "delta_e0": 0.75
+   },
+   "3": {
+    "s02": 0.7526,
+    "rf": 0.0014,
+    "delta_e0": 1.23
+   }
+  },
+  "checks": {
+   "window_runs_interior": true,
+   "s02_in_range": true,
+   "s02_err_ok": true,
+   "window_spread_ok": true
+  },
+  "pass": true,
+  "provenance": {
+   "source_path": "_standards_lib\\Ag\\Ag_metal_foil.dat",
+   "source_sha256": "739fa24231f691910314d30735af3b3115cfe219e0e29edd021cbd44586a5db6",
+   "committed": false,
+   "transform": null,
+   "used_path": "_standards_lib\\Ag\\Ag_metal_foil.dat",
+   "used_sha256": "739fa24231f691910314d30735af3b3115cfe219e0e29edd021cbd44586a5db6"
+  },
+  "standard": "_standards_lib\\Ag\\Ag_metal_foil.dat",
+  "standard_sha256": "739fa24231f691910314d30735af3b3115cfe219e0e29edd021cbd44586a5db6",
+  "motif_file_sha256": null,
+  "static_absorber_py_unchanged": true
+ }
+}

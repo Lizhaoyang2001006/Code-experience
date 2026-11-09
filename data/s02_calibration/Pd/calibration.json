@@ -1,0 +1,52 @@
+{
+ "absorber": "Pd",
+ "status": "not_calibrated",
+ "generated_at": "2026-11-09T12:18:54",
+ "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+ "static_absorber_py_unchanged": true,
+ "apply_to_absorber_py": false,
+ "runtime_override": "--s02",
+ "attempts": [
+  {
+   "standard": "_standards_lib\\Pd\\Pd_metal_foil.dat",
+   "standard_exists": true,
+   "motif": "pd_fcc_cod_9008478",
+   "motif_file": null,
+   "strict": false,
+   "kmin": null,
+   "kmax": null,
+   "rmin": null,
+   "note": "",
+   "provenance": {
+    "source_path": "_standards_lib\\Pd\\Pd_metal_foil.dat",
+    "source_sha256": "9f07525aaa52e0ac6ebbc4344d9c715e3c50cea6fd2654729b3909e13d77a21e",
+    "committed": false,
+    "transform": null,
+    "used_path": "_standards_lib\\Pd\\Pd_metal_foil.dat",
+    "used_sha256": "9f07525aaa52e0ac6ebbc4344d9c715e3c50cea6fd2654729b3909e13d77a21e"
+   },
+   "status": "gated_out",
+   "error": "ValueError: zero-size array to reduction operation maximum which has no identity",
+   "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格"
+  }
+ ],
+ "s02": null,
+ "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
+ "attempts_compact": [
+  {
+   "standard": "_standards_lib\\Pd\\Pd_metal_foil.dat",
+   "motif": "pd_fcc_cod_9008478",
+   "strict": false,
+   "kmin": null,
+   "kmax": null,
+   "rmin": null,
+   "status": "gated_out",
+   "s02": null,
+   "s02_err": null,
+   "rf": null,
+   "spread": null,
+   "plateau": null,
+   "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格"
+  }
+ ]
+}

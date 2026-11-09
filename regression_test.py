@@ -57,7 +57,12 @@ Phase III（B9–B12）新增 15 项契约：
     - 相移校正 FT/WT；异核共占位双分支；关联 Debye；BVS 软约束
     - R/q/WT 多空间拟合；双吸收边 ΔE₀ 分组 + AIC/BIC；SAC/DAC 团簇
 
-当前共 119 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+ CIF 抓取/条件 CN 契约）。
+P4+ 新增：
+    - T7 多元素综合报告：自动分元素、并列结果、不推荐 Top-1
+    - T8 XANES–EXAFS 软校验：只产生警告，不改变 cn_reliable
+
+当前共 121 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+
+CIF 抓取/条件 CN/T7/T8 契约）。
 
 运行:
     python regression_test.py
@@ -5318,6 +5323,104 @@ O1 O 0 0 0 0.5
             b.write_bytes(b"abd")
             self.assertNotEqual(cn_table.data_sha256([a]),
                                 cn_table.data_sha256([b]))
+
+    def test_multi_element_report_no_top1(self):
+        """#120 T7：多元素自动分元素跑批；报告并列、不推荐 Top-1。"""
+        import run_xafs
+        from types import SimpleNamespace
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            fe = tmp / "sample_fe.dat"
+            fe.write_text("# Absorber: Fe\n# Energy(eV)\tmu\n"
+                          "7112\t1.0\n", encoding="utf-8")
+            cu = tmp / "sample_cu.dat"
+            cu.write_text("# Absorber: Cu\n# Energy(eV)\tmu\n"
+                          "8979\t1.0\n", encoding="utf-8")
+            unknown = tmp / "unknown.dat"
+            unknown.write_text("# no element header\n1 1\n",
+                               encoding="utf-8")
+
+            def fake_run_one(path, element, sub):
+                sub.mkdir(parents=True, exist_ok=True)
+                return SimpleNamespace(
+                    structure={
+                        "status": "confident",
+                        "ranked": [{"id": f"{element.lower()}_phase",
+                                    "score": 0.02}]},
+                    fit={
+                        "mode": "l1_first_shell", "cn_reliable": True,
+                        "l1": {"N": 5.0, "R": 2.0}, "warning": ""},
+                    xanes_cross_check={
+                        "warnings": [{"code": "edge_step_weak",
+                                      "message": "demo warning"}]})
+
+            out = tmp / "out"
+            summary = run_xafs.run_multi_element(
+                [str(fe), str(cu), str(unknown)], out,
+                run_one=fake_run_one, verbose=False)
+            self.assertEqual(summary["n_ok"], 2)
+            self.assertEqual(summary["n_failed"], 1)
+            self.assertEqual(summary["elements"], ["Cu", "Fe"])
+            self.assertIsNone(summary["recommended"])
+            self.assertIsNone(summary["best_element"])
+            self.assertIn("不自动选择", summary["recommendation_policy"])
+            self.assertTrue((out / "multi_element_summary.json").is_file())
+            md = (out / "multi_element_summary.md").read_text(
+                encoding="utf-8")
+            self.assertIn("不自动选择/推荐 Top-1", md)
+            fe_row = next(r for r in summary["rows"]
+                          if r["absorber"] == "Fe")
+            self.assertEqual(fe_row["first_shell"]["n_fit"], 5.0)
+            self.assertEqual(fe_row["candidates"][0]["id"], "fe_phase")
+            self.assertEqual(fe_row["absorber_source"], "header_absorber")
+            self.assertIn("demo warning", fe_row["warnings"])
+
+    def test_xanes_exafs_cross_check_warning_only(self):
+        """#121 T8：白线/边步/归一化异常 → 警告；不改 cn_reliable。"""
+        from types import SimpleNamespace
+
+        norm = SimpleNamespace(plateau=0.70, edge_step=0.01, e0=7112.0)
+        res = SimpleNamespace(
+            norm=norm,
+            xanes_features={"e0_jump_risk": True},
+            absorber_symbol="Fe",
+            fit=None)
+        fit_out = {
+            "mode": "l1_first_shell", "cn_reliable": True,
+            "l1": {"N": 10.0, "R": 2.5},
+            "self_absorption": {"risk": "high", "note": "荧光厚样"}}
+        wl = {"reliable": True, "white_line_area_norm": 0.2,
+              "whiteline_peak_height": 0.1,
+              "white_line_energy": 7125.0, "note": ""}
+        cc = xafs_fit.xanes_exafs_cross_check(res, fit_out, white_line=wl)
+        codes = {w["code"] for w in cc["warnings"]}
+        self.assertIn("normalization_plateau_out_of_range", codes)
+        self.assertIn("edge_step_weak", codes)
+        self.assertIn("e0_jump_risk", codes)
+        self.assertIn("high_cn_low_white_line", codes)
+        self.assertIn("self_absorption_risk", codes)
+        self.assertFalse(cc["affects_cn_reliable"])
+        self.assertTrue(fit_out["cn_reliable"])  # 未被修改
+
+        # 干净情形：无警告；L3 边不做 CN–白线极端对比。
+        clean_norm = SimpleNamespace(plateau=1.0, edge_step=1.0,
+                                     e0=11564.0)
+        clean_res = SimpleNamespace(
+            norm=clean_norm, xanes_features={"e0_jump_risk": False},
+            absorber_symbol="Pt", fit=None)
+        clean_fit = {"mode": "l1_first_shell", "cn_reliable": True,
+                     "l1": {"N": 10.0, "R": 2.5}}
+        clean_wl = {"reliable": True, "white_line_area_norm": 0.2,
+                    "whiteline_peak_height": 0.1,
+                    "white_line_energy": 11570.0, "note": ""}
+        cc2 = xafs_fit.xanes_exafs_cross_check(
+            clean_res, clean_fit, white_line=clean_wl)
+        self.assertEqual(cc2["warnings"], [])
+        self.assertEqual(cc2["status"], "ok")
+        self.assertEqual(
+            cc2["checks"]["cn_white_line_contrast"]["status"],
+            "unavailable")
 
 
 if __name__ == "__main__":

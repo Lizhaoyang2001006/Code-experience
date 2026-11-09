@@ -14,7 +14,7 @@
 - 17 个 COD motif 入库，结构库共 **43 个 motif**，覆盖 **17/17** 吸收元素；
 - T5 12 条 IIT-Lytle 真实谱全部落盘，**0 个 placeholder**；
 - 旧 ID 迁移完成：`LEGACY_MOTIFS_LEFT 0`、`QUARANTINE_FILES 0`；
-- `regression_test.py` **119 项** + 4 个压力测试全部通过（`run_ci.py --stress` PASS）。
+- `regression_test.py` **121 项** + 4 个压力测试全部通过（`run_ci.py --stress` PASS）。
 
 运行期仍然完全离线：`run_xafs.py` 不导入根爬虫，不读取 `data/cif_crawler_index.json` 取几何，只通过
 `structure_lib.load_library(absorber)` 读取 `_structure_lib`。
@@ -32,7 +32,7 @@
 1. 运行期不得直接读 `data/cif_crawler_index.json` 取几何；
 2. 运行期不得调用任一爬虫、不得联网；
 3. 爬虫不得成为 S1–S7 的隐式数据源；
-4. T5 标准谱目前只落盘，不参与 `calibrate_s02.py`，也不参与正式 CN。
+4. T5 标准谱只作为**构建期产物**：`calibrate_t5.py` 读取本地标准谱生成独立标定产物，运行期不读标准谱、也不成为 S1–S7 的隐式数据源。
 
 ## 3. 适配与旧 ID 迁移
 
@@ -108,15 +108,17 @@ python cif_crawler.py --t5
 - `data/standards_raw/` 保存同一份抓取缓存；
 - `T5_PLACEHOLDERS 0`；
 - 文件头保留 IIT-Lytle 来源、源文件名、E0、能量范围与点数；
-- **尚未接入 `calibrate_s02.py` 或运行期**；#60 静态表仍为 Fe/Co/Ni/Cu/Pt 已标定，其余 12 元素 `s02=None`、`calibrated=False`。
+- T5 标定由 `calibrate_t5.py` 批量执行，产物落 `data/s02_calibration/`（`index.json`、逐元素 `calibration.json`、`REPORT.md`），**不改 `absorber.py`**；#60 静态表仍为 Fe/Co/Ni/Cu/Pt 已标定，其余 12 元素 `s02=None`、`calibrated=False`；
+- 运行时通过 `run_xafs.py --s02 <值>` 显式覆盖；通过 6/12（Cr/Mn/Zn/Ru/Ag/Au），Mo/Rh/Pd/Ir/Ce/U 记录未通过原因、不强行给值；
+- `_standards_lib/` 与 `data/standards_raw/` 因许可未明确不提交；Ag 标定依赖本地 IIT-Lytle 谱，产物记录源文件 SHA256，但不保证无本地标准时可复现。
 
 ## 5. 验收
 
 ### 5.1 回归与压力
 
 ```text
-regression_test.py: 119 tests OK
-run_ci.py --stress: PASS (170.5s)
+regression_test.py: 121 tests OK
+run_ci.py --stress: PASS (154.7s)
   stress_test_co.py   PASS
   stress_test_ni.py   PASS
   stress_test_cu.py   PASS
@@ -172,11 +174,11 @@ python cif_crawler.py --t5
 
 ## 7. 仍然存在的缺口
 
-1. **T5 S₀² 标定未完成**：Cr/Mn/Zn/Mo/Ru/Rh/Pd/Ag/Ir/Au/Ce/U 12 元素 `s02=None`，正式 CN 仍会被拒绝；
+1. **T5 S₀² 部分标定**：已产出独立标定产物并通过 6/12；Mo/Rh/Pd/Ir/Ce/U 仍缺高质量宽能区标准，未标定元素仍需运行时 `--s02` 才能做正式 CN；
 2. **常见相仍缺**：FeO、FeOOH、PtO2、Cr2O3、MnO/MnO2/Mn3O4、ZnO、MoO2/MoO3、RuO2、Rh2O3、PdO、Ag2O、IrO2、Au2O3、UO2/U3O8；
 3. **多位点联合模型未自动构建**：当前需显式 `--absorber-site` 或 `absorber_fract`；
-4. **T7 多元素联合、T8 XANES-EXAFS 联合校验**仍待执行。
+4. **T7/T8 已实现**：`--multi-element` 逐元素并列报告、不推荐 Top-1；`--xanes-cross-check` 只报警告、不改 `cn_reliable`（#120/#121）。
 
 ## 8. 一句话状态
 
-**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 119+4 CI 全部通过，T5 标定仍是后续独立任务。**
+**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 121+4 CI 全部通过；T5 已产出 6/12 独立标定产物（静态表未改），T7 多元素与 T8 联合校验已实现。**

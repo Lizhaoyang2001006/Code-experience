@@ -1,0 +1,297 @@
+{
+ "absorber": "Au",
+ "status": "calibrated",
+ "generated_at": "2026-11-09T12:18:55",
+ "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+ "static_absorber_py_unchanged": true,
+ "apply_to_absorber_py": false,
+ "runtime_override": "--s02",
+ "attempts": [
+  {
+   "standard": "data\\bmm_standards\\Data\\Au\\Au-L3-GoldFoil.xdi",
+   "standard_exists": true,
+   "motif": "au_fcc",
+   "motif_file": null,
+   "strict": true,
+   "kmin": null,
+   "kmax": null,
+   "rmin": null,
+   "note": "",
+   "provenance": {
+    "source_path": "data\\bmm_standards\\Data\\Au\\Au-L3-GoldFoil.xdi",
+    "source_sha256": "fd6216a18d67df8df926b8be104208a1692a176f611139ea6b58633330f3f47a",
+    "committed": true,
+    "transform": null,
+    "used_path": "data\\bmm_standards\\Data\\Au\\Au-L3-GoldFoil.xdi",
+    "used_sha256": "fd6216a18d67df8df926b8be104208a1692a176f611139ea6b58633330f3f47a"
+   },
+   "result": {
+    "absorber": "Au",
+    "edge": "L3",
+    "motif": "au_fcc",
+    "motif_file": null,
+    "fixed_CN": 12.0,
+    "R_first": 2.8837,
+    "k_window": [
+     3.0,
+     12.0
+    ],
+    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+    "runs": [
+     {
+      "r_window": [
+       2.284,
+       3.004
+      ],
+      "s02": 0.8623,
+      "s02_err": 0.0057,
+      "rf": 0.0002,
+      "delta_e0": 4.73,
+      "sigma2": 0.0082,
+      "delta_r": -0.0233,
+      "interior": true
+     },
+     {
+      "r_window": [
+       2.284,
+       3.064
+      ],
+      "s02": 0.8602,
+      "s02_err": 0.0057,
+      "rf": 0.0002,
+      "delta_e0": 4.72,
+      "sigma2": 0.0082,
+      "delta_r": -0.0234,
+      "interior": true
+     },
+     {
+      "r_window": [
+       2.284,
+       3.144
+      ],
+      "s02": 0.855,
+      "s02_err": 0.006,
+      "rf": 0.0003,
+      "delta_e0": 4.66,
+      "sigma2": 0.0082,
+      "delta_r": -0.0238,
+      "interior": true
+     }
+    ],
+    "s02": 0.8602,
+    "s02_err": 0.006,
+    "rf": 0.0003,
+    "spread": 0.0073,
+    "delta_e0": 4.66,
+    "sigma2": 0.0082,
+    "n_variables": 4,
+    "n_independent": 4.47,
+    "plateau": 0.9412,
+    "rbkg_choice": 1.0,
+    "kw_sensitivity": {
+     "1": {
+      "s02": 0.8799,
+      "rf": 0.0002,
+      "delta_e0": 4.79
+     },
+     "3": {
+      "s02": 0.847,
+      "rf": 0.0002,
+      "delta_e0": 4.35
+     }
+    },
+    "checks": {
+     "window_runs_interior": true,
+     "s02_in_range": true,
+     "s02_err_ok": true,
+     "window_spread_ok": true
+    },
+    "pass": true
+   },
+   "status": "passed"
+  }
+ ],
+ "s02": 0.8602,
+ "s02_err": 0.006,
+ "rf": 0.0003,
+ "spread": 0.0073,
+ "delta_e0": 4.66,
+ "sigma2": 0.0082,
+ "plateau": 0.9412,
+ "k_window": [
+  3.0,
+  12.0
+ ],
+ "fixed_CN": 12.0,
+ "R_first": 2.8837,
+ "runs": [
+  {
+   "r_window": [
+    2.284,
+    3.004
+   ],
+   "s02": 0.8623,
+   "s02_err": 0.0057,
+   "rf": 0.0002,
+   "delta_e0": 4.73,
+   "sigma2": 0.0082,
+   "delta_r": -0.0233,
+   "interior": true
+  },
+  {
+   "r_window": [
+    2.284,
+    3.064
+   ],
+   "s02": 0.8602,
+   "s02_err": 0.0057,
+   "rf": 0.0002,
+   "delta_e0": 4.72,
+   "sigma2": 0.0082,
+   "delta_r": -0.0234,
+   "interior": true
+  },
+  {
+   "r_window": [
+    2.284,
+    3.144
+   ],
+   "s02": 0.855,
+   "s02_err": 0.006,
+   "rf": 0.0003,
+   "delta_e0": 4.66,
+   "sigma2": 0.0082,
+   "delta_r": -0.0238,
+   "interior": true
+  }
+ ],
+ "checks": {
+  "window_runs_interior": true,
+  "s02_in_range": true,
+  "s02_err_ok": true,
+  "window_spread_ok": true
+ },
+ "kw_sensitivity": {
+  "1": {
+   "s02": 0.8799,
+   "rf": 0.0002,
+   "delta_e0": 4.79
+  },
+  "3": {
+   "s02": 0.847,
+   "rf": 0.0002,
+   "delta_e0": 4.35
+  }
+ },
+ "n_variables": 4,
+ "n_independent": 4.47,
+ "motif": "au_fcc",
+ "edge": "L3",
+ "provenance": {
+  "source_path": "data\\bmm_standards\\Data\\Au\\Au-L3-GoldFoil.xdi",
+  "source_sha256": "fd6216a18d67df8df926b8be104208a1692a176f611139ea6b58633330f3f47a",
+  "committed": true,
+  "transform": null,
+  "used_path": "data\\bmm_standards\\Data\\Au\\Au-L3-GoldFoil.xdi",
+  "used_sha256": "fd6216a18d67df8df926b8be104208a1692a176f611139ea6b58633330f3f47a"
+ },
+ "standard": "data\\bmm_standards\\Data\\Au\\Au-L3-GoldFoil.xdi",
+ "standard_sha256": "fd6216a18d67df8df926b8be104208a1692a176f611139ea6b58633330f3f47a",
+ "motif_file": null,
+ "motif_file_sha256": null,
+ "result": {
+  "absorber": "Au",
+  "edge": "L3",
+  "motif": "au_fcc",
+  "motif_file": null,
+  "fixed_CN": 12.0,
+  "R_first": 2.8837,
+  "k_window": [
+   3.0,
+   12.0
+  ],
+  "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+  "runs": [
+   {
+    "r_window": [
+     2.284,
+     3.004
+    ],
+    "s02": 0.8623,
+    "s02_err": 0.0057,
+    "rf": 0.0002,
+    "delta_e0": 4.73,
+    "sigma2": 0.0082,
+    "delta_r": -0.0233,
+    "interior": true
+   },
+   {
+    "r_window": [
+     2.284,
+     3.064
+    ],
+    "s02": 0.8602,
+    "s02_err": 0.0057,
+    "rf": 0.0002,
+    "delta_e0": 4.72,
+    "sigma2": 0.0082,
+    "delta_r": -0.0234,
+    "interior": true
+   },
+   {
+    "r_window": [
+     2.284,
+     3.144
+    ],
+    "s02": 0.855,
+    "s02_err": 0.006,
+    "rf": 0.0003,
+    "delta_e0": 4.66,
+    "sigma2": 0.0082,
+    "delta_r": -0.0238,
+    "interior": true
+   }
+  ],
+  "s02": 0.8602,
+  "s02_err": 0.006,
+  "rf": 0.0003,
+  "spread": 0.0073,
+  "delta_e0": 4.66,
+  "sigma2": 0.0082,
+  "n_variables": 4,
+  "n_independent": 4.47,
+  "plateau": 0.9412,
+  "rbkg_choice": 1.0,
+  "kw_sensitivity": {
+   "1": {
+    "s02": 0.8799,
+    "rf": 0.0002,
+    "delta_e0": 4.79
+   },
+   "3": {
+    "s02": 0.847,
+    "rf": 0.0002,
+    "delta_e0": 4.35
+   }
+  },
+  "checks": {
+   "window_runs_interior": true,
+   "s02_in_range": true,
+   "s02_err_ok": true,
+   "window_spread_ok": true
+  },
+  "pass": true,
+  "provenance": {
+   "source_path": "data\\bmm_standards\\Data\\Au\\Au-L3-GoldFoil.xdi",
+   "source_sha256": "fd6216a18d67df8df926b8be104208a1692a176f611139ea6b58633330f3f47a",
+   "committed": true,
+   "transform": null,
+   "used_path": "data\\bmm_standards\\Data\\Au\\Au-L3-GoldFoil.xdi",
+   "used_sha256": "fd6216a18d67df8df926b8be104208a1692a176f611139ea6b58633330f3f47a"
+  },
+  "standard": "data\\bmm_standards\\Data\\Au\\Au-L3-GoldFoil.xdi",
+  "standard_sha256": "fd6216a18d67df8df926b8be104208a1692a176f611139ea6b58633330f3f47a",
+  "motif_file_sha256": null,
+  "static_absorber_py_unchanged": true
+ }
+}

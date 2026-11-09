@@ -191,6 +191,255 @@ def systematic_budget(fit, flags: dict | None = None,
     }
 
 
+def _first_shell_cn(fit_out) -> dict:
+    """从 motif / L1 拟合产物中取第一壳 CN 摘要（只读，不做推断）。"""
+    out = {"n_fit": None, "n0": None, "label": None, "reff": None,
+           "cn_reliable": None, "mode": None}
+    if not isinstance(fit_out, dict):
+        return out
+    out["mode"] = fit_out.get("mode")
+    out["cn_reliable"] = fit_out.get("cn_reliable")
+    if fit_out.get("mode") == "motif_weights":
+        return out
+    l1 = fit_out.get("l1")
+    if fit_out.get("mode") == "l1_first_shell" and isinstance(l1, dict):
+        out["n_fit"] = (float(l1["N"]) if l1.get("N") is not None else None)
+        out["reff"] = (float(l1["R"]) if l1.get("R") is not None else None)
+        out["label"] = "L1 first shell"
+        return out
+    fit_obj = fit_out.get("fit")
+    paths = list(getattr(fit_obj, "paths", None) or [])
+    if paths:
+        p = paths[0]
+        degen = getattr(p, "degeneracy", None)
+        out["n_fit"] = float(degen) if degen is not None else None
+        out["reff"] = float(getattr(p, "r", None)) \
+            if getattr(p, "r", None) is not None else None
+    shells = fit_out.get("shells") or []
+    if shells:
+        sh = shells[0]
+        out["n0"] = (float(sh["degen"]) if sh.get("degen") is not None
+                     else None)
+        out["label"] = sh.get("label")
+        if out["reff"] is None and sh.get("reff") is not None:
+            out["reff"] = float(sh["reff"])
+    return out
+
+
+def xanes_exafs_cross_check(res, fit_out=None, *,
+                            white_line=None,
+                            white_line_window=(-6.0, 40.0),
+                            thresholds: dict | None = None) -> dict:
+    """XANES–EXAFS 联合软校验：白线/边步/归一化 vs 第一壳 CN。
+
+    **只产生警告，不改变 ``cn_reliable``、不拒绝 CN、不写正式表。**
+    物理上白线强度受氧化态、配位几何、自吸收与多重散射共同影响，
+    不能由 CN 单独解释；因此本函数只做**保守极端值筛查**，并把
+    ``heuristic=True`` / ``affects_cn_reliable=False`` 写进产物。
+
+    检查项：
+      1. 归一化平台是否在 0.85–1.15；
+      2. 边步是否非正/过弱/过强（原始 μ 跳变，不是归一化后平台）；
+      3. XANES 导数双峰 ``e0_jump_risk``；
+      4. 白线拟合是否可靠、白线位置相对 E0 是否越界；
+      5. K 边极端对比：高 CN + 极弱白线，或低 CN + 极强白线；
+      6. 荧光自吸收风险（若 fit_out 带该诊断）。
+
+    ``white_line`` 可注入预计算结果（测试/批量复用），避免重复拟合。
+    """
+    th = {
+        "plateau_range": (0.85, 1.15),
+        "edge_step_min": 0.05,
+        "edge_step_max": 5.0,
+        "white_line_area_low": 0.5,
+        "white_line_area_high": 12.0,
+        "high_cn": 8.0,
+        "low_cn": 1.5,
+        "white_line_offset_range": (-8.0, 40.0),
+    }
+    if thresholds:
+        th.update(thresholds)
+
+    norm = getattr(res, "norm", None)
+    xf = dict(getattr(res, "xanes_features", None) or {})
+    fit_out = fit_out if fit_out is not None else getattr(res, "fit", None)
+    absorber = getattr(res, "absorber_symbol", None)
+    edge = "K"
+    if absorber:
+        try:
+            edge = get_absorber(absorber).edge
+        except (XAFSConfigError, KeyError):
+            edge = str(xf.get("edge") or "K")
+    else:
+        edge = str(xf.get("edge") or "K")
+
+    wl = white_line
+    if wl is None:
+        if norm is None:
+            wl = {"available": False, "reliable": False,
+                  "note": "无 NormalizedScan，无法拟合白线"}
+        else:
+            try:
+                import athena
+                wl = athena.fit_whiteline_area(
+                    norm, window=white_line_window)
+                wl = dict(wl)
+                wl["available"] = True
+            except Exception as exc:  # noqa: BLE001 - 软校验不得中断主链
+                wl = {"available": False, "reliable": False,
+                      "note": f"白线拟合失败: {type(exc).__name__}: {exc}"}
+
+    first = _first_shell_cn(fit_out)
+    warnings: list[dict] = []
+    checks: dict[str, dict] = {}
+
+    def warn(code, message):
+        warnings.append({"code": code, "message": message})
+
+    # 1. 归一化平台
+    plateau = float(getattr(norm, "plateau", float("nan"))) \
+        if norm is not None else float("nan")
+    p_lo, p_hi = th["plateau_range"]
+    if not math.isfinite(plateau):
+        checks["normalization_plateau"] = {
+            "status": "unavailable", "value": None}
+    elif p_lo <= plateau <= p_hi:
+        checks["normalization_plateau"] = {
+            "status": "ok", "value": round(plateau, 4)}
+    else:
+        checks["normalization_plateau"] = {
+            "status": "warn", "value": round(plateau, 4)}
+        warn("normalization_plateau_out_of_range",
+             f"边后平台={plateau:.3f} 不在 {p_lo:.2f}–{p_hi:.2f}；"
+             f"EXAFS 振幅/CN 与 XANES 白线均可能被归一化偏差污染")
+
+    # 2. 边步
+    estep = float(getattr(norm, "edge_step", float("nan"))) \
+        if norm is not None else float("nan")
+    if not math.isfinite(estep) or estep <= 0:
+        checks["edge_step"] = {"status": "unavailable", "value": None}
+    elif estep < th["edge_step_min"]:
+        checks["edge_step"] = {"status": "warn", "value": round(estep, 4)}
+        warn("edge_step_weak",
+             f"原始边步={estep:.3g} 过弱（阈值 {th['edge_step_min']}）："
+             f"样品过稀/过薄，EXAFS 信噪比与 CN 可靠性下降")
+    elif estep > th["edge_step_max"]:
+        checks["edge_step"] = {"status": "warn", "value": round(estep, 4)}
+        warn("edge_step_strong",
+             f"原始边步={estep:.3g} 过强（阈值 {th['edge_step_max']}）："
+             f"厚样/浓样自吸收可能压低 EXAFS 振幅")
+    else:
+        checks["edge_step"] = {"status": "ok", "value": round(estep, 4)}
+
+    # 3. E0 导数双峰
+    if xf.get("e0_jump_risk") is True:
+        checks["e0_jump_risk"] = {"status": "warn"}
+        warn("e0_jump_risk",
+             "XANES 上升沿导数双峰：E0 可能在两个台阶间跳变 3–6 eV，"
+             "相位/振幅解释需复核")
+    elif "e0_jump_risk" in xf:
+        checks["e0_jump_risk"] = {"status": "ok"}
+    else:
+        checks["e0_jump_risk"] = {"status": "unavailable"}
+
+    # 4. 白线可靠性与位置
+    wl_reliable = bool(wl.get("reliable")) if isinstance(wl, dict) else False
+    wl_area = (float(wl.get("white_line_area_norm") or 0.0)
+               if isinstance(wl, dict) else None)
+    wl_energy = (wl.get("white_line_energy")
+                 if isinstance(wl, dict) else None)
+    if not wl_reliable:
+        checks["white_line_fit"] = {
+            "status": "unavailable",
+            "note": (wl or {}).get("note", "白线拟合不可靠")}
+    else:
+        checks["white_line_fit"] = {
+            "status": "ok", "area_norm": round(wl_area, 4)}
+        e0 = float(getattr(norm, "e0", float("nan"))) \
+            if norm is not None else float("nan")
+        if wl_energy is not None and math.isfinite(e0):
+            offset = float(wl_energy) - e0
+            lo, hi = th["white_line_offset_range"]
+            if not (lo <= offset <= hi):
+                checks["white_line_position"] = {
+                    "status": "warn", "offset_eV": round(offset, 2)}
+                warn("white_line_position_outlier",
+                     f"白线位置 E_wl−E0={offset:+.1f} eV 超出 "
+                     f"[{lo:+.0f}, {hi:+.0f}] eV；检查 E0 选择/边前背景/"
+                     f"价态归属")
+            else:
+                checks["white_line_position"] = {
+                    "status": "ok", "offset_eV": round(offset, 2)}
+
+    # 5. K 边极端 CN–白线对比（L 边白线由 2p→5d 主导，不做此判据）
+    n_fit = first.get("n_fit")
+    if (str(edge).upper().startswith("K") and wl_reliable
+            and n_fit is not None and first.get("cn_reliable") is not False):
+        if n_fit >= th["high_cn"] and wl_area <= th["white_line_area_low"]:
+            checks["cn_white_line_contrast"] = {
+                "status": "warn", "n_fit": round(n_fit, 2),
+                "white_line_area_norm": round(wl_area, 4)}
+            warn("high_cn_low_white_line",
+                 f"第一壳 N≈{n_fit:.1f} 但白线净面积仅 {wl_area:.2f} eV："
+                 f"白线极弱与高 CN 同时出现，需排查归一化/自吸收/多相混合")
+        elif n_fit <= th["low_cn"] and wl_area >= th["white_line_area_high"]:
+            checks["cn_white_line_contrast"] = {
+                "status": "warn", "n_fit": round(n_fit, 2),
+                "white_line_area_norm": round(wl_area, 4)}
+            warn("low_cn_high_white_line",
+                 f"第一壳 N≈{n_fit:.1f} 但白线净面积达 {wl_area:.2f} eV："
+                 f"强白线通常含氧化态/多重散射贡献，CN 可能被低估")
+        else:
+            checks["cn_white_line_contrast"] = {
+                "status": "ok", "n_fit": round(n_fit, 2),
+                "white_line_area_norm": round(wl_area, 4)}
+    else:
+        checks["cn_white_line_contrast"] = {"status": "unavailable"}
+
+    # 6. 自吸收风险（fit_out 已给出诊断时）
+    self_abs = (fit_out.get("self_absorption")
+                if isinstance(fit_out, dict) else None)
+    if isinstance(self_abs, dict):
+        risk = self_abs.get("risk")
+        if risk in ("high", "unknown", "corrected_unreliable"):
+            checks["self_absorption"] = {"status": "warn", "risk": risk}
+            warn("self_absorption_risk",
+                 self_abs.get("note") or f"荧光自吸收风险={risk}")
+        else:
+            checks["self_absorption"] = {"status": "ok", "risk": risk}
+    else:
+        checks["self_absorption"] = {"status": "unavailable"}
+
+    # 7. CN 可靠性信息（不改它，只记录）
+    if isinstance(fit_out, dict) and first.get("cn_reliable") is False:
+        checks["cn_reliability"] = {
+            "status": "info", "cn_reliable": False}
+    elif isinstance(fit_out, dict):
+        checks["cn_reliability"] = {
+            "status": "ok", "cn_reliable": first.get("cn_reliable")}
+    else:
+        checks["cn_reliability"] = {"status": "unavailable"}
+
+    status = ("warning" if warnings
+              else ("ok" if any(c["status"] == "ok"
+                                for c in checks.values()) else "unavailable"))
+    return {
+        "enabled": True,
+        "heuristic": True,
+        "affects_cn_reliable": False,
+        "status": status,
+        "absorber": absorber,
+        "edge": edge,
+        "first_shell": first,
+        "white_line": wl,
+        "checks": checks,
+        "warnings": warnings,
+        "n_warnings": len(warnings),
+        "note": ("XANES–EXAFS 软校验只做保守极端值筛查；白线强度不能"
+                 "单独证明或否定 CN，本结果不改变 cn_reliable/正式 CN 门禁"),
+    }
+
+
 def _find_motif(absorber: str, motif_id: str) -> structure_lib.Motif:
     for motif in structure_lib.load_library(absorber):
         if motif.id == motif_id:
@@ -1507,11 +1756,14 @@ def run(res, identify: bool = True, fit: bool = False,
         verbose: bool = True,
         formal_cn: bool = False,
         structure_model: StructureModel | None = None,
-        gate_result=None) -> dict:
+        gate_result=None,
+        xanes_cross_check: bool = False) -> dict:
     """S6.5（可选 S7）的唯一入口；结果回填 res.structure / res.fit。
 
     ``s02``（B18-2）为运行时 S₀² 覆盖：仅构造局部 AbsorberConfig 副本，
     不修改 ``absorber.ABSORBERS``；未标定元素需显式给出该值。
+    ``xanes_cross_check``（T8）只追加 XANES–EXAFS 软校验警告，
+    不改变拟合结果与 ``cn_reliable``。
     """
     out: dict = {}
     if identify or fit:
@@ -1558,6 +1810,15 @@ def run(res, identify: bool = True, fit: bool = False,
         }
         out["diagnostic_only"] = True
         out["cn_status"] = "no_cif"
+    if xanes_cross_check:
+        cc = xanes_exafs_cross_check(res, fit_out=out.get("fit"))
+        out["xanes_cross_check"] = cc
+        res.xanes_cross_check = cc
+        if isinstance(out.get("fit"), dict):
+            out["fit"]["xanes_cross_check"] = cc
+        if verbose and cc["warnings"]:
+            for w in cc["warnings"]:
+                print(f"  [T8] ⚠ {w['code']}: {w['message']}")
     return out
 
 

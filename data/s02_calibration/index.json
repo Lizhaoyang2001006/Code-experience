@@ -1,0 +1,404 @@
+{
+ "generated_at": "2026-11-09T12:18:56",
+ "protocol": "T5 larch production-equivalent calibration; independent artifacts, static absorber.py unchanged",
+ "static_absorber_py_unchanged": true,
+ "apply_to_absorber_py": false,
+ "runtime_override": "--s02",
+ "pass_count": 6,
+ "fail_count": 6,
+ "elements": [
+  {
+   "absorber": "Cr",
+   "status": "calibrated",
+   "s02": 0.6482,
+   "s02_err": 0.0198,
+   "rf": 0.0074,
+   "spread": 0.0053,
+   "motif": "cr2o3_corundum",
+   "standard": "data\\bmm_standards\\Data\\Cr\\Cr-K-Cr2O3.xdi",
+   "standard_sha256": "b68293e5e588914df592c4bf05c021517e7a94bbd7f6e1089aabfd8c2f01afba",
+   "reason": null,
+   "attempts": [
+    {
+     "standard": "data\\bmm_standards\\Data\\Cr\\Cr-K-Cr2O3.xdi",
+     "motif": "cr2o3_corundum",
+     "strict": true,
+     "kmin": null,
+     "kmax": null,
+     "rmin": null,
+     "status": "passed",
+     "s02": 0.6482,
+     "s02_err": 0.0198,
+     "rf": 0.0074,
+     "spread": 0.0053,
+     "plateau": 1.114,
+     "reason": null
+    }
+   ]
+  },
+  {
+   "absorber": "Mn",
+   "status": "calibrated",
+   "s02": 0.4311,
+   "s02_err": 0.0313,
+   "rf": 0.0402,
+   "spread": 0.0213,
+   "motif": "mno2_rutile",
+   "standard": "data\\bmm_standards\\Data\\Mn\\Mn-Pyrolucite.xdi",
+   "standard_sha256": "fc32af10660232968bcd5166497a74a5516063096b0ebe1d58f817f1c9e9f80f",
+   "reason": null,
+   "attempts": [
+    {
+     "standard": "data\\bmm_standards\\Data\\Mn\\Mn-Pyrolucite.xdi",
+     "motif": "mno2_rutile",
+     "strict": true,
+     "kmin": null,
+     "kmax": null,
+     "rmin": null,
+     "status": "passed",
+     "s02": 0.4311,
+     "s02_err": 0.0313,
+     "rf": 0.0402,
+     "spread": 0.0213,
+     "plateau": 0.9075,
+     "reason": null
+    }
+   ]
+  },
+  {
+   "absorber": "Zn",
+   "status": "calibrated",
+   "s02": 0.6071,
+   "s02_err": 0.0213,
+   "rf": 0.009,
+   "spread": 0.007,
+   "motif": "zno_wurtzite",
+   "standard": "data\\bmm_standards\\Data\\Zn\\Zn-Zincite.xdi",
+   "standard_sha256": "7eb73032a4328a354b492afb8f04514289daf4d4e57fcad6479822d4317aae2f",
+   "reason": null,
+   "attempts": [
+    {
+     "standard": "data\\bmm_standards\\Data\\Zn\\Zn-Zincite.xdi",
+     "motif": "zno_wurtzite",
+     "strict": true,
+     "kmin": null,
+     "kmax": null,
+     "rmin": null,
+     "status": "passed",
+     "s02": 0.6071,
+     "s02_err": 0.0213,
+     "rf": 0.009,
+     "spread": 0.007,
+     "plateau": 0.919,
+     "reason": null
+    }
+   ]
+  },
+  {
+   "absorber": "Mo",
+   "status": "not_calibrated",
+   "s02": null,
+   "s02_err": null,
+   "rf": null,
+   "spread": null,
+   "motif": null,
+   "standard": null,
+   "standard_sha256": null,
+   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok",
+   "attempts": [
+    {
+     "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-Na2MoO4.xdi",
+     "motif": "moo4_tetra",
+     "strict": true,
+     "kmin": null,
+     "kmax": null,
+     "rmin": null,
+     "status": "gated_out",
+     "s02": null,
+     "s02_err": null,
+     "rf": null,
+     "spread": null,
+     "plateau": 0.9482,
+     "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok"
+    },
+    {
+     "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-Tugarinovite.xdi",
+     "motif": "moo2_rutile",
+     "strict": false,
+     "kmin": null,
+     "kmax": null,
+     "rmin": null,
+     "status": "gated_out",
+     "s02": null,
+     "s02_err": null,
+     "rf": null,
+     "spread": null,
+     "plateau": 0.8297,
+     "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok"
+    },
+    {
+     "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumDisulfide.xdi",
+     "motif": "mos2_2h",
+     "strict": true,
+     "kmin": 2.5,
+     "kmax": 11.0,
+     "rmin": null,
+     "status": "gated_out",
+     "s02": 0.6787,
+     "s02_err": 0.055,
+     "rf": 0.0309,
+     "spread": null,
+     "plateau": 0.8668,
+     "reason": "门禁未通过: window_runs_interior, window_spread_ok"
+    },
+    {
+     "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumFoil.xdi",
+     "motif": "mo_bcc",
+     "strict": true,
+     "kmin": null,
+     "kmax": null,
+     "rmin": null,
+     "status": "error",
+     "s02": null,
+     "s02_err": null,
+     "rf": null,
+     "spread": null,
+     "plateau": null,
+     "reason": "XAFSError: [S3] 归一化失败：边后平台 = 0.842（阈值 0.85–1.15）。稀释样品的低 Z 基体呈 E^-3 衰减，直线外推扣不掉，此时 FT 峰位与幅度均不可引用"
+    }
+   ]
+  },
+  {
+   "absorber": "Ru",
+   "status": "calibrated",
+   "s02": 0.7002,
+   "s02_err": 0.0275,
+   "rf": 0.0154,
+   "spread": 0.0123,
+   "motif": "ruo2_rutile",
+   "standard": "data\\bmm_standards\\Data\\Ru\\Ru-K-RuO2.xdi",
+   "standard_sha256": "926808a046ef43f5360ddc1cfdcbb219a6209fa947b0ecb42cd54fed4e6f9dbe",
+   "reason": null,
+   "attempts": [
+    {
+     "standard": "data\\bmm_standards\\Data\\Ru\\Ru-K-RuO2.xdi",
+     "motif": "ruo2_rutile",
+     "strict": false,
+     "kmin": null,
+     "kmax": null,
+     "rmin": null,
+     "status": "passed",
+     "s02": 0.7002,
+     "s02_err": 0.0275,
+     "rf": 0.0154,
+     "spread": 0.0123,
+     "plateau": 0.8197,
+     "reason": null
+    }
+   ]
+  },
+  {
+   "absorber": "Rh",
+   "status": "not_calibrated",
+   "s02": null,
+   "s02_err": null,
+   "rf": null,
+   "spread": null,
+   "motif": null,
+   "standard": null,
+   "standard_sha256": null,
+   "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
+   "attempts": [
+    {
+     "standard": "_standards_lib\\Rh\\Rh_metal_foil.dat",
+     "motif": "rh_fcc_cod_9008482",
+     "strict": false,
+     "kmin": null,
+     "kmax": null,
+     "rmin": null,
+     "status": "gated_out",
+     "s02": null,
+     "s02_err": null,
+     "rf": null,
+     "spread": null,
+     "plateau": null,
+     "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格"
+    }
+   ]
+  },
+  {
+   "absorber": "Pd",
+   "status": "not_calibrated",
+   "s02": null,
+   "s02_err": null,
+   "rf": null,
+   "spread": null,
+   "motif": null,
+   "standard": null,
+   "standard_sha256": null,
+   "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
+   "attempts": [
+    {
+     "standard": "_standards_lib\\Pd\\Pd_metal_foil.dat",
+     "motif": "pd_fcc_cod_9008478",
+     "strict": false,
+     "kmin": null,
+     "kmax": null,
+     "rmin": null,
+     "status": "gated_out",
+     "s02": null,
+     "s02_err": null,
+     "rf": null,
+     "spread": null,
+     "plateau": null,
+     "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格"
+    }
+   ]
+  },
+  {
+   "absorber": "Ag",
+   "status": "calibrated",
+   "s02": 0.7513,
+   "s02_err": 0.0115,
+   "rf": 0.003,
+   "spread": 0.0141,
+   "motif": "ag_fcc_cod_9008459",
+   "standard": "_standards_lib\\Ag\\Ag_metal_foil.dat",
+   "standard_sha256": "739fa24231f691910314d30735af3b3115cfe219e0e29edd021cbd44586a5db6",
+   "reason": null,
+   "attempts": [
+    {
+     "standard": "_standards_lib\\Ag\\Ag_metal_foil.dat",
+     "motif": "ag_fcc_cod_9008459",
+     "strict": false,
+     "kmin": null,
+     "kmax": null,
+     "rmin": null,
+     "status": "passed",
+     "s02": 0.7513,
+     "s02_err": 0.0115,
+     "rf": 0.003,
+     "spread": 0.0141,
+     "plateau": 0.8313,
+     "reason": null
+    }
+   ]
+  },
+  {
+   "absorber": "Ir",
+   "status": "not_calibrated",
+   "s02": null,
+   "s02_err": null,
+   "rf": null,
+   "spread": null,
+   "motif": null,
+   "standard": null,
+   "standard_sha256": null,
+   "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
+   "attempts": [
+    {
+     "standard": "_standards_lib\\Ir\\Ir_metal_foil.dat",
+     "motif": "ir_fcc_cod_9008470",
+     "strict": false,
+     "kmin": null,
+     "kmax": null,
+     "rmin": null,
+     "status": "gated_out",
+     "s02": null,
+     "s02_err": null,
+     "rf": null,
+     "spread": null,
+     "plateau": null,
+     "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格"
+    }
+   ]
+  },
+  {
+   "absorber": "Au",
+   "status": "calibrated",
+   "s02": 0.8602,
+   "s02_err": 0.006,
+   "rf": 0.0003,
+   "spread": 0.0073,
+   "motif": "au_fcc",
+   "standard": "data\\bmm_standards\\Data\\Au\\Au-L3-GoldFoil.xdi",
+   "standard_sha256": "fd6216a18d67df8df926b8be104208a1692a176f611139ea6b58633330f3f47a",
+   "reason": null,
+   "attempts": [
+    {
+     "standard": "data\\bmm_standards\\Data\\Au\\Au-L3-GoldFoil.xdi",
+     "motif": "au_fcc",
+     "strict": true,
+     "kmin": null,
+     "kmax": null,
+     "rmin": null,
+     "status": "passed",
+     "s02": 0.8602,
+     "s02_err": 0.006,
+     "rf": 0.0003,
+     "spread": 0.0073,
+     "plateau": 0.9412,
+     "reason": null
+    }
+   ]
+  },
+  {
+   "absorber": "Ce",
+   "status": "not_calibrated",
+   "s02": null,
+   "s02_err": null,
+   "rf": null,
+   "spread": null,
+   "motif": null,
+   "standard": null,
+   "standard_sha256": null,
+   "reason": "门禁未通过: window_runs_interior, window_spread_ok",
+   "attempts": [
+    {
+     "standard": "data\\bmm_standards\\Data\\Ce\\Ce-L3-CeO2.xdi",
+     "motif": "ceo2_fluorite_cod_1562989",
+     "strict": false,
+     "kmin": 3.5,
+     "kmax": 12.0,
+     "rmin": 1.6,
+     "status": "gated_out",
+     "s02": 0.4627,
+     "s02_err": 0.0343,
+     "rf": 0.0617,
+     "spread": null,
+     "plateau": 1.203,
+     "reason": "门禁未通过: window_runs_interior, window_spread_ok"
+    }
+   ]
+  },
+  {
+   "absorber": "U",
+   "status": "not_calibrated",
+   "s02": null,
+   "s02_err": null,
+   "rf": null,
+   "spread": null,
+   "motif": null,
+   "standard": null,
+   "standard_sha256": null,
+   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok",
+   "attempts": [
+    {
+     "standard": "_standards_lib\\U\\U_metal_foil.dat",
+     "motif": "u_alpha_u_cod_1527120",
+     "strict": false,
+     "kmin": 2.5,
+     "kmax": 7.5,
+     "rmin": null,
+     "status": "gated_out",
+     "s02": null,
+     "s02_err": null,
+     "rf": null,
+     "spread": null,
+     "plateau": 0.9319,
+     "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok"
+    }
+   ]
+  }
+ ]
+}

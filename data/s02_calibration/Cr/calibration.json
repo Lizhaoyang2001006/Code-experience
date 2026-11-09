@@ -1,0 +1,297 @@
+{
+ "absorber": "Cr",
+ "status": "calibrated",
+ "generated_at": "2026-11-09T12:18:51",
+ "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+ "static_absorber_py_unchanged": true,
+ "apply_to_absorber_py": false,
+ "runtime_override": "--s02",
+ "attempts": [
+  {
+   "standard": "data\\bmm_standards\\Data\\Cr\\Cr-K-Cr2O3.xdi",
+   "standard_exists": true,
+   "motif": "cr2o3_corundum",
+   "motif_file": "data\\s02_calibration\\motifs\\cr2o3_corundum.json",
+   "strict": true,
+   "kmin": null,
+   "kmax": null,
+   "rmin": null,
+   "note": "",
+   "provenance": {
+    "source_path": "data\\bmm_standards\\Data\\Cr\\Cr-K-Cr2O3.xdi",
+    "source_sha256": "b68293e5e588914df592c4bf05c021517e7a94bbd7f6e1089aabfd8c2f01afba",
+    "committed": true,
+    "transform": null,
+    "used_path": "data\\bmm_standards\\Data\\Cr\\Cr-K-Cr2O3.xdi",
+    "used_sha256": "b68293e5e588914df592c4bf05c021517e7a94bbd7f6e1089aabfd8c2f01afba"
+   },
+   "result": {
+    "absorber": "Cr",
+    "edge": "K",
+    "motif": "cr2o3_corundum",
+    "motif_file": "data\\s02_calibration\\motifs\\cr2o3_corundum.json",
+    "fixed_CN": 6.0,
+    "R_first": 1.9665,
+    "k_window": [
+     3.0,
+     12.0
+    ],
+    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+    "runs": [
+     {
+      "r_window": [
+       1.366,
+       2.087
+      ],
+      "s02": 0.6478,
+      "s02_err": 0.0163,
+      "rf": 0.0043,
+      "delta_e0": -4.7,
+      "sigma2": 0.002,
+      "delta_r": 0.0179,
+      "interior": true
+     },
+     {
+      "r_window": [
+       1.366,
+       2.147
+      ],
+      "s02": 0.6482,
+      "s02_err": 0.0159,
+      "rf": 0.0043,
+      "delta_e0": -4.72,
+      "sigma2": 0.002,
+      "delta_r": 0.0179,
+      "interior": true
+     },
+     {
+      "r_window": [
+       1.366,
+       2.226
+      ],
+      "s02": 0.6531,
+      "s02_err": 0.0198,
+      "rf": 0.0074,
+      "delta_e0": -5.08,
+      "sigma2": 0.002,
+      "delta_r": 0.0162,
+      "interior": true
+     }
+    ],
+    "s02": 0.6482,
+    "s02_err": 0.0198,
+    "rf": 0.0074,
+    "spread": 0.0053,
+    "delta_e0": -5.08,
+    "sigma2": 0.002,
+    "n_variables": 4,
+    "n_independent": 4.47,
+    "plateau": 1.114,
+    "rbkg_choice": 0.9,
+    "kw_sensitivity": {
+     "1": {
+      "s02": 0.7043,
+      "rf": 0.0022,
+      "delta_e0": -5.56
+     },
+     "3": {
+      "s02": 0.5698,
+      "rf": 0.0094,
+      "delta_e0": -2.63
+     }
+    },
+    "checks": {
+     "window_runs_interior": true,
+     "s02_in_range": true,
+     "s02_err_ok": true,
+     "window_spread_ok": true
+    },
+    "pass": true
+   },
+   "status": "passed"
+  }
+ ],
+ "s02": 0.6482,
+ "s02_err": 0.0198,
+ "rf": 0.0074,
+ "spread": 0.0053,
+ "delta_e0": -5.08,
+ "sigma2": 0.002,
+ "plateau": 1.114,
+ "k_window": [
+  3.0,
+  12.0
+ ],
+ "fixed_CN": 6.0,
+ "R_first": 1.9665,
+ "runs": [
+  {
+   "r_window": [
+    1.366,
+    2.087
+   ],
+   "s02": 0.6478,
+   "s02_err": 0.0163,
+   "rf": 0.0043,
+   "delta_e0": -4.7,
+   "sigma2": 0.002,
+   "delta_r": 0.0179,
+   "interior": true
+  },
+  {
+   "r_window": [
+    1.366,
+    2.147
+   ],
+   "s02": 0.6482,
+   "s02_err": 0.0159,
+   "rf": 0.0043,
+   "delta_e0": -4.72,
+   "sigma2": 0.002,
+   "delta_r": 0.0179,
+   "interior": true
+  },
+  {
+   "r_window": [
+    1.366,
+    2.226
+   ],
+   "s02": 0.6531,
+   "s02_err": 0.0198,
+   "rf": 0.0074,
+   "delta_e0": -5.08,
+   "sigma2": 0.002,
+   "delta_r": 0.0162,
+   "interior": true
+  }
+ ],
+ "checks": {
+  "window_runs_interior": true,
+  "s02_in_range": true,
+  "s02_err_ok": true,
+  "window_spread_ok": true
+ },
+ "kw_sensitivity": {
+  "1": {
+   "s02": 0.7043,
+   "rf": 0.0022,
+   "delta_e0": -5.56
+  },
+  "3": {
+   "s02": 0.5698,
+   "rf": 0.0094,
+   "delta_e0": -2.63
+  }
+ },
+ "n_variables": 4,
+ "n_independent": 4.47,
+ "motif": "cr2o3_corundum",
+ "edge": "K",
+ "provenance": {
+  "source_path": "data\\bmm_standards\\Data\\Cr\\Cr-K-Cr2O3.xdi",
+  "source_sha256": "b68293e5e588914df592c4bf05c021517e7a94bbd7f6e1089aabfd8c2f01afba",
+  "committed": true,
+  "transform": null,
+  "used_path": "data\\bmm_standards\\Data\\Cr\\Cr-K-Cr2O3.xdi",
+  "used_sha256": "b68293e5e588914df592c4bf05c021517e7a94bbd7f6e1089aabfd8c2f01afba"
+ },
+ "standard": "data\\bmm_standards\\Data\\Cr\\Cr-K-Cr2O3.xdi",
+ "standard_sha256": "b68293e5e588914df592c4bf05c021517e7a94bbd7f6e1089aabfd8c2f01afba",
+ "motif_file": "data\\s02_calibration\\motifs\\cr2o3_corundum.json",
+ "motif_file_sha256": "40fdfbc35f30c9b1359720c96c1cdbb1417caecbba926532742ffd9393d97070",
+ "result": {
+  "absorber": "Cr",
+  "edge": "K",
+  "motif": "cr2o3_corundum",
+  "motif_file": "data\\s02_calibration\\motifs\\cr2o3_corundum.json",
+  "fixed_CN": 6.0,
+  "R_first": 1.9665,
+  "k_window": [
+   3.0,
+   12.0
+  ],
+  "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+  "runs": [
+   {
+    "r_window": [
+     1.366,
+     2.087
+    ],
+    "s02": 0.6478,
+    "s02_err": 0.0163,
+    "rf": 0.0043,
+    "delta_e0": -4.7,
+    "sigma2": 0.002,
+    "delta_r": 0.0179,
+    "interior": true
+   },
+   {
+    "r_window": [
+     1.366,
+     2.147
+    ],
+    "s02": 0.6482,
+    "s02_err": 0.0159,
+    "rf": 0.0043,
+    "delta_e0": -4.72,
+    "sigma2": 0.002,
+    "delta_r": 0.0179,
+    "interior": true
+   },
+   {
+    "r_window": [
+     1.366,
+     2.226
+    ],
+    "s02": 0.6531,
+    "s02_err": 0.0198,
+    "rf": 0.0074,
+    "delta_e0": -5.08,
+    "sigma2": 0.002,
+    "delta_r": 0.0162,
+    "interior": true
+   }
+  ],
+  "s02": 0.6482,
+  "s02_err": 0.0198,
+  "rf": 0.0074,
+  "spread": 0.0053,
+  "delta_e0": -5.08,
+  "sigma2": 0.002,
+  "n_variables": 4,
+  "n_independent": 4.47,
+  "plateau": 1.114,
+  "rbkg_choice": 0.9,
+  "kw_sensitivity": {
+   "1": {
+    "s02": 0.7043,
+    "rf": 0.0022,
+    "delta_e0": -5.56
+   },
+   "3": {
+    "s02": 0.5698,
+    "rf": 0.0094,
+    "delta_e0": -2.63
+   }
+  },
+  "checks": {
+   "window_runs_interior": true,
+   "s02_in_range": true,
+   "s02_err_ok": true,
+   "window_spread_ok": true
+  },
+  "pass": true,
+  "provenance": {
+   "source_path": "data\\bmm_standards\\Data\\Cr\\Cr-K-Cr2O3.xdi",
+   "source_sha256": "b68293e5e588914df592c4bf05c021517e7a94bbd7f6e1089aabfd8c2f01afba",
+   "committed": true,
+   "transform": null,
+   "used_path": "data\\bmm_standards\\Data\\Cr\\Cr-K-Cr2O3.xdi",
+   "used_sha256": "b68293e5e588914df592c4bf05c021517e7a94bbd7f6e1089aabfd8c2f01afba"
+  },
+  "standard": "data\\bmm_standards\\Data\\Cr\\Cr-K-Cr2O3.xdi",
+  "standard_sha256": "b68293e5e588914df592c4bf05c021517e7a94bbd7f6e1089aabfd8c2f01afba",
+  "motif_file_sha256": "40fdfbc35f30c9b1359720c96c1cdbb1417caecbba926532742ffd9393d97070",
+  "static_absorber_py_unchanged": true
+ }
+}

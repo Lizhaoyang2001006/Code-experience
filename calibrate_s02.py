@@ -65,14 +65,57 @@ DEFAULT_MOTIF = {
     "Zn": "zn_hcp",
 }
 
+# #60 契约：这 12 个元素的 S₀² 静态表必须保持 None。T5 标定结果只能
+# 落到独立标定产物，运行时通过 run_xafs.py --s02 显式覆盖。
+# --apply 对它们禁用（不是“标不出来”，而是“不得改静态表”）。
+T5_STATIC_LOCKED = frozenset({
+    "Cr", "Mn", "Zn", "Mo", "Ru", "Rh", "Pd", "Ag", "Ir", "Au", "Ce", "U",
+})
 
-def _resolve_motif(cfg, motif_id: str | None):
-    """解析标定 motif：显式 --motif > DEFAULT_MOTIF 映射 > 库内查找。
+
+def load_motif_json(path, absorber_symbol: str) -> structure_lib.Motif:
+    """加载标定专用 motif JSON（**不写入** _structure_lib）。
+
+    JSON 必须带展开后的 ``sites``：这样 ``ensure_feff`` 直接使用近邻
+    坐标，不会调用 ``_cif_path`` 往生产 motif 库写生成 CIF；标定专用
+    结构因而与 43 条生产 motif 的覆盖率/溯源断言完全隔离。
+
+    ``shell_expect`` 可选但建议保留，用于人工复核第一壳几何。
+    """
+    import json
+    p = Path(path)
+    if not p.is_file():
+        raise XAFSDataError("CAL", f"标定 motif 文件不存在: {p}")
+    try:
+        payload = json.loads(p.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise XAFSDataError("CAL", f"{p}: JSON 解析失败: {exc}") from exc
+    motif = structure_lib.Motif.from_json(payload)
+    if motif.absorber.capitalize() != absorber_symbol.capitalize():
+        raise XAFSDataError(
+            "CAL", f"{p}: motif absorber={motif.absorber!r} 与 "
+                   f"--absorber={absorber_symbol!r} 不一致")
+    if not motif.sites:
+        raise XAFSDataError(
+            "CAL", f"{p}: 标定专用 motif 必须带展开后的 sites；"
+                   f"不能在标定路径里调用 expand_full（会写生产 _cif 目录）")
+    return motif
+
+
+def _resolve_motif(cfg, motif_id: str | None, motif_file=None):
+    """解析标定 motif：motif_file > 显式 --motif > DEFAULT_MOTIF > 库内查找。
 
     两条失败分支分开报错：库为空（先建库）与库内缺该条目（--motif
     或建库）——新元素 on-ramp 的第一步经常撞在这里，错误信息必须
     可直接指导下一步。
     """
+    if motif_file is not None:
+        motif = load_motif_json(motif_file, cfg.symbol)
+        if motif_id is not None and motif.id != motif_id:
+            raise XAFSDataError(
+                "CAL", f"--motif={motif_id!r} 与 --motif-file 内的 "
+                       f"id={motif.id!r} 不一致")
+        return motif
     mid = motif_id or DEFAULT_MOTIF.get(cfg.symbol)
     library = structure_lib.load_library(cfg.symbol)
     if not library:
@@ -95,8 +138,15 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
                   kmin: float | None = None, kmax: float | None = None,
                   s02_start: float = 0.85, strict: bool = True,
                   verbose: bool = True,
-                  allow_recalibrate: bool = False) -> dict:
-    """标样箔 → 标定 S₀²。返回 dict；不改 absorber.py（写入见 apply_s02）。"""
+                  allow_recalibrate: bool = False,
+                  motif_file=None, rmin: float | None = None) -> dict:
+    """标样箔 → 标定 S₀²。返回 dict；不改 absorber.py（写入见 apply_s02）。
+
+    ``motif_file``：标定专用 motif JSON（必须带展开 sites），用于
+    氧化物/化合物标样——不写生产 _structure_lib，不影响 #119 覆盖率。
+    ``rmin``：显式 R 窗下限，用于第一壳很近（如 CeO₂ Ce–O 2.34 Å +
+    N_idp 不足）时扩大窗口、让 4 变量拟合有足够独立点数。
+    """
     cfg = absorber_mod.get_absorber(absorber_symbol)
     if cfg.s02 is not None and not allow_recalibrate:
         raise XAFSConfigError(
@@ -107,9 +157,10 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
     kmin = res.ft.kmin if kmin is None else kmin
     kmax = min(res.ft.kmax, cfg.kmax_ceiling if kmax is None else kmax)
 
-    motif = _resolve_motif(cfg, motif_id)
+    motif = _resolve_motif(cfg, motif_id, motif_file=motif_file)
 
-    plan = xafs_fit.select_shell_paths(motif, edge=cfg.edge, kmin=kmin, kmax=kmax)
+    plan = xafs_fit.select_shell_paths(
+        motif, edge=cfg.edge, kmin=kmin, kmax=kmax, rmin=rmin)
     if len(plan["shells"]) < 1:
         raise XAFSDataError("CAL", f"{motif.id}: 无第一壳路径")
     first = plan["shells"][0]
@@ -175,6 +226,7 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
 
     out = {
         "absorber": cfg.symbol, "edge": cfg.edge, "motif": motif.id,
+        "motif_file": (str(motif_file) if motif_file is not None else None),
         "fixed_CN": first["degen"], "R_first": first["reff"],
         "k_window": [round(kmin, 3), round(kmax, 3)],
         "protocol": ("production_equivalent: N fixed, vary s02 + "
@@ -288,8 +340,14 @@ def main(argv=None):
     ap.add_argument("--absorber", required=True)
     ap.add_argument("--motif", default=None,
                     help="标样相的种子 motif（默认 fcc/hcp/bcc 金属映射）")
+    ap.add_argument("--motif-file", default=None,
+                    help="标定专用 motif JSON（必须带展开 sites；"
+                         "不写入生产 _structure_lib）")
     ap.add_argument("--kmin", type=float, default=None)
     ap.add_argument("--kmax", type=float, default=None)
+    ap.add_argument("--rmin", type=float, default=None,
+                    help="拟合 R 窗下限（默认按第一壳自动；"
+                         "第一壳很近时显式放宽以增加 N_idp）")
     ap.add_argument("--s02-start", type=float, default=0.85)
     ap.add_argument("--strict", dest="strict", action="store_true", default=True)
     ap.add_argument("--no-strict", dest="strict", action="store_false")
@@ -303,21 +361,30 @@ def main(argv=None):
     res = calibrate_s02(args.files, args.absorber, motif_id=args.motif,
                         kmin=args.kmin, kmax=args.kmax,
                         s02_start=args.s02_start, strict=args.strict,
-                        allow_recalibrate=args.force)
+                        allow_recalibrate=args.force,
+                        motif_file=args.motif_file, rmin=args.rmin)
     if args.outdir:
         xafs_io.write_json(Path(args.outdir) / "calibration.json", res)
         print(f"  → {Path(args.outdir) / 'calibration.json'}")
     if not res["pass"]:
         raise SystemExit(1)
     if args.apply:
-        note = (f"{args.absorber} 箔 {res['motif']} N={res['fixed_CN']:.0f}, "
+        cap = args.absorber.capitalize()
+        if cap in T5_STATIC_LOCKED:
+            raise SystemExit(
+                f"  --apply 拒绝：{cap} 属于 #60 锁定的 12 个元素，"
+                f"静态 s02 必须保持 None。\n"
+                f"  标定结果已写入独立产物；运行时用 "
+                f"run_xafs.py --s02 {res['s02']} 显式覆盖。")
+        note = (f"{args.absorber} 标样 {res['motif']} N={res['fixed_CN']:.0f}, "
                 f"Rf={res['rf']}, {_dt.date.today().isoformat()}")
         p = apply_s02(args.absorber, res["s02"], note=note,
                       override=args.force)
         print(f"  absorber.py 已更新 → {p}")
     else:
         print(f"  建议: absorber.py 中 {args.absorber} 的 s02 填 "
-              f"{res['s02']}（--apply 可自动写入）")
+              f"{res['s02']}（--apply 可自动写入；#60 锁定的 12 个"
+              f"元素只能走独立标定产物/运行时 --s02）")
 
 
 if __name__ == "__main__":

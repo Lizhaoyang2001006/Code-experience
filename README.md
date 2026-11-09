@@ -41,7 +41,9 @@ python xafs_report.py
 
 - 识别 `confident`：按 motif 自动选壳层，做多壳层 CN；
 - `partial` / `ambiguous` / `no_match`：默认只做 L1 第一壳；
-- 未在 absorber.py 标定 S₀² 的新元素：拒绝 CN 定量（现有 Fe/Co/Ni/Cu/Pt 均已标定）；
+- 未在 absorber.py 标定 S₀² 的新元素：拒绝 CN 定量；可用运行时
+  `--s02 <值>` 显式覆盖（现有 Fe/Co/Ni/Cu/Pt 均已标定；T5 独立标定
+  产物见下文，不写静态表）；
 - `--fit-weights`（仅 `kind="mixture"`）：固定每路径晶体学简并度，
   用 softmax 放开各组分权重（恒正、和=1），输出 `mixture_weights`
   `[{group, weight, weight_err}]`。此时表里的 `N` 是**有效简并度
@@ -70,9 +72,10 @@ python xafs_report.py
 | `artemis.py` | CIF → FEFF → R 空间拟合 |
 | `athena.py` | 归一化、AUTOBK、FT |
 | `larch_wt.py` | 连续小波变换 |
-| `calibrate_s02.py` | 金属箔标定 S₀²（新元素接入第 2 步，生产等效协议） |
+| `calibrate_s02.py` | 标定 S₀²（金属箔/氧化物标样，生产等效协议；`--motif-file` 用标定专用结构） |
+| `calibrate_t5.py` | T5 批量标定 12 元素，产物落 `data/s02_calibration/`（不改静态表） |
 | `absorber.py` | 吸收元素配置表（边能量/S₀²/kmax），元素泛化唯一入口 |
-| `regression_test.py` | 74 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测） |
+| `regression_test.py` | 121 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验） |
 | `run_ci.py` | 跨平台 CI：编译 + 契约回归 + 可选压力测试，输出 ci_report.json/md |
 | `stress_test_{co,ni,cu,nio}.py` | 元素泛化/护栏/CN 回收压力测试 |
 | `xafs_config.py` | 配置文件支持（.yaml/.json）、批处理入口（--batch-dir） |
@@ -93,6 +96,47 @@ python xafs_report.py
 （协议与门禁详见 `calibrate_s02.py` 模块注释；**Fe 箔数据在当前协议下
 门禁拒绝**——嫌疑是厚样谐波污染，Fe=0.803 由既有氧化物价态验收结果
 锚定，不改。）
+
+**T5 独立标定产物（12 个未标定元素，2026-11-09）：**
+
+`python calibrate_t5.py` 对 Cr/Mn/Zn/Mo/Ru/Rh/Pd/Ag/Ir/Au/Ce/U 逐元素
+跑批量标定，产物在 `data/s02_calibration/`（`index.json`、逐元素
+`calibration.json`、`REPORT.md`）。**不写 `absorber.py`**——#60 要求
+静态表中这 12 个元素保持 `s02=None`/`calibrated=False`；运行时用
+`run_xafs.py --s02 <值>` 显式覆盖。
+
+| 元素 | S₀² | 标样 / motif | Rf | 窗口极差 |
+|------|------|--------------|----|----------|
+| Cr | 0.6482 | BMM Cr₂O₃ / `cr2o3_corundum` | 0.0074 | 0.0053 |
+| Mn | 0.4311 | BMM Pyrolusite / `mno2_rutile` | 0.0402 | 0.0213 |
+| Zn | 0.6071 | BMM Zincite / `zno_wurtzite` | 0.0090 | 0.0070 |
+| Ru | 0.7002 | BMM RuO₂（`-xmu` 派生）/ `ruo2_rutile` | 0.0154 | 0.0123 |
+| Ag | 0.7513 | IIT-Lytle Ag foil / `ag_fcc_cod_9008459` | 0.0030 | 0.0141 |
+| Au | 0.8602 | BMM Au foil / `au_fcc` | 0.0003 | 0.0073 |
+
+未通过 6/12（不强行给值）：Mo（四面体标准 s02≈0.38 低于下界、
+Tugarinovite s02_err>0.06、MoS₂ 单窗口、Mo 箔撞上界）、Rh/Pd/Ir
+（IIT-Lytle 谱仅约 170–195 eV above E0，k_max 不足）、Ce
+（rmin=1.6 下前两窗口 ΔE₀>10 eV）、U（α-U 撞下界、Rf 差）。
+`_standards_lib/` 与 `data/standards_raw/` 因 IIT-Lytle 许可未明确
+**不提交**；Ag 的标定依赖本地标准，产物记录源文件 SHA256，但不保证
+在无本地标准的机器上可复现。
+
+**T7 多元素与 T8 XANES–EXAFS 联合校验（可选开关）：**
+
+```text
+python run_xafs.py a.dat b.dat --multi-element --multi-element-s02 "Fe=0.803,Co=0.7308"
+python run_xafs.py sample.xdi --absorber Fe --xanes-cross-check
+```
+
+- `--multi-element`：逐文件从 XDI `Element.symbol` / `Absorber:` 头自动判定
+  吸收元素，分元素独立子目录跑批，输出 `multi_element_summary.json/.md`；
+  各元素结果**并列**，`recommended=null`、`best_element=null`，不自动
+  选择/推荐 Top-1。
+- `--xanes-cross-check`：归一化平台、边步、E0 导数双峰、白线可靠性与位置、
+  K 边极端 CN–白线对比、荧光自吸收风险；只写警告到
+  `<stem>_meta.json.xanes_cross_check`，`affects_cn_reliable=False`，
+  不改变正式 CN 门禁。
 
 真实 BMM Fe 标准（K 边）：
 
