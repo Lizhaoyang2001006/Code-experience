@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "9008463",
+  "formula": "Au",
+  "spacegroup": "F m -3 m",
+  "cell": {
+    "a": 4.07825,
+    "b": 4.07825,
+    "c": 4.07825,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Au"
+  ],
+  "absorber_elements": [
+    "Au"
+  ],
+  "cif_path": "COD/9008463/c7c350025f5f58872527e03b9e27c4283fd34179b01b46feb2633aaac55d19a2.cif",
+  "cif_sha256": "c7c350025f5f58872527e03b9e27c4283fd34179b01b46feb2633aaac55d19a2",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "Au",
+    "metal",
+    "fcc",
+    "element_seed"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "Au_COD_9008463.cif",
+  "notes": "T4 fcc; COD:9008463; source_url=https://www.crystallography.net/cod/9008463.cif"
+}

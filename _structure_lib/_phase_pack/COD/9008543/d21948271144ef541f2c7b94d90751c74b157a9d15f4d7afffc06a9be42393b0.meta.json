@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "9008543",
+  "formula": "Mo",
+  "spacegroup": "I m -3 m",
+  "cell": {
+    "a": 3.1473,
+    "b": 3.1473,
+    "c": 3.1473,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Mo"
+  ],
+  "absorber_elements": [
+    "Mo"
+  ],
+  "cif_path": "COD/9008543/d21948271144ef541f2c7b94d90751c74b157a9d15f4d7afffc06a9be42393b0.cif",
+  "cif_sha256": "d21948271144ef541f2c7b94d90751c74b157a9d15f4d7afffc06a9be42393b0",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "Mo",
+    "metal",
+    "bcc",
+    "element_seed"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "Mo_COD_9008543.cif",
+  "notes": "T4 bcc; COD:9008543; source_url=https://www.crystallography.net/cod/9008543.cif"
+}

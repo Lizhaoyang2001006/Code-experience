@@ -1,0 +1,36 @@
+{
+  "source": "COD",
+  "id": "9008589",
+  "formula": "Mn",
+  "spacegroup": "I -4 3 m",
+  "cell": {
+    "a": 8.894,
+    "b": 8.894,
+    "c": 8.894,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Mn1",
+    "Mn2",
+    "Mn3",
+    "Mn4"
+  ],
+  "absorber_elements": [
+    "Mn"
+  ],
+  "cif_path": "COD/9008589/cd454b6b5bc9a6ebf0c91b261dfa794bdca805b479f135477019ee7cd6c1181f.cif",
+  "cif_sha256": "cd454b6b5bc9a6ebf0c91b261dfa794bdca805b479f135477019ee7cd6c1181f",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "Mn",
+    "metal",
+    "alpha-Mn",
+    "element_seed"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "Mn_COD_9008589.cif",
+  "notes": "T4 alpha-Mn; COD:9008589; source_url=https://www.crystallography.net/cod/9008589.cif"
+}

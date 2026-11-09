@@ -1,0 +1,16 @@
+data_ru_hcp_cod_9008513
+_cell_length_a 2.70389
+_cell_length_b 2.70389
+_cell_length_c 4.28168
+_cell_angle_alpha 90.0
+_cell_angle_beta 90.0
+_cell_angle_gamma 120.0
+_symmetry_space_group_name_H-M 'P 63/m m c'
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+Ru1 Ru 0.33333 0.66667 0.25 1.0

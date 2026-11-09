@@ -1,0 +1,19 @@
+data_mn_alpha_mn_cod_9008589
+_cell_length_a 8.894
+_cell_length_b 8.894
+_cell_length_c 8.894
+_cell_angle_alpha 90.0
+_cell_angle_beta 90.0
+_cell_angle_gamma 90.0
+_symmetry_space_group_name_H-M 'I -4 3 m'
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+Mn1 Mn 0.0 0.0 0.0 1.0
+Mn2 Mn 0.317 0.317 0.317 1.0
+Mn3 Mn 0.356 0.356 0.042 1.0
+Mn4 Mn 0.089 0.089 0.278 1.0

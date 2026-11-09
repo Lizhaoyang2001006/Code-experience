@@ -22,41 +22,42 @@
     "Zn"
   ],
   "covered_elements": [
+    "Ag",
     "Au",
+    "Ce",
     "Co",
     "Cr",
     "Cu",
     "Fe",
-    "Mo",
-    "Ni",
-    "Pt",
-    "Zn"
-  ],
-  "missing_elements": [
-    "Ag",
-    "Ce",
     "Ir",
     "Mn",
+    "Mo",
+    "Ni",
     "Pd",
+    "Pt",
     "Rh",
     "Ru",
-    "U"
+    "U",
+    "Zn"
   ],
+  "missing_elements": [],
   "library_extra_elements": [],
   "summary": {
     "elements_total": 17,
-    "elements_covered": 9,
-    "elements_missing": 8,
-    "motifs": 32,
+    "elements_covered": 17,
+    "elements_missing": 0,
+    "motifs": 43,
     "formal_cn_ready_elements": []
   },
   "elements": {
     "Ag": {
-      "motifs": 0,
-      "motif_ids": [],
+      "motifs": 1,
+      "motif_ids": [
+        "ag_fcc_cod_9008459"
+      ],
       "verified_source_cif": 0,
       "source_ref_only": 0,
-      "generated_only": 0,
+      "generated_only": 1,
       "constructed": 0,
       "unverified": 0,
       "real_source_cifs": 0,
@@ -76,11 +77,14 @@
       "formal_cn_ready": false
     },
     "Ce": {
-      "motifs": 0,
-      "motif_ids": [],
+      "motifs": 2,
+      "motif_ids": [
+        "ce_fcc_cod_9010987",
+        "ceo2_fluorite_cod_1562989"
+      ],
       "verified_source_cif": 0,
       "source_ref_only": 0,
-      "generated_only": 0,
+      "generated_only": 2,
       "constructed": 0,
       "unverified": 0,
       "real_source_cifs": 0,
@@ -91,10 +95,10 @@
       "motif_ids": [
         "co3o4_mixed",
         "co3o4_oct",
-        "co3o4_tet",
+        "co3o4_spinel_cod_9005888",
         "co_hcp",
         "con4_planar",
-        "coo_rocksalt"
+        "coo_rocksalt_cod_1533087"
       ],
       "verified_source_cif": 0,
       "source_ref_only": 0,
@@ -120,10 +124,10 @@
     "Cu": {
       "motifs": 4,
       "motif_ids": [
-        "cu2o_cuprite",
+        "cu2o_cuprite_cod_1010941",
         "cu_fcc",
         "cun4_planar",
-        "cuo_tenorite"
+        "cuo_tenorite_cod_1011148"
       ],
       "verified_source_cif": 0,
       "source_ref_only": 0,
@@ -134,10 +138,12 @@
       "formal_cn_ready": false
     },
     "Fe": {
-      "motifs": 11,
+      "motifs": 13,
       "motif_ids": [
         "fe2_mu_oxo",
         "fe2n6_dual",
+        "fe2o3_hematite_cod_1011240",
+        "fe3o4_magnetite_cod_1010369",
         "fe_bcc",
         "fen4_planar",
         "goethite",
@@ -150,29 +156,33 @@
       ],
       "verified_source_cif": 0,
       "source_ref_only": 2,
-      "generated_only": 5,
+      "generated_only": 7,
       "constructed": 4,
       "unverified": 0,
       "real_source_cifs": 0,
       "formal_cn_ready": false
     },
     "Ir": {
-      "motifs": 0,
-      "motif_ids": [],
+      "motifs": 1,
+      "motif_ids": [
+        "ir_fcc_cod_9008470"
+      ],
       "verified_source_cif": 0,
       "source_ref_only": 0,
-      "generated_only": 0,
+      "generated_only": 1,
       "constructed": 0,
       "unverified": 0,
       "real_source_cifs": 0,
       "formal_cn_ready": false
     },
     "Mn": {
-      "motifs": 0,
-      "motif_ids": [],
+      "motifs": 1,
+      "motif_ids": [
+        "mn_alpha_mn_cod_9008589"
+      ],
       "verified_source_cif": 0,
       "source_ref_only": 0,
-      "generated_only": 0,
+      "generated_only": 1,
       "constructed": 0,
       "unverified": 0,
       "real_source_cifs": 0,
@@ -195,9 +205,9 @@
       "motifs": 4,
       "motif_ids": [
         "ni_fcc",
-        "ni_oh2_brucite",
         "nin4_planar",
-        "nio_rocksalt"
+        "nio_bunsenite_cod_1010093",
+        "nioh2_theophrastite_cod_1548811"
       ],
       "verified_source_cif": 0,
       "source_ref_only": 0,
@@ -208,11 +218,13 @@
       "formal_cn_ready": false
     },
     "Pd": {
-      "motifs": 0,
-      "motif_ids": [],
+      "motifs": 1,
+      "motif_ids": [
+        "pd_fcc_cod_9008478"
+      ],
       "verified_source_cif": 0,
       "source_ref_only": 0,
-      "generated_only": 0,
+      "generated_only": 1,
       "constructed": 0,
       "unverified": 0,
       "real_source_cifs": 0,
@@ -234,33 +246,39 @@
       "formal_cn_ready": false
     },
     "Rh": {
-      "motifs": 0,
-      "motif_ids": [],
+      "motifs": 1,
+      "motif_ids": [
+        "rh_fcc_cod_9008482"
+      ],
       "verified_source_cif": 0,
       "source_ref_only": 0,
-      "generated_only": 0,
+      "generated_only": 1,
       "constructed": 0,
       "unverified": 0,
       "real_source_cifs": 0,
       "formal_cn_ready": false
     },
     "Ru": {
-      "motifs": 0,
-      "motif_ids": [],
+      "motifs": 1,
+      "motif_ids": [
+        "ru_hcp_cod_9008513"
+      ],
       "verified_source_cif": 0,
       "source_ref_only": 0,
-      "generated_only": 0,
+      "generated_only": 1,
       "constructed": 0,
       "unverified": 0,
       "real_source_cifs": 0,
       "formal_cn_ready": false
     },
     "U": {
-      "motifs": 0,
-      "motif_ids": [],
+      "motifs": 1,
+      "motif_ids": [
+        "u_alpha_u_cod_1527120"
+      ],
       "verified_source_cif": 0,
       "source_ref_only": 0,
-      "generated_only": 0,
+      "generated_only": 1,
       "constructed": 0,
       "unverified": 0,
       "real_source_cifs": 0,

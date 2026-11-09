@@ -38,6 +38,7 @@ from pathlib import Path
 import numpy as np
 
 import cn_table
+import cif_gate
 import phase_resolver
 import xafs_config
 import xafs_diagnostics
@@ -189,6 +190,8 @@ def process_sample(paths, outdir, align: bool = False,
         verbose=verbose)
     result.outdir = outdir
     result.stem = Path(paths[0]).stem
+    # 正式 CN 溯源：输入文件哈希（不含绝对路径与 mtime）。
+    result.data_sha256 = cn_table.data_sha256(paths)
 
     # ---- B2-2 XANES LCF（可选；端元文件先各自走 S1–S3）----
     if lcf_standards:
@@ -208,6 +211,7 @@ def process_sample(paths, outdir, align: bool = False,
 
     # P1b phase resolution: parse --phase-* into StructureModel (formal CN strict track)
     structure_model = None
+    gate_result = None
     if formal_cn and (phase_cif or phase_id or phase_spec or phase_index_path):
         if not absorber:
             raise XAFSConfigError(
@@ -237,6 +241,23 @@ def process_sample(paths, outdir, align: bool = False,
             print(f"  [P1b] phase resolved: {sel.source}:{sel.id} "
                   f"sha256={sel.cif_sha256[:12]}... site={resolution.absorber_site}")
 
+        # P2a CIF gate: validate the resolved CIF and compute N0 shell grouping
+        # (Rayleigh). The gate result carries n0_shells needed for P3 conditional CN.
+        gate_result = cif_gate.gate_cif(
+            resolution.selected.cif_path, absorber,
+            absorber_site=resolution.absorber_site,
+            kmin=kmin, kmax=kmax, rmax=6.0,
+            allow_computed=False,
+            allow_unusual_coordination=False,
+            is_computed=not resolution.selected.experimental)
+        if not gate_result.ok:
+            raise XAFSConfigError(
+                "FIT", f"CIF gate rejected: {gate_result.code} — {gate_result.reason}")
+        if verbose:
+            print(f"  [P2a] CIF gate passed: occ_src={gate_result.occupancy_source}, "
+                  f"first_shell_cn={gate_result.first_shell_cn}, "
+                  f"n0_shells={len(gate_result.n0_shells)}")
+
     # S6.5/S7 only triggered via the fitting chain (entry -> xafs_fit -> structure_id, linear no cycle)
     if identify or fit:
         xafs_fit.run(
@@ -256,7 +277,8 @@ def process_sample(paths, outdir, align: bool = False,
             s02=s02,
             verbose=verbose,
             formal_cn=formal_cn,
-            structure_model=structure_model)
+            structure_model=structure_model,
+            gate_result=gate_result)
 
     # ---- 落盘 ----
     stem, norm, chi_k, ft, wave_map = (result.stem, result.norm, result.chi_k,

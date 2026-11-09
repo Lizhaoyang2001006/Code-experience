@@ -4,23 +4,24 @@ stress_test_nio.py — 复杂固体压力测试：岩盐 NiO（Ni K 边）
 ================================================================
 比金属箔上一个台阶的验证对象：
     多元素组成      Ni + O（轻散射体第一壳，低 k 权重，与金属完全不同）
-    多壳层          Ni-O 2.0885×6（八面体）+ Ni-Ni 2.954×12
+    多壳层          Ni-O 2.0842×6（八面体）+ Ni-Ni 2.9475×12
     强 MS           Ni-O-Ni 180° 共线聚焦路径（岩盐结构特征）
     鉴别力          库内同时存在 ni_fcc（金属）与 nio（氧化物）——
                     合成 NiO 数据必须排 nio 第一、ni_fcc 垫底
 
 测试矩阵（5 阶段，模板同 stress_test_co/ni/cu）：
-    P1 注册 NiO motif（Fm-3m, a=4.177, Ni@4a O@4b）→ FEFF → 合成 μ(E)
+    P1 加载规范 NiO motif（COD 1010093, Fm-3m, a=4.1684）→ FEFF → 合成 μ(E)
     P2 S1–S6 归约：E0≈8333（Ni K）、r1≈1.6（Ni-O 表观位，非金属的 2.1）
     P3 三护栏逐条触发（未标定 / 无元素无文件头 / 无 s02）
-    P4 内存接入 s02=0.86 → identify：top1=nio_rocksalt，ni_fcc 必须垫底
-    P5 双壳层 CN 回路：Ni-O（真值 N=6, R=2.0885）+ Ni-Ni（真值 N=12, R=2.954）
+    P4 内存接入 s02=0.86 → identify：top1=nio_bunsenite_cod_1010093，
+       ni_fcc 必须垫底
+    P5 双壳层 CN 回路：Ni-O（真值 N=6, R=2.0842）+ Ni-Ni（真值 N=12, R=2.9475）
        联合拟合回收，验证多壳层合并语义与 N_idp 约束
 
 运行:
     & "C:\\Users\\lizha\\.workbuddy\\binaries\\python\\versions\\3.13.12\\python.exe" stress_test_nio.py
 
-副产物：_structure_lib/Ni/nio_rocksalt.json、xafs_out/_nio_stress/*.dat（留档）
+副产物：xafs_out/_nio_stress/*.dat（留档）；motif 由 cif_crawler 构建并入库。
 """
 from __future__ import annotations
 
@@ -51,24 +52,15 @@ def _msg(exc) -> str:
 
 
 def phase1() -> list:
-    print("== P1 注册岩盐 NiO motif 并合成 Ni K 边数据 ==")
-    motif = structure_lib.Motif(
-        id="nio_rocksalt", absorber="Ni", kind="crystal", nuclearity="crystal",
-        source={"type": "manual",
-                "ref": "NiO rock-salt, a=4.177 Å, Fm-3m, Ni@4a O@4b"},
-        cell={"a": 4.177}, spacegroup="Fm-3m",
-        asym_sites=[{"el": "Ni", "x": 0.0, "y": 0.0, "z": 0.0, "wyckoff": "4a"},
-                    {"el": "O", "x": 0.5, "y": 0.5, "z": 0.5, "wyckoff": "4b"}],
-        notes="压力测试种子：岩盐 NiO。Ni-O 2.0885×6 + Ni-Ni 2.954×12；"
-              "Ni-O-Ni 180° 共线 MS 聚焦路径显著（岩盐结构指纹）。")
-    p = structure_lib.register(motif, overwrite=True)
-    m = [x for x in structure_lib.load_library("Ni") if x.id == "nio_rocksalt"][0]
+    print("== P1 加载规范 NiO motif 并合成 Ni K 边数据 ==")
+    m = [x for x in structure_lib.load_library("Ni")
+         if x.id == "nio_bunsenite_cod_1010093"][0]
     s0, s1 = m.shell_expect[0], m.shell_expect[1]
     assert s0["el"] == "O" and s0["n"] == 6 and 2.07 < s0["r"] < 2.11, s0
     assert s1["el"] == "Ni" and s1["n"] == 12 and 2.93 < s1["r"] < 2.98, s1
-    print(f"  motif: {p.relative_to(ROOT)}")
+    print(f"  motif: _structure_lib/Ni/{m.id}.json")
     print(f"  几何指纹: O@{s0['r']:.3f}×{s0['n']}  Ni@{s1['r']:.3f}×{s1['n']}"
-          f"（岩盐期望 6×2.0885 + 12×2.954）")
+          f"（COD 1010093 期望 6×2.0842 + 12×2.9475）")
 
     cache = structure_lib.ensure_feff(m)
     from larch.xafs import feffpath
@@ -157,7 +149,7 @@ def phase3(data: Path, res):
         print(f"  ✓ [S2] 无元素+无文件头拒绝: {_msg(exc)}")
 
     m = [x for x in structure_lib.load_library("Ni")
-         if x.id == "nio_rocksalt"][0]
+         if x.id == "nio_bunsenite_cod_1010093"][0]
     cache = structure_lib.ensure_feff(m)
     rows = artemis.describe_paths(sorted(cache.glob("feff*.dat")), 60)
     # 双壳层代表路径：Ni-O（合并 6）+ Ni-Ni（合并 12）
@@ -189,21 +181,23 @@ def phase4(res):
         absorber_mod.ABSORBERS["Ni"] = orig
     ranked = {d["id"]: d["score"] for d in sid["ranked"]}
     top = sid["ranked"][0]
-    assert top["id"] == "nio_rocksalt", f"top1 应为 nio_rocksalt: {top}"
+    assert top["id"] == "nio_bunsenite_cod_1010093", \
+        f"top1 应为 nio_bunsenite_cod_1010093: {top}"
     assert top["score"] < 0.20, f"score 过大: {top}"
     # 鉴别力：合成氧化物数据上，金属箔 motif 必须显著劣于氧化物
     assert ranked.get("ni_fcc", 1.0) > 3 * top["score"], \
         f"鉴别失败: ni_fcc score={ranked.get('ni_fcc')} 未显著劣于 nio"
     assert not sid["uncovered_peaks"], \
         f"存在未解释峰: {sid['uncovered_peaks']}"
-    print(f"  ✓ identify: top1=nio_rocksalt score={top['score']:.3f}  "
+    print(f"  ✓ identify: top1=nio_bunsenite_cod_1010093 "
+          f"score={top['score']:.3f}  "
           f"ni_fcc={ranked.get('ni_fcc', float('nan')):.3f}（垫底 ✓）  "
           f"未解释峰={sid['uncovered_peaks']}")
     return sid
 
 
 def phase5(res, first: list):
-    print("== P5 双壳层 CN 回路（Ni-O 真值 6/2.0885，Ni-Ni 真值 12/2.954）==")
+    print("== P5 双壳层 CN 回路（Ni-O 真值 6/2.0842，Ni-Ni 真值 12/2.9475）==")
     fit = artemis.fit_r_space(res.chi_k, res.ft, first, rmin=1.0, rmax=3.2,
                               kmin=3.0, kmax=12.0, s02=S02_GEN, vary_n=True)
     assert not fit.overfit, \
@@ -216,11 +210,11 @@ def phase5(res, first: list):
         f"N(Ni-O)={po.degeneracy:.2f}（真值 6；塌缩=失败，±30% 为 EXAFS 固有）"
     assert 10.0 < pni.degeneracy < 14.0, \
         f"N(Ni-Ni)={pni.degeneracy:.2f}（真值 12）"
-    assert 2.03 < po.r < 2.14, f"R(Ni-O)={po.r:.4f}（真值 2.0885）"
-    assert 2.90 < pni.r < 3.01, f"R(Ni-Ni)={pni.r:.4f}（真值 2.954）"
+    assert 2.03 < po.r < 2.14, f"R(Ni-O)={po.r:.4f}（真值 2.0842）"
+    assert 2.90 < pni.r < 3.01, f"R(Ni-Ni)={pni.r:.4f}（真值 2.9475）"
     assert fit.r_factor < 0.10, f"Rf={fit.r_factor}（合成数据回路应 <0.10）"
-    print(f"  ✓ Ni-O: N={po.degeneracy:.2f}（6） R={po.r:.4f}（2.0885）  "
-          f"Ni-Ni: N={pni.degeneracy:.2f}（12） R={pni.r:.4f}（2.954）  "
+    print(f"  ✓ Ni-O: N={po.degeneracy:.2f}（6） R={po.r:.4f}（2.0842）  "
+          f"Ni-Ni: N={pni.degeneracy:.2f}（12） R={pni.r:.4f}（2.9475）  "
           f"Rf={fit.r_factor:.4f}  ΔE0={fit.delta_e0:+.2f} eV")
 
 

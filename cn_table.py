@@ -9,8 +9,12 @@ P0a 只定义表结构、拒绝行和读写往返；正式 CN 行从 P3 才开�
 from __future__ import annotations
 
 import csv
+import hashlib
 import math
 from pathlib import Path
+
+# 正式 CN 行的软件版本标记；只记录算法批次，不参与数值计算。
+SOFTWARE_VERSION = "xafs-cn-p4plus"
 
 # 与 REVIEW_AND_REVISED_PLAN.md §4.4 保持一致；顺序即 CSV 列顺序。
 CN_TABLE_COLUMNS = [
@@ -73,3 +77,21 @@ def read_cn_table(path: str | Path) -> list[dict]:
     """读回正式 CN 表；所有值保持字符串，便于逐字节复核。"""
     with Path(path).open("r", newline="", encoding="utf-8-sig") as fh:
         return list(csv.DictReader(fh))
+
+
+def data_sha256(paths) -> str:
+    """对输入数据文件做稳定 sha256（按给定顺序的字节 + 分隔符）。
+
+    只用于正式 CN 溯源：不包含文件名、绝对路径、mtime 或临时目录，
+    因此同一批原始数据换目录/改名后哈希不变。
+    """
+    digest = hashlib.sha256()
+    for item in paths:
+        path = Path(item)
+        try:
+            payload = path.read_bytes()
+        except OSError:
+            payload = b""
+        digest.update(payload)
+        digest.update(b"\0")
+    return digest.hexdigest()

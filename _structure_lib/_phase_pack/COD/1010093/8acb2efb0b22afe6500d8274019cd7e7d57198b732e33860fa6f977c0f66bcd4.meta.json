@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "1010093",
+  "formula": "NiO",
+  "spacegroup": "F m -3 m",
+  "cell": {
+    "a": 4.1684,
+    "b": 4.1684,
+    "c": 4.1684,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Ni1"
+  ],
+  "absorber_elements": [
+    "Ni"
+  ],
+  "cif_path": "COD/1010093/8acb2efb0b22afe6500d8274019cd7e7d57198b732e33860fa6f977c0f66bcd4.cif",
+  "cif_sha256": "8acb2efb0b22afe6500d8274019cd7e7d57198b732e33860fa6f977c0f66bcd4",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "NiO",
+    "oxide",
+    "bunsenite",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "NiO_COD_1010093.cif",
+  "notes": "T3 bunsenite; COD:1010093; source_url=https://www.crystallography.net/cod/1010093.cif"
+}

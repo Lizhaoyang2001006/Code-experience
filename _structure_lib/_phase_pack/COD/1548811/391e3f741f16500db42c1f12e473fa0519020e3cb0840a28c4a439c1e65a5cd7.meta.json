@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "1548811",
+  "formula": "Ni(OH)2",
+  "spacegroup": "P -3 m 1",
+  "cell": {
+    "a": 3.1268,
+    "b": 3.1268,
+    "c": 4.606,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 120.0
+  },
+  "absorber_sites": [
+    "Ni1"
+  ],
+  "absorber_elements": [
+    "Ni"
+  ],
+  "cif_path": "COD/1548811/391e3f741f16500db42c1f12e473fa0519020e3cb0840a28c4a439c1e65a5cd7.cif",
+  "cif_sha256": "391e3f741f16500db42c1f12e473fa0519020e3cb0840a28c4a439c1e65a5cd7",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "Ni(OH)2",
+    "hydroxide",
+    "theophrastite",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "Ni(OH)2_COD_1548811.cif",
+  "notes": "T3 theophrastite; COD:1548811; source_url=https://www.crystallography.net/cod/1548811.cif"
+}

@@ -1,0 +1,34 @@
+{
+  "source": "COD",
+  "id": "9005888",
+  "formula": "Co3O4",
+  "spacegroup": "F d -3 m :2",
+  "cell": {
+    "a": 8.0968,
+    "b": 8.0968,
+    "c": 8.0968,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Co1",
+    "Co2"
+  ],
+  "absorber_elements": [
+    "Co"
+  ],
+  "cif_path": "COD/9005888/87153e539d9821686004c0c96fc69c176b4158fbb7063b9a5eee5dedc98d29e4.cif",
+  "cif_sha256": "87153e539d9821686004c0c96fc69c176b4158fbb7063b9a5eee5dedc98d29e4",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "Co3O4",
+    "oxide",
+    "spinel",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "Co3O4_COD_9005888.cif",
+  "notes": "T3 spinel; COD:9005888; source_url=https://www.crystallography.net/cod/9005888.cif"
+}

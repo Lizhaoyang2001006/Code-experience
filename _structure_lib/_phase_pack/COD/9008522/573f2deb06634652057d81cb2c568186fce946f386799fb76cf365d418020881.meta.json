@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "9008522",
+  "formula": "Zn",
+  "spacegroup": "P 63/m m c",
+  "cell": {
+    "a": 2.6648,
+    "b": 2.6648,
+    "c": 4.9467,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 120.0
+  },
+  "absorber_sites": [
+    "Zn"
+  ],
+  "absorber_elements": [
+    "Zn"
+  ],
+  "cif_path": "COD/9008522/573f2deb06634652057d81cb2c568186fce946f386799fb76cf365d418020881.cif",
+  "cif_sha256": "573f2deb06634652057d81cb2c568186fce946f386799fb76cf365d418020881",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "Zn",
+    "metal",
+    "hcp",
+    "element_seed"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "Zn_COD_9008522.cif",
+  "notes": "T4 hcp; COD:9008522; source_url=https://www.crystallography.net/cod/9008522.cif"
+}

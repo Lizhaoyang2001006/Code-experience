@@ -145,10 +145,14 @@ def _json_text(data) -> str:
 
 def _write_json_if_changed(path: Path, data) -> bool:
     text = _json_text(data)
+    payload = text.encode("utf-8")
     path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists() and path.read_text(encoding="utf-8") == text:
+    if path.exists() and path.read_bytes() == payload:
         return False
-    path.write_text(text, encoding="utf-8")
+    # 统一 LF：避免 Windows 默认 CRLF 让生成文件在 diff 中显示为
+    # “尾随空白”，也保证跨平台构建产物字节一致。
+    with path.open("wb") as fh:
+        fh.write(payload)
     return True
 
 
@@ -641,9 +645,33 @@ def build_index(pack_root: str | Path, *, out_path: str | Path | None = None,
 
 
 def _phase_tag_match(entry: dict, phase: str) -> bool:
-    phase_low = phase.lower()
-    tags = [str(t).lower() for t in entry.get("tags") or []]
-    return any(tag and tag in phase_low for tag in tags)
+    """判断条目是否覆盖某个常见相。
+
+    只接受三种匹配，避免 ``Cr`` 误命中 ``Cr2O3``、``Mn`` 误命中 ``MnO``：
+
+    1. 条目 formula 与相名精确相等（忽略空格/大小写）；
+    2. tag 与相名精确相等（如 ``metal``）；
+    3. 长度 >= 4 的相名 tag 作为子串（如 ``hematite``）。
+    """
+    phase_norm = "".join(
+        str(phase or "").lower().replace("'", "").replace('"', "").split())
+    if not phase_norm:
+        return False
+    formula_norm = "".join(
+        str(entry.get("formula") or "").lower()
+        .replace("'", "").replace('"', "").split())
+    if formula_norm and formula_norm == phase_norm:
+        return True
+    for tag in entry.get("tags") or []:
+        tag_norm = "".join(
+            str(tag or "").lower().replace("'", "").replace('"', "").split())
+        if not tag_norm:
+            continue
+        if tag_norm == phase_norm:
+            return True
+        if len(tag_norm) >= 4 and tag_norm in phase_norm:
+            return True
+    return False
 
 
 def build_coverage(pack_root: str | Path, *,

@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "1562989",
+  "formula": "CeO2",
+  "spacegroup": "F m -3 m",
+  "cell": {
+    "a": 5.4073,
+    "b": 5.4073,
+    "c": 5.4073,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Ce"
+  ],
+  "absorber_elements": [
+    "Ce"
+  ],
+  "cif_path": "COD/1562989/9f333e83a8d9e03f75409dc6206594b0f93cc005b840167b0cf48318626e7676.cif",
+  "cif_sha256": "9f333e83a8d9e03f75409dc6206594b0f93cc005b840167b0cf48318626e7676",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "CeO2",
+    "oxide",
+    "fluorite",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "CeO2_COD_1562989.cif",
+  "notes": "T3 fluorite; COD:1562989; source_url=https://www.crystallography.net/cod/1562989.cif"
+}

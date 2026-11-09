@@ -5,6 +5,108 @@
   "entries": [
     {
       "source": "COD",
+      "id": "1010093",
+      "formula": "NiO",
+      "spacegroup": "F m -3 m",
+      "cell": {
+        "a": 4.1684,
+        "b": 4.1684,
+        "c": 4.1684,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Ni1"
+      ],
+      "absorber_elements": [
+        "Ni"
+      ],
+      "cif_path": "COD/1010093/8acb2efb0b22afe6500d8274019cd7e7d57198b732e33860fa6f977c0f66bcd4.cif",
+      "cif_sha256": "8acb2efb0b22afe6500d8274019cd7e7d57198b732e33860fa6f977c0f66bcd4",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "NiO",
+        "oxide",
+        "bunsenite",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "NiO_COD_1010093.cif",
+      "notes": "T3 bunsenite; COD:1010093; source_url=https://www.crystallography.net/cod/1010093.cif"
+    },
+    {
+      "source": "COD",
+      "id": "1010369",
+      "formula": "Fe3O4",
+      "spacegroup": "F d -3 m :1",
+      "cell": {
+        "a": 8.384,
+        "b": 8.384,
+        "c": 8.384,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Fe1",
+        "Fe2",
+        "Fe3"
+      ],
+      "absorber_elements": [
+        "Fe"
+      ],
+      "cif_path": "COD/1010369/60f507446c8a7dd4e8b34cd1fe57fcf776155fbec7097e08c8921cff7c55a75a.cif",
+      "cif_sha256": "60f507446c8a7dd4e8b34cd1fe57fcf776155fbec7097e08c8921cff7c55a75a",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Fe3O4",
+        "oxide",
+        "magnetite",
+        "spinel",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Fe3O4_COD_1010369.cif",
+      "notes": "T3 magnetite; COD:1010369; source_url=https://www.crystallography.net/cod/1010369.cif"
+    },
+    {
+      "source": "COD",
+      "id": "1010941",
+      "formula": "Cu2O",
+      "spacegroup": "P n -3 m :1",
+      "cell": {
+        "a": 4.26,
+        "b": 4.26,
+        "c": 4.26,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Cu1"
+      ],
+      "absorber_elements": [
+        "Cu"
+      ],
+      "cif_path": "COD/1010941/caabbc2f01caa61c2f94d38d629c68de25267b619f51463839ed5923c4033425.cif",
+      "cif_sha256": "caabbc2f01caa61c2f94d38d629c68de25267b619f51463839ed5923c4033425",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Cu2O",
+        "oxide",
+        "cuprite",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Cu2O_COD_1010941.cif",
+      "notes": "T3 cuprite; COD:1010941; source_url=https://www.crystallography.net/cod/1010941.cif"
+    },
+    {
+      "source": "COD",
       "id": "1011103",
       "formula": "Pt",
       "spacegroup": "F m -3 m",
@@ -31,6 +133,72 @@
       ],
       "added_by": "tools/import_phase_pack.py",
       "original_filename": "COD-1011103.cif"
+    },
+    {
+      "source": "COD",
+      "id": "1011148",
+      "formula": "CuO",
+      "spacegroup": "C 1 2/c 1",
+      "cell": {
+        "a": 4.653,
+        "b": 3.41,
+        "c": 5.108,
+        "alpha": 90.0,
+        "beta": 99.48,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Cu1"
+      ],
+      "absorber_elements": [
+        "Cu"
+      ],
+      "cif_path": "COD/1011148/47c498e66a280fde4854ab4697fc9e5b90b0c199faef202206f60e3da6cf97d7.cif",
+      "cif_sha256": "47c498e66a280fde4854ab4697fc9e5b90b0c199faef202206f60e3da6cf97d7",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "CuO",
+        "oxide",
+        "tenorite",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "CuO_COD_1011148.cif",
+      "notes": "T3 tenorite; COD:1011148; source_url=https://www.crystallography.net/cod/1011148.cif"
+    },
+    {
+      "source": "COD",
+      "id": "1011240",
+      "formula": "Fe2O3",
+      "spacegroup": "R -3 c :R",
+      "cell": {
+        "a": 5.43,
+        "b": 5.43,
+        "c": 5.43,
+        "alpha": 55.28,
+        "beta": 55.28,
+        "gamma": 55.28
+      },
+      "absorber_sites": [
+        "Fe1"
+      ],
+      "absorber_elements": [
+        "Fe"
+      ],
+      "cif_path": "COD/1011240/fdb432a52a7c3fbdae0ec9954386b9e87d75ff34e06d45a9b14c4fde79bebde5.cif",
+      "cif_sha256": "fdb432a52a7c3fbdae0ec9954386b9e87d75ff34e06d45a9b14c4fde79bebde5",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Fe2O3",
+        "oxide",
+        "hematite",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Fe2O3_COD_1011240.cif",
+      "notes": "T3 hematite; COD:1011240; source_url=https://www.crystallography.net/cod/1011240.cif"
     },
     {
       "source": "COD",
@@ -63,6 +231,72 @@
     },
     {
       "source": "COD",
+      "id": "1527120",
+      "formula": "U",
+      "spacegroup": "C m c m",
+      "cell": {
+        "a": 2.8444,
+        "b": 5.8689,
+        "c": 4.9316,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "U1"
+      ],
+      "absorber_elements": [
+        "U"
+      ],
+      "cif_path": "COD/1527120/1c556cfc91076311aefaa428e05d1b3589c9bc17a1c1e0725126350953744a9e.cif",
+      "cif_sha256": "1c556cfc91076311aefaa428e05d1b3589c9bc17a1c1e0725126350953744a9e",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "U",
+        "metal",
+        "alpha-U",
+        "element_seed"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "U_COD_1527120.cif",
+      "notes": "T4 alpha-U; COD:1527120; source_url=https://www.crystallography.net/cod/1527120.cif"
+    },
+    {
+      "source": "COD",
+      "id": "1533087",
+      "formula": "CoO",
+      "spacegroup": "F m -3 m",
+      "cell": {
+        "a": 4.263,
+        "b": 4.263,
+        "c": 4.263,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Co1"
+      ],
+      "absorber_elements": [
+        "Co"
+      ],
+      "cif_path": "COD/1533087/4319edcda73a4786a496532f69e3fa9476cf50b91dbf0437284f7ac4fced6488.cif",
+      "cif_sha256": "4319edcda73a4786a496532f69e3fa9476cf50b91dbf0437284f7ac4fced6488",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "CoO",
+        "oxide",
+        "rocksalt",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "CoO_COD_1533087.cif",
+      "notes": "T3 rocksalt; COD:1533087; source_url=https://www.crystallography.net/cod/1533087.cif"
+    },
+    {
+      "source": "COD",
       "id": "1534892",
       "formula": "Ni",
       "spacegroup": "F m -3 m",
@@ -89,6 +323,72 @@
       ],
       "added_by": "tools/import_phase_pack.py",
       "original_filename": "COD-1534892.cif"
+    },
+    {
+      "source": "COD",
+      "id": "1548811",
+      "formula": "Ni(OH)2",
+      "spacegroup": "P -3 m 1",
+      "cell": {
+        "a": 3.1268,
+        "b": 3.1268,
+        "c": 4.606,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 120.0
+      },
+      "absorber_sites": [
+        "Ni1"
+      ],
+      "absorber_elements": [
+        "Ni"
+      ],
+      "cif_path": "COD/1548811/391e3f741f16500db42c1f12e473fa0519020e3cb0840a28c4a439c1e65a5cd7.cif",
+      "cif_sha256": "391e3f741f16500db42c1f12e473fa0519020e3cb0840a28c4a439c1e65a5cd7",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Ni(OH)2",
+        "hydroxide",
+        "theophrastite",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Ni(OH)2_COD_1548811.cif",
+      "notes": "T3 theophrastite; COD:1548811; source_url=https://www.crystallography.net/cod/1548811.cif"
+    },
+    {
+      "source": "COD",
+      "id": "1562989",
+      "formula": "CeO2",
+      "spacegroup": "F m -3 m",
+      "cell": {
+        "a": 5.4073,
+        "b": 5.4073,
+        "c": 5.4073,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Ce"
+      ],
+      "absorber_elements": [
+        "Ce"
+      ],
+      "cif_path": "COD/1562989/9f333e83a8d9e03f75409dc6206594b0f93cc005b840167b0cf48318626e7676.cif",
+      "cif_sha256": "9f333e83a8d9e03f75409dc6206594b0f93cc005b840167b0cf48318626e7676",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "CeO2",
+        "oxide",
+        "fluorite",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "CeO2_COD_1562989.cif",
+      "notes": "T3 fluorite; COD:1562989; source_url=https://www.crystallography.net/cod/1562989.cif"
     },
     {
       "source": "COD",
@@ -121,6 +421,205 @@
     },
     {
       "source": "COD",
+      "id": "9005888",
+      "formula": "Co3O4",
+      "spacegroup": "F d -3 m :2",
+      "cell": {
+        "a": 8.0968,
+        "b": 8.0968,
+        "c": 8.0968,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Co1",
+        "Co2"
+      ],
+      "absorber_elements": [
+        "Co"
+      ],
+      "cif_path": "COD/9005888/87153e539d9821686004c0c96fc69c176b4158fbb7063b9a5eee5dedc98d29e4.cif",
+      "cif_sha256": "87153e539d9821686004c0c96fc69c176b4158fbb7063b9a5eee5dedc98d29e4",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Co3O4",
+        "oxide",
+        "spinel",
+        "catalyst"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Co3O4_COD_9005888.cif",
+      "notes": "T3 spinel; COD:9005888; source_url=https://www.crystallography.net/cod/9005888.cif"
+    },
+    {
+      "source": "COD",
+      "id": "9008459",
+      "formula": "Ag",
+      "spacegroup": "F m -3 m",
+      "cell": {
+        "a": 4.0862,
+        "b": 4.0862,
+        "c": 4.0862,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Ag"
+      ],
+      "absorber_elements": [
+        "Ag"
+      ],
+      "cif_path": "COD/9008459/a15d01dd753a3b5b040e56d75158606f00c0102b07447755b193cc226d376b3c.cif",
+      "cif_sha256": "a15d01dd753a3b5b040e56d75158606f00c0102b07447755b193cc226d376b3c",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Ag",
+        "metal",
+        "fcc",
+        "element_seed"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Ag_COD_9008459.cif",
+      "notes": "T4 fcc; COD:9008459; source_url=https://www.crystallography.net/cod/9008459.cif"
+    },
+    {
+      "source": "COD",
+      "id": "9008463",
+      "formula": "Au",
+      "spacegroup": "F m -3 m",
+      "cell": {
+        "a": 4.07825,
+        "b": 4.07825,
+        "c": 4.07825,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Au"
+      ],
+      "absorber_elements": [
+        "Au"
+      ],
+      "cif_path": "COD/9008463/c7c350025f5f58872527e03b9e27c4283fd34179b01b46feb2633aaac55d19a2.cif",
+      "cif_sha256": "c7c350025f5f58872527e03b9e27c4283fd34179b01b46feb2633aaac55d19a2",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Au",
+        "metal",
+        "fcc",
+        "element_seed"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Au_COD_9008463.cif",
+      "notes": "T4 fcc; COD:9008463; source_url=https://www.crystallography.net/cod/9008463.cif"
+    },
+    {
+      "source": "COD",
+      "id": "9008470",
+      "formula": "Ir",
+      "spacegroup": "F m -3 m",
+      "cell": {
+        "a": 3.8394,
+        "b": 3.8394,
+        "c": 3.8394,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Ir"
+      ],
+      "absorber_elements": [
+        "Ir"
+      ],
+      "cif_path": "COD/9008470/4932b789cf6ad3140f6ffb466d0fb8b742630568e1d6f21e749785b51ebedf7f.cif",
+      "cif_sha256": "4932b789cf6ad3140f6ffb466d0fb8b742630568e1d6f21e749785b51ebedf7f",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Ir",
+        "metal",
+        "fcc",
+        "element_seed"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Ir_COD_9008470.cif",
+      "notes": "T4 fcc; COD:9008470; source_url=https://www.crystallography.net/cod/9008470.cif"
+    },
+    {
+      "source": "COD",
+      "id": "9008478",
+      "formula": "Pd",
+      "spacegroup": "F m -3 m",
+      "cell": {
+        "a": 3.8898,
+        "b": 3.8898,
+        "c": 3.8898,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Pd"
+      ],
+      "absorber_elements": [
+        "Pd"
+      ],
+      "cif_path": "COD/9008478/19ff9c078a7c8cdfbb7d5d33ed9b810e950642d00e1080568a385058487a17f5.cif",
+      "cif_sha256": "19ff9c078a7c8cdfbb7d5d33ed9b810e950642d00e1080568a385058487a17f5",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Pd",
+        "metal",
+        "fcc",
+        "element_seed"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Pd_COD_9008478.cif",
+      "notes": "T4 fcc; COD:9008478; source_url=https://www.crystallography.net/cod/9008478.cif"
+    },
+    {
+      "source": "COD",
+      "id": "9008482",
+      "formula": "Rh",
+      "spacegroup": "F m -3 m",
+      "cell": {
+        "a": 3.8031,
+        "b": 3.8031,
+        "c": 3.8031,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Rh"
+      ],
+      "absorber_elements": [
+        "Rh"
+      ],
+      "cif_path": "COD/9008482/fafd7268ae1daa4de2075741916fb30188d00d8720d02f985ecf715def985b2a.cif",
+      "cif_sha256": "fafd7268ae1daa4de2075741916fb30188d00d8720d02f985ecf715def985b2a",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Rh",
+        "metal",
+        "fcc",
+        "element_seed"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Rh_COD_9008482.cif",
+      "notes": "T4 fcc; COD:9008482; source_url=https://www.crystallography.net/cod/9008482.cif"
+    },
+    {
+      "source": "COD",
       "id": "9008492",
       "formula": "Co",
       "spacegroup": "P 63/m m c",
@@ -147,6 +646,207 @@
       ],
       "added_by": "tools/import_phase_pack.py",
       "original_filename": "COD-9008492.cif"
+    },
+    {
+      "source": "COD",
+      "id": "9008513",
+      "formula": "Ru",
+      "spacegroup": "P 63/m m c",
+      "cell": {
+        "a": 2.70389,
+        "b": 2.70389,
+        "c": 4.28168,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 120.0
+      },
+      "absorber_sites": [
+        "Ru"
+      ],
+      "absorber_elements": [
+        "Ru"
+      ],
+      "cif_path": "COD/9008513/ede9616a9c85b52035011ce2fc591270512ed8f5d9d9e86f3cfbd52c16a025b7.cif",
+      "cif_sha256": "ede9616a9c85b52035011ce2fc591270512ed8f5d9d9e86f3cfbd52c16a025b7",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Ru",
+        "metal",
+        "hcp",
+        "element_seed"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Ru_COD_9008513.cif",
+      "notes": "T4 hcp; COD:9008513; source_url=https://www.crystallography.net/cod/9008513.cif"
+    },
+    {
+      "source": "COD",
+      "id": "9008522",
+      "formula": "Zn",
+      "spacegroup": "P 63/m m c",
+      "cell": {
+        "a": 2.6648,
+        "b": 2.6648,
+        "c": 4.9467,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 120.0
+      },
+      "absorber_sites": [
+        "Zn"
+      ],
+      "absorber_elements": [
+        "Zn"
+      ],
+      "cif_path": "COD/9008522/573f2deb06634652057d81cb2c568186fce946f386799fb76cf365d418020881.cif",
+      "cif_sha256": "573f2deb06634652057d81cb2c568186fce946f386799fb76cf365d418020881",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Zn",
+        "metal",
+        "hcp",
+        "element_seed"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Zn_COD_9008522.cif",
+      "notes": "T4 hcp; COD:9008522; source_url=https://www.crystallography.net/cod/9008522.cif"
+    },
+    {
+      "source": "COD",
+      "id": "9008531",
+      "formula": "Cr",
+      "spacegroup": "I m -3 m",
+      "cell": {
+        "a": 2.8839,
+        "b": 2.8839,
+        "c": 2.8839,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Cr"
+      ],
+      "absorber_elements": [
+        "Cr"
+      ],
+      "cif_path": "COD/9008531/d94ca0a54043d1132134ca09f6013da921ba2d99b71dd0e0c0bc9f9c3515adfa.cif",
+      "cif_sha256": "d94ca0a54043d1132134ca09f6013da921ba2d99b71dd0e0c0bc9f9c3515adfa",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Cr",
+        "metal",
+        "bcc",
+        "element_seed"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Cr_COD_9008531.cif",
+      "notes": "T4 bcc; COD:9008531; source_url=https://www.crystallography.net/cod/9008531.cif"
+    },
+    {
+      "source": "COD",
+      "id": "9008543",
+      "formula": "Mo",
+      "spacegroup": "I m -3 m",
+      "cell": {
+        "a": 3.1473,
+        "b": 3.1473,
+        "c": 3.1473,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Mo"
+      ],
+      "absorber_elements": [
+        "Mo"
+      ],
+      "cif_path": "COD/9008543/d21948271144ef541f2c7b94d90751c74b157a9d15f4d7afffc06a9be42393b0.cif",
+      "cif_sha256": "d21948271144ef541f2c7b94d90751c74b157a9d15f4d7afffc06a9be42393b0",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Mo",
+        "metal",
+        "bcc",
+        "element_seed"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Mo_COD_9008543.cif",
+      "notes": "T4 bcc; COD:9008543; source_url=https://www.crystallography.net/cod/9008543.cif"
+    },
+    {
+      "source": "COD",
+      "id": "9008589",
+      "formula": "Mn",
+      "spacegroup": "I -4 3 m",
+      "cell": {
+        "a": 8.894,
+        "b": 8.894,
+        "c": 8.894,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Mn1",
+        "Mn2",
+        "Mn3",
+        "Mn4"
+      ],
+      "absorber_elements": [
+        "Mn"
+      ],
+      "cif_path": "COD/9008589/cd454b6b5bc9a6ebf0c91b261dfa794bdca805b479f135477019ee7cd6c1181f.cif",
+      "cif_sha256": "cd454b6b5bc9a6ebf0c91b261dfa794bdca805b479f135477019ee7cd6c1181f",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Mn",
+        "metal",
+        "alpha-Mn",
+        "element_seed"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Mn_COD_9008589.cif",
+      "notes": "T4 alpha-Mn; COD:9008589; source_url=https://www.crystallography.net/cod/9008589.cif"
+    },
+    {
+      "source": "COD",
+      "id": "9010987",
+      "formula": "Ce",
+      "spacegroup": "F m -3 m",
+      "cell": {
+        "a": 5.1612,
+        "b": 5.1612,
+        "c": 5.1612,
+        "alpha": 90.0,
+        "beta": 90.0,
+        "gamma": 90.0
+      },
+      "absorber_sites": [
+        "Ce"
+      ],
+      "absorber_elements": [
+        "Ce"
+      ],
+      "cif_path": "COD/9010987/71c7b0030296e1f9927c8ca4dd40b87be3db69a700934bc9726d18aa0c9f0b02.cif",
+      "cif_sha256": "71c7b0030296e1f9927c8ca4dd40b87be3db69a700934bc9726d18aa0c9f0b02",
+      "experimental": true,
+      "model_level": "crystal_cif",
+      "tags": [
+        "Ce",
+        "metal",
+        "fcc",
+        "element_seed"
+      ],
+      "added_by": "tools/cif_crawler.py",
+      "original_filename": "Ce_COD_9010987.cif",
+      "notes": "T4 fcc; COD:9010987; source_url=https://www.crystallography.net/cod/9010987.cif"
     }
   ]
 }

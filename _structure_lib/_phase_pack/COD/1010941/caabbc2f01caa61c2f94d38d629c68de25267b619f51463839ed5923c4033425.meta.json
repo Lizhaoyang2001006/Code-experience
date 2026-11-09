@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "1010941",
+  "formula": "Cu2O",
+  "spacegroup": "P n -3 m :1",
+  "cell": {
+    "a": 4.26,
+    "b": 4.26,
+    "c": 4.26,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Cu1"
+  ],
+  "absorber_elements": [
+    "Cu"
+  ],
+  "cif_path": "COD/1010941/caabbc2f01caa61c2f94d38d629c68de25267b619f51463839ed5923c4033425.cif",
+  "cif_sha256": "caabbc2f01caa61c2f94d38d629c68de25267b619f51463839ed5923c4033425",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "Cu2O",
+    "oxide",
+    "cuprite",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "Cu2O_COD_1010941.cif",
+  "notes": "T3 cuprite; COD:1010941; source_url=https://www.crystallography.net/cod/1010941.cif"
+}

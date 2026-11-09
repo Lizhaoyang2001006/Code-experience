@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "1533087",
+  "formula": "CoO",
+  "spacegroup": "F m -3 m",
+  "cell": {
+    "a": 4.263,
+    "b": 4.263,
+    "c": 4.263,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Co1"
+  ],
+  "absorber_elements": [
+    "Co"
+  ],
+  "cif_path": "COD/1533087/4319edcda73a4786a496532f69e3fa9476cf50b91dbf0437284f7ac4fced6488.cif",
+  "cif_sha256": "4319edcda73a4786a496532f69e3fa9476cf50b91dbf0437284f7ac4fced6488",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "CoO",
+    "oxide",
+    "rocksalt",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "CoO_COD_1533087.cif",
+  "notes": "T3 rocksalt; COD:1533087; source_url=https://www.crystallography.net/cod/1533087.cif"
+}

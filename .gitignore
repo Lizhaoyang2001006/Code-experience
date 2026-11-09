@@ -8,3 +8,14 @@ _feff_cache/
 ci_report.json
 ci_report.md
 data/练手数据/Examples.zip
+# COD 原始 CIF 是构建期可追溯缓存，17 个被索引引用的文件随仓库提交；
+# 未索引的重复副本已在整合时清理。
+_structure_lib/_phase_cache/
+_structure_lib/cif_crawl_report.json
+# IIT-Lytle 未给出明确再分发许可证：T5 真实谱保留为本地构建产物，
+# 可用 `python cif_crawler.py --t5` 重建，不随仓库提交。
+data/standards_raw/
+_standards_lib/
+# 本地产物 / 日志 / 补丁不进入版本库
+*.log
+patches/

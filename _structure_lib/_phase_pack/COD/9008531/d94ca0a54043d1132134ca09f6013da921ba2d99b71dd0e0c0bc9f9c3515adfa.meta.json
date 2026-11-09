@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "9008531",
+  "formula": "Cr",
+  "spacegroup": "I m -3 m",
+  "cell": {
+    "a": 2.8839,
+    "b": 2.8839,
+    "c": 2.8839,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Cr"
+  ],
+  "absorber_elements": [
+    "Cr"
+  ],
+  "cif_path": "COD/9008531/d94ca0a54043d1132134ca09f6013da921ba2d99b71dd0e0c0bc9f9c3515adfa.cif",
+  "cif_sha256": "d94ca0a54043d1132134ca09f6013da921ba2d99b71dd0e0c0bc9f9c3515adfa",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "Cr",
+    "metal",
+    "bcc",
+    "element_seed"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "Cr_COD_9008531.cif",
+  "notes": "T4 bcc; COD:9008531; source_url=https://www.crystallography.net/cod/9008531.cif"
+}

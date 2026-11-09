@@ -1,0 +1,422 @@
+{
+  "Fe_Fe2O3": {
+    "formula": "Fe2O3",
+    "absorber": "Fe",
+    "cif_file": "data/cif_raw/Fe2O3_COD_1011240.cif",
+    "source": "COD_FIXED",
+    "motif_id": "fe2o3_hematite_cod_1011240",
+    "tier": "T3",
+    "phase": "hematite",
+    "cod_id": "1011240",
+    "spg_num": 167,
+    "spg_nums": [
+      167
+    ],
+    "elements": [
+      "Fe",
+      "O"
+    ],
+    "stoich": {
+      "Fe": 2.0,
+      "O": 3.0
+    }
+  },
+  "Fe_Fe3O4": {
+    "formula": "Fe3O4",
+    "absorber": "Fe",
+    "cif_file": "data/cif_raw/Fe3O4_COD_1010369.cif",
+    "source": "COD_FIXED",
+    "motif_id": "fe3o4_magnetite_cod_1010369",
+    "tier": "T3",
+    "phase": "magnetite",
+    "cod_id": "1010369",
+    "spg_num": 227,
+    "spg_nums": [
+      227
+    ],
+    "elements": [
+      "Fe",
+      "O"
+    ],
+    "stoich": {
+      "Fe": 3.0,
+      "O": 4.0
+    }
+  },
+  "Co_CoO": {
+    "formula": "CoO",
+    "absorber": "Co",
+    "cif_file": "data/cif_raw/CoO_COD_1533087.cif",
+    "source": "COD_FIXED",
+    "motif_id": "coo_rocksalt_cod_1533087",
+    "tier": "T3",
+    "phase": "rocksalt",
+    "cod_id": "1533087",
+    "spg_num": 225,
+    "spg_nums": [
+      225
+    ],
+    "elements": [
+      "Co",
+      "O"
+    ],
+    "stoich": {
+      "Co": 1.0,
+      "O": 1.0
+    }
+  },
+  "Co_Co3O4": {
+    "formula": "Co3O4",
+    "absorber": "Co",
+    "cif_file": "data/cif_raw/Co3O4_COD_9005888.cif",
+    "source": "COD_FIXED",
+    "motif_id": "co3o4_spinel_cod_9005888",
+    "tier": "T3",
+    "phase": "spinel",
+    "cod_id": "9005888",
+    "spg_num": 227,
+    "spg_nums": [
+      227
+    ],
+    "elements": [
+      "Co",
+      "O"
+    ],
+    "stoich": {
+      "Co": 3.0,
+      "O": 4.0
+    }
+  },
+  "Ni_NiO": {
+    "formula": "NiO",
+    "absorber": "Ni",
+    "cif_file": "data/cif_raw/NiO_COD_1010093.cif",
+    "source": "COD_FIXED",
+    "motif_id": "nio_bunsenite_cod_1010093",
+    "tier": "T3",
+    "phase": "bunsenite",
+    "cod_id": "1010093",
+    "spg_num": 225,
+    "spg_nums": [
+      225
+    ],
+    "elements": [
+      "Ni",
+      "O"
+    ],
+    "stoich": {
+      "Ni": 1.0,
+      "O": 1.0
+    }
+  },
+  "Ni_Ni(OH)2": {
+    "formula": "Ni(OH)2",
+    "absorber": "Ni",
+    "cif_file": "data/cif_raw/Ni(OH)2_COD_1548811.cif",
+    "source": "COD_FIXED",
+    "motif_id": "nioh2_theophrastite_cod_1548811",
+    "tier": "T3",
+    "phase": "theophrastite",
+    "cod_id": "1548811",
+    "spg_num": 164,
+    "spg_nums": [
+      164
+    ],
+    "elements": [
+      "Ni",
+      "O",
+      "H"
+    ],
+    "stoich": {
+      "Ni": 1.0,
+      "O": 2.0,
+      "H": 2.0
+    }
+  },
+  "Cu_CuO": {
+    "formula": "CuO",
+    "absorber": "Cu",
+    "cif_file": "data/cif_raw/CuO_COD_1011148.cif",
+    "source": "COD_FIXED",
+    "motif_id": "cuo_tenorite_cod_1011148",
+    "tier": "T3",
+    "phase": "tenorite",
+    "cod_id": "1011148",
+    "spg_num": 15,
+    "spg_nums": [
+      15
+    ],
+    "elements": [
+      "Cu",
+      "O"
+    ],
+    "stoich": {
+      "Cu": 1.0,
+      "O": 1.0
+    }
+  },
+  "Cu_Cu2O": {
+    "formula": "Cu2O",
+    "absorber": "Cu",
+    "cif_file": "data/cif_raw/Cu2O_COD_1010941.cif",
+    "source": "COD_FIXED",
+    "motif_id": "cu2o_cuprite_cod_1010941",
+    "tier": "T3",
+    "phase": "cuprite",
+    "cod_id": "1010941",
+    "spg_num": 224,
+    "spg_nums": [
+      224
+    ],
+    "elements": [
+      "Cu",
+      "O"
+    ],
+    "stoich": {
+      "Cu": 2.0,
+      "O": 1.0
+    }
+  },
+  "Ce_CeO2": {
+    "formula": "CeO2",
+    "absorber": "Ce",
+    "cif_file": "data/cif_raw/CeO2_COD_1562989.cif",
+    "source": "COD_FIXED",
+    "motif_id": "ceo2_fluorite_cod_1562989",
+    "tier": "T3",
+    "phase": "fluorite",
+    "cod_id": "1562989",
+    "spg_num": 225,
+    "spg_nums": [
+      225
+    ],
+    "elements": [
+      "Ce",
+      "O"
+    ],
+    "stoich": {
+      "Ce": 1.0,
+      "O": 2.0
+    }
+  },
+  "Mn_Mn": {
+    "formula": "Mn",
+    "absorber": "Mn",
+    "cif_file": "data/cif_raw/Mn_COD_9008589.cif",
+    "source": "COD_FIXED",
+    "motif_id": "mn_alpha_mn_cod_9008589",
+    "tier": "T4",
+    "phase": "alpha-Mn",
+    "cod_id": "9008589",
+    "spg_num": 217,
+    "spg_nums": [
+      217
+    ],
+    "elements": [
+      "Mn"
+    ],
+    "stoich": {
+      "Mn": 1.0
+    }
+  },
+  "Ru_Ru": {
+    "formula": "Ru",
+    "absorber": "Ru",
+    "cif_file": "data/cif_raw/Ru_COD_9008513.cif",
+    "source": "COD_FIXED",
+    "motif_id": "ru_hcp_cod_9008513",
+    "tier": "T4",
+    "phase": "hcp",
+    "cod_id": "9008513",
+    "spg_num": 194,
+    "spg_nums": [
+      194
+    ],
+    "elements": [
+      "Ru"
+    ],
+    "stoich": {
+      "Ru": 1.0
+    }
+  },
+  "Rh_Rh": {
+    "formula": "Rh",
+    "absorber": "Rh",
+    "cif_file": "data/cif_raw/Rh_COD_9008482.cif",
+    "source": "COD_FIXED",
+    "motif_id": "rh_fcc_cod_9008482",
+    "tier": "T4",
+    "phase": "fcc",
+    "cod_id": "9008482",
+    "spg_num": 225,
+    "spg_nums": [
+      225
+    ],
+    "elements": [
+      "Rh"
+    ],
+    "stoich": {
+      "Rh": 1.0
+    }
+  },
+  "Pd_Pd": {
+    "formula": "Pd",
+    "absorber": "Pd",
+    "cif_file": "data/cif_raw/Pd_COD_9008478.cif",
+    "source": "COD_FIXED",
+    "motif_id": "pd_fcc_cod_9008478",
+    "tier": "T4",
+    "phase": "fcc",
+    "cod_id": "9008478",
+    "spg_num": 225,
+    "spg_nums": [
+      225
+    ],
+    "elements": [
+      "Pd"
+    ],
+    "stoich": {
+      "Pd": 1.0
+    }
+  },
+  "Ag_Ag": {
+    "formula": "Ag",
+    "absorber": "Ag",
+    "cif_file": "data/cif_raw/Ag_COD_9008459.cif",
+    "source": "COD_FIXED",
+    "motif_id": "ag_fcc_cod_9008459",
+    "tier": "T4",
+    "phase": "fcc",
+    "cod_id": "9008459",
+    "spg_num": 225,
+    "spg_nums": [
+      225
+    ],
+    "elements": [
+      "Ag"
+    ],
+    "stoich": {
+      "Ag": 1.0
+    }
+  },
+  "Ir_Ir": {
+    "formula": "Ir",
+    "absorber": "Ir",
+    "cif_file": "data/cif_raw/Ir_COD_9008470.cif",
+    "source": "COD_FIXED",
+    "motif_id": "ir_fcc_cod_9008470",
+    "tier": "T4",
+    "phase": "fcc",
+    "cod_id": "9008470",
+    "spg_num": 225,
+    "spg_nums": [
+      225
+    ],
+    "elements": [
+      "Ir"
+    ],
+    "stoich": {
+      "Ir": 1.0
+    }
+  },
+  "Ce_Ce": {
+    "formula": "Ce",
+    "absorber": "Ce",
+    "cif_file": "data/cif_raw/Ce_COD_9010987.cif",
+    "source": "COD_FIXED",
+    "motif_id": "ce_fcc_cod_9010987",
+    "tier": "T4",
+    "phase": "fcc",
+    "cod_id": "9010987",
+    "spg_num": 225,
+    "spg_nums": [
+      225
+    ],
+    "elements": [
+      "Ce"
+    ],
+    "stoich": {
+      "Ce": 1.0
+    }
+  },
+  "U_U": {
+    "formula": "U",
+    "absorber": "U",
+    "cif_file": "data/cif_raw/U_COD_1527120.cif",
+    "source": "COD_FIXED",
+    "motif_id": "u_alpha_u_cod_1527120",
+    "tier": "T4",
+    "phase": "alpha-U",
+    "cod_id": "1527120",
+    "spg_num": 63,
+    "spg_nums": [
+      63
+    ],
+    "elements": [
+      "U"
+    ],
+    "stoich": {
+      "U": 1.0
+    }
+  },
+  "STD_Cr": {
+    "element": "Cr",
+    "standard_file": "data/standards_raw/Cr_metal_foil.dat",
+    "type": "foil_spectrum"
+  },
+  "STD_Mn": {
+    "element": "Mn",
+    "standard_file": "data/standards_raw/Mn_metal_foil.dat",
+    "type": "foil_spectrum"
+  },
+  "STD_Zn": {
+    "element": "Zn",
+    "standard_file": "data/standards_raw/Zn_metal_foil.dat",
+    "type": "foil_spectrum"
+  },
+  "STD_Mo": {
+    "element": "Mo",
+    "standard_file": "data/standards_raw/Mo_metal_foil.dat",
+    "type": "foil_spectrum"
+  },
+  "STD_Ru": {
+    "element": "Ru",
+    "standard_file": "data/standards_raw/Ru_metal_foil.dat",
+    "type": "foil_spectrum"
+  },
+  "STD_Rh": {
+    "element": "Rh",
+    "standard_file": "data/standards_raw/Rh_metal_foil.dat",
+    "type": "foil_spectrum"
+  },
+  "STD_Pd": {
+    "element": "Pd",
+    "standard_file": "data/standards_raw/Pd_metal_foil.dat",
+    "type": "foil_spectrum"
+  },
+  "STD_Ag": {
+    "element": "Ag",
+    "standard_file": "data/standards_raw/Ag_metal_foil.dat",
+    "type": "foil_spectrum"
+  },
+  "STD_Ir": {
+    "element": "Ir",
+    "standard_file": "data/standards_raw/Ir_metal_foil.dat",
+    "type": "foil_spectrum"
+  },
+  "STD_Au": {
+    "element": "Au",
+    "standard_file": "data/standards_raw/Au_metal_foil.dat",
+    "type": "foil_spectrum"
+  },
+  "STD_Ce": {
+    "element": "Ce",
+    "standard_file": "data/standards_raw/Ce_metal_foil.dat",
+    "type": "foil_spectrum"
+  },
+  "STD_U": {
+    "element": "U",
+    "standard_file": "data/standards_raw/U_metal_foil.dat",
+    "type": "foil_spectrum"
+  }
+}

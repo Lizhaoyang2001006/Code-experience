@@ -1,0 +1,36 @@
+{
+  "source": "COD",
+  "id": "1010369",
+  "formula": "Fe3O4",
+  "spacegroup": "F d -3 m :1",
+  "cell": {
+    "a": 8.384,
+    "b": 8.384,
+    "c": 8.384,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Fe1",
+    "Fe2",
+    "Fe3"
+  ],
+  "absorber_elements": [
+    "Fe"
+  ],
+  "cif_path": "COD/1010369/60f507446c8a7dd4e8b34cd1fe57fcf776155fbec7097e08c8921cff7c55a75a.cif",
+  "cif_sha256": "60f507446c8a7dd4e8b34cd1fe57fcf776155fbec7097e08c8921cff7c55a75a",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "Fe3O4",
+    "oxide",
+    "magnetite",
+    "spinel",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "Fe3O4_COD_1010369.cif",
+  "notes": "T3 magnetite; COD:1010369; source_url=https://www.crystallography.net/cod/1010369.cif"
+}

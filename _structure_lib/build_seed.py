@@ -211,21 +211,21 @@ def main():
     # 第一壳全部落在 1.85–2.31 Å，与金属箔第一壳（2.49–2.77 Å）及
     # NiO 主导峰（2.95 Å）错开，保证压力测试 top1 不被抢走。
 
-    # 晶体：Cu2O 赤铜矿。Pn-3m 必须显式 origin choice 1：gemmi 默认
-    # choice 2 会把 O(2a) 误展开成 4 个 O，给出 Cu-O×4 的错误指纹。
-    m = Motif(id="cu2o_cuprite", absorber="Cu", kind="crystal",
+    # 晶体：Cu2O 赤铜矿（COD 1010941）。Pn-3m 必须显式 origin choice 1：
+    # gemmi 默认 choice 2 会把 O(2a) 误展开成 4 个 O，给出 Cu-O×4 的错误指纹。
+    m = Motif(id="cu2o_cuprite_cod_1010941", absorber="Cu", kind="crystal",
               nuclearity="crystal",
-              source={"type": "manual",
-                      "ref": "Pn-3m (#224, origin choice 1), a=4.2696 Å"},
-              cell={"a": 4.2696}, spacegroup="P n -3 m:1",
+              source={"type": "cod", "id": "1010941",
+                      "ref": "Pn-3m (#224, origin choice 1), a=4.26 Å"},
+              cell={"a": 4.26}, spacegroup="P n -3 m:1",
               asym_sites=[
                   {"el": "Cu", "x": 0.25, "y": 0.25, "z": 0.25,
                    "wyckoff": "4b"},
                   {"el": "O", "x": 0.0, "y": 0.0, "z": 0.0,
                    "wyckoff": "2a"}],
               absorber_fract=[0.25, 0.25, 0.25],
-              notes="Cu2O 赤铜矿。第一壳 Cu-O 2×1.849（线性二配位），"
-                    "第二壳 Cu-Cu 12×3.019。")
+              notes="Cu2O 赤铜矿（COD 1010941）。第一壳 Cu-O 2×1.845"
+                    "（线性二配位），第二壳 Cu-Cu 12×3.012。")
     made.append(register(m, overwrite=True))
 
     # 团簇：平面 M-N4 单原子位 + 碳壳（M = Co / Ni / Cu）。

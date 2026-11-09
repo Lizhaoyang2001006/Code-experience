@@ -1,0 +1,16 @@
+data_u_alpha_u_cod_1527120
+_cell_length_a 2.8444
+_cell_length_b 5.8689
+_cell_length_c 4.9316
+_cell_angle_alpha 90.0
+_cell_angle_beta 90.0
+_cell_angle_gamma 90.0
+_symmetry_space_group_name_H-M 'C m c m'
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_occupancy
+U1 U 0.0 0.10228 0.25 1.0

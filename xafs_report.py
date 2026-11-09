@@ -121,6 +121,7 @@ def process_scans(files, absorber: str = "Fe", strict: bool = False,
         self_absorption_density=self_absorption_density,
         self_absorption_angles=self_absorption_angles,
         self_absorption_line=self_absorption_line)
+    res.data_sha256 = cn_table.data_sha256(files)
     return {"scans": res.scans, "merged": res.merged, "e0": res.e0["e0_sample"],
             "norm": res.norm, "rbkg": res.rbkg, "chi_k": res.chi_k,
             "ft": res.ft, "wt": res.wt, "r1": res.r1, "result": res,

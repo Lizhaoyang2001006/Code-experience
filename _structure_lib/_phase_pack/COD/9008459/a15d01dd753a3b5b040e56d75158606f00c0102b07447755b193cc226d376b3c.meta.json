@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "9008459",
+  "formula": "Ag",
+  "spacegroup": "F m -3 m",
+  "cell": {
+    "a": 4.0862,
+    "b": 4.0862,
+    "c": 4.0862,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Ag"
+  ],
+  "absorber_elements": [
+    "Ag"
+  ],
+  "cif_path": "COD/9008459/a15d01dd753a3b5b040e56d75158606f00c0102b07447755b193cc226d376b3c.cif",
+  "cif_sha256": "a15d01dd753a3b5b040e56d75158606f00c0102b07447755b193cc226d376b3c",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "Ag",
+    "metal",
+    "fcc",
+    "element_seed"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "Ag_COD_9008459.cif",
+  "notes": "T4 fcc; COD:9008459; source_url=https://www.crystallography.net/cod/9008459.cif"
+}

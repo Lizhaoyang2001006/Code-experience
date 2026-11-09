@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "1011240",
+  "formula": "Fe2O3",
+  "spacegroup": "R -3 c :R",
+  "cell": {
+    "a": 5.43,
+    "b": 5.43,
+    "c": 5.43,
+    "alpha": 55.28,
+    "beta": 55.28,
+    "gamma": 55.28
+  },
+  "absorber_sites": [
+    "Fe1"
+  ],
+  "absorber_elements": [
+    "Fe"
+  ],
+  "cif_path": "COD/1011240/fdb432a52a7c3fbdae0ec9954386b9e87d75ff34e06d45a9b14c4fde79bebde5.cif",
+  "cif_sha256": "fdb432a52a7c3fbdae0ec9954386b9e87d75ff34e06d45a9b14c4fde79bebde5",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "Fe2O3",
+    "oxide",
+    "hematite",
+    "catalyst"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "Fe2O3_COD_1011240.cif",
+  "notes": "T3 hematite; COD:1011240; source_url=https://www.crystallography.net/cod/1011240.cif"
+}

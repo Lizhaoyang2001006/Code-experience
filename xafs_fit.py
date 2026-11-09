@@ -25,6 +25,7 @@ from pathlib import Path
 import numpy as np
 
 import artemis
+import cn_table
 import structure_id
 import structure_lib
 from absorber import get_absorber
@@ -737,7 +738,8 @@ def _formal_cn_meta(formal_cn: bool, structure_model: StructureModel | None,
     - ``formal_cn=False``：仅标记 diagnostic_only；
     - 无模型：``no_cif``；
     - L1：``l1_diagnostic_only``；
-    - 模型来源合格：``pending_consistency``（固定 N 一致性属于 P2b）；
+    - 模型来源合格：``pending_consistency``；P3 条件 CN 成功后由
+      ``build_formal_cn_block`` 覆盖为 ``ok``/``consistency_failed``；
     - 模型来源不合格：返回 ``validate_formal`` 的拒绝码。
     """
     if not formal_cn:
@@ -789,7 +791,8 @@ def fit_identified(res, motif_id: str | None = None,
                    s02: float | None = None,
                    verbose: bool = True,
                    formal_cn: bool = False,
-                   structure_model: StructureModel | None = None) -> dict:
+                   structure_model: StructureModel | None = None,
+                   gate_result=None) -> dict:
     """对识别结果做 S7 拟合；未 confident 时返回 L1 第一壳结果。
 
     ``fit_weights=True`` 仅对 mixture（多位点吸收）生效：固定每条路径的
@@ -822,6 +825,8 @@ def fit_identified(res, motif_id: str | None = None,
         raise XAFSConfigError(
             "FIT", f"{absorber.symbol} 未标定 S₀²，拒绝 CN 定量；"
                    f"先在 absorber.py 用标准样标定")
+    s02_source = ("--s02 runtime override" if s02 is not None
+                  else "absorber.py")
     self_abs = _self_absorption_diag(res)
 
     # ---- B13-1 显式催化模型：绕过晶相库搜索，直接进 S7 ----
@@ -930,6 +935,39 @@ def fit_identified(res, motif_id: str | None = None,
                               include_ms=include_ms,
                               isotropic_deltar=isotropic_deltar,
                               hetero_cocupancy=hetero_cocupancy)
+
+    # ---- P3 条件 CN：固定 N → 自由 N（首壳单一比例因子）→ Hamilton F-test ----
+    conditional_cn = None
+    conditional_cn_error = ""
+    n0_mapping = None
+    if formal_cn and gate_result is not None and gate_result.ok:
+        try:
+            n0_mapping = map_n0_to_plan(plan, gate_result.n0_shells,
+                                        kmin=res.ft.kmin, kmax=res.ft.kmax)
+            if n0_mapping["mapping_ok"]:
+                conditional_cn = run_conditional_cn(
+                    res, plan, n0_mapping,
+                    absorber_symbol=absorber.symbol, s02=absorber.s02,
+                    kmin=res.ft.kmin, kmax=res.ft.kmax,
+                    rmin=plan["rmin"], rmax=plan["rmax"],
+                    verbose=verbose)
+            else:
+                conditional_cn_error = (
+                    "N₀ 映射失败: " + n0_mapping["mapping_reason"])
+            if verbose and conditional_cn is not None:
+                print(f"  [P3] 条件 CN: N/N₀={conditional_cn['n_ratio']} "
+                      f"({conditional_cn['n_status']}), "
+                      f"consistency_passed={conditional_cn['consistency_passed']}")
+        except (XAFSConfigError, XAFSDataError) as exc:
+            conditional_cn_error = (
+                "条件 CN 跳过: " + getattr(exc, "message", str(exc)))
+            if verbose:
+                print(f"  [P3] {conditional_cn_error}")
+    elif formal_cn and structure_model is not None:
+        conditional_cn_error = "缺少 CIF gate 结果，未运行条件 CN"
+        if verbose:
+            print(f"  [P3] {conditional_cn_error}")
+
     if verbose:
         print(f"  [S7] motif={motif.id}  R∈[{plan['rmin']:.2f},{plan['rmax']:.2f}] Å"
               f"  S₀²={absorber.s02}  N_idp={plan['n_independent']:.1f}")
@@ -1302,6 +1340,8 @@ def fit_identified(res, motif_id: str | None = None,
                fit, flags=flags, self_abs=self_abs,
                truncated_shells=len(plan["truncated"]),
                fit_weights=fit_weights)}
+    if conditional_cn is not None:
+        out["conditional_cn"] = conditional_cn
     if fit_weights and fit.mixture_weights:
         w_max_err = max(float(w["weight_err"])
                         for w in fit.mixture_weights)
@@ -1422,6 +1462,28 @@ def fit_identified(res, motif_id: str | None = None,
         elif not cn_reliable:
             print(f"       ⚠ CN 不可靠：{'、'.join(reasons)}")
     out.update(_formal_cn_meta(formal_cn, structure_model))
+    if formal_cn and structure_model is not None:
+        formal_block = out.get("formal_cn") or {}
+        if formal_block.get("status") == "pending_consistency":
+            if conditional_cn is not None and n0_mapping is not None:
+                block = build_formal_cn_block(
+                    conditional_cn=conditional_cn, plan=plan,
+                    n0_mapping=n0_mapping,
+                    structure_model=structure_model,
+                    absorber=absorber,
+                    cn_systematics=out.get("cn_systematics"),
+                    s02_source=s02_source,
+                    data_sha256=(getattr(res, "data_sha256", "") or ""))
+            else:
+                block = {
+                    "status": "consistency_failed",
+                    "rows": [],
+                    "reject_reason": (conditional_cn_error
+                                      or "条件 CN 未运行"),
+                    "model": structure_model.to_json(),
+                }
+            out["formal_cn"] = block
+            out["cn_status"] = block["status"]
     return out
 
 
@@ -1444,7 +1506,8 @@ def run(res, identify: bool = True, fit: bool = False,
         s02: float | None = None,
         verbose: bool = True,
         formal_cn: bool = False,
-        structure_model: StructureModel | None = None) -> dict:
+        structure_model: StructureModel | None = None,
+        gate_result=None) -> dict:
     """S6.5（可选 S7）的唯一入口；结果回填 res.structure / res.fit。
 
     ``s02``（B18-2）为运行时 S₀² 覆盖：仅构造局部 AbsorberConfig 副本，
@@ -1477,7 +1540,8 @@ def run(res, identify: bool = True, fit: bool = False,
             s02=s02,
             verbose=verbose,
             formal_cn=formal_cn,
-            structure_model=structure_model)
+            structure_model=structure_model,
+            gate_result=gate_result)
         out["fit"] = fit_out
         res.fit = fit_out
         out["diagnostic_only"] = True
@@ -1653,6 +1717,7 @@ def map_n0_to_plan(plan: dict, n0_shells: list[dict],
         }
 
     n0_per_path = [0.0] * n_paths
+    shell_idx_per_path = [-1] * n_paths
     used_shell_idx: set[int] = set()
 
     # ---- 为每条路径匹配 n0_shell ----------------------------------
@@ -1677,19 +1742,18 @@ def map_n0_to_plan(plan: dict, n0_shells: list[dict],
                                    f"无匹配 N₀ 壳层"),
             }
         used_shell_idx.add(best_si)
+        shell_idx_per_path[pi] = best_si
         n0_per_path[pi] = float(n0_shells[best_si]["n0"])
 
-    # ---- path_links：sub_rayleigh_grouped 的子壳绑定到参考路径 ----
-    path_links: list[dict] = []
-    # 找出被分组的壳层（sub_rayleigh_grouped=True），其多个 n0_member
-    # 对应 plan 中多条相近路径。这里按 (scatterer, 近距离) 聚集 plan 路径，
-    # 将非首条路径绑定到首条。
-    groups_by_el: dict[str, list[int]] = {}
-    for pi, sh in enumerate(plan_shells):
-        el = str(sh.get("scatterer", "")).capitalize()
-        groups_by_el.setdefault(el, []).append(pi)
+    # ---- path_links：只绑定同一个 N₀ 壳层内的子壳 ----
+    # 不同 N₀ 壳层是不同配位壳，绝不能互相绑定；否则远壳 N 会跟着
+    # 首壳 N 漂移，违反“首壳放开、远壳固定 N₀”的条件 CN 约定。
+    groups_by_shell: dict[int, list[int]] = {}
+    for pi, si in enumerate(shell_idx_per_path):
+        groups_by_shell.setdefault(si, []).append(pi)
 
-    for el, idxs in groups_by_el.items():
+    path_links: list[dict] = []
+    for si, idxs in groups_by_shell.items():
         if len(idxs) <= 1:
             continue
         idxs.sort(key=lambda pi: float(plan_shells[pi].get("reff", 0.0)))
@@ -2021,3 +2085,343 @@ def check_defect_model(n_ratio: float, defect_model: dict) -> dict:
             "detail": f"N/N₀={n_ratio:.3f} 偏离模型预期 {expected:.3f}±{uncertainty:.2f}"}
 
 
+
+
+# ================================================================
+# P3：条件 CN 端到端 —— 固定 N → 自由 N（首壳单一比例因子）→ Hamilton F-test
+# ================================================================
+def run_conditional_cn(
+    res, plan: dict, n0_mapping: dict,
+    absorber_symbol: str, s02: float,
+    ref_idx: int | None = None,
+    kmin: float = 3.0, kmax: float = 12.0,
+    rmin: float | None = None, rmax: float | None = None,
+    verbose: bool = True
+) -> dict:
+    """P3 条件 CN 端到端：固定 N 拟合 → 条件 CN（首壳单一比例因子）
+    → 自由 N 对照 → Hamilton F-test 一致性判据。
+
+    参数:
+        res: PipelineResult（S1–S6 产物，含 chi_k, ft）
+        plan: select_shell_paths 的输出（files, degens, labels, shells, rmin, rmax）
+        n0_mapping: map_n0_to_plan 的输出（n0_per_path, path_links, ...）
+        absorber_symbol: 吸收元素符号
+        s02: 标定的 S₀² 值
+        ref_idx: 首壳参考路径下标（None 时自动取 N₀ 最大的首壳路径）
+        kmin/kmax: FT 窗口
+        rmin/rmax: 拟合窗口（None 时用 plan 中的值）
+        verbose: 是否打印进度
+
+    返回 dict:
+        conditional_cn: {
+            n_ratio, n_fit_total, n0_total, n_status,   # N/N₀ 及状态
+            ref_idx, first_shell_idxs,                  # 参考路径与首壳路径
+            fixed_n_fit, conditional_n_fit, free_n_fit, # 三种拟合的摘要
+            hamilton_f_test,                            # F-test 结果
+            consistency_passed,                         # 一致性通过标志
+            fixed_n_paths, conditional_n_paths          # 路径级 N 值
+        }
+    """
+    n0_per_path = n0_mapping["n0_per_path"]
+    path_links = list(n0_mapping.get("path_links") or [])
+    n_paths = len(n0_per_path)
+    plan_shells = plan.get("shells", [])
+
+    if rmin is None:
+        rmin = float(plan.get("rmin", 1.0))
+    if rmax is None:
+        rmax = float(plan.get("rmax", 4.0))
+
+    # ---- 找出首壳路径（reff 最小）----
+    first_shell_idxs = []
+    if plan_shells:
+        min_r = min(float(s.get("reff", s.get("reff_mean", 0.0)))
+                    for s in plan_shells)
+        for i, s in enumerate(plan_shells):
+            r = float(s.get("reff", s.get("reff_mean", 0.0)))
+            if abs(r - min_r) < 1e-6:
+                first_shell_idxs.append(i)
+    if not first_shell_idxs:
+        first_shell_idxs = [0]
+
+    # 参考路径：首壳中 N₀ 最大的
+    if ref_idx is None:
+        ref_idx = max(first_shell_idxs, key=lambda i: n0_per_path[i])
+    ref_idx = int(ref_idx)
+    if ref_idx < 0 or ref_idx >= n_paths:
+        raise XAFSConfigError(
+            "FIT", f"ref_idx {ref_idx} 超出路径范围 0–{n_paths-1}")
+
+    n0_total = sum(float(n0_per_path[i]) for i in first_shell_idxs)
+    if n0_total <= 0:
+        raise XAFSConfigError(
+            "FIT", f"首壳 N₀ 总和为 {n0_total}，无法计算 N/N₀")
+
+    # ---- 第一步：固定 N 拟合（vary_n=[], path_degen=n0_per_path）----
+    if verbose:
+        print(f"  [P3-1] 固定 N 拟合：n_paths={n_paths}, "
+              f"vary_n=[], N 固定为 N₀")
+    fit_fixed = artemis.fit_r_space(
+        res.chi_k, res.ft, plan["files"],
+        rmin=rmin, rmax=rmax,
+        kmin=res.ft.kmin, kmax=res.ft.kmax,
+        kweight=res.ft.kweight,
+        s02=s02, vary_delta_e0=True, vary_n=[],
+        path_degen=[round(v, 6) for v in n0_per_path],
+        path_labels=plan["labels"],
+        fit_space="r")
+
+    # ---- 第二步：条件 CN（vary_n=[ref_idx]，首壳非参考路径用 path_links 绑定）----
+    links = {}
+    for link in path_links:
+        links[link["target"]] = link
+
+    for i in first_shell_idxs:
+        if i == ref_idx:
+            continue
+        ratio = n0_per_path[i] / n0_per_path[ref_idx] if n0_per_path[ref_idx] > 0 else 1.0
+        links[i] = {
+            "target": i, "source": ref_idx,
+            "degen_ratio": round(ratio, 6),
+            "share_deltar": False,
+            "share_sigma2": False,
+        }
+
+    if verbose:
+        print(f"  [P3-2] 条件 CN 拟合：vary_n=[{ref_idx}], "
+              f"path_links={len(links)} 条（首壳非参考路径绑定到参考路径）")
+    fit_conditional = artemis.fit_r_space(
+        res.chi_k, res.ft, plan["files"],
+        rmin=rmin, rmax=rmax,
+        kmin=res.ft.kmin, kmax=res.ft.kmax,
+        kweight=res.ft.kweight,
+        s02=s02, vary_delta_e0=True, vary_n=[ref_idx],
+        path_degen=[round(v, 6) for v in n0_per_path],
+        path_labels=plan["labels"],
+        path_links=list(links.values()),
+        fit_space="r")
+
+    # ---- 第三步：自由 N 对照（所有 N 可变，path_degen=n0_per_path 作为初值）----
+    if verbose:
+        print(f"  [P3-3] 自由 N 对照拟合：vary_n=True，所有 N 自由")
+    fit_free = artemis.fit_r_space(
+        res.chi_k, res.ft, plan["files"],
+        rmin=rmin, rmax=rmax,
+        kmin=res.ft.kmin, kmax=res.ft.kmax,
+        kweight=res.ft.kweight,
+        s02=s02, vary_delta_e0=True, vary_n=True,
+        path_degen=[round(v, 6) for v in n0_per_path],
+        path_labels=plan["labels"],
+        fit_space="r")
+
+    # ---- 计算 N/N₀（基于条件 CN 拟合结果）----
+    n_fit_total = 0.0
+    for i in first_shell_idxs:
+        if i < len(fit_conditional.paths):
+            n_fit_total += float(fit_conditional.paths[i].degeneracy or 0.0)
+
+    n_ratio = n_fit_total / n0_total
+    n_status = check_n_ratio(n_ratio)
+
+    # ---- Hamilton F-test：固定 N vs 条件 CN（嵌套模型比较）----
+    try:
+        ftest = artemis.shell_f_test(fit_fixed, fit_conditional)
+    except XAFSError as exc:
+        ftest = {"F": None, "confidence": None, "significant": False,
+                 "error": getattr(exc, "message", str(exc))}
+
+    # 一致性判据：
+    # - N/N₀ 在 ok/warning 范围
+    # - 自由 N 不显著改善（Hamilton F-test 不显著）→ 固定 N 充分
+    # - 不过拟合，Rf 合理
+    ftest_significant = bool(ftest.get("significant", False))
+    consistency_passed = (
+        n_status in ("ok", "warning")
+        and not ftest_significant
+        and not fit_conditional.overfit
+        and float(fit_conditional.r_factor) <= 0.08
+    )
+
+    if verbose:
+        print(f"  [P3-4] N/N₀ = {n_ratio:.4f} ({n_status}), "
+              f"F-test significant={ftest_significant}, "
+              f"consistency_passed={consistency_passed}")
+
+    return {
+        "n_ratio": round(n_ratio, 6),
+        "n_fit_total": round(n_fit_total, 6),
+        "n0_total": round(n0_total, 6),
+        "n_status": n_status,
+        "ref_idx": ref_idx,
+        "first_shell_idxs": first_shell_idxs,
+        "fixed_n_fit": {
+            "r_factor": float(fit_fixed.r_factor),
+            "n_variables": int(fit_fixed.n_variables),
+            "n_independent": float(fit_fixed.n_independent),
+            "delta_e0": float(fit_fixed.delta_e0),
+            "overfit": bool(fit_fixed.overfit),
+        },
+        "conditional_n_fit": {
+            "r_factor": float(fit_conditional.r_factor),
+            "n_variables": int(fit_conditional.n_variables),
+            "n_independent": float(fit_conditional.n_independent),
+            "delta_e0": float(fit_conditional.delta_e0),
+            "overfit": bool(fit_conditional.overfit),
+        },
+        "free_n_fit": {
+            "r_factor": float(fit_free.r_factor),
+            "n_variables": int(fit_free.n_variables),
+            "n_independent": float(fit_free.n_independent),
+            "delta_e0": float(fit_free.delta_e0),
+            "overfit": bool(fit_free.overfit),
+        },
+        "hamilton_f_test": {
+            "F": ftest.get("F"),
+            "confidence": ftest.get("confidence"),
+            "significant": ftest_significant,
+            "p_value": (None if ftest.get("confidence") is None
+                        else float(max(0.0, 1.0 - float(ftest.get("confidence"))))),
+        },
+        "consistency_passed": bool(consistency_passed),
+        "kmin": float(res.ft.kmin),
+        "kmax": float(res.ft.kmax),
+        "kweight": int(res.ft.kweight),
+        "fixed_n_paths": [
+            {"label": p.label, "reff": float(p.r),
+             "N": float(p.degeneracy),
+             "N_err": (float(p.n_err) if p.n_err is not None else None),
+             "delta_r": float(p.delta_r),
+             "sigma2": float(p.sigma2)}
+            for p in fit_fixed.paths
+        ],
+        "conditional_n_paths": [
+            {"label": p.label, "reff": float(p.r),
+             "N": float(p.degeneracy),
+             "N_err": (float(p.n_err) if p.n_err is not None else None),
+             "delta_r": float(p.delta_r),
+             "sigma2": float(p.sigma2)}
+            for p in fit_conditional.paths
+        ],
+    }
+
+
+def build_formal_cn_block(
+    *,
+    conditional_cn: dict,
+    plan: dict,
+    n0_mapping: dict,
+    structure_model: StructureModel,
+    absorber,
+    cn_systematics: dict | None = None,
+    s02_source: str = "absorber.py",
+    data_sha256: str = "",
+    software_version: str = cn_table.SOFTWARE_VERSION,
+) -> dict:
+    """把条件 CN 结果转成正式 CN 块。
+
+    - ``consistency_passed=True``：``status="ok"``，每个拟合路径一行；
+      第一壳 ``n_status="fitted"``，远壳 ``n_status="fixed"``。
+    - 否则：``status="consistency_failed"``，``rows=[]``，拒绝原因可复核。
+    - 每行包含 §4.4 要求的全部 provenance 字段：CIF 来源、sha256、
+      吸收位、N₀、模型级别、S₀²、数据哈希与软件版本。
+    """
+    model = structure_model.to_json()
+    cond_fit = conditional_cn.get("conditional_n_fit") or {}
+    rf = float(cond_fit.get("r_factor") or 0.0)
+    overall_n_status = str(conditional_cn.get("n_status") or "")
+    ftest = conditional_cn.get("hamilton_f_test") or {}
+    reasons = []
+    if overall_n_status not in ("ok", "warning"):
+        reasons.append(
+            f"N/N₀={conditional_cn.get('n_ratio')} "
+            f"({overall_n_status}) 超出范围，且未提供定量缺陷模型")
+    if bool(ftest.get("significant")):
+        p_value = ftest.get("p_value")
+        reasons.append(
+            "自由 N 显著改善（Hamilton F-test"
+            + (f" p={float(p_value):.4g}" if p_value is not None else "")
+            + "），固定 N 不一致")
+    if bool(cond_fit.get("overfit")):
+        reasons.append("条件 CN 拟合变量数 ≥ N_idp")
+    if rf > 0.08:
+        reasons.append(f"条件 CN Rf={rf:.4f} > 0.08")
+    if not conditional_cn.get("consistency_passed"):
+        return {
+            "status": "consistency_failed",
+            "rows": [],
+            "reject_reason": "；".join(reasons) or "条件 CN 一致性未通过",
+            "model": model,
+        }
+
+    paths = conditional_cn.get("conditional_n_paths") or []
+    first_shell = {int(i) for i in
+                   (conditional_cn.get("first_shell_idxs") or [])}
+    n0_per_path = list(n0_mapping.get("n0_per_path") or [])
+    shells = plan.get("shells") or []
+    systematics = (cn_systematics or {}).get("relative_1sigma")
+    row_gate = "passed" if overall_n_status == "ok" else "warning"
+    row_flags = ("consistency_passed" if overall_n_status == "ok"
+                 else "consistency_passed;n_ratio_warning")
+    assumptions = (
+        "first_shell_single_scale_factor;"
+        "higher_shells_fixed_at_N0;"
+        "hamilton_f_test_nonsignificant;"
+        "data_sha256_over_input_files"
+    )
+
+    rows: list[dict] = []
+    for i, shell in enumerate(shells):
+        if i >= len(paths):
+            break
+        path = paths[i]
+        fitted = i in first_shell
+        n_fit = float(path.get("N") or 0.0)
+        n0 = (float(n0_per_path[i]) if i < len(n0_per_path)
+              else float(shell.get("degen") or 0.0))
+        n_ratio = ((n_fit / n0) if fitted and n0 > 0
+                   else (1.0 if not fitted else ""))
+        row = {column: "" for column in cn_table.CN_TABLE_COLUMNS}
+        row.update({
+            "phase_id": structure_model.model_id,
+            "model_level": structure_model.model_level,
+            "source_type": structure_model.source_type,
+            "source_ref": structure_model.source_ref,
+            "source_cif_sha256": structure_model.source_cif_sha256,
+            "absorber_site": structure_model.absorber_site,
+            "shell_group": "first_shell" if fitted else "higher_shell",
+            "shell_label": shell.get("label", ""),
+            "scatterer": shell.get("scatterer", ""),
+            "r_cif": float(shell.get("reff")
+                           or shell.get("reff_mean") or 0.0),
+            "n0": n0,
+            "n0_members": shell.get("n_members", ""),
+            "n_fit": n_fit,
+            "n_status": "fitted" if fitted else "fixed",
+            "n_ratio": n_ratio,
+            "n_err_formal": (path.get("N_err") if fitted else ""),
+            "n_err_systematic": (systematics if fitted else ""),
+            "delta_r": path.get("delta_r", ""),
+            "sigma2": path.get("sigma2", ""),
+            "delta_e0": cond_fit.get("delta_e0", ""),
+            "rf": rf,
+            "s02": absorber.s02,
+            "s02_source": s02_source,
+            "s02_calibrated": bool(absorber.calibrated),
+            "kmin": conditional_cn.get("kmin", ""),
+            "kmax": conditional_cn.get("kmax", ""),
+            "kweight": conditional_cn.get("kweight", ""),
+            "rmin": plan.get("rmin", ""),
+            "rmax": plan.get("rmax", ""),
+            "n_idp": cond_fit.get("n_independent", ""),
+            "n_variables": cond_fit.get("n_variables", ""),
+            "cn_label": "cn_conditional",
+            "gate_status": row_gate,
+            "reject_reason": "",
+            "flags": row_flags,
+            "assumptions": assumptions,
+            "data_sha256": data_sha256,
+            "software_version": software_version,
+        })
+        rows.append(row)
+    return {"status": "ok", "rows": rows, "reject_reason": None,
+            "model": model}

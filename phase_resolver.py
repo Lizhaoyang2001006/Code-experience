@@ -316,10 +316,30 @@ def _store_to_cache(cache_root: Path, source: str, motif_id: str,
 def _candidate_to_structure_model(
         candidate: PhaseCandidate, absorber: str,
         absorber_site: str | None) -> StructureModel:
-    """把一个 verified 候选构造为 StructureModel（走严格链）。"""
-    site = absorber_site or (
-        candidate.absorber_sites[0] if candidate.absorber_sites else None)
-    if not site:
+    """把一个 verified 候选构造为 StructureModel（走严格链）。
+
+    单吸收位点可以自动使用；多吸收位点必须显式 ``--absorber-site``，
+    不自动 Top-1，避免把 Fe3O4 的四面体位/八面体位混为一谈。
+    """
+    sites = list(candidate.absorber_sites or [])
+    if absorber_site:
+        canonical = {s.lower(): s for s in sites}.get(
+            str(absorber_site).strip().lower())
+        if canonical is None:
+            raise PhaseResolutionError(
+                "absorber_site_missing",
+                f"{candidate.source}:{candidate.id} 没有吸收位 "
+                f"{absorber_site!r}；可用位点: {sites}")
+        site = canonical
+    elif len(sites) == 1:
+        site = sites[0]
+    elif len(sites) > 1:
+        raise PhaseResolutionError(
+            "absorber_site_ambiguous",
+            f"{candidate.source}:{candidate.id} 有多个吸收位点"
+            f"（{len(sites)} 个）{sites}，不自动 Top-1；"
+            f"请用 --absorber-site 显式指定")
+    else:
         raise PhaseResolutionError(
             "absorber_site_missing",
             f"{candidate.source}:{candidate.id} 缺少吸收位；"
@@ -620,10 +640,12 @@ def resolve_phase(
         try:
             resolution.structure_model = _candidate_to_structure_model(
                 cand, absorber, absorber_site)
-        except PhaseResolutionError:
-            # 缺 absorber_site 等：保留 resolved，但 structure_model 为 None；
-            # 调用方通过 formal_cn 门禁会得到 absorber_site_missing
+        except PhaseResolutionError as exc:
+            # 缺 absorber_site / 多位点未指定：保留 resolved，但
+            # structure_model 为 None；调用方通过 formal_cn 门禁会得到
+            # 明确原因，而不是静默使用第一个位点。
             resolution.structure_model = None
+            resolution.reason = exc.detail
     else:
         resolution.structure_model = None
         resolution.reason = (

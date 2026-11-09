@@ -1,0 +1,33 @@
+{
+  "source": "COD",
+  "id": "9008478",
+  "formula": "Pd",
+  "spacegroup": "F m -3 m",
+  "cell": {
+    "a": 3.8898,
+    "b": 3.8898,
+    "c": 3.8898,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "gamma": 90.0
+  },
+  "absorber_sites": [
+    "Pd"
+  ],
+  "absorber_elements": [
+    "Pd"
+  ],
+  "cif_path": "COD/9008478/19ff9c078a7c8cdfbb7d5d33ed9b810e950642d00e1080568a385058487a17f5.cif",
+  "cif_sha256": "19ff9c078a7c8cdfbb7d5d33ed9b810e950642d00e1080568a385058487a17f5",
+  "experimental": true,
+  "model_level": "crystal_cif",
+  "tags": [
+    "Pd",
+    "metal",
+    "fcc",
+    "element_seed"
+  ],
+  "added_by": "tools/cif_crawler.py",
+  "original_filename": "Pd_COD_9008478.cif",
+  "notes": "T4 fcc; COD:9008478; source_url=https://www.crystallography.net/cod/9008478.cif"
+}

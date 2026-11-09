@@ -23,32 +23,30 @@
   ],
   "summary": {
     "elements_total": 17,
-    "elements_verified": 5,
+    "elements_verified": 17,
     "verified_elements": [
       "Fe",
       "Co",
       "Ni",
       "Cu",
-      "Pt"
-    ],
-    "elements_motif_only": 4,
-    "motif_only_elements": [
+      "Pt",
       "Cr",
+      "Mn",
       "Zn",
       "Mo",
-      "Au"
-    ],
-    "elements_not_covered": 8,
-    "not_covered_elements": [
-      "Mn",
       "Ru",
       "Rh",
       "Pd",
       "Ag",
       "Ir",
+      "Au",
       "Ce",
       "U"
     ],
+    "elements_motif_only": 0,
+    "motif_only_elements": [],
+    "elements_not_covered": 0,
+    "not_covered_elements": [],
     "elements_with_motif": 9,
     "with_motif_elements": [
       "Fe",
@@ -72,12 +70,12 @@
       "Ce",
       "U"
     ],
-    "verified_cif": 5
+    "verified_cif": 26
   },
   "elements": {
     "Fe": {
       "element": "Fe",
-      "verified_cif": 1,
+      "verified_cif": 3,
       "prototype": 7,
       "cluster": 4,
       "motif_total": 11,
@@ -85,6 +83,8 @@
       "formal_cn_ready": true,
       "coverage_status": "verified",
       "phase_ids": [
+        "COD:1010369",
+        "COD:1011240",
         "COD:1100108"
       ],
       "common_phases": [
@@ -96,14 +96,12 @@
       ],
       "missing_common_phases": [
         "FeO",
-        "Fe3O4",
-        "Fe2O3",
         "FeOOH"
       ]
     },
     "Co": {
       "element": "Co",
-      "verified_cif": 1,
+      "verified_cif": 3,
       "prototype": 4,
       "cluster": 2,
       "motif_total": 6,
@@ -111,6 +109,8 @@
       "formal_cn_ready": true,
       "coverage_status": "verified",
       "phase_ids": [
+        "COD:1533087",
+        "COD:9005888",
         "COD:9008492"
       ],
       "common_phases": [
@@ -118,14 +118,11 @@
         "CoO",
         "Co3O4"
       ],
-      "missing_common_phases": [
-        "CoO",
-        "Co3O4"
-      ]
+      "missing_common_phases": []
     },
     "Ni": {
       "element": "Ni",
-      "verified_cif": 1,
+      "verified_cif": 3,
       "prototype": 3,
       "cluster": 1,
       "motif_total": 4,
@@ -133,21 +130,20 @@
       "formal_cn_ready": true,
       "coverage_status": "verified",
       "phase_ids": [
-        "COD:1534892"
+        "COD:1010093",
+        "COD:1534892",
+        "COD:1548811"
       ],
       "common_phases": [
         "metal",
         "NiO",
         "Ni(OH)2"
       ],
-      "missing_common_phases": [
-        "NiO",
-        "Ni(OH)2"
-      ]
+      "missing_common_phases": []
     },
     "Cu": {
       "element": "Cu",
-      "verified_cif": 1,
+      "verified_cif": 3,
       "prototype": 3,
       "cluster": 1,
       "motif_total": 4,
@@ -155,6 +151,8 @@
       "formal_cn_ready": true,
       "coverage_status": "verified",
       "phase_ids": [
+        "COD:1010941",
+        "COD:1011148",
         "COD:4105040"
       ],
       "common_phases": [
@@ -162,10 +160,7 @@
         "Cu2O",
         "CuO"
       ],
-      "missing_common_phases": [
-        "Cu2O",
-        "CuO"
-      ]
+      "missing_common_phases": []
     },
     "Pt": {
       "element": "Pt",
@@ -189,33 +184,36 @@
     },
     "Cr": {
       "element": "Cr",
-      "verified_cif": 0,
+      "verified_cif": 1,
       "prototype": 1,
       "cluster": 0,
       "motif_total": 1,
       "motif_source_ref_only": 0,
-      "formal_cn_ready": false,
-      "coverage_status": "motif_only",
-      "phase_ids": [],
+      "formal_cn_ready": true,
+      "coverage_status": "verified",
+      "phase_ids": [
+        "COD:9008531"
+      ],
       "common_phases": [
         "metal",
         "Cr2O3"
       ],
       "missing_common_phases": [
-        "metal",
         "Cr2O3"
       ]
     },
     "Mn": {
       "element": "Mn",
-      "verified_cif": 0,
+      "verified_cif": 1,
       "prototype": 0,
       "cluster": 0,
       "motif_total": 0,
       "motif_source_ref_only": 0,
-      "formal_cn_ready": false,
-      "coverage_status": "not_covered",
-      "phase_ids": [],
+      "formal_cn_ready": true,
+      "coverage_status": "verified",
+      "phase_ids": [
+        "COD:9008589"
+      ],
       "common_phases": [
         "metal",
         "MnO",
@@ -223,7 +221,6 @@
         "Mn3O4"
       ],
       "missing_common_phases": [
-        "metal",
         "MnO",
         "MnO2",
         "Mn3O4"
@@ -231,185 +228,196 @@
     },
     "Zn": {
       "element": "Zn",
-      "verified_cif": 0,
+      "verified_cif": 1,
       "prototype": 1,
       "cluster": 0,
       "motif_total": 1,
       "motif_source_ref_only": 0,
-      "formal_cn_ready": false,
-      "coverage_status": "motif_only",
-      "phase_ids": [],
+      "formal_cn_ready": true,
+      "coverage_status": "verified",
+      "phase_ids": [
+        "COD:9008522"
+      ],
       "common_phases": [
         "metal",
         "ZnO"
       ],
       "missing_common_phases": [
-        "metal",
         "ZnO"
       ]
     },
     "Mo": {
       "element": "Mo",
-      "verified_cif": 0,
+      "verified_cif": 1,
       "prototype": 1,
       "cluster": 0,
       "motif_total": 1,
       "motif_source_ref_only": 0,
-      "formal_cn_ready": false,
-      "coverage_status": "motif_only",
-      "phase_ids": [],
+      "formal_cn_ready": true,
+      "coverage_status": "verified",
+      "phase_ids": [
+        "COD:9008543"
+      ],
       "common_phases": [
         "metal",
         "MoO2",
         "MoO3"
       ],
       "missing_common_phases": [
-        "metal",
         "MoO2",
         "MoO3"
       ]
     },
     "Ru": {
       "element": "Ru",
-      "verified_cif": 0,
+      "verified_cif": 1,
       "prototype": 0,
       "cluster": 0,
       "motif_total": 0,
       "motif_source_ref_only": 0,
-      "formal_cn_ready": false,
-      "coverage_status": "not_covered",
-      "phase_ids": [],
+      "formal_cn_ready": true,
+      "coverage_status": "verified",
+      "phase_ids": [
+        "COD:9008513"
+      ],
       "common_phases": [
         "metal",
         "RuO2"
       ],
       "missing_common_phases": [
-        "metal",
         "RuO2"
       ]
     },
     "Rh": {
       "element": "Rh",
-      "verified_cif": 0,
+      "verified_cif": 1,
       "prototype": 0,
       "cluster": 0,
       "motif_total": 0,
       "motif_source_ref_only": 0,
-      "formal_cn_ready": false,
-      "coverage_status": "not_covered",
-      "phase_ids": [],
+      "formal_cn_ready": true,
+      "coverage_status": "verified",
+      "phase_ids": [
+        "COD:9008482"
+      ],
       "common_phases": [
         "metal",
         "Rh2O3"
       ],
       "missing_common_phases": [
-        "metal",
         "Rh2O3"
       ]
     },
     "Pd": {
       "element": "Pd",
-      "verified_cif": 0,
+      "verified_cif": 1,
       "prototype": 0,
       "cluster": 0,
       "motif_total": 0,
       "motif_source_ref_only": 0,
-      "formal_cn_ready": false,
-      "coverage_status": "not_covered",
-      "phase_ids": [],
+      "formal_cn_ready": true,
+      "coverage_status": "verified",
+      "phase_ids": [
+        "COD:9008478"
+      ],
       "common_phases": [
         "metal",
         "PdO"
       ],
       "missing_common_phases": [
-        "metal",
         "PdO"
       ]
     },
     "Ag": {
       "element": "Ag",
-      "verified_cif": 0,
+      "verified_cif": 1,
       "prototype": 0,
       "cluster": 0,
       "motif_total": 0,
       "motif_source_ref_only": 0,
-      "formal_cn_ready": false,
-      "coverage_status": "not_covered",
-      "phase_ids": [],
+      "formal_cn_ready": true,
+      "coverage_status": "verified",
+      "phase_ids": [
+        "COD:9008459"
+      ],
       "common_phases": [
         "metal",
         "Ag2O"
       ],
       "missing_common_phases": [
-        "metal",
         "Ag2O"
       ]
     },
     "Ir": {
       "element": "Ir",
-      "verified_cif": 0,
+      "verified_cif": 1,
       "prototype": 0,
       "cluster": 0,
       "motif_total": 0,
       "motif_source_ref_only": 0,
-      "formal_cn_ready": false,
-      "coverage_status": "not_covered",
-      "phase_ids": [],
+      "formal_cn_ready": true,
+      "coverage_status": "verified",
+      "phase_ids": [
+        "COD:9008470"
+      ],
       "common_phases": [
         "metal",
         "IrO2"
       ],
       "missing_common_phases": [
-        "metal",
         "IrO2"
       ]
     },
     "Au": {
       "element": "Au",
-      "verified_cif": 0,
+      "verified_cif": 1,
       "prototype": 1,
       "cluster": 0,
       "motif_total": 1,
       "motif_source_ref_only": 0,
-      "formal_cn_ready": false,
-      "coverage_status": "motif_only",
-      "phase_ids": [],
+      "formal_cn_ready": true,
+      "coverage_status": "verified",
+      "phase_ids": [
+        "COD:9008463"
+      ],
       "common_phases": [
         "metal",
         "Au2O3"
       ],
       "missing_common_phases": [
-        "metal",
         "Au2O3"
       ]
     },
     "Ce": {
       "element": "Ce",
-      "verified_cif": 0,
+      "verified_cif": 2,
       "prototype": 0,
       "cluster": 0,
       "motif_total": 0,
       "motif_source_ref_only": 0,
-      "formal_cn_ready": false,
-      "coverage_status": "not_covered",
-      "phase_ids": [],
+      "formal_cn_ready": true,
+      "coverage_status": "verified",
+      "phase_ids": [
+        "COD:1562989",
+        "COD:9010987"
+      ],
       "common_phases": [
         "CeO2"
       ],
-      "missing_common_phases": [
-        "CeO2"
-      ]
+      "missing_common_phases": []
     },
     "U": {
       "element": "U",
-      "verified_cif": 0,
+      "verified_cif": 1,
       "prototype": 0,
       "cluster": 0,
       "motif_total": 0,
       "motif_source_ref_only": 0,
-      "formal_cn_ready": false,
-      "coverage_status": "not_covered",
-      "phase_ids": [],
+      "formal_cn_ready": true,
+      "coverage_status": "verified",
+      "phase_ids": [
+        "COD:1527120"
+      ],
       "common_phases": [
         "UO2",
         "U3O8"

@@ -57,7 +57,7 @@ Phase III（B9–B12）新增 15 项契约：
     - 相移校正 FT/WT；异核共占位双分支；关联 Debye；BVS 软约束
     - R/q/WT 多空间拟合；双吸收边 ΔE₀ 分组 + AIC/BIC；SAC/DAC 团簇
 
-当前共 114 项契约回归（B1-1 至 B20-1，外加 P0a/P0b/P1a/P1b/P2a/P2b/P3/P4 正式 CN 契约）。
+当前共 119 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+ CIF 抓取/条件 CN 契约）。
 
 运行:
     python regression_test.py
@@ -1556,7 +1556,7 @@ class RegressionTest(unittest.TestCase):
         from types import SimpleNamespace
 
         motif = [m for m in structure_lib.load_library("Ni")
-                 if m.id == "nio_rocksalt"][0]
+                 if m.id == "nio_bunsenite_cod_1010093"][0]
         cache = structure_lib.ensure_feff(motif, edge="K")
         paths = []
         for f in sorted(cache.glob("feff*.dat")):
@@ -1736,7 +1736,7 @@ Ni1 Ni 0.5 0.5 0.5 0.4
         等价可检验的尾长判据（q95−r0 > r0−q05），不伪造面积。
         """
         motif = [m for m in structure_lib.load_library("Ni")
-                 if m.id == "nio_rocksalt"][0]
+                 if m.id == "nio_bunsenite_cod_1010093"][0]
         cache = structure_lib.ensure_feff(motif, edge="K")
         datfile = None
         for f in sorted(cache.glob("feff*.dat")):
@@ -3362,7 +3362,8 @@ Ru1 Ru 0.5 0.5 0.5 0.3
             "Co": [("con4_planar", "N", 1.96, 4, "C", 2.88)],
             "Ni": [("nin4_planar", "N", 1.92, 4, "C", 2.85)],
             "Cu": [("cun4_planar", "N", 1.95, 4, "C", 2.88),
-                   ("cu2o_cuprite", "O", 1.8488, 2, "Cu", 3.0191)],
+                   ("cu2o_cuprite_cod_1010941", "O", 1.8446, 2,
+                    "Cu", 3.0123)],
             "Pt": [("ptcl4_square", "Cl", 2.31, 4, "Cl", 3.45)],
         }
         for el, entries in expected.items():
@@ -3760,37 +3761,38 @@ Ru1 Ru 0.5 0.5 0.5 0.3
         """#74 B20-1：7 个电催化 Motif 入库 + 4 条真实 BMM 标样盲测。
 
         - CoO / Co3O4 / Ni(OH)2 / CuO / PtO2 几何指纹逐项核验；
-        - Co-K-CoO：top1=coo_rocksalt confident、score<0.06，S7 Rf<0.02；
+        - Co-K-CoO：top1=coo_rocksalt_cod_1533087 confident、score<0.06，S7 Rf<0.02；
         - Co-K-Co3O4：top1=co3o4_mixed confident、score<0.05、无未解释峰；
-        - Ni-K-NickelHydroxide：top1=ni_oh2_brucite confident、score<0.14，
-          S7 Rf<0.05 且 Ni-O/Ni-Ni 键长落在窗口内；
-        - Cu-CuO：top1=cuo_tenorite、score<0.10。
+        - Ni-K-NickelHydroxide：top1=nioh2_theophrastite_cod_1548811
+          confident、score<0.14，S7 Rf<0.05 且 Ni-O/Ni-Ni 键长落在窗口内；
+        - Cu-CuO：top1=cuo_tenorite_cod_1011148、score<0.10。
         """
         co_lib = {m.id: m for m in structure_lib.load_library("Co")}
         ni_lib = {m.id: m for m in structure_lib.load_library("Ni")}
         cu_lib = {m.id: m for m in structure_lib.load_library("Cu")}
         pt_lib = {m.id: m for m in structure_lib.load_library("Pt")}
-        for mid in ("coo_rocksalt", "co3o4_tet", "co3o4_oct", "co3o4_mixed"):
+        for mid in ("coo_rocksalt_cod_1533087", "co3o4_spinel_cod_9005888",
+                    "co3o4_oct", "co3o4_mixed"):
             self.assertIn(mid, co_lib)
-        self.assertIn("ni_oh2_brucite", ni_lib)
-        self.assertIn("cuo_tenorite", cu_lib)
+        self.assertIn("nioh2_theophrastite_cod_1548811", ni_lib)
+        self.assertIn("cuo_tenorite_cod_1011148", cu_lib)
         self.assertIn("pto2_beta", pt_lib)
 
         def _shells(motif):
             rows = motif.shell_expect or []
             return [(s["el"], float(s["r"]), int(s["n"])) for s in rows]
 
-        coo = _shells(co_lib["coo_rocksalt"])
+        coo = _shells(co_lib["coo_rocksalt_cod_1533087"])
         self.assertEqual(coo[0][0], "O")
-        self.assertAlmostEqual(coo[0][1], 2.1306, places=3)
+        self.assertAlmostEqual(coo[0][1], 2.1315, places=3)
         self.assertEqual(coo[0][2], 6)
         self.assertEqual(coo[1][0], "Co")
-        self.assertAlmostEqual(coo[1][1], 3.0131, places=3)
+        self.assertAlmostEqual(coo[1][1], 3.0144, places=3)
         self.assertEqual(coo[1][2], 12)
 
-        tet = _shells(co_lib["co3o4_tet"])
+        tet = _shells(co_lib["co3o4_spinel_cod_9005888"])
         self.assertEqual(tet[0][2], 4)
-        self.assertAlmostEqual(tet[0][1], 1.9323, places=3)
+        self.assertAlmostEqual(tet[0][1], 1.9353, places=3)
         octa = _shells(co_lib["co3o4_oct"])
         self.assertEqual(octa[0][2], 6)
         self.assertAlmostEqual(octa[0][1], 1.9217, places=3)
@@ -3800,20 +3802,21 @@ Ru1 Ru 0.5 0.5 0.5 0.3
         mixed = co_lib["co3o4_mixed"]
         self.assertEqual(mixed.kind, "mixture")
         weights = {c["id"]: float(c["weight"]) for c in mixed.components}
-        self.assertAlmostEqual(weights["co3o4_tet"], 1.0 / 3.0, places=12)
+        self.assertAlmostEqual(weights["co3o4_spinel_cod_9005888"],
+                               1.0 / 3.0, places=12)
         self.assertAlmostEqual(weights["co3o4_oct"], 2.0 / 3.0, places=12)
 
-        brucite = _shells(ni_lib["ni_oh2_brucite"])
+        brucite = _shells(ni_lib["nioh2_theophrastite_cod_1548811"])
         self.assertEqual(brucite[0][0], "O")
-        self.assertAlmostEqual(brucite[0][1], 2.0697, places=3)
+        self.assertAlmostEqual(brucite[0][1], 2.0597, places=3)
         self.assertEqual(brucite[0][2], 6)
         self.assertEqual(brucite[1][0], "Ni")
-        self.assertAlmostEqual(brucite[1][1], 3.126, places=3)
+        self.assertAlmostEqual(brucite[1][1], 3.1268, places=3)
         self.assertEqual(brucite[1][2], 6)
 
-        tenorite = _shells(cu_lib["cuo_tenorite"])
+        tenorite = _shells(cu_lib["cuo_tenorite_cod_1011148"])
         self.assertEqual(tenorite[0][0], "O")
-        self.assertAlmostEqual(tenorite[0][1], 1.9558, places=3)
+        self.assertAlmostEqual(tenorite[0][1], 1.9475, places=3)
         self.assertEqual(tenorite[0][2], 4)
 
         pto2 = _shells(pt_lib["pto2_beta"])
@@ -3836,14 +3839,16 @@ Ru1 Ru 0.5 0.5 0.5 0.3
 
         # ---- CoO ----
         res_coo, sid_coo = _identify("Co/Co-K-CoO.xdi", "Co")
-        self.assertEqual(sid_coo["ranked"][0]["id"], "coo_rocksalt")
+        self.assertEqual(sid_coo["ranked"][0]["id"],
+                         "coo_rocksalt_cod_1533087")
         self.assertEqual(sid_coo["status"], "confident")
         self.assertLess(sid_coo["ranked"][0]["score"], 0.06)
         out_coo = xafs_fit.run(
             res_coo, identify=False, fit=True, absorber_symbol="Co",
             verbose=False)
         self.assertEqual(out_coo["fit"]["mode"], "motif")
-        self.assertEqual(out_coo["fit"]["motif"], "coo_rocksalt")
+        self.assertEqual(out_coo["fit"]["motif"],
+                         "coo_rocksalt_cod_1533087")
         self.assertLess(out_coo["fit"]["fit"].r_factor, 0.02)
 
         # ---- Co3O4（尖晶石双位点 mixture）----
@@ -3856,7 +3861,8 @@ Ru1 Ru 0.5 0.5 0.5 0.3
         # ---- β-Ni(OH)2 ----
         res_nioh, sid_nioh = _identify(
             "Ni/Ni-K-NickelHydroxide.xdi", "Ni")
-        self.assertEqual(sid_nioh["ranked"][0]["id"], "ni_oh2_brucite")
+        self.assertEqual(sid_nioh["ranked"][0]["id"],
+                         "nioh2_theophrastite_cod_1548811")
         self.assertEqual(sid_nioh["status"], "confident")
         self.assertLess(sid_nioh["ranked"][0]["score"], 0.14)
         out_nioh = xafs_fit.run(
@@ -3877,7 +3883,8 @@ Ru1 Ru 0.5 0.5 0.5 0.3
 
         # ---- CuO ----
         _, sid_cuo = _identify("Cu/Cu-CuO.xdi", "Cu")
-        self.assertEqual(sid_cuo["ranked"][0]["id"], "cuo_tenorite")
+        self.assertEqual(sid_cuo["ranked"][0]["id"],
+                         "cuo_tenorite_cod_1011148")
         self.assertLess(sid_cuo["ranked"][0]["score"], 0.10)
 
     # ------------------------------------------------------------
@@ -4013,7 +4020,7 @@ Ru1 Ru 0.5 0.5 0.5 0.3
                                  motif.model_level)
 
         self.assertEqual(total, report["summary"]["motifs"])
-        self.assertEqual(total, 32)
+        self.assertEqual(total, 43)
         self.assertEqual(report["summary"]["unclassified"], 0)
 
     def test_generated_cif_not_formal_source(self):
@@ -4102,10 +4109,10 @@ Ru1 Ru 0.5 0.5 0.5 0.3
         """#82 P0b：B17–B20 motif 保留、指纹不变、constructed 不升级。"""
         expected = {
             "Fe": {"fen4_planar", "fe2_mu_oxo", "fe2n6_dual"},
-            "Co": {"co3o4_mixed", "co3o4_oct", "co3o4_tet",
-                   "con4_planar"},
-            "Ni": {"nin4_planar", "ni_oh2_brucite"},
-            "Cu": {"cun4_planar", "cuo_tenorite"},
+            "Co": {"co3o4_mixed", "co3o4_oct",
+                   "co3o4_spinel_cod_9005888", "con4_planar"},
+            "Ni": {"nin4_planar", "nioh2_theophrastite_cod_1548811"},
+            "Cu": {"cun4_planar", "cuo_tenorite_cod_1011148"},
             "Pt": {"ptcl4_square", "pto2_beta"},
         }
         libraries = {}
@@ -4116,12 +4123,12 @@ Ru1 Ru 0.5 0.5 0.5 0.3
                 self.assertIn(motif_id, lib, f"{element}/{motif_id}")
 
         co_oct = libraries["Co"]["co3o4_oct"]
-        co_tet = libraries["Co"]["co3o4_tet"]
+        co_tet = libraries["Co"]["co3o4_spinel_cod_9005888"]
         con4 = libraries["Co"]["con4_planar"]
         self.assertEqual(co_oct.shell_expect[0],
                          {"el": "O", "r": 1.9217, "n": 6, "n_occ": 6.0})
         self.assertEqual(co_tet.shell_expect[0],
-                         {"el": "O", "r": 1.9323, "n": 4, "n_occ": 4.0})
+                         {"el": "O", "r": 1.9353, "n": 4, "n_occ": 4.0})
         self.assertEqual(con4.shell_expect[0],
                          {"el": "N", "r": 1.96, "n": 4})
 
@@ -4167,40 +4174,62 @@ Ru1 Ru 0.5 0.5 0.5 0.3
                          set(phase_pack.ABSORBER_ELEMENTS))
         self.assertEqual(len(coverage["absorber_elements"]), 17)
         self.assertEqual(coverage["summary"]["elements_total"], 17)
-        self.assertEqual(coverage["summary"]["elements_covered"], 9)
-        self.assertEqual(coverage["summary"]["elements_missing"], 8)
-        self.assertEqual(coverage["summary"]["motifs"], 32)
-        self.assertEqual(set(coverage["missing_elements"]),
-                         {"Ag", "Ce", "Ir", "Mn", "Pd", "Rh", "Ru", "U"})
+        self.assertEqual(coverage["summary"]["elements_covered"], 17)
+        self.assertEqual(coverage["summary"]["elements_missing"], 0)
+        self.assertEqual(coverage["summary"]["motifs"], 43)
+        self.assertEqual(set(coverage["missing_elements"]), set())
         self.assertEqual(set(coverage["covered_elements"]) |
                          set(coverage["missing_elements"]),
                          set(coverage["absorber_elements"]))
         self.assertFalse(set(coverage["covered_elements"]) &
                          set(coverage["missing_elements"]))
         self.assertEqual(sum(row["motifs"]
-                             for row in coverage["elements"].values()), 32)
+                             for row in coverage["elements"].values()), 43)
         self.assertEqual(coverage["summary"]["formal_cn_ready_elements"], [])
         self.assertEqual(report["summary"]["unclassified"], 0)
         self.assertEqual(report["summary"]["by_status"].get(
             "verified_source_cif", 0), 0)
-        self.assertEqual(report["summary"]["motifs"], 32)
+        self.assertEqual(report["summary"]["motifs"], 43)
 
     def test_phase_pack_import_and_index(self):
-        """#84 P1a：5 条金属种子可校验、可索引、导入幂等。"""
+        """#84 P1a：26 条来源（5 金属种子 + 21 抓取目标）可校验、可索引。"""
         pack_root = ROOT / "_structure_lib" / "_phase_pack"
         manifest = phase_pack.load_manifest(pack_root)
         self.assertEqual(manifest["schema_version"], 1)
         self.assertEqual(manifest["pack_id"], "formal-cn-phase-pack")
-        self.assertEqual(len(manifest["entries"]), 5)
+        self.assertEqual(len(manifest["entries"]), 26)
 
-        expected = {
-            "Fe": ("1100108", "Fe1"),
-            "Co": ("9008492", "Co"),
-            "Ni": ("1534892", "Ni1"),
-            "Cu": ("4105040", "Cu"),
-            "Pt": ("1011103", "Pt1"),
+        seeds = {
+            "1100108": ("Fe", ["Fe1"]),
+            "9008492": ("Co", ["Co"]),
+            "1534892": ("Ni", ["Ni1"]),
+            "4105040": ("Cu", ["Cu"]),
+            "1011103": ("Pt", ["Pt1"]),
         }
-        by_element = {}
+        crawled = {
+            "1011240": ("Fe", ["Fe1"]),
+            "1010369": ("Fe", ["Fe1", "Fe2", "Fe3"]),
+            "1533087": ("Co", ["Co1"]),
+            "9005888": ("Co", ["Co1", "Co2"]),
+            "1010093": ("Ni", ["Ni1"]),
+            "1548811": ("Ni", ["Ni1"]),
+            "1011148": ("Cu", ["Cu1"]),
+            "1010941": ("Cu", ["Cu1"]),
+            "1562989": ("Ce", ["Ce"]),
+            "9008589": ("Mn", ["Mn1", "Mn2", "Mn3", "Mn4"]),
+            "9008513": ("Ru", ["Ru"]),
+            "9008482": ("Rh", ["Rh"]),
+            "9008478": ("Pd", ["Pd"]),
+            "9008459": ("Ag", ["Ag"]),
+            "9008470": ("Ir", ["Ir"]),
+            "9010987": ("Ce", ["Ce"]),
+            "1527120": ("U", ["U1"]),
+            "9008531": ("Cr", ["Cr"]),
+            "9008522": ("Zn", ["Zn"]),
+            "9008543": ("Mo", ["Mo"]),
+            "9008463": ("Au", ["Au"]),
+        }
+        by_id = {}
         for entry in manifest["entries"]:
             result = phase_pack.validate_entry(pack_root, entry)
             self.assertTrue(result["ok"], (entry["id"], result))
@@ -4208,20 +4237,21 @@ Ru1 Ru 0.5 0.5 0.5 0.3
             self.assertTrue(entry["experimental"])
             self.assertEqual(entry["model_level"], "crystal_cif")
             self.assertEqual(len(entry["absorber_elements"]), 1)
-            by_element[entry["absorber_elements"][0]] = entry
-        for element, (entry_id, site) in expected.items():
-            self.assertIn(element, by_element)
-            entry = by_element[element]
-            self.assertEqual(entry["id"], entry_id)
-            self.assertEqual(entry["absorber_sites"], [site])
+            by_id[entry["id"]] = entry
+        for entry_id, (element, sites) in {**seeds, **crawled}.items():
+            self.assertIn(entry_id, by_id)
+            entry = by_id[entry_id]
+            self.assertEqual(entry["absorber_elements"], [element])
+            self.assertEqual(entry["absorber_sites"], sites)
 
         index = json.loads((ROOT / "_structure_lib" /
                             "phase_index.json").read_text(encoding="utf-8"))
         self.assertEqual(index["schema_version"], 1)
         self.assertEqual(index["pack_id"], manifest["pack_id"])
-        self.assertEqual(len(index["entries"]), 5)
-        self.assertEqual(set(index["summary"]["elements_covered"]),
-                         {"Fe", "Co", "Ni", "Cu", "Pt"})
+        self.assertEqual(len(index["entries"]), 26)
+        self.assertEqual(set(index["summary"]["elements_covered"]), {
+            "Fe", "Co", "Ni", "Cu", "Pt", "Cr", "Mn", "Zn", "Mo",
+            "Ru", "Rh", "Pd", "Ag", "Ir", "Au", "Ce", "U"})
         indexed = {(e["source"], e["id"]): e for e in index["entries"]}
         for entry in manifest["entries"]:
             row = indexed[(entry["source"], entry["id"])]
@@ -4237,7 +4267,10 @@ Ru1 Ru 0.5 0.5 0.5 0.3
         self.assertEqual(coverage["summary"]["elements_without_motif"], 8)
         self.assertEqual(set(coverage["summary"]["without_motif_elements"]),
                          {"Ag", "Ce", "Ir", "Mn", "Pd", "Rh", "Ru", "U"})
-        for element in expected:
+        self.assertEqual(set(coverage["summary"]["verified_elements"]), {
+            "Fe", "Co", "Ni", "Cu", "Pt", "Cr", "Mn", "Zn", "Mo",
+            "Ru", "Rh", "Pd", "Ag", "Ir", "Au", "Ce", "U"})
+        for element in {v[0] for v in {**seeds, **crawled}.values()}:
             row = coverage["elements"][element]
             self.assertTrue(row["formal_cn_ready"], element)
             self.assertEqual(row["coverage_status"], "verified")
@@ -4246,7 +4279,7 @@ Ru1 Ru 0.5 0.5 0.5 0.3
         # 导入幂等：同一文件导入两次，manifest 与目标文件保持不变。
         with tempfile.TemporaryDirectory() as tmp:
             tmp_pack = Path(tmp) / "pack"
-            src = pack_root / by_element["Fe"]["cif_path"]
+            src = pack_root / by_id["1011240"]["cif_path"]
             first = phase_pack.import_cif(
                 src, tmp_pack, source="user", id="seed_fe",
                 tags=["metal"], meta={})
@@ -4319,22 +4352,25 @@ Ru1 Ru 0.5 0.5 0.5 0.3
             self.assertEqual(result["code"], "sha256_mismatch")
 
     def test_uncovered_element_no_formal_cn(self):
-        """#86 P1a：未覆盖元素不回退 motif，正式 CN 为 0 行 + no_cif。"""
+        """#86 P1a：generated_only motif 不升级正式 CN；phase pack 覆盖 17/17。"""
         coverage = json.loads((ROOT / "_structure_lib" /
                                "phase_coverage.json")
                               .read_text(encoding="utf-8"))
         index = json.loads((ROOT / "_structure_lib" /
                             "phase_index.json").read_text(encoding="utf-8"))
-        self.assertFalse(coverage["elements"]["Mn"]["formal_cn_ready"])
-        self.assertEqual(coverage["elements"]["Mn"]["coverage_status"],
-                         "not_covered")
-        self.assertEqual(phase_pack.verified_entries(index, "Mn"), [])
-        # Zn 有 motif，但只是 generated_only，不能算正式覆盖。
-        self.assertEqual(coverage["elements"]["Zn"]["coverage_status"],
-                         "motif_only")
-        self.assertFalse(coverage["elements"]["Zn"]["formal_cn_ready"])
-        self.assertEqual(phase_pack.verified_entries(index, "Zn"), [])
-
+        # P4+ 已用 21 条真实 CIF 补齐全部 17 个吸收元素。
+        self.assertEqual(coverage["summary"]["elements_verified"], 17)
+        self.assertEqual(coverage["summary"]["elements_not_covered"], 0)
+        self.assertEqual(coverage["summary"]["not_covered_elements"], [])
+        self.assertEqual(coverage["summary"]["elements_motif_only"], 0)
+        for element in phase_pack.ABSORBER_ELEMENTS:
+            self.assertTrue(
+                coverage["elements"][element]["formal_cn_ready"], element)
+            self.assertEqual(
+                coverage["elements"][element]["coverage_status"], "verified")
+            self.assertGreaterEqual(
+                len(phase_pack.verified_entries(index, element)), 1, element)
+        # 但 generated_only motif 仍不能冒充正式来源。
         zn = next(m for m in structure_lib.load_library("Zn")
                   if m.id == "zn_hcp")
         self.assertEqual(zn.provenance_status, "generated_only")
@@ -4530,10 +4566,11 @@ Ru1 Ru 0.5 0.5 0.5 0.3
         self.assertIn("pack_root", index)
         self.assertIn("manifest_sha256", index)
         self.assertIn("summary", index)
-        self.assertEqual(index["summary"]["entries"], 5)
-        self.assertEqual(index["summary"]["verified_cif"], 5)
-        self.assertEqual(set(index["summary"]["elements_covered"]),
-                         {"Fe", "Co", "Ni", "Cu", "Pt"})
+        self.assertEqual(index["summary"]["entries"], 26)
+        self.assertEqual(index["summary"]["verified_cif"], 26)
+        self.assertEqual(set(index["summary"]["elements_covered"]), {
+            "Fe", "Co", "Ni", "Cu", "Pt", "Cr", "Mn", "Zn", "Mo",
+            "Ru", "Rh", "Pd", "Ag", "Ir", "Au", "Ce", "U"})
         for row in index["entries"]:
             for key in ("source", "id", "formula", "spacegroup", "cell",
                         "absorber_sites", "absorber_elements", "cif_path",
@@ -4815,6 +4852,9 @@ O1 O 0 0 0 0.5
                          mapping["n0_per_path"])
         # 非参考首壳路径用 degen_ratio 绑定到参考路径
         links = args["fit_args"]["path_links"]
+        # 不同 N₀ 壳层（如 Fe bcc 的 2.48 与 2.87 Å）不得互相绑定：
+        # 远壳必须固定 N₀，不能跟着首壳 N 漂移。
+        self.assertNotIn(1, [link["target"] for link in links])
         for link in links:
             self.assertEqual(link["share_deltar"], False)
             self.assertEqual(link["share_sigma2"], False)
@@ -5062,6 +5102,222 @@ O1 O 0 0 0 0.5
         self.assertEqual(formal["status"], "legacy_unverified")
         self.assertTrue(formal["legacy_auto_fit"])
         self.assertIn("legacy_auto_fit", formal["reject_reason"])
+
+    # ------------------------------------------------------------
+    # 115–119. P4+：CIF crawler 目标表、离线导入、多位点门禁与正式 CN 行
+    # ------------------------------------------------------------
+    def test_cif_crawler_target_table(self):
+        """#115 P4+：21 个抓取目标 ID 唯一、元素/化学式/空间群自洽。"""
+        from tools import cif_crawler
+        self.assertEqual(len(cif_crawler.VERIFIED_TARGETS), 21)
+        cod_ids = [t["cod_id"] for t in
+                   cif_crawler.VERIFIED_TARGETS.values()]
+        self.assertEqual(len(cod_ids), len(set(cod_ids)))
+        seen_elements = set()
+        for name, target in cif_crawler.VERIFIED_TARGETS.items():
+            self.assertIn(target["tier"], ("T3", "T4"), name)
+            self.assertIn(target["absorber"],
+                          phase_pack.ABSORBER_ELEMENTS, name)
+            parsed = cif_crawler.parse_formula(target["formula"])
+            self.assertEqual(parsed, {el: float(n) for el, n in
+                                      target["stoich"].items()}, name)
+            self.assertTrue(target["spg_nums"], name)
+            self.assertTrue(all(isinstance(n, int) and n > 0
+                                for n in target["spg_nums"]), name)
+            self.assertTrue(target["tags"], name)
+            seen_elements.add(target["absorber"])
+        self.assertEqual(seen_elements,
+                         set(phase_pack.ABSORBER_ELEMENTS) - {"Pt"})
+
+    def test_cif_crawler_offline_import(self):
+        """#116 P4+：离线缓存 → 核验 → phase pack 导入，sha256 可追溯。"""
+        import shutil
+        from tools import cif_crawler
+
+        pack_root = ROOT / "_structure_lib" / "_phase_pack"
+        manifest = phase_pack.load_manifest(pack_root)
+        fe2o3 = next(e for e in manifest["entries"] if e["id"] == "1011240")
+        src = pack_root / fe2o3["cif_path"]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            cache = tmp / "cache"
+            cache.mkdir()
+            shutil.copy2(src, cache / "Fe2O3_COD_1011240.cif")
+            tmp_pack = tmp / "pack"
+            report_path = tmp / "report.json"
+            rc = cif_crawler.main([
+                "--target", "Fe2O3", "--offline",
+                "--cache", str(cache), "--pack", str(tmp_pack),
+                "--report", str(report_path), "--no-index",
+            ])
+            self.assertEqual(rc, 0)
+            rebuilt = phase_pack.load_manifest(tmp_pack)
+            self.assertEqual(len(rebuilt["entries"]), 1)
+            entry = rebuilt["entries"][0]
+            self.assertEqual(entry["source"], "COD")
+            self.assertEqual(entry["id"], "1011240")
+            self.assertEqual(entry["absorber_sites"], ["Fe1"])
+            self.assertEqual(entry["cif_sha256"],
+                             phase_pack.sha256_file(src))
+            self.assertIn("source_url=", entry.get("notes", ""))
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertEqual(report["targets"]["Fe2O3"]["status"],
+                             "imported")
+            self.assertEqual(report["summary"]["imported"], 1)
+
+    def test_cif_crawler_offline_miss_and_wrong_cif(self):
+        """#117 P4+：离线缺缓存 → offline_miss；错相 CIF → 拒绝导入。"""
+        import shutil
+        from tools import cif_crawler
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            cache = tmp / "cache"
+            cache.mkdir()
+            tmp_pack = tmp / "pack"
+            report_path = tmp / "report.json"
+            rc = cif_crawler.main([
+                "--target", "CeO2", "--offline",
+                "--cache", str(cache), "--pack", str(tmp_pack),
+                "--report", str(report_path), "--no-index",
+            ])
+            self.assertEqual(rc, 1)
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertEqual(report["targets"]["CeO2"]["status"],
+                             "offline_miss")
+            self.assertFalse((tmp_pack / "manifest.json").exists())
+
+            # 把 Fe3O4 错相当成 CeO2 缓存：必须被化学计量核验拒绝。
+            pack_root = ROOT / "_structure_lib" / "_phase_pack"
+            manifest = phase_pack.load_manifest(pack_root)
+            fe3o4 = next(e for e in manifest["entries"]
+                         if e["id"] == "1010369")
+            shutil.copy2(pack_root / fe3o4["cif_path"],
+                         cache / "CeO2_COD_1562989.cif")
+            rc = cif_crawler.main([
+                "--target", "CeO2", "--offline",
+                "--cache", str(cache), "--pack", str(tmp_pack),
+                "--report", str(report_path), "--no-index",
+            ])
+            self.assertEqual(rc, 1)
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            row = report["targets"]["CeO2"]
+            self.assertEqual(row["status"], "cache_invalid")
+            self.assertIn("composition_mismatch", row["reason"])
+            self.assertFalse((tmp_pack / "manifest.json").exists())
+
+    def test_multi_site_phase_requires_absorber_site(self):
+        """#118 P4+：Fe3O4 多个吸收位必须显式 --absorber-site。"""
+        res = phase_resolver.resolve_phase("Fe", phase_id="COD:1010369")
+        self.assertEqual(res.status, "resolved")
+        self.assertIsNotNone(res.selected)
+        self.assertEqual(res.selected.id, "1010369")
+        self.assertEqual(len(res.selected.absorber_sites), 3)
+        self.assertIsNone(res.structure_model)
+        self.assertIn("多个吸收位点", res.reason)
+        self.assertIn("--absorber-site", res.reason)
+
+        res_ok = phase_resolver.resolve_phase(
+            "Fe", phase_id="COD:1010369", absorber_site="Fe1")
+        self.assertIsNotNone(res_ok.structure_model)
+        self.assertEqual(res_ok.structure_model.absorber_site, "Fe1")
+
+        res_bad = phase_resolver.resolve_phase(
+            "Fe", phase_id="COD:1010369", absorber_site="Fe9")
+        self.assertIsNone(res_bad.structure_model)
+        self.assertIn("没有吸收位", res_bad.reason)
+
+    def test_conditional_cn_formal_rows(self):
+        """#119 P4+：条件 CN 通过 → 正式行完整可追溯；失败 → 0 行。"""
+        from structure_model import StructureModel
+        model = StructureModel(
+            model_id="COD:1100108", absorber="Fe",
+            absorber_site="Fe1", model_level="crystal_cif",
+            source_type="database_cif", source_ref="COD:1100108",
+            source_cif="_structure_lib/_phase_pack/COD/1100108/x.cif",
+            source_cif_sha256="0" * 64,
+            cell={"a": 2.868, "b": 2.868, "c": 2.868,
+                  "alpha": 90, "beta": 90, "gamma": 90},
+            spacegroup="Im-3m",
+            provenance_status="verified_source_cif",
+        )
+        plan = {
+            "shells": [
+                {"label": "Fe-Fe@2.48", "scatterer": "Fe",
+                 "reff": 2.482, "degen": 8.0, "n_members": 1},
+                {"label": "Fe-Fe@2.87", "scatterer": "Fe",
+                 "reff": 2.866, "degen": 6.0, "n_members": 1},
+            ],
+            "rmin": 1.88, "rmax": 3.5,
+        }
+        n0_mapping = {"n0_per_path": [8.0, 6.0]}
+        conditional = {
+            "n_ratio": 0.95, "n_status": "ok", "consistency_passed": True,
+            "first_shell_idxs": [0],
+            "kmin": 3.0, "kmax": 12.0, "kweight": 2,
+            "conditional_n_fit": {
+                "r_factor": 0.0234, "n_variables": 5,
+                "n_independent": 9.3, "delta_e0": 0.59,
+                "overfit": False},
+            "hamilton_f_test": {"significant": False, "p_value": 0.5},
+            "conditional_n_paths": [
+                {"label": "Fe-Fe@2.48", "reff": 2.45, "N": 7.6,
+                 "N_err": 0.4, "delta_r": -0.032, "sigma2": 0.0055},
+                {"label": "Fe-Fe@2.87", "reff": 2.813, "N": 6.0,
+                 "N_err": None, "delta_r": -0.053, "sigma2": 0.0040},
+            ],
+        }
+        block = xafs_fit.build_formal_cn_block(
+            conditional_cn=conditional, plan=plan,
+            n0_mapping=n0_mapping, structure_model=model,
+            absorber=get_absorber("Fe"),
+            cn_systematics={"relative_1sigma": 0.32},
+            s02_source="absorber.py", data_sha256="d" * 64)
+        self.assertEqual(block["status"], "ok")
+        self.assertEqual(len(block["rows"]), 2)
+        first, second = block["rows"]
+        self.assertEqual(first["n_status"], "fitted")
+        self.assertEqual(first["n_fit"], 7.6)
+        self.assertEqual(first["n0"], 8.0)
+        self.assertEqual(first["n_ratio"], 7.6 / 8.0)
+        self.assertEqual(first["n_err_formal"], 0.4)
+        self.assertEqual(first["n_err_systematic"], 0.32)
+        self.assertEqual(first["shell_group"], "first_shell")
+        self.assertEqual(first["cn_label"], "cn_conditional")
+        self.assertEqual(first["gate_status"], "passed")
+        self.assertEqual(first["data_sha256"], "d" * 64)
+        self.assertEqual(first["source_cif_sha256"], "0" * 64)
+        self.assertEqual(first["absorber_site"], "Fe1")
+        self.assertTrue(first["s02_calibrated"])
+        self.assertEqual(second["n_status"], "fixed")
+        self.assertEqual(second["n_fit"], 6.0)
+        self.assertEqual(second["n_ratio"], 1.0)
+        self.assertEqual(second["n_err_formal"], "")
+
+        # Hamilton 显著 → 一致性失败，正式表不得产生 CN 行。
+        failed = dict(conditional)
+        failed["hamilton_f_test"] = {"significant": True, "p_value": 0.01}
+        failed["consistency_passed"] = False
+        block_bad = xafs_fit.build_formal_cn_block(
+            conditional_cn=failed, plan=plan,
+            n0_mapping=n0_mapping, structure_model=model,
+            absorber=get_absorber("Fe"))
+        self.assertEqual(block_bad["status"], "consistency_failed")
+        self.assertEqual(block_bad["rows"], [])
+        self.assertIn("Hamilton", block_bad["reject_reason"])
+
+        # 数据哈希稳定：同内容换路径不变，内容变化则变。
+        with tempfile.TemporaryDirectory() as tmp:
+            a = Path(tmp) / "a.dat"
+            b = Path(tmp) / "b.dat"
+            a.write_bytes(b"abc")
+            b.write_bytes(b"abc")
+            self.assertEqual(cn_table.data_sha256([a]),
+                             cn_table.data_sha256([b]))
+            b.write_bytes(b"abd")
+            self.assertNotEqual(cn_table.data_sha256([a]),
+                                cn_table.data_sha256([b]))
 
 
 if __name__ == "__main__":

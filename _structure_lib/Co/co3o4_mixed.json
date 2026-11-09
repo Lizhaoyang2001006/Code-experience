@@ -5,11 +5,11 @@
   "nuclearity": "mixed-site",
   "source": {
     "type": "manual",
-    "ref": "Co3O4 尖晶石 8a:16d = 1:2 位点加权"
+    "ref": "Co3O4 尖晶石 8a:16d = 1:2 位点加权（8a=COD 9005888；16d=co3o4_oct）"
   },
   "components": [
     {
-      "id": "co3o4_tet",
+      "id": "co3o4_spinel_cod_9005888",
       "weight": 0.3333333333333333
     },
     {
@@ -17,8 +17,9 @@
       "weight": 0.6666666666666666
     }
   ],
-  "notes": "Co3O4 多位点联合：χ=(1/3)χ_tet+(2/3)χ_oct。真实 Co-K-Co3O4 标样盲测 top1（score≈0.025）。",
+  "notes": "Co3O4 多位点联合：χ=(1/3)χ_tet(COD 9005888)+(2/3)χ_oct。真实 Co-K-Co3O4 标样盲测 top1（score≈0.025）。",
   "version": 1,
+  "source_ref": "COD:9005888",
   "occupancy_source": "generated",
   "model_level": "cluster",
   "provenance_status": "constructed",
