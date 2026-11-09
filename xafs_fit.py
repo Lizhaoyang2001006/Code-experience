@@ -20,6 +20,7 @@ xafs_fit.py — 拟合链编排（S6.5 结构识别 + S7 自动/指定结构拟�
 from __future__ import annotations
 
 import math
+import re
 from pathlib import Path
 
 import numpy as np
@@ -2707,3 +2708,345 @@ def build_formal_cn_block(
         rows.append(row)
     return {"status": "ok", "rows": rows, "reject_reason": None,
             "model": model}
+
+
+# ================================================================
+# P5-D：多位点正式 CN（--absorber-site all）
+# ================================================================
+def _site_fractional(model: StructureModel) -> list[float]:
+    """从 StructureModel 取吸收位的分数坐标。"""
+    label = str(model.absorber_site or "")
+    m = re.match(r"frac:\(([^,]+),([^,]+),([^)]+)\)", label)
+    if m:
+        return [float(m.group(1)), float(m.group(2)), float(m.group(3))]
+    for site in (model.asym_sites or []):
+        if str(site.get("label")) == label:
+            return [float(site["x"]), float(site["y"]), float(site["z"])]
+    raise CNError(
+        "absorber_site_missing",
+        f"{model.model_id}: 找不到吸收位 {label!r} 的分数坐标")
+
+
+def _site_motif_from_model(model: StructureModel) -> structure_lib.Motif:
+    """由 CIF + 吸收位坐标构建该位点的团簇 motif（不写生产结构库）。"""
+    if not model.source_cif:
+        raise CNError("no_cif", f"{model.model_id}: 缺少 source_cif")
+    sites, occs = artemis.read_cif_sites(
+        model.source_cif, absorber=model.absorber, rmax=6.0,
+        absorber_fract=_site_fractional(model), with_occupancy=True)
+    if not sites:
+        raise CNError(
+            "absorber_missing",
+            f"{model.model_id}@{model.absorber_site}: rmax=6.0 Å 内无近邻")
+    # motif id 会参与 FEFF 缓存目录名（Windows 不允许 ':'），必须做
+    # 文件系统安全化；只影响诊断缓存，不改变 phase/site 溯源字段。
+    safe_id = re.sub(r"[^A-Za-z0-9_.@-]+", "_",
+                     f"{model.model_id}@{model.absorber_site}")
+    return structure_lib.Motif(
+        id=safe_id,
+        absorber=model.absorber,
+        kind="cluster",
+        nuclearity="m1",
+        source={"type": "cif_site", "ref": model.source_ref or ""},
+        sites=sites,
+        shell_expect=structure_lib.geometric_shells(sites, occs=occs),
+        absorber_site=model.absorber_site,
+        source_ref=model.source_ref,
+        source_cif_sha256=model.source_cif_sha256,
+        model_level=model.model_level,
+        provenance_status=model.provenance_status,
+    )
+
+
+def _num(value) -> float | None:
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return None
+    return out if math.isfinite(out) else None
+
+
+def _first_shell_stats(rows: list[dict]) -> dict:
+    """把一个位点 formal 行里的第一壳行汇总成 N₀/N_fit/误差/键长。"""
+    first = [r for r in rows if r.get("shell_group") == "first_shell"]
+    n0 = sum(_num(r.get("n0")) or 0.0 for r in first)
+    n_fit = sum(_num(r.get("n_fit")) or 0.0 for r in first)
+    errors = [e for e in (_num(r.get("n_err_formal")) for r in first)
+              if e is not None]
+    r_terms = [(float(r["r_cif"]), _num(r.get("n0")) or 0.0)
+               for r in first if _num(r.get("r_cif")) is not None]
+    sig_terms = [(_num(r.get("sigma2")), _num(r.get("n0")) or 0.0)
+                 for r in first if _num(r.get("sigma2")) is not None]
+    dr_terms = [(_num(r.get("delta_r")), _num(r.get("n0")) or 0.0)
+                for r in first if _num(r.get("delta_r")) is not None]
+    e0_terms = [(_num(r.get("delta_e0")), _num(r.get("n0")) or 0.0)
+                for r in first if _num(r.get("delta_e0")) is not None]
+    rf = [_num(r.get("rf")) for r in first]
+    rf = [v for v in rf if v is not None]
+    scatterers = sorted({str(r.get("scatterer") or "") for r in first
+                         if r.get("scatterer")})
+    return {
+        "n0": n0,
+        "n_fit": n_fit,
+        "n_err": (math.sqrt(sum(e * e for e in errors))
+                  if errors else None),
+        "r_cif": (sum(r * n for r, n in r_terms) / n0 if n0 > 0
+                  and r_terms else None),
+        "sigma2": (sum(s * n for s, n in sig_terms) / n0 if n0 > 0
+                   and sig_terms else None),
+        "delta_r": (sum(v * n for v, n in dr_terms) / n0 if n0 > 0
+                    and dr_terms else None),
+        "delta_e0": (sum(v * n for v, n in e0_terms) / n0 if n0 > 0
+                     and e0_terms else None),
+        "rf": (max(rf) if rf else None),
+        "scatterer": (scatterers[0] if len(scatterers) == 1 else "mixed"),
+        "n_rows": len(first),
+    }
+
+
+def run_multi_site_formal_cn(
+    res,
+    *,
+    site_models: list[StructureModel],
+    gate_results,
+    s02: float | None = None,
+    s02_source: str = "absorber.py",
+    data_sha256: str = "",
+    software_version: str = cn_table.SOFTWARE_VERSION,
+    verbose: bool = False,
+) -> dict:
+    """P5-D：对 ``--absorber-site all`` 的每个不等价位点独立做条件 CN。
+
+    输出契约：
+    - 每个位点各自的门禁、条件 CN 行（``flags`` 带 ``multi_site_member``
+      与 ``site_weight``）；
+    - 仅当**全部**位点 ``build_formal_cn_block`` 返回 ``status="ok"`` 时，
+      追加一行 ``absorber_site="ALL_WEIGHTED"`` 的化学计量加权汇总；
+    - 任一位点失败：该位点写拒绝行，且**不输出**加权汇总行。
+    """
+    if not site_models:
+        raise XAFSConfigError("FIT", "多位点正式 CN 缺少结构模型")
+    if len(site_models) != len(gate_results):
+        raise XAFSConfigError(
+            "FIT", f"多位点模型数({len(site_models)}) != 门禁结果数"
+                   f"({len(gate_results)})")
+    absorber_symbol = site_models[0].absorber
+    absorber = (get_absorber(absorber_symbol) if s02 is None
+                else structure_id.absorber_with_s02(absorber_symbol, s02))
+    if absorber.s02 is None:
+        raise XAFSConfigError(
+            "FIT", f"{absorber.symbol} 未标定 S₀²，拒绝多位点 CN 定量")
+
+    rows: list[dict] = []
+    per_site: list[dict] = []
+    all_ok = True
+    for model, gate in zip(site_models, gate_results):
+        record = {
+            "absorber_site": model.absorber_site,
+            "site_weight": getattr(gate, "site_weight", None),
+            "site_multiplicity": getattr(gate, "site_multiplicity", None),
+            "site_occupancy": getattr(gate, "site_occupancy", None),
+            "status": "gate_failed",
+            "rows": [],
+        }
+        if not getattr(gate, "ok", False):
+            record["gate_code"] = getattr(gate, "code", None)
+            record["gate_reason"] = getattr(gate, "reason", "")
+            all_ok = False
+            rows.append(cn_table.refusal_row(
+                "gate_failed", getattr(gate, "reason", "") or "CIF gate 拒绝",
+                phase_id=model.model_id,
+                model_level=model.model_level,
+                source_type=model.source_type,
+                source_ref=model.source_ref,
+                source_cif_sha256=model.source_cif_sha256,
+                absorber_site=model.absorber_site,
+                s02=absorber.s02,
+                s02_source=s02_source,
+                s02_calibrated=_s02_calibrated_flag(absorber, s02_source),
+            ))
+            per_site.append(record)
+            continue
+
+        try:
+            motif = _site_motif_from_model(model)
+            plan = select_shell_paths(
+                motif, edge=absorber.edge,
+                kmin=res.ft.kmin, kmax=res.ft.kmax)
+            n0_mapping = map_n0_to_plan(
+                plan, gate.n0_shells,
+                kmin=res.ft.kmin, kmax=res.ft.kmax)
+            if not n0_mapping["mapping_ok"]:
+                raise CNError("n0_mapping_failed", n0_mapping["mapping_reason"])
+            conditional = run_conditional_cn(
+                res, plan, n0_mapping,
+                absorber_symbol=absorber.symbol, s02=absorber.s02,
+                kmin=res.ft.kmin, kmax=res.ft.kmax,
+                rmin=plan["rmin"], rmax=plan["rmax"],
+                verbose=False)
+            block = build_formal_cn_block(
+                conditional_cn=conditional, plan=plan,
+                n0_mapping=n0_mapping, structure_model=model,
+                absorber=absorber, s02_source=s02_source,
+                data_sha256=data_sha256,
+                software_version=software_version)
+            if block["status"] != "ok":
+                all_ok = False
+                record.update({
+                    "status": block["status"],
+                    "reject_reason": block.get("reject_reason"),
+                })
+                rows.append(cn_table.refusal_row(
+                    block["status"], block.get("reject_reason") or "",
+                    phase_id=model.model_id,
+                    model_level=model.model_level,
+                    source_type=model.source_type,
+                    source_ref=model.source_ref,
+                    source_cif_sha256=model.source_cif_sha256,
+                    absorber_site=model.absorber_site,
+                    s02=absorber.s02,
+                    s02_source=s02_source,
+                    s02_calibrated=_s02_calibrated_flag(
+                        absorber, s02_source),
+                ))
+                per_site.append(record)
+                continue
+
+            weight = float(getattr(gate, "site_weight", 0.0) or 0.0)
+            for row in block["rows"]:
+                flags = row.get("flags") or ""
+                row["flags"] = (
+                    flags + ";" if flags else ""
+                ) + f"multi_site_member;site_weight={weight:.6f}"
+            rows.extend(block["rows"])
+            stats = _first_shell_stats(block["rows"])
+            record.update({
+                "status": "ok",
+                "site_weight": weight,
+                "n0": stats["n0"],
+                "n_fit": stats["n_fit"],
+                "n_ratio": (stats["n_fit"] / stats["n0"]
+                            if stats["n0"] > 0 else None),
+                "rf": stats["rf"],
+                "rows": len(block["rows"]),
+            })
+            per_site.append(record)
+        except (XAFSConfigError, XAFSDataError, CNError) as exc:
+            all_ok = False
+            reason = getattr(exc, "message", str(exc))
+            record.update({"status": "error", "reject_reason": reason})
+            rows.append(cn_table.refusal_row(
+                "multi_site_error", reason,
+                phase_id=model.model_id,
+                model_level=model.model_level,
+                source_type=model.source_type,
+                source_ref=model.source_ref,
+                source_cif_sha256=model.source_cif_sha256,
+                absorber_site=model.absorber_site,
+                s02=absorber.s02,
+                s02_source=s02_source,
+                s02_calibrated=_s02_calibrated_flag(absorber, s02_source),
+            ))
+            per_site.append(record)
+
+    result = {
+        "status": "ok" if all_ok else "multi_site_failed",
+        "rows": rows,
+        "per_site": per_site,
+        "multi_site": True,
+        "site_weights": {
+            str(r["absorber_site"]): r.get("site_weight") for r in per_site},
+        "reject_reason": (None if all_ok else
+                          "至少一个吸收位点未通过门禁/条件 CN；"
+                          "不输出化学计量加权汇总"),
+        "model": site_models[0].to_json(),
+        "models": [m.to_json() for m in site_models],
+    }
+    if not all_ok:
+        return result
+
+    # ---- 全部位点通过：化学计量加权汇总行 ----
+    weights = [float(getattr(g, "site_weight", 0.0) or 0.0)
+               for g in gate_results]
+    site_stats = [_first_shell_stats(block_rows)
+                  for block_rows in ([r for r in rows
+                                      if r.get("absorber_site") == m.absorber_site]
+                                     for m in site_models)]
+    n0_total = sum(w * s["n0"] for w, s in zip(weights, site_stats))
+    n_fit_total = sum(w * s["n_fit"] for w, s in zip(weights, site_stats))
+    r_num = sum(w * s["n0"] * (s["r_cif"] or 0.0)
+                for w, s in zip(weights, site_stats))
+    sig_num = sum(w * s["n0"] * (s["sigma2"] or 0.0)
+                  for w, s in zip(weights, site_stats))
+    err_terms = [w * s["n_err"] for w, s in zip(weights, site_stats)
+                 if s["n_err"] is not None]
+    rf_vals = [s["rf"] for s in site_stats if s["rf"] is not None]
+    first_rows = [r for r in rows if r.get("shell_group") == "first_shell"]
+    scatterers = sorted({str(r.get("scatterer"))
+                         for r in first_rows if r.get("scatterer")})
+    dr_num = sum(w * s["n0"] * (s["delta_r"] or 0.0)
+                 for w, s in zip(weights, site_stats))
+    e0_num = sum(w * s["n0"] * (s["delta_e0"] or 0.0)
+                 for w, s in zip(weights, site_stats))
+
+    summary = {column: "" for column in cn_table.CN_TABLE_COLUMNS}
+    summary.update({
+        "phase_id": site_models[0].model_id,
+        "model_level": site_models[0].model_level,
+        "source_type": site_models[0].source_type,
+        "source_ref": site_models[0].source_ref,
+        "source_cif_sha256": site_models[0].source_cif_sha256,
+        "absorber_site": "ALL_WEIGHTED",
+        "shell_group": "first_shell_weighted",
+        "shell_label": "+".join(
+            f"{m.absorber_site}({w:.3f})"
+            for m, w in zip(site_models, weights)),
+        "scatterer": (scatterers[0] if len(scatterers) == 1 else "mixed"),
+        "r_cif": (r_num / n0_total if n0_total > 0 else ""),
+        "n0": n0_total,
+        "n0_members": sum(int(s["n_rows"]) for s in site_stats),
+        "n_fit": n_fit_total,
+        "n_status": "weighted_average",
+        "n_ratio": (n_fit_total / n0_total if n0_total > 0 else ""),
+        "n_err_formal": (math.sqrt(sum(e * e for e in err_terms))
+                         if err_terms else ""),
+        "n_err_systematic": CN_SYSTEMATIC_BUDGET["relative_1sigma"],
+        "delta_r": (dr_num / n0_total if n0_total > 0 else ""),
+        "sigma2": (sig_num / n0_total if n0_total > 0 else ""),
+        "delta_e0": (e0_num / n0_total if n0_total > 0 else ""),
+        "rf": (max(rf_vals) if rf_vals else ""),
+        "s02": absorber.s02,
+        "s02_source": s02_source,
+        "s02_calibrated": _s02_calibrated_flag(absorber, s02_source),
+        "kmin": min(_num(r.get("kmin")) or 0.0 for r in first_rows)
+                if first_rows else "",
+        "kmax": max(_num(r.get("kmax")) or 0.0 for r in first_rows)
+                if first_rows else "",
+        "kweight": first_rows[0].get("kweight", "") if first_rows else "",
+        "rmin": min(_num(r.get("rmin")) or 0.0 for r in first_rows)
+                if first_rows else "",
+        "rmax": max(_num(r.get("rmax")) or 0.0 for r in first_rows)
+                if first_rows else "",
+        "n_idp": min(_num(r.get("n_idp")) or 0.0 for r in first_rows)
+                 if first_rows else "",
+        "n_variables": sum(int(_num(r.get("n_variables")) or 0)
+                           for r in first_rows),
+        "cn_label": "cn_conditional_multi_site",
+        "gate_status": ("passed"
+                        if all(r.get("gate_status") == "passed"
+                               for r in first_rows) else "warning"),
+        "reject_reason": "",
+        "flags": "multi_site_weighted_summary",
+        "assumptions": (
+            "site_weight=m_i*occ_i_normalized;"
+            "each_site_fit_independent;"
+            "first_shell_weighted_by_stoichiometry;"
+            "no_partial_site_release"),
+        "data_sha256": data_sha256,
+        "software_version": software_version,
+    })
+    rows.append(summary)
+    if verbose:
+        print(f"  [P5-D] {len(site_models)} 个吸收位点全部通过；"
+              f"加权 N₀={n0_total:.4f}  N_fit={n_fit_total:.4f}")
+    return result

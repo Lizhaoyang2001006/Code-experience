@@ -1,7 +1,7 @@
 {
  "absorber": "Ir",
- "status": "not_calibrated",
- "generated_at": "2026-11-09T15:05:56",
+ "status": "calibrated",
+ "generated_at": "2026-11-09T17:27:36",
  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
  "static_absorber_py_unchanged": true,
  "apply_to_absorber_py": false,
@@ -12,46 +12,415 @@
    "standard_exists": true,
    "motif": "ir_fcc_cod_9008470",
    "motif_file": null,
-   "strict": false,
-   "kmin": null,
+   "strict": true,
+   "kmin": 3.0,
    "kmax": null,
    "rmin": null,
    "e0_method": "derivative",
    "manual_e0": null,
    "fit_shells": 1,
-   "note": "",
+   "note": "IIT-Lytle RAW Ir/irfoil.146 L3 透射谱（645 点，11015–12820 eV）；kmin=3.0 规避 L3 近边白线共振，严格归一化平台 0.8604",
    "provenance": {
     "source_path": "_standards_lib\\Ir\\Ir_metal_foil.dat",
-    "source_sha256": "959da06b723b3342c26b5e349dce2ce1aa6ac3dda9fa62479599e5a0387d341b",
+    "source_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b",
     "committed": false,
     "transform": null,
     "used_path": "_standards_lib\\Ir\\Ir_metal_foil.dat",
-    "used_sha256": "959da06b723b3342c26b5e349dce2ce1aa6ac3dda9fa62479599e5a0387d341b"
+    "used_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b"
    },
-   "status": "gated_out",
-   "error": "ValueError: zero-size array to reduction operation maximum which has no identity",
-   "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格"
+   "result": {
+    "absorber": "Ir",
+    "edge": "L3",
+    "motif": "ir_fcc_cod_9008470",
+    "motif_file": null,
+    "fixed_CN": 12.0,
+    "R_first": 2.7149,
+    "n_shells": 1,
+    "shell_paths": [
+     {
+      "label": "Ir-Ir@2.71",
+      "scatterer": "Ir",
+      "reff": 2.7149,
+      "degen": 12.0
+     }
+    ],
+    "e0_method": "derivative",
+    "e0": 11212.9,
+    "k_window": [
+     3.0,
+     12.0
+    ],
+    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+    "runs": [
+     {
+      "r_window": [
+       2.115,
+       2.835
+      ],
+      "s02": 0.4699,
+      "s02_err": 0.0149,
+      "rf": 0.0043,
+      "delta_e0": 9.16,
+      "sigma2": 0.0022,
+      "delta_r": -0.0059,
+      "sigma2_at_bound": false,
+      "paths": [
+       {
+        "label": "Ir-Ir@2.71",
+        "degen": 12.0,
+        "sigma2": 0.0022,
+        "delta_r": -0.0059,
+        "sigma2_at_bound": false
+       }
+      ],
+      "interior": true
+     },
+     {
+      "r_window": [
+       2.115,
+       2.895
+      ],
+      "s02": 0.4752,
+      "s02_err": 0.0144,
+      "rf": 0.0043,
+      "delta_e0": 9.16,
+      "sigma2": 0.0022,
+      "delta_r": -0.0056,
+      "sigma2_at_bound": false,
+      "paths": [
+       {
+        "label": "Ir-Ir@2.71",
+        "degen": 12.0,
+        "sigma2": 0.0022,
+        "delta_r": -0.0056,
+        "sigma2_at_bound": false
+       }
+      ],
+      "interior": true
+     },
+     {
+      "r_window": [
+       2.115,
+       2.975
+      ],
+      "s02": 0.4767,
+      "s02_err": 0.0135,
+      "rf": 0.0043,
+      "delta_e0": 9.3,
+      "sigma2": 0.0022,
+      "delta_r": -0.005,
+      "sigma2_at_bound": false,
+      "paths": [
+       {
+        "label": "Ir-Ir@2.71",
+        "degen": 12.0,
+        "sigma2": 0.0022,
+        "delta_r": -0.005,
+        "sigma2_at_bound": false
+       }
+      ],
+      "interior": true
+     }
+    ],
+    "s02": 0.4752,
+    "s02_err": 0.0149,
+    "rf": 0.0043,
+    "spread": 0.0068,
+    "delta_e0": 9.3,
+    "sigma2": 0.0022,
+    "n_variables": 4,
+    "n_independent": 4.47,
+    "plateau": 0.8604,
+    "rbkg_choice": 1.0,
+    "kw_sensitivity": {
+     "1": {
+      "s02": 0.4106,
+      "rf": 0.0078,
+      "delta_e0": 8.67
+     },
+     "3": {
+      "s02": 0.5341,
+      "rf": 0.0023,
+      "delta_e0": 9.87
+     }
+    },
+    "checks": {
+     "window_runs_interior": true,
+     "s02_in_range": true,
+     "s02_err_ok": true,
+     "window_spread_ok": true,
+     "sigma2_not_at_bound": true
+    },
+    "pass": true
+   },
+   "status": "passed"
   }
  ],
- "s02": null,
- "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
- "attempts_compact": [
+ "s02": 0.4752,
+ "s02_err": 0.0149,
+ "rf": 0.0043,
+ "spread": 0.0068,
+ "delta_e0": 9.3,
+ "sigma2": 0.0022,
+ "plateau": 0.8604,
+ "k_window": [
+  3.0,
+  12.0
+ ],
+ "fixed_CN": 12.0,
+ "R_first": 2.7149,
+ "runs": [
   {
-   "standard": "_standards_lib\\Ir\\Ir_metal_foil.dat",
-   "motif": "ir_fcc_cod_9008470",
-   "strict": false,
-   "kmin": null,
-   "kmax": null,
-   "rmin": null,
-   "e0_method": "derivative",
-   "fit_shells": 1,
-   "status": "gated_out",
-   "s02": null,
-   "s02_err": null,
-   "rf": null,
-   "spread": null,
-   "plateau": null,
-   "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格"
+   "r_window": [
+    2.115,
+    2.835
+   ],
+   "s02": 0.4699,
+   "s02_err": 0.0149,
+   "rf": 0.0043,
+   "delta_e0": 9.16,
+   "sigma2": 0.0022,
+   "delta_r": -0.0059,
+   "sigma2_at_bound": false,
+   "paths": [
+    {
+     "label": "Ir-Ir@2.71",
+     "degen": 12.0,
+     "sigma2": 0.0022,
+     "delta_r": -0.0059,
+     "sigma2_at_bound": false
+    }
+   ],
+   "interior": true
+  },
+  {
+   "r_window": [
+    2.115,
+    2.895
+   ],
+   "s02": 0.4752,
+   "s02_err": 0.0144,
+   "rf": 0.0043,
+   "delta_e0": 9.16,
+   "sigma2": 0.0022,
+   "delta_r": -0.0056,
+   "sigma2_at_bound": false,
+   "paths": [
+    {
+     "label": "Ir-Ir@2.71",
+     "degen": 12.0,
+     "sigma2": 0.0022,
+     "delta_r": -0.0056,
+     "sigma2_at_bound": false
+    }
+   ],
+   "interior": true
+  },
+  {
+   "r_window": [
+    2.115,
+    2.975
+   ],
+   "s02": 0.4767,
+   "s02_err": 0.0135,
+   "rf": 0.0043,
+   "delta_e0": 9.3,
+   "sigma2": 0.0022,
+   "delta_r": -0.005,
+   "sigma2_at_bound": false,
+   "paths": [
+    {
+     "label": "Ir-Ir@2.71",
+     "degen": 12.0,
+     "sigma2": 0.0022,
+     "delta_r": -0.005,
+     "sigma2_at_bound": false
+    }
+   ],
+   "interior": true
   }
- ]
+ ],
+ "checks": {
+  "window_runs_interior": true,
+  "s02_in_range": true,
+  "s02_err_ok": true,
+  "window_spread_ok": true,
+  "sigma2_not_at_bound": true
+ },
+ "kw_sensitivity": {
+  "1": {
+   "s02": 0.4106,
+   "rf": 0.0078,
+   "delta_e0": 8.67
+  },
+  "3": {
+   "s02": 0.5341,
+   "rf": 0.0023,
+   "delta_e0": 9.87
+  }
+ },
+ "n_variables": 4,
+ "n_independent": 4.47,
+ "n_shells": 1,
+ "shell_paths": [
+  {
+   "label": "Ir-Ir@2.71",
+   "scatterer": "Ir",
+   "reff": 2.7149,
+   "degen": 12.0
+  }
+ ],
+ "e0": 11212.9,
+ "e0_method": "derivative",
+ "motif": "ir_fcc_cod_9008470",
+ "edge": "L3",
+ "provenance": {
+  "source_path": "_standards_lib\\Ir\\Ir_metal_foil.dat",
+  "source_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b",
+  "committed": false,
+  "transform": null,
+  "used_path": "_standards_lib\\Ir\\Ir_metal_foil.dat",
+  "used_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b"
+ },
+ "standard": "_standards_lib\\Ir\\Ir_metal_foil.dat",
+ "standard_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b",
+ "motif_file": null,
+ "motif_file_sha256": null,
+ "result": {
+  "absorber": "Ir",
+  "edge": "L3",
+  "motif": "ir_fcc_cod_9008470",
+  "motif_file": null,
+  "fixed_CN": 12.0,
+  "R_first": 2.7149,
+  "n_shells": 1,
+  "shell_paths": [
+   {
+    "label": "Ir-Ir@2.71",
+    "scatterer": "Ir",
+    "reff": 2.7149,
+    "degen": 12.0
+   }
+  ],
+  "e0_method": "derivative",
+  "e0": 11212.9,
+  "k_window": [
+   3.0,
+   12.0
+  ],
+  "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+  "runs": [
+   {
+    "r_window": [
+     2.115,
+     2.835
+    ],
+    "s02": 0.4699,
+    "s02_err": 0.0149,
+    "rf": 0.0043,
+    "delta_e0": 9.16,
+    "sigma2": 0.0022,
+    "delta_r": -0.0059,
+    "sigma2_at_bound": false,
+    "paths": [
+     {
+      "label": "Ir-Ir@2.71",
+      "degen": 12.0,
+      "sigma2": 0.0022,
+      "delta_r": -0.0059,
+      "sigma2_at_bound": false
+     }
+    ],
+    "interior": true
+   },
+   {
+    "r_window": [
+     2.115,
+     2.895
+    ],
+    "s02": 0.4752,
+    "s02_err": 0.0144,
+    "rf": 0.0043,
+    "delta_e0": 9.16,
+    "sigma2": 0.0022,
+    "delta_r": -0.0056,
+    "sigma2_at_bound": false,
+    "paths": [
+     {
+      "label": "Ir-Ir@2.71",
+      "degen": 12.0,
+      "sigma2": 0.0022,
+      "delta_r": -0.0056,
+      "sigma2_at_bound": false
+     }
+    ],
+    "interior": true
+   },
+   {
+    "r_window": [
+     2.115,
+     2.975
+    ],
+    "s02": 0.4767,
+    "s02_err": 0.0135,
+    "rf": 0.0043,
+    "delta_e0": 9.3,
+    "sigma2": 0.0022,
+    "delta_r": -0.005,
+    "sigma2_at_bound": false,
+    "paths": [
+     {
+      "label": "Ir-Ir@2.71",
+      "degen": 12.0,
+      "sigma2": 0.0022,
+      "delta_r": -0.005,
+      "sigma2_at_bound": false
+     }
+    ],
+    "interior": true
+   }
+  ],
+  "s02": 0.4752,
+  "s02_err": 0.0149,
+  "rf": 0.0043,
+  "spread": 0.0068,
+  "delta_e0": 9.3,
+  "sigma2": 0.0022,
+  "n_variables": 4,
+  "n_independent": 4.47,
+  "plateau": 0.8604,
+  "rbkg_choice": 1.0,
+  "kw_sensitivity": {
+   "1": {
+    "s02": 0.4106,
+    "rf": 0.0078,
+    "delta_e0": 8.67
+   },
+   "3": {
+    "s02": 0.5341,
+    "rf": 0.0023,
+    "delta_e0": 9.87
+   }
+  },
+  "checks": {
+   "window_runs_interior": true,
+   "s02_in_range": true,
+   "s02_err_ok": true,
+   "window_spread_ok": true,
+   "sigma2_not_at_bound": true
+  },
+  "pass": true,
+  "provenance": {
+   "source_path": "_standards_lib\\Ir\\Ir_metal_foil.dat",
+   "source_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b",
+   "committed": false,
+   "transform": null,
+   "used_path": "_standards_lib\\Ir\\Ir_metal_foil.dat",
+   "used_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b"
+  },
+  "standard": "_standards_lib\\Ir\\Ir_metal_foil.dat",
+  "standard_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b",
+  "motif_file_sha256": null,
+  "static_absorber_py_unchanged": true
+ }
 }

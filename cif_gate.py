@@ -96,6 +96,10 @@ class CIFGateResult:
     # 原始 CIF 追溯
     cif_path: str | None = None
     cif_sha256: str | None = None
+    # P5-D：多位点化学计量权重（m_i × occ_i 归一化）
+    site_multiplicity: int | None = None
+    site_occupancy: float | None = None
+    site_weight: float | None = None
 
 
 # ---------------------------------------------------------------
@@ -185,6 +189,86 @@ def _parse_absorber_site(site_label: str, cell) -> tuple[float, float, float] | 
     if m:
         return (float(m.group(1)), float(m.group(2)), float(m.group(3)))
     return None  # 标签形式，由调用方匹配
+
+
+# ---------------------------------------------------------------
+# P5-D：多位点展开与化学计量权重
+# ---------------------------------------------------------------
+def list_inequivalent_absorber_sites(
+        cif_path: str | Path, absorber: str) -> list[dict]:
+    """返回 CIF 不对称单元中每个吸收位点的多重度、占据度与权重。
+
+    权重按化学计量 ``w_i = m_i·occ_i / Σ(m_j·occ_j)`` 归一化：
+    - 尖晶石 8a/16d（occ=1）→ 1/3 : 2/3；
+    - 磁铁矿 COD 1010369 的 16d 被拆成 Fe1/Fe2（occ=0.5+0.5），
+      各自权重 1/3，与 Fe3(8a) 合计 1。
+    绝不按权重自动挑选「主位点」——这里只用于多位点加权汇总。
+    """
+    cif_path = Path(cif_path)
+    absorber = absorber.capitalize()
+    doc = gemmi.cif.read(str(cif_path))
+    block = doc.sole_block() if len(doc) == 1 else doc[0]
+    st = gemmi.make_small_structure_from_block(block)
+
+    counts: dict[str, int] = {}
+    for site in st.get_all_unit_cell_sites():
+        label = str(site.label)
+        counts[label] = counts.get(label, 0) + 1
+
+    rows: list[dict] = []
+    for site in st.sites:
+        if _symbol(site) != absorber:
+            continue
+        multiplicity = int(counts.get(str(site.label), 0))
+        occupancy = float(site.occ) if site.occ is not None else 1.0
+        rows.append({
+            "label": str(site.label),
+            "multiplicity": multiplicity,
+            "occupancy": occupancy,
+            "raw_weight": float(multiplicity) * occupancy,
+            "fract": [float(site.fract.x), float(site.fract.y),
+                      float(site.fract.z)],
+        })
+
+    total = sum(r["raw_weight"] for r in rows)
+    if rows and total > 0:
+        for r in rows:
+            r["weight"] = r["raw_weight"] / total
+    elif rows:
+        for r in rows:
+            r["weight"] = 1.0 / len(rows)
+    for r in rows:
+        r.pop("raw_weight", None)
+    return rows
+
+
+def gate_cif_all_sites(
+    cif_path: str | Path,
+    absorber: str,
+    **kwargs,
+) -> list[CIFGateResult]:
+    """P5-D：对每个不等价吸收位独立跑 ``gate_cif`` 并附上化学计量权重。
+
+    任一位点失败只会让该位点返回 ``ok=False``；调用方必须显式拒绝
+    整个正式 CN 输出，不做「部分位点成功即放行」。
+    """
+    sites = list_inequivalent_absorber_sites(cif_path, absorber)
+    if not sites:
+        return [CIFGateResult(
+            ok=False, code="absorber_missing",
+            absorber=absorber.capitalize(),
+            reason=f"{Path(cif_path).name} 中找不到元素 {absorber} 的位点",
+            cif_path=str(Path(cif_path).resolve()))]
+
+    results: list[CIFGateResult] = []
+    for info in sites:
+        result = gate_cif(cif_path, absorber,
+                          absorber_site=info["label"], **kwargs)
+        result.site_multiplicity = info["multiplicity"]
+        result.site_occupancy = info["occupancy"]
+        result.site_weight = info["weight"]
+        results.append(result)
+    return results
 
 
 # ---------------------------------------------------------------

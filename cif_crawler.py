@@ -694,16 +694,19 @@ class XASStandardFetcher:
         "Zn": {"type": "processed", "files": ["z/znfl.a03", "z/znfoil.a10"]},
         "Mo": {"type": "processed", "files": ["m/mofl.a47"]},
         "Ru": {"type": "processed", "files": ["r/ru.a01", "r/ru.a02", "r/ru.a03"]},
-        "Rh": {"type": "processed", "files": ["r/rhfoil.a03"]},
-        "Pd": {"type": "processed", "files": ["p/pdfoil.a71"]},
+        "Rh": {"type": "raw_step", "files": ["Rh/rhfoil.003"],
+               "note": "RH FOIL 1 MIL CALIB (RAW, transmission)"},
+        "Pd": {"type": "raw_pd_nsls", "files": ["Pd/pdfl.404"],
+               "note": "PD FOIL TO 2000 EV (RAW NSLS X11, transmission with offsets)"},
         "Ag": {"type": "raw_ag", "files": ["Ag/agfl.651"],
                "note": "AG FOIL (RAW, K-edge, transmission)"},
-        "Ir": {"type": "processed", "files": ["i/irfoie.a46"]},
+        "Ir": {"type": "raw_ir_step", "files": ["Ir/irfoil.146"],
+               "note": "IR FOIL L3 EDGE AT RT (RAW, transmission col1/col3 with offsets)"},
         "Au": {"type": "processed", "files": ["a/aufl.a01"]},
-        "Ce": {"type": "processed", "files": ["c/ceo2l3.a39", "c/ceo2.260"],
-               "note": "CeO2 L3 参考谱（IIT 库中无 Ce 金属箔，用 CeO2 替代）"},
-        "U": {"type": "raw_u", "files": ["U/umetal.351"],
-              "note": "U METAL (RAW, fluorescence I/I0)"},
+        "Ce": {"type": "raw_ce_obs", "files": ["Ce/ceo2.004", "Ce/ceo2.003"],
+               "note": "CeO2 L3 reference in Duco (RAW transmission, truncated <= 6160 eV before L2 edge)"},
+        "U": {"type": "raw_step", "files": ["U/uo2.379", "U/uo2.378"],
+              "note": "UO2 IN DUCO IN CRYOSTAT (RAW L3 transmission)"},
     }
 
     @classmethod
@@ -828,6 +831,100 @@ class XASStandardFetcher:
             points.append((energy, fluo / i0))
         return points
 
+    @classmethod
+    def _parse_raw_pd_nsls(cls, text: str) -> List[Tuple[float, float]]:
+        """解析 NSLS X11 格式 (Pd/pdfl.404): 首列 eV, col1=I0, col2=I。
+
+        头部 ``OFFSETS`` 行给出探测器本底；数据列必须扣掉 offset，
+        否则本底把边后平台压低（S3 归一化门禁 0.85–1.15 会拒绝）。
+        """
+        lines = text.splitlines()
+        off_i0, off_i1 = 0.0, 0.0
+        for line in lines[:25]:
+            if line.strip().upper().startswith("OFFSETS"):
+                nums = cls._numbers(line)
+                if len(nums) >= 2:
+                    off_i0, off_i1 = nums[0], nums[1]
+                break
+        points: List[Tuple[float, float]] = []
+        for line in lines:
+            if re.search(r"[A-Za-z]", cls.NUM_RE.sub(" ", line)):
+                continue
+            nums = cls._numbers(line)
+            if len(nums) == 5 and 23000.0 <= nums[0] <= 27000.0:
+                i0 = nums[1] - off_i0
+                i1 = nums[2] - off_i1
+                if i0 > 0 and i1 > 0:
+                    points.append((nums[0], math.log(i0 / i1)))
+        return points
+
+    @classmethod
+    def _parse_raw_ir_step(cls, text: str,
+                           default_d: float = 1.92017,
+                           default_stepdeg: float = 4000.0
+                           ) -> List[Tuple[float, float]]:
+        """解析 Ir/irfoil.146 步进扫描: col0=step, col1=I0, col3=I1。
+
+        ``OFFSET:`` 行给出 I0 与 I1 本底；第 2 数据列是恒定暗通道，
+        不能当透射用。
+        """
+        lines = text.splitlines()
+        dspace, stepdeg = cls._parse_monochromator(lines, default_d,
+                                                   default_stepdeg)
+        off_i0, off_i1 = 0.0, 0.0
+        for line in lines[:15]:
+            if line.strip().upper().startswith("OFFSET"):
+                nums = cls._numbers(line)
+                if len(nums) >= 3:
+                    off_i0, off_i1 = nums[0], nums[2]
+                break
+        points: List[Tuple[float, float]] = []
+        for line in lines:
+            if re.search(r"[A-Za-z]", cls.NUM_RE.sub(" ", line)):
+                continue
+            nums = cls._numbers(line)
+            if len(nums) < 4:
+                continue
+            step = nums[0]
+            if not (10000.0 <= step <= 1_000_000.0):
+                continue
+            if abs(step - round(step)) > 1e-3:
+                continue
+            i0 = nums[1] - off_i0
+            i1 = nums[3] - off_i1
+            if i0 <= 0 or i1 <= 0:
+                continue
+            theta = math.radians(step / stepdeg)
+            denom = 2.0 * dspace * math.sin(theta)
+            if denom <= 0:
+                continue
+            energy = 12398.419843 / denom
+            # 该扫描第 3 列是随 L3 吸收上升的探测通道（边后高于边前），
+            # 直接算 ln(I0/I1) 会得到负边步；取 -ln(I0/I1)=ln(I1/I0)
+            # 恢复 XAS 约定（μ 在边后升高）。provenance 记录此符号约定。
+            points.append((energy, -math.log(i0 / i1)))
+        return points
+
+    @classmethod
+    def _parse_raw_ce_obs(cls, text: str,
+                          e_max_cutoff: float = 6160.0
+                          ) -> List[Tuple[float, float]]:
+        """解析 Ce/ceo2.004 (Obs\\Chan 表格): col2=E(eV), col5=I0, col6=I1。
+
+        CeO2 的 L3 标定谱必须在 Ce L2（6164 eV）之前截断，否则 L2 跃迁
+        会混入 EXAFS 振荡。
+        """
+        points: List[Tuple[float, float]] = []
+        for line in text.splitlines():
+            if re.search(r"[A-Za-z]", cls.NUM_RE.sub(" ", line)):
+                continue
+            nums = cls._numbers(line)
+            if len(nums) >= 8 and 5400.0 <= nums[2] <= e_max_cutoff:
+                i0, i1 = nums[5], nums[6]
+                if i0 > 0 and i1 > 0:
+                    points.append((nums[2], math.log(i0 / i1)))
+        return points
+
     # ---------- 归一化与质控 ----------
     @staticmethod
     def _normalize(points: List[Tuple[float, float]],
@@ -932,9 +1029,18 @@ class XASStandardFetcher:
                                 f"按项目 E0={e0} eV 重建绝对能量")
                         raw_points = [(e0 + rel_e, mu) for rel_e, mu in rel_points]
                         origin = "PROCESSED (E0 + 相对能量)"
-                    elif source["type"] in ("raw_cr", "raw_ag"):
+                    elif source["type"] in ("raw_cr", "raw_ag", "raw_step"):
                         raw_points = cls._parse_raw_step_scan(resp.text)
                         origin = "RAW (单色器步数→能量)"
+                    elif source["type"] == "raw_pd_nsls":
+                        raw_points = cls._parse_raw_pd_nsls(resp.text)
+                        origin = "RAW (NSLS 能量步进透射)"
+                    elif source["type"] == "raw_ir_step":
+                        raw_points = cls._parse_raw_ir_step(resp.text)
+                        origin = "RAW (单色器步数→能量, I0=col1/I1=col3)"
+                    elif source["type"] == "raw_ce_obs":
+                        raw_points = cls._parse_raw_ce_obs(resp.text)
+                        origin = "RAW (CeO2 透射, E<=6160 eV)"
                     else:  # raw_u
                         raw_points = cls._parse_raw_u(resp.text)
                         origin = "RAW (荧光/I0)"

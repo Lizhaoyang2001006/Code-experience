@@ -5455,15 +5455,18 @@ O1 O 0 0 0 0.5
         rows = {r["absorber"]: r for r in index["elements"]}
         self.assertEqual(set(rows), set(calibrate_t5.ELEMENTS))
         self.assertEqual(index["pass_count"] + index["fail_count"], 12)
-        self.assertGreaterEqual(index["pass_count"], 7)
+        self.assertEqual(index["pass_count"], 12)
+        self.assertEqual(index["fail_count"], 0)
         self.assertNotIn("C:\\\\", index_path.read_text(encoding="utf-8"))
-        for el in ("Cr", "Mn", "Zn", "Mo", "Ru", "Ag", "Au"):
+        for el in calibrate_t5.ELEMENTS:
             self.assertEqual(rows[el]["status"], "calibrated", el)
             self.assertIsNotNone(rows[el]["s02"], el)
-        for el in ("Rh", "Pd", "Ir", "Ce", "U"):
-            self.assertEqual(rows[el]["status"], "not_calibrated", el)
-            self.assertIsNone(rows[el]["s02"], el)
-            self.assertTrue(rows[el].get("reason"), el)
+        expected_s02 = {
+            "Rh": 0.7022, "Pd": 0.6559, "Ir": 0.4752,
+            "Ce": 0.6279, "U": 0.7800,
+        }
+        for el, value in expected_s02.items():
+            self.assertAlmostEqual(rows[el]["s02"], value, places=4, msg=el)
 
         # --apply 对 #60 锁定元素硬拒绝（不真正跑标定）。
         with mock.patch.object(calibrate_s02, "calibrate_s02",
@@ -5527,9 +5530,21 @@ O1 O 0 0 0 0.5
         self.assertIn("sha256:", source)
         self.assertIn("standard_sha256:", source)
 
-        with self.assertRaises(XAFSConfigError) as cm:
-            run_xafs.load_t5_s02("Ce")
-        self.assertIn("未通过", str(cm.exception))
+        s02_ce, source_ce = run_xafs.load_t5_s02("Ce")
+        self.assertAlmostEqual(s02_ce, 0.6279, places=4)
+        self.assertTrue(source_ce.startswith("s02_calibration:"))
+        # 未通过元素仍然硬拒绝（用临时产物验证，不依赖真实标定状态）。
+        with tempfile.TemporaryDirectory() as tmp:
+            el_dir = Path(tmp) / "Ce"
+            el_dir.mkdir()
+            (el_dir / "calibration.json").write_text(json.dumps({
+                "absorber": "Ce", "status": "not_calibrated",
+                "s02": None, "reason": "gate_failed：未通过冻结门禁",
+                "static_absorber_py_unchanged": True,
+            }), encoding="utf-8")
+            with self.assertRaises(XAFSConfigError) as cm:
+                run_xafs.load_t5_s02("Ce", root=Path(tmp))
+            self.assertIn("拒绝自动注入", str(cm.exception))
         with self.assertRaises(XAFSConfigError):
             run_xafs.load_t5_s02("Xx")
 
@@ -5571,8 +5586,10 @@ O1 O 0 0 0 0.5
         self.assertEqual(mo_foil.get("fit_shells"), 2)
         self.assertTrue(mo_foil.get("strict"))
         ce_cases = calibrate_t5.CASES["Ce"]
-        self.assertEqual(len(ce_cases), 2)
+        self.assertEqual(len(ce_cases), 3)
         self.assertTrue(ce_cases[1].get("strict"))
+        self.assertTrue(ce_cases[2].get("strict"))
+        self.assertEqual(ce_cases[2].get("rmin"), 1.5)
 
         mo = json.loads((ROOT / "data" / "s02_calibration" / "Mo" /
                          "calibration.json").read_text(encoding="utf-8"))
@@ -5600,8 +5617,8 @@ O1 O 0 0 0 0.5
 
         ce = json.loads((ROOT / "data" / "s02_calibration" / "Ce" /
                          "calibration.json").read_text(encoding="utf-8"))
-        self.assertEqual(ce["status"], "not_calibrated")
-        self.assertIsNone(ce["s02"])
+        self.assertEqual(ce["status"], "calibrated")
+        self.assertAlmostEqual(ce["s02"], 0.6279, places=4)
         first = next(a for a in ce["attempts"]
                      if a["standard"].endswith("Ce-L3-CeO2.xdi"))
         self.assertEqual(first["status"], "gated_out")
@@ -5614,14 +5631,18 @@ O1 O 0 0 0 0.5
         self.assertEqual(second["status"], "error")
         self.assertIn("归一化失败", second["error"])
         self.assertIn("2.271", second["error"])
+        third = next(a for a in ce["attempts"]
+                     if a["standard"].endswith("Ce_metal_foil.dat"))
+        self.assertEqual(third["status"], "passed")
+        self.assertTrue(all(third["result"]["checks"].values()))
 
         s02, source = run_xafs.load_t5_s02("Mo")
         self.assertAlmostEqual(s02, 0.8322, places=4)
         self.assertIn("Mo", source)
         self.assertIn("sha256:", source)
-        with self.assertRaises(XAFSConfigError) as cm:
-            run_xafs.load_t5_s02("Ce")
-        self.assertIn("未通过", str(cm.exception))
+        s02_ce, source_ce = run_xafs.load_t5_s02("Ce")
+        self.assertAlmostEqual(s02_ce, 0.6279, places=4)
+        self.assertIn("Ce", source_ce)
 
     def test_p5c_common_phase_coverage(self):
         """#125 P5-C：18 个固定 COD ID 补齐常见相，coverage 无缺口。"""
@@ -5683,15 +5704,16 @@ O1 O 0 0 0 0.5
             self.assertIn("多个吸收位点", res.reason, phase_name)
 
     def test_p5_standard_source_isolation_pool(self):
-        """#126 P5-prep：5 个未通过元素的谱源隔离池与门禁冻结。"""
+        """#126 P5-prep/P5-S02：5 元素谱源池闭环与门禁冻结。"""
         from tools import build_source_pool
 
         pool = json.loads((ROOT / "data" / "s02_calibration" /
                            "source_pool" / "index.json")
                           .read_text(encoding="utf-8"))
-        self.assertEqual(pool["schema_version"], 1)
+        self.assertEqual(pool["schema_version"], 2)
         self.assertEqual(pool["pool_id"], "s02-standard-source-isolation")
         self.assertEqual(pool["elements_total"], 5)
+        self.assertEqual(pool["pool_state_counts"], {"resolved": 5})
         # 索引必须能由标定产物与门禁常量确定性重建。
         self.assertEqual(build_source_pool.build_pool(), pool)
 
@@ -5704,35 +5726,57 @@ O1 O 0 0 0 0.5
             "Ce": "oxide_baseline_reprocess",
             "U": "oxide_phase_verification",
         }
+        expected_s02 = {
+            "Rh": 0.7022, "Pd": 0.6559, "Ir": 0.4752,
+            "Ce": 0.6279, "U": 0.7800,
+        }
         for element, row in rows.items():
             self.assertEqual(row["classification"], expected_class[element])
-            self.assertEqual(row["pool_state"], "quarantined")
-            self.assertFalse(row["usable_for_s02"])
-            self.assertIsNone(row["s02"])
-            self.assertEqual(row["last_status"], "not_calibrated")
-            self.assertTrue(row["gate_failures"], element)
+            self.assertEqual(row["pool_state"], "resolved")
+            self.assertTrue(row["usable_for_s02"])
+            self.assertAlmostEqual(row["s02"], expected_s02[element],
+                                   places=4, msg=element)
+            self.assertEqual(row["last_status"], "calibrated")
+            self.assertEqual(row["attempt_status"], "passed")
+            self.assertEqual(row["gate_failures"], [])
+            self.assertGreater(row["k_max_estimate"], 10.0, element)
+            # #60：静态表仍然 s02=None / calibrated=False。
             cfg = get_absorber(element)
             self.assertIsNone(cfg.s02, element)
             self.assertFalse(cfg.calibrated, element)
+            # 旧谱的历史隔离证据必须保留，不能因为替换而丢失审计链。
+            legacy = row["quarantined_legacy_source"]
+            self.assertEqual(legacy["attempt_status"], "gated_out")
+            self.assertTrue(legacy["gate_failures"], element)
+            self.assertEqual(len(legacy["source_sha256"]), 64, element)
+            self.assertEqual(row["resolved_by"]["gate_failures"], [])
+            self.assertEqual(row["resolved_by"]["standard"],
+                             row["current_source"])
 
-        # 谱长判定：Rh/Pd/Ir 是短谱；Ce/U 不是截断问题。
+        # 旧谱谱长判定：Rh/Pd/Ir 是短谱；Ce/U 不是截断问题。
         for element in ("Rh", "Pd", "Ir"):
-            self.assertLess(rows[element]["k_max_estimate"], 6.0, element)
-        self.assertGreater(rows["Ce"]["k_max_estimate"], 10.0)
-        self.assertGreater(rows["U"]["k_max_estimate"], 10.0)
+            self.assertLess(
+                rows[element]["quarantined_legacy_source"]["k_max_estimate"],
+                6.0, element)
+        self.assertGreater(
+            rows["Ce"]["quarantined_legacy_source"]["k_max_estimate"], 10.0)
+        self.assertGreater(
+            rows["U"]["quarantined_legacy_source"]["k_max_estimate"], 10.0)
 
         # Ir 的 k_min 建议只能换谱后诊断，不能作为通过手段。
         ir = rows["Ir"]
         self.assertFalse(ir["kmin_tuning_assessment"]
                          ["sufficient_with_current_source"])
         self.assertFalse(ir["kmin_tuning_assessment"]["may_relax_gates"])
+        self.assertEqual(ir["resolved_by"]["kmin"], 3.0)
 
-        # Ce 已经使用 CeO2 基准；U 的 UO2 切换必须等谱源核实。
+        # Ce 使用 CeO2 基准；U 的 UO2 切换已完成并记录标定专用 motif。
         self.assertFalse(rows["Ce"]["phase_switch_needed"])
-        self.assertIn("Ce-L3-CeO2.xdi", rows["Ce"]["current_source"])
+        self.assertIn("Ce_metal_foil.dat", rows["Ce"]["current_source"])
         self.assertIn("CeO2", rows["Ce"]["phase_baseline"])
-        self.assertEqual(rows["U"]["phase_switch_needed"],
-                         "pending_source_verification")
+        self.assertFalse(rows["U"]["phase_switch_needed"])
+        self.assertIn("UO2", rows["U"]["phase_baseline"])
+        self.assertEqual(rows["U"]["resolved_by"]["motif"], "uo2_fluorite")
 
         # 门禁冻结：与 calibrate_s02.py 常量一致，且未放宽。
         policy = pool["policy"]
@@ -5747,13 +5791,142 @@ O1 O 0 0 0 0.5
         self.assertEqual(policy["manual_window_trimming"], "forbidden")
         self.assertEqual(policy["auto_top1_selection"], "forbidden")
 
-        # T5 总索引仍保持 5 个 not_calibrated、s02=None。
+        # T5 总索引：5 元素全部 calibrated、s02 非空。
         t5_index = json.loads((ROOT / "data" / "s02_calibration" /
                                "index.json").read_text(encoding="utf-8"))
         t5 = {row["absorber"]: row for row in t5_index["elements"]}
         for element in rows:
-            self.assertEqual(t5[element]["status"], "not_calibrated", element)
-            self.assertIsNone(t5[element]["s02"], element)
+            self.assertEqual(t5[element]["status"], "calibrated", element)
+            self.assertIsNotNone(t5[element]["s02"], element)
+
+    def test_p5d_multi_site_formal_cn(self):
+        """#127 P5-D：--absorber-site all 逐位点正式 CN + 化学计量加权。"""
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        # 未传 --absorber-site：多位点相仍然必须拒绝，绝不自动 Top-1。
+        no_site = phase_resolver.resolve_phase(
+            "Fe", phase_id="COD:1010369", offline=True)
+        self.assertEqual(no_site.status, "resolved")
+        self.assertIsNone(no_site.structure_model)
+        self.assertEqual(no_site.site_models, [])
+        self.assertIn("不自动 Top-1", no_site.reason)
+
+        # 显式 all：按位点顺序返回每个不等价吸收位的模型。
+        fe = phase_resolver.resolve_phase(
+            "Fe", phase_id="COD:1010369", absorber_site="all", offline=True)
+        self.assertEqual(fe.status, "resolved")
+        self.assertEqual(fe.absorber_site, "all")
+        self.assertEqual([m.absorber_site for m in fe.site_models],
+                         ["Fe1", "Fe2", "Fe3"])
+        self.assertIs(fe.structure_model, fe.site_models[0])
+
+        gates = cif_gate.gate_cif_all_sites(
+            fe.selected.cif_path, "Fe", kmin=3.0, kmax=12.0)
+        self.assertEqual(len(gates), 3)
+        self.assertTrue(all(g.ok for g in gates), [g.reason for g in gates])
+        self.assertEqual([g.site_multiplicity for g in gates], [16, 16, 8])
+        self.assertEqual([g.site_occupancy for g in gates], [0.5, 0.5, 1.0])
+        for gate in gates:
+            self.assertAlmostEqual(gate.site_weight, 1.0 / 3.0, places=12)
+        weighted_n0 = sum(g.site_weight * g.first_shell_cn for g in gates)
+        self.assertAlmostEqual(weighted_n0, 16.0 / 3.0, places=6)
+        self.assertAlmostEqual(weighted_n0, 5.333333, places=6)
+
+        # Co3O4：8a:16d → 1/3 : 2/3；但该 COD CIF 缺少
+        # _atom_site_occupancy，冻结门禁必须拒绝（无合格来源不出 CN）。
+        co = phase_resolver.resolve_phase(
+            "Co", phase_id="COD:9005888", absorber_site="all", offline=True)
+        self.assertEqual([m.absorber_site for m in co.site_models],
+                         ["Co1", "Co2"])
+        co_sites = cif_gate.list_inequivalent_absorber_sites(
+            co.selected.cif_path, "Co")
+        self.assertEqual([s["label"] for s in co_sites], ["Co1", "Co2"])
+        self.assertEqual([s["multiplicity"] for s in co_sites], [8, 16])
+        self.assertAlmostEqual(co_sites[0]["weight"], 1.0 / 3.0, places=12)
+        self.assertAlmostEqual(co_sites[1]["weight"], 2.0 / 3.0, places=12)
+        co_gates = cif_gate.gate_cif_all_sites(
+            co.selected.cif_path, "Co", kmin=3.0, kmax=12.0)
+        self.assertTrue(all(not g.ok for g in co_gates))
+        self.assertTrue(all(g.code == "occupancy_missing" for g in co_gates))
+
+        # run_multi_site_formal_cn：全部位点 ok 才输出 ALL_WEIGHTED。
+        res = SimpleNamespace(ft=SimpleNamespace(kmin=3.0, kmax=12.0))
+
+        def fake_block(conditional_cn, plan, n0_mapping, structure_model,
+                       absorber, **kwargs):
+            site = structure_model.absorber_site
+            n0 = {"Fe1": 6.0, "Fe2": 6.0, "Fe3": 4.0}[site]
+            return {
+                "status": "ok", "reject_reason": None,
+                "rows": [{
+                    "phase_id": structure_model.model_id,
+                    "model_level": structure_model.model_level,
+                    "source_type": structure_model.source_type,
+                    "source_ref": structure_model.source_ref,
+                    "source_cif_sha256": structure_model.source_cif_sha256,
+                    "absorber_site": site, "shell_group": "first_shell",
+                    "shell_label": "Fe-O", "scatterer": "O",
+                    "r_cif": 2.0, "n0": n0, "n_fit": n0 * 0.95,
+                    "n_status": "fitted", "n_ratio": 0.95,
+                    "n_err_formal": 0.2, "n_err_systematic": 0.32,
+                    "delta_r": 0.01, "sigma2": 0.004, "delta_e0": 1.0,
+                    "rf": 0.02, "s02": 0.803,
+                    "s02_source": "absorber.py", "s02_calibrated": True,
+                    "kmin": 3.0, "kmax": 12.0, "kweight": 2,
+                    "rmin": 1.0, "rmax": 3.0, "n_idp": 9.0,
+                    "n_variables": 5, "cn_label": "cn_conditional",
+                    "gate_status": "passed", "reject_reason": "",
+                    "flags": "", "data_sha256": "d" * 64,
+                    "software_version": "test",
+                }],
+            }
+
+        common = [
+            patch.object(xafs_fit, "_site_motif_from_model",
+                         return_value=object()),
+            patch.object(xafs_fit, "select_shell_paths",
+                         return_value={"files": [], "shells": [],
+                                       "rmin": 1.0, "rmax": 3.0}),
+            patch.object(xafs_fit, "map_n0_to_plan",
+                         return_value={"mapping_ok": True}),
+            patch.object(xafs_fit, "run_conditional_cn", return_value={}),
+            patch.object(xafs_fit, "build_formal_cn_block",
+                         side_effect=fake_block),
+        ]
+        for patcher in common:
+            patcher.start()
+        try:
+            out = xafs_fit.run_multi_site_formal_cn(
+                res, site_models=fe.site_models, gate_results=gates,
+                s02=0.803, s02_source="absorber.py",
+                data_sha256="d" * 64)
+            self.assertEqual(out["status"], "ok")
+            self.assertAlmostEqual(out["site_weights"]["Fe1"], 1 / 3,
+                                   places=12)
+            self.assertEqual(out["rows"][-1]["absorber_site"],
+                             "ALL_WEIGHTED")
+            self.assertAlmostEqual(out["rows"][-1]["n0"], 16 / 3,
+                                   places=6)
+            self.assertIn("site_weight=0.333333", out["rows"][0]["flags"])
+
+            # 任一位点失败：该位点写拒绝行，且不输出 ALL_WEIGHTED。
+            bad = list(gates)
+            bad[1] = cif_gate.CIFGateResult(
+                ok=False, code="n_out_of_range", reason="fake gate failure",
+                absorber="Fe", absorber_site="Fe2")
+            bad[1].site_weight = gates[1].site_weight
+            failed = xafs_fit.run_multi_site_formal_cn(
+                res, site_models=fe.site_models, gate_results=bad,
+                s02=0.803, s02_source="absorber.py",
+                data_sha256="d" * 64)
+            self.assertEqual(failed["status"], "multi_site_failed")
+            sites = [r.get("absorber_site") for r in failed["rows"]]
+            self.assertNotIn("ALL_WEIGHTED", sites)
+            self.assertIn("Fe2", sites)
+        finally:
+            for patcher in common:
+                patcher.stop()
 
 
 if __name__ == "__main__":

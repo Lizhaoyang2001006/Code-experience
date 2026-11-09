@@ -518,7 +518,9 @@ def process_sample(paths, outdir, align: bool = False,
 
     # P1b phase resolution: parse --phase-* into StructureModel (formal CN strict track)
     structure_model = None
+    structure_models: list = []
     gate_result = None
+    gate_results: list = []
     if formal_cn and (phase_cif or phase_id or phase_spec or phase_index_path):
         if not absorber:
             raise XAFSConfigError(
@@ -543,6 +545,11 @@ def process_sample(paths, outdir, align: bool = False,
         if structure_model is None:
             raise XAFSConfigError(
                 "FIT", f"Phase resolution did not produce a usable structure model: {resolution.reason}")
+        site_models = list(getattr(resolution, "site_models", []) or [])
+        multi_site = len(site_models) > 1
+        if multi_site:
+            structure_models = site_models
+            structure_model = site_models[0]
         if verbose:
             sel = resolution.selected
             print(f"  [P1b] phase resolved: {sel.source}:{sel.id} "
@@ -550,22 +557,46 @@ def process_sample(paths, outdir, align: bool = False,
 
         # P2a CIF gate: validate the resolved CIF and compute N0 shell grouping
         # (Rayleigh). The gate result carries n0_shells needed for P3 conditional CN.
-        gate_result = cif_gate.gate_cif(
-            resolution.selected.cif_path, absorber,
-            absorber_site=resolution.absorber_site,
+        gate_kwargs = dict(
             kmin=kmin, kmax=kmax, rmax=6.0,
             allow_computed=False,
             allow_unusual_coordination=False,
             is_computed=not resolution.selected.experimental)
-        if not gate_result.ok:
-            raise XAFSConfigError(
-                "FIT", f"CIF gate rejected: {gate_result.code} — {gate_result.reason}")
+        if multi_site:
+            # P5-D：每个不等价吸收位独立过门禁；任一位点失败即拒绝，
+            # 不做“部分位点成功即放行”。
+            gate_results = cif_gate.gate_cif_all_sites(
+                resolution.selected.cif_path, absorber, **gate_kwargs)
+            failed = [g for g in gate_results if not g.ok]
+            if failed:
+                labels = ", ".join(
+                    f"{g.absorber_site or '?'}({g.code})" for g in failed)
+                raise XAFSConfigError(
+                    "FIT", f"CIF gate rejected multi-site: {labels} — "
+                           f"{failed[0].reason}")
+            gate_result = gate_results[0]
+        else:
+            gate_result = cif_gate.gate_cif(
+                resolution.selected.cif_path, absorber,
+                absorber_site=resolution.absorber_site,
+                **gate_kwargs)
+            if not gate_result.ok:
+                raise XAFSConfigError(
+                    "FIT", f"CIF gate rejected: {gate_result.code} — {gate_result.reason}")
         if verbose:
-            print(f"  [P2a] CIF gate passed: occ_src={gate_result.occupancy_source}, "
-                  f"first_shell_cn={gate_result.first_shell_cn}, "
-                  f"n0_shells={len(gate_result.n0_shells)}")
+            if multi_site:
+                weights = ", ".join(
+                    f"{g.absorber_site}={g.site_weight:.3f}"
+                    for g in gate_results)
+                print(f"  [P2a] CIF gate passed for {len(gate_results)} sites: "
+                      f"{weights}")
+            else:
+                print(f"  [P2a] CIF gate passed: occ_src={gate_result.occupancy_source}, "
+                      f"first_shell_cn={gate_result.first_shell_cn}, "
+                      f"n0_shells={len(gate_result.n0_shells)}")
 
     # S6.5/S7 only triggered via the fitting chain (entry -> xafs_fit -> structure_id, linear no cycle)
+    multi_site_formal = bool(formal_cn and len(structure_models) > 1)
     if identify or fit or xanes_cross_check:
         xafs_fit.run(
             result, identify=identify or fit, fit=fit,
@@ -584,10 +615,25 @@ def process_sample(paths, outdir, align: bool = False,
             s02=s02,
             s02_source=s02_source,
             verbose=verbose,
-            formal_cn=formal_cn,
+            # 多位点时单一位点的 formal 块会被 P5-D 结果覆盖；先跳过，
+            # 避免重复跑一套 FEFF/条件 CN。
+            formal_cn=formal_cn and not multi_site_formal,
             structure_model=structure_model,
             gate_result=gate_result,
             xanes_cross_check=xanes_cross_check)
+
+        # P5-D：--absorber-site all 时，用每位点独立的正式 CN 结果
+        # 覆盖单一位点输出；只有全部位点 ok 才追加 ALL_WEIGHTED 汇总行。
+        if multi_site_formal:
+            multi = xafs_fit.run_multi_site_formal_cn(
+                result,
+                site_models=structure_models,
+                gate_results=gate_results,
+                s02=s02,
+                s02_source=s02_source,
+                data_sha256=result.data_sha256,
+                verbose=verbose)
+            result.fit["formal_cn"] = multi
 
     # ---- 落盘 ----
     stem, norm, chi_k, ft, wave_map = (result.stem, result.norm, result.chi_k,
@@ -769,7 +815,10 @@ def main():
     parser.add_argument("--phase-pack", default=None,
                         help="P1b phase pack 根目录（默认 _structure_lib/_phase_pack）")
     parser.add_argument("--absorber-site", default=None,
-                        help="P1b 吸收位标签，如 Fe1 或 frac:(0,0,0)；缺省时取候选首个吸收位")
+                        help="P1b 吸收位标签，如 Fe1 或 frac:(0,0,0)；"
+                             "多位点相未显式指定时仍拒绝（absorber_site_ambiguous），"
+                             "传 'all' 表示对每个不等价吸收位分别做正式 CN "
+                             "并输出化学计量加权汇总（P5-D）")
     parser.add_argument("--offline", action="store_true",
                         help="P1b 离线模式：不允许 fetcher 联网；未命中时报 offline_miss，不退回 motif")
     parser.add_argument("--fit-motif", default=None,

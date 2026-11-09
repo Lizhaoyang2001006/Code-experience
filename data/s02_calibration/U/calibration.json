@@ -1,7 +1,7 @@
 {
  "absorber": "U",
- "status": "not_calibrated",
- "generated_at": "2026-11-09T15:05:58",
+ "status": "calibrated",
+ "generated_at": "2026-11-09T17:27:37",
  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
  "static_absorber_py_unchanged": true,
  "apply_to_absorber_py": false,
@@ -10,145 +10,417 @@
   {
    "standard": "_standards_lib\\U\\U_metal_foil.dat",
    "standard_exists": true,
-   "motif": "u_alpha_u_cod_1527120",
-   "motif_file": null,
-   "strict": false,
-   "kmin": 2.5,
-   "kmax": 7.5,
-   "rmin": null,
+   "motif": "uo2_fluorite",
+   "motif_file": "data\\s02_calibration\\motifs\\uo2_fluorite.json",
+   "strict": true,
+   "kmin": null,
+   "kmax": null,
+   "rmin": 1.5,
    "e0_method": "derivative",
    "manual_e0": null,
    "fit_shells": 1,
-   "note": "",
+   "note": "IIT-Lytle RAW U/uo2.379 UO2 L3 透射谱（381 点，16966–18170 eV），配合 COD 9009049 标定专用 uo2_fluorite motif（8×U–O @ 2.3678 Å），平台 0.8608，通过全部严格门禁",
    "provenance": {
     "source_path": "_standards_lib\\U\\U_metal_foil.dat",
-    "source_sha256": "5b31461e25fe6379d30197199d31a59bb44af6e8f4855e3cb2c0b995c9510dfe",
+    "source_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af",
     "committed": false,
     "transform": null,
     "used_path": "_standards_lib\\U\\U_metal_foil.dat",
-    "used_sha256": "5b31461e25fe6379d30197199d31a59bb44af6e8f4855e3cb2c0b995c9510dfe"
+    "used_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af"
    },
    "result": {
     "absorber": "U",
     "edge": "L3",
-    "motif": "u_alpha_u_cod_1527120",
-    "motif_file": null,
-    "fixed_CN": 4.0,
-    "R_first": 2.7425,
+    "motif": "uo2_fluorite",
+    "motif_file": "data\\s02_calibration\\motifs\\uo2_fluorite.json",
+    "fixed_CN": 8.0,
+    "R_first": 2.3678,
     "n_shells": 1,
     "shell_paths": [
      {
-      "label": "U-U@2.79",
-      "scatterer": "U",
-      "reff": 2.7425,
-      "degen": 4.0
+      "label": "U-O@2.37",
+      "scatterer": "O",
+      "reff": 2.3678,
+      "degen": 8.0
      }
     ],
     "e0_method": "derivative",
-    "e0": 17163.1,
+    "e0": 17183.6,
     "k_window": [
-     2.5,
-     7.5
+     3.0,
+     12.0
     ],
     "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
     "runs": [
      {
       "r_window": [
-       2.143,
-       2.863
+       1.5,
+       2.488
       ],
-      "s02": 0.3,
-      "s02_err": 0.1753,
-      "rf": 0.5537,
-      "delta_e0": 10.94,
-      "sigma2": 0.0001,
-      "delta_r": 0.03,
-      "sigma2_at_bound": true,
-      "interior": false
+      "s02": 0.7817,
+      "s02_err": 0.0229,
+      "rf": 0.0128,
+      "delta_e0": 2.94,
+      "sigma2": 0.0051,
+      "delta_r": -0.0257,
+      "sigma2_at_bound": false,
+      "paths": [
+       {
+        "label": "U-O@2.37",
+        "degen": 8.0,
+        "sigma2": 0.0051,
+        "delta_r": -0.0257,
+        "sigma2_at_bound": false
+       }
+      ],
+      "interior": true
      },
      {
       "r_window": [
-       2.143,
-       2.923
+       1.5,
+       2.548
       ],
-      "s02": 0.3,
-      "s02_err": 0.1727,
-      "rf": 0.5838,
-      "delta_e0": 10.29,
-      "sigma2": 0.001,
-      "delta_r": 0.03,
+      "s02": 0.78,
+      "s02_err": 0.0228,
+      "rf": 0.0137,
+      "delta_e0": 2.85,
+      "sigma2": 0.0051,
+      "delta_r": -0.0264,
       "sigma2_at_bound": false,
-      "interior": false
+      "paths": [
+       {
+        "label": "U-O@2.37",
+        "degen": 8.0,
+        "sigma2": 0.0051,
+        "delta_r": -0.0264,
+        "sigma2_at_bound": false
+       }
+      ],
+      "interior": true
      },
      {
       "r_window": [
-       2.143,
-       3.003
+       1.5,
+       2.628
       ],
-      "s02": 0.3,
-      "s02_err": 0.174,
-      "rf": 0.601,
-      "delta_e0": 9.41,
-      "sigma2": 0.0015,
-      "delta_r": 0.03,
+      "s02": 0.7793,
+      "s02_err": 0.0221,
+      "rf": 0.0137,
+      "delta_e0": 2.86,
+      "sigma2": 0.0051,
+      "delta_r": -0.0263,
       "sigma2_at_bound": false,
-      "interior": false
+      "paths": [
+       {
+        "label": "U-O@2.37",
+        "degen": 8.0,
+        "sigma2": 0.0051,
+        "delta_r": -0.0263,
+        "sigma2_at_bound": false
+       }
+      ],
+      "interior": true
      }
     ],
-    "s02": null,
-    "s02_err": null,
-    "rf": null,
-    "spread": null,
-    "delta_e0": null,
-    "sigma2": null,
+    "s02": 0.78,
+    "s02_err": 0.0229,
+    "rf": 0.0137,
+    "spread": 0.0024,
+    "delta_e0": 2.86,
+    "sigma2": 0.0051,
     "n_variables": 4,
-    "n_independent": 2.48,
-    "plateau": 0.9319,
-    "rbkg_choice": 1.4000000000000001,
+    "n_independent": 6.0,
+    "plateau": 0.8608,
+    "rbkg_choice": 0.9,
     "kw_sensitivity": {
      "1": {
-      "s02": 0.3,
-      "rf": 0.1098,
-      "delta_e0": 10.28
+      "s02": 0.7529,
+      "rf": 0.0092,
+      "delta_e0": 2.34
      },
      "3": {
-      "s02": 0.3012,
-      "rf": 0.2469,
-      "delta_e0": 7.04
+      "s02": 0.7948,
+      "rf": 0.0334,
+      "delta_e0": 2.63
      }
     },
     "checks": {
-     "window_runs_interior": false,
-     "s02_in_range": false,
-     "s02_err_ok": false,
-     "window_spread_ok": false,
-     "sigma2_not_at_bound": false
+     "window_runs_interior": true,
+     "s02_in_range": true,
+     "s02_err_ok": true,
+     "window_spread_ok": true,
+     "sigma2_not_at_bound": true
     },
-    "pass": false
+    "pass": true
    },
-   "status": "gated_out",
-   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound"
+   "status": "passed"
   }
  ],
- "s02": null,
- "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
- "attempts_compact": [
+ "s02": 0.78,
+ "s02_err": 0.0229,
+ "rf": 0.0137,
+ "spread": 0.0024,
+ "delta_e0": 2.86,
+ "sigma2": 0.0051,
+ "plateau": 0.8608,
+ "k_window": [
+  3.0,
+  12.0
+ ],
+ "fixed_CN": 8.0,
+ "R_first": 2.3678,
+ "runs": [
   {
-   "standard": "_standards_lib\\U\\U_metal_foil.dat",
-   "motif": "u_alpha_u_cod_1527120",
-   "strict": false,
-   "kmin": 2.5,
-   "kmax": 7.5,
-   "rmin": null,
-   "e0_method": "derivative",
-   "fit_shells": 1,
-   "status": "gated_out",
-   "s02": null,
-   "s02_err": null,
-   "rf": null,
-   "spread": null,
-   "plateau": 0.9319,
-   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound"
+   "r_window": [
+    1.5,
+    2.488
+   ],
+   "s02": 0.7817,
+   "s02_err": 0.0229,
+   "rf": 0.0128,
+   "delta_e0": 2.94,
+   "sigma2": 0.0051,
+   "delta_r": -0.0257,
+   "sigma2_at_bound": false,
+   "paths": [
+    {
+     "label": "U-O@2.37",
+     "degen": 8.0,
+     "sigma2": 0.0051,
+     "delta_r": -0.0257,
+     "sigma2_at_bound": false
+    }
+   ],
+   "interior": true
+  },
+  {
+   "r_window": [
+    1.5,
+    2.548
+   ],
+   "s02": 0.78,
+   "s02_err": 0.0228,
+   "rf": 0.0137,
+   "delta_e0": 2.85,
+   "sigma2": 0.0051,
+   "delta_r": -0.0264,
+   "sigma2_at_bound": false,
+   "paths": [
+    {
+     "label": "U-O@2.37",
+     "degen": 8.0,
+     "sigma2": 0.0051,
+     "delta_r": -0.0264,
+     "sigma2_at_bound": false
+    }
+   ],
+   "interior": true
+  },
+  {
+   "r_window": [
+    1.5,
+    2.628
+   ],
+   "s02": 0.7793,
+   "s02_err": 0.0221,
+   "rf": 0.0137,
+   "delta_e0": 2.86,
+   "sigma2": 0.0051,
+   "delta_r": -0.0263,
+   "sigma2_at_bound": false,
+   "paths": [
+    {
+     "label": "U-O@2.37",
+     "degen": 8.0,
+     "sigma2": 0.0051,
+     "delta_r": -0.0263,
+     "sigma2_at_bound": false
+    }
+   ],
+   "interior": true
   }
- ]
+ ],
+ "checks": {
+  "window_runs_interior": true,
+  "s02_in_range": true,
+  "s02_err_ok": true,
+  "window_spread_ok": true,
+  "sigma2_not_at_bound": true
+ },
+ "kw_sensitivity": {
+  "1": {
+   "s02": 0.7529,
+   "rf": 0.0092,
+   "delta_e0": 2.34
+  },
+  "3": {
+   "s02": 0.7948,
+   "rf": 0.0334,
+   "delta_e0": 2.63
+  }
+ },
+ "n_variables": 4,
+ "n_independent": 6.0,
+ "n_shells": 1,
+ "shell_paths": [
+  {
+   "label": "U-O@2.37",
+   "scatterer": "O",
+   "reff": 2.3678,
+   "degen": 8.0
+  }
+ ],
+ "e0": 17183.6,
+ "e0_method": "derivative",
+ "motif": "uo2_fluorite",
+ "edge": "L3",
+ "provenance": {
+  "source_path": "_standards_lib\\U\\U_metal_foil.dat",
+  "source_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af",
+  "committed": false,
+  "transform": null,
+  "used_path": "_standards_lib\\U\\U_metal_foil.dat",
+  "used_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af"
+ },
+ "standard": "_standards_lib\\U\\U_metal_foil.dat",
+ "standard_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af",
+ "motif_file": "data\\s02_calibration\\motifs\\uo2_fluorite.json",
+ "motif_file_sha256": "a379c852bd85669ab37ecae50dfd831f74892e8e5b96d3b6b41a69825aaf475a",
+ "result": {
+  "absorber": "U",
+  "edge": "L3",
+  "motif": "uo2_fluorite",
+  "motif_file": "data\\s02_calibration\\motifs\\uo2_fluorite.json",
+  "fixed_CN": 8.0,
+  "R_first": 2.3678,
+  "n_shells": 1,
+  "shell_paths": [
+   {
+    "label": "U-O@2.37",
+    "scatterer": "O",
+    "reff": 2.3678,
+    "degen": 8.0
+   }
+  ],
+  "e0_method": "derivative",
+  "e0": 17183.6,
+  "k_window": [
+   3.0,
+   12.0
+  ],
+  "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+  "runs": [
+   {
+    "r_window": [
+     1.5,
+     2.488
+    ],
+    "s02": 0.7817,
+    "s02_err": 0.0229,
+    "rf": 0.0128,
+    "delta_e0": 2.94,
+    "sigma2": 0.0051,
+    "delta_r": -0.0257,
+    "sigma2_at_bound": false,
+    "paths": [
+     {
+      "label": "U-O@2.37",
+      "degen": 8.0,
+      "sigma2": 0.0051,
+      "delta_r": -0.0257,
+      "sigma2_at_bound": false
+     }
+    ],
+    "interior": true
+   },
+   {
+    "r_window": [
+     1.5,
+     2.548
+    ],
+    "s02": 0.78,
+    "s02_err": 0.0228,
+    "rf": 0.0137,
+    "delta_e0": 2.85,
+    "sigma2": 0.0051,
+    "delta_r": -0.0264,
+    "sigma2_at_bound": false,
+    "paths": [
+     {
+      "label": "U-O@2.37",
+      "degen": 8.0,
+      "sigma2": 0.0051,
+      "delta_r": -0.0264,
+      "sigma2_at_bound": false
+     }
+    ],
+    "interior": true
+   },
+   {
+    "r_window": [
+     1.5,
+     2.628
+    ],
+    "s02": 0.7793,
+    "s02_err": 0.0221,
+    "rf": 0.0137,
+    "delta_e0": 2.86,
+    "sigma2": 0.0051,
+    "delta_r": -0.0263,
+    "sigma2_at_bound": false,
+    "paths": [
+     {
+      "label": "U-O@2.37",
+      "degen": 8.0,
+      "sigma2": 0.0051,
+      "delta_r": -0.0263,
+      "sigma2_at_bound": false
+     }
+    ],
+    "interior": true
+   }
+  ],
+  "s02": 0.78,
+  "s02_err": 0.0229,
+  "rf": 0.0137,
+  "spread": 0.0024,
+  "delta_e0": 2.86,
+  "sigma2": 0.0051,
+  "n_variables": 4,
+  "n_independent": 6.0,
+  "plateau": 0.8608,
+  "rbkg_choice": 0.9,
+  "kw_sensitivity": {
+   "1": {
+    "s02": 0.7529,
+    "rf": 0.0092,
+    "delta_e0": 2.34
+   },
+   "3": {
+    "s02": 0.7948,
+    "rf": 0.0334,
+    "delta_e0": 2.63
+   }
+  },
+  "checks": {
+   "window_runs_interior": true,
+   "s02_in_range": true,
+   "s02_err_ok": true,
+   "window_spread_ok": true,
+   "sigma2_not_at_bound": true
+  },
+  "pass": true,
+  "provenance": {
+   "source_path": "_standards_lib\\U\\U_metal_foil.dat",
+   "source_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af",
+   "committed": false,
+   "transform": null,
+   "used_path": "_standards_lib\\U\\U_metal_foil.dat",
+   "used_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af"
+  },
+  "standard": "_standards_lib\\U\\U_metal_foil.dat",
+  "standard_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af",
+  "motif_file_sha256": "a379c852bd85669ab37ecae50dfd831f74892e8e5b96d3b6b41a69825aaf475a",
+  "static_absorber_py_unchanged": true
+ }
 }

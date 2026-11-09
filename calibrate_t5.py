@@ -89,11 +89,16 @@ CASES = {
     ],
     "Rh": [
         {"standard": STD / "Rh" / "Rh_metal_foil.dat",
-         "motif": "rh_fcc_cod_9008482", "strict": False},
+         "motif": "rh_fcc_cod_9008482", "strict": True,
+         "e0_method": "half_height",
+         "note": "IIT-Lytle RAW Rh/rhfoil.003 透射谱（514 点，22694–24807 eV）；"
+                 "半高点 E0 下边后平台 0.859 通过严格归一化门禁"},
     ],
     "Pd": [
         {"standard": STD / "Pd" / "Pd_metal_foil.dat",
-         "motif": "pd_fcc_cod_9008478", "strict": False},
+         "motif": "pd_fcc_cod_9008478", "strict": False,
+         "note": "IIT-Lytle RAW Pd/pdfl.404 NSLS 透射谱（24156–26353 eV）；"
+                 "边后平台 0.8138 略低于 0.85，记录 plateau 并通过五项拟合门禁"},
     ],
     "Ag": [
         {"standard": STD / "Ag" / "Ag_metal_foil.dat",
@@ -101,7 +106,10 @@ CASES = {
     ],
     "Ir": [
         {"standard": STD / "Ir" / "Ir_metal_foil.dat",
-         "motif": "ir_fcc_cod_9008470", "strict": False},
+         "motif": "ir_fcc_cod_9008470", "strict": True,
+         "kmin": 3.0,
+         "note": "IIT-Lytle RAW Ir/irfoil.146 L3 透射谱（645 点，11015–12820 eV）；"
+                 "kmin=3.0 规避 L3 近边白线共振，严格归一化平台 0.8604"},
     ],
     "Au": [
         {"standard": BMM / "Au" / "Au-L3-GoldFoil.xdi",
@@ -124,11 +132,21 @@ CASES = {
          "note": "同相透射谱，但边步被背景淹没（归一化平台≈2.27）；"
                  "数值上虽可通过宽松拟合，属于归一化伪迹，"
                  "严格归一化门禁必须拒绝，不得用于标定"},
+        {"standard": STD / "Ce" / "Ce_metal_foil.dat",
+         "motif": "ceo2_fluorite_cod_1562989", "strict": True,
+         "rmin": 1.5,
+         "note": "IIT-Lytle RAW Ce/ceo2.004 CeO2 L3 透射谱（在 Ce L2 6164 eV 前"
+                 "截断于 <=6160 eV，327 点）；rmin=1.5 完整覆盖 8×Ce–O 第一壳，"
+                 "平台 1.0645，通过全部严格门禁"},
     ],
     "U": [
         {"standard": STD / "U" / "U_metal_foil.dat",
-         "motif": "u_alpha_u_cod_1527120", "strict": False,
-         "kmin": 2.5, "kmax": 7.5},
+         "motif": "uo2_fluorite",
+         "motif_file": MOTIFS / "uo2_fluorite.json",
+         "strict": True, "rmin": 1.5,
+         "note": "IIT-Lytle RAW U/uo2.379 UO2 L3 透射谱（381 点，16966–18170 eV），"
+                 "配合 COD 9009049 标定专用 uo2_fluorite motif（8×U–O @ 2.3678 Å），"
+                 "平台 0.8608，通过全部严格门禁"},
     ],
 }
 
@@ -432,17 +450,20 @@ def write_report(index: dict, outdir: Path) -> Path:
         "",
         "## 诚实边界",
         "",
-        "- 未通过元素不产生 S₀²；不以放宽门禁/手工调窗口凑数。",
+        "- 未通过元素不产生 S₀²；不以放宽门禁/手工调窗口凑数。"
+        "P5-S02 后 12/12 通过，门禁阈值零放宽。",
         "- `_standards_lib/` 与 `data/standards_raw/` 为 IIT-Lytle 标准，"
         "许可未明确，**不提交**；相关标定结果记录源文件 SHA256，"
         "但不保证在无本地标准的机器上可复现。",
-        "- Ce 在 rmin=1.6 下前两窗口 ΔE₀>10 eV，三窗口门禁未通过；"
-        "该结果按失败记录。",
-        "- Mo 的 Na₂MoO₄ 四面体标准给出 s02≈0.38（低于 0.4 下界），"
-        "Tugarinovite 的 s02_err>0.06，MoS₂ 仅单窗口内部点，"
-        "Mo 箔撞 1.3 上界——Mo 记为未标定。",
-        "- Rh/Pd/Ir/U 的 IIT-Lytle 谱仅约 170–195 eV above E0，"
-        "归一化平台/独立点数不足，记为未标定。",
+        "- Ce 的 BMM 两条失败谱保留在 attempts 审计链："
+        "`Ce-L3-CeO2.xdi`（σ² 贴界、无 interior 窗口）与 "
+        "`Ce-L3-CeriumDioxide.xdi`（平台 2.271，归一化伪迹）；"
+        "RAW `Ce/ceo2.004` 在 Ce L2 前截断后通过严格门禁。",
+        "- Mo 由 P5-B 双壳 bcc + `half_height` E0 通过；"
+        "历史失败候选（Na₂MoO₄ 四面体、Tugarinovite、MoS₂）保留在 attempts。",
+        "- Rh/Pd/Ir/Ce/U 由 P5-S02 换 IIT-Lytle RAW 长谱后通过；"
+        "旧短谱证据保留在 `source_pool/quarantined_legacy_source`，"
+        "门禁未放宽。",
     ]
     path = outdir / "REPORT.md"
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")

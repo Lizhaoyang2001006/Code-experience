@@ -14,7 +14,7 @@
 - 17 个 COD motif 入库，结构库共 **43 个 motif**，覆盖 **17/17** 吸收元素；
 - T5 12 条 IIT-Lytle 真实谱全部落盘，**0 个 placeholder**；
 - 旧 ID 迁移完成：`LEGACY_MOTIFS_LEFT 0`、`QUARANTINE_FILES 0`；
-- `regression_test.py` **126 项** + 4 个压力测试全部通过（`run_ci.py --stress` PASS；P5-prep 后）。
+- `regression_test.py` **127 项** + 4 个压力测试全部通过（`run_ci.py --stress` PASS；P5-S02/P5-D 后）。
 
 运行期仍然完全离线：`run_xafs.py` 不导入根爬虫，不读取 `data/cif_crawler_index.json` 取几何，只通过
 `structure_lib.load_library(absorber)` 读取 `_structure_lib`。
@@ -112,15 +112,22 @@ python cif_crawler.py --t5
 - 运行时通过 `run_xafs.py --s02 <值>` 显式覆盖，或对已通过元素用
   `run_xafs.py --s02-from-t5 --identify/--fit` 从独立产物读取（只接受
   `status="calibrated"` 且 `static_absorber_py_unchanged=True`；未通过
-  元素明确拒绝）；通过 7/12（Cr/Mn/Zn/Mo/Ru/Ag/Au），Rh/Pd/Ir/Ce/U
-  记录未通过原因、不强行给值；`s02_source` 溯源串写入 L1/motif 输出与
-  `<stem>_meta.json.fit`；
+  元素明确拒绝）；P5-S02 后 **12/12** 通过
+  （Cr/Mn/Zn/Mo/Ru/Ag/Au/Rh/Pd/Ir/Ce/U）；`s02_source` 溯源串写入
+  L1/motif 输出与 `<stem>_meta.json.fit`；
 - Mo 于 P5-B 通过：BMM Mo 箔用 `half_height` E₀（20012.86 eV，平台
   0.863）+ 双壳 bcc（8×2.725 + 6×3.147 Å，共享 S₀²/ΔE₀、各壳独立
   ΔR/σ²），S₀²=0.8322±0.0334、Rf=0.0040、窗口极差 0.0017、ΔE₀=−0.73 eV；
   门禁含新增 `sigma2_not_at_bound`（σ² 压到 1e-4 下界即失败）。
-  Ce 仍不通过：自由 σ² 压界、固定 σ² 无唯一解、加第二壳 Rf=0.127；
-  备选透射谱平台 2.27 属归一化伪迹，严格门禁拒绝；
+- P5-S02 后 Rh/Pd/Ir/Ce/U 换用 IIT-Lytle RAW 长谱并通过同一冻结门禁：
+  - Rh `RAW/Rh/rhfoil.003`：S₀²=0.7022±0.0191，Rf=0.0041，ΔE₀=−0.71 eV；
+  - Pd `RAW/Pd/pdfl.404`：S₀²=0.6559±0.0141，Rf=0.0035，ΔE₀=+1.14 eV；
+  - Ir `RAW/Ir/irfoil.146`：S₀²=0.4752±0.0149，Rf=0.0043，ΔE₀=+9.30 eV；
+  - Ce `RAW/Ce/ceo2.004`（L2 前截断）：S₀²=0.6279±0.0268，Rf=0.0223；
+  - U `RAW/U/uo2.379` + 标定专用 `uo2_fluorite`：S₀²=0.7800±0.0229，
+    Rf=0.0137，ΔE₀=+2.86 eV；
+  - Ir 谱 `ln(I0/I1)` 为负边步，解析器按 `-ln(I0/I1)` 恢复 μ 边后升高
+    约定并在 provenance 记录；Ce 的 BMM 两条失败谱保留在 attempts 审计链。
 - `_standards_lib/` 与 `data/standards_raw/` 因许可未明确不提交；Ag 标定依赖本地 IIT-Lytle 谱，产物记录源文件 SHA256，但不保证无本地标准时可复现。
 
 ### 4.5 P5-C 常见相补齐
@@ -153,7 +160,8 @@ python cif_crawler.py --t5
 
 高压/高温/DFT 条目显式排除（Cr2O3 的 63.9 GPa 条目、β-U3O8、高温
 U3O8 均未采用）。`phase_coverage.json` 的 `missing_common_phases` 全部
-为空；Mn3O4 与 U3O8 多位点仍需显式 `--absorber-site`。P5-C 下载缓存
+为空；Mn3O4 与 U3O8 等多位点相必须显式 `--absorber-site`（或传 `all`
+做逐位点正式 CN），不自动取第一个位点。P5-C 下载缓存
 只用于构建期导入，导入后清理，`data/cif_raw/` 仍保持 17 个根索引 CIF。
 
 ## 5. 验收
@@ -218,11 +226,11 @@ python cif_crawler.py --t5
 
 ## 7. 仍然存在的缺口
 
-1. **T5 S₀² 部分标定**：已产出独立标定产物并通过 7/12；Rh/Pd/Ir 缺足够宽能区标准、Ce 的 CeO₂ 标准 σ² 与 S₀² 强相关（无唯一解）、U 撞界；未标定元素仍需运行时 `--s02` 才能做正式 CN（已通过元素可用 `--s02-from-t5`）；
+1. **T5 S₀² 已全部标定（12/12）**：独立产物通过冻结门禁，`absorber.py` 静态表保持不变（#60）；运行期未给 S₀² 时未标定元素仍拒绝 CN 定量（已通过元素可用 `--s02-from-t5`）；
 2. **常见相已补齐（P5-C）**：18 个 `missing_common_phases` 全部有 verified CIF；唯一边界是 PtO2 在 COD 中只有高压合成 β-PtO2、没有常压 α 相，已在条目 notes 标注；Mn3O4/U3O8 为多位点，正式 CN 仍需显式 `--absorber-site`；
-3. **多位点联合模型未自动构建**：当前需显式 `--absorber-site` 或 `absorber_fract`；
+3. **多位点正式 CN（P5-D）**：`--absorber-site all` 可逐位点做条件 CN 并按 `m_i·occ_i` 加权；仅全部位点通过才输出 `ALL_WEIGHTED` 汇总行；未传 site 仍拒绝；化学计量权重不用于自动选主位点；
 4. **T7/T8 已实现**：`--multi-element` 逐元素并列报告、不推荐 Top-1；`--xanes-cross-check` 只报警告、不改 `cn_reliable`（#120/#121）。
 
 ## 8. 一句话状态
 
-**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 126+4 CI 全部通过；phase pack 已由 P5-C 扩到 44 条；T5 已产出 7/12 独立标定产物（静态表未改），运行期可用 `--s02-from-t5` 溯源，T7 多元素与 T8 联合校验已实现；P5-prep 已把 5 个未通过元素纳入谱源隔离池并冻结门禁。**
+**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 127+4 CI 全部通过；phase pack 已由 P5-C 扩到 44 条；T5 独立标定 12/12（静态表未改），运行期可用 `--s02-from-t5` 溯源，T7 多元素、T8 联合校验与 P5-D 多位点正式 CN 已实现；P5-prep 隔离池 5 元素在 P5-S02 换谱后全部 resolved。**

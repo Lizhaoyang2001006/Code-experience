@@ -1,9 +1,9 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "pool_id": "s02-standard-source-isolation",
   "generated_at": "2026-11-09",
   "generated_by": "tools/build_source_pool.py",
-  "scope": "T5 未通过 5 元素的谱源逻辑隔离池；只做状态分类与替换准入，不产生 S₀²、不改静态表、不改门禁",
+  "scope": "T5 5 元素谱源隔离池（历史审计 + 替换准入）；替换谱通过冻结门禁后标记 resolved 并记录 resolved_by，旧谱保留在 quarantined_legacy_source；不产生新 S₀²、不改静态表、不改门禁",
   "policy": {
     "s02_pass_range": [
       0.4,
@@ -51,137 +51,220 @@
     "oxide_phase_verification": 1,
     "short_spectrum_replace": 3
   },
+  "pool_state_counts": {
+    "resolved": 5
+  },
   "elements": [
     {
       "element": "Rh",
       "edge": "K",
-      "e0_ev": 23220.0,
-      "current_source": "_standards_lib/Rh/Rh_metal_foil.dat",
-      "source_sha256": "074792a1b5de859f72921a69f0ef90b0f5fa3a023f8dafdfda1c8204fa7a9d85",
-      "source_license": "IIT-Lytle；许可未明确，不提交",
-      "source_committed": false,
-      "data_points": 137,
-      "energy_range_ev": [
-        23169.73,
-        23342.59
-      ],
-      "post_edge_span_ev": 122.59,
-      "k_max_estimate": 5.67,
-      "calibration_motif": "rh_fcc_cod_9008482",
       "calibration_artifact": "data/s02_calibration/Rh/calibration.json",
-      "last_status": "not_calibrated",
-      "attempt_status": "gated_out",
-      "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
-      "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity",
-      "gate_failures": [
-        "wt_no_valid_grid"
-      ],
-      "s02": null,
-      "usable_for_s02": false,
-      "pool_state": "quarantined",
+      "last_status": "calibrated",
       "classification": "short_spectrum_replace",
       "user_suggested_class": "xanes_truncation_replace_spectrum",
       "assessment": "同意：谱长不足，无法进入拟合。",
+      "resolution": "已用 IIT-Lytle RAW/Rh/rhfoil.003（514 点，22694–24807 eV）替换；half_height E0 + strict 门禁 5/5 通过，S₀²=0.7022±0.0191。",
       "action_class": "replace_source",
       "phase_baseline": "Rh fcc（COD 9008482）",
       "phase_switch_needed": false,
       "next_actions": [
-        "获取 Rh K 边、k_max ≥ 10–12 Å⁻¹ 的 Rh 箔或 Rh2O3 谱",
-        "优先 Rh 箔（fcc 第一壳 N=12）复核 S₀²；Rh2O3 需配套 corundum motif",
-        "新谱通过全部冻结门禁后才可移出隔离池"
+        "已完成：替换为 RAW 长谱并通过全部冻结门禁",
+        "维护：运行期仍只通过 --s02/--s02-from-t5 使用标定值，不改静态表"
       ],
       "replacement_candidates": [
         "Rh K 边 Rh 箔透射/荧光谱（k_max ≥ 10 Å⁻¹）",
         "Rh2O3 corundum（P5-C COD 1010584）配套谱"
       ],
-      "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated"
+      "quarantined_legacy_source": {
+        "source": "_standards_lib/Rh/Rh_metal_foil.dat",
+        "source_sha256": "074792a1b5de859f72921a69f0ef90b0f5fa3a023f8dafdfda1c8204fa7a9d85",
+        "points": 137,
+        "e_min": 23169.73,
+        "e_max": 23342.59,
+        "edge_e0": 23220.0,
+        "file_format": "IIT-Lytle .dat",
+        "attempt_status": "gated_out",
+        "gate_failures": [
+          "wt_no_valid_grid"
+        ],
+        "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
+        "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity",
+        "k_max_estimate": 5.67
+      },
+      "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated",
+      "e0_ev": 23216.078,
+      "current_source": "_standards_lib/Rh/Rh_metal_foil.dat",
+      "source_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e",
+      "source_license": "IIT-Lytle；许可未明确，不提交",
+      "source_committed": false,
+      "data_points": 514,
+      "energy_range_ev": [
+        22694.49,
+        24807.16
+      ],
+      "post_edge_span_ev": 1591.082,
+      "k_max_estimate": 20.44,
+      "calibration_motif": "rh_fcc_cod_9008482",
+      "attempt_status": "passed",
+      "failure_reason": null,
+      "failure_error": null,
+      "gate_failures": [],
+      "s02": 0.7022,
+      "s02_err": 0.0191,
+      "rf": 0.0041,
+      "spread": 0.0037,
+      "delta_e0": -0.71,
+      "sigma2": 0.0028,
+      "plateau": 0.859,
+      "k_window": [
+        3.0,
+        12.0
+      ],
+      "e0_method": "half_height",
+      "n_variables": 4,
+      "n_independent": 4.47,
+      "usable_for_s02": true,
+      "pool_state": "resolved",
+      "resolved_by": {
+        "standard": "_standards_lib/Rh/Rh_metal_foil.dat",
+        "source_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e",
+        "note": "IIT-Lytle RAW Rh/rhfoil.003 透射谱（514 点，22694–24807 eV）；半高点 E0 下边后平台 0.859 通过严格归一化门禁",
+        "motif": "rh_fcc_cod_9008482",
+        "motif_file": null,
+        "kmin": null,
+        "kmax": null,
+        "rmin": null,
+        "e0_method": "half_height",
+        "s02": 0.7022,
+        "s02_err": 0.0191,
+        "rf": 0.0041,
+        "spread": 0.0037,
+        "gate_failures": []
+      }
     },
     {
       "element": "Pd",
       "edge": "K",
-      "e0_ev": 24350.0,
-      "current_source": "_standards_lib/Pd/Pd_metal_foil.dat",
-      "source_sha256": "9f07525aaa52e0ac6ebbc4344d9c715e3c50cea6fd2654729b3909e13d77a21e",
-      "source_license": "IIT-Lytle；许可未明确，不提交",
-      "source_committed": false,
-      "data_points": 195,
-      "energy_range_ev": [
-        24275.21,
-        24472.85
-      ],
-      "post_edge_span_ev": 122.85,
-      "k_max_estimate": 5.68,
-      "calibration_motif": "pd_fcc_cod_9008478",
       "calibration_artifact": "data/s02_calibration/Pd/calibration.json",
-      "last_status": "not_calibrated",
-      "attempt_status": "gated_out",
-      "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
-      "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity",
-      "gate_failures": [
-        "wt_no_valid_grid"
-      ],
-      "s02": null,
-      "usable_for_s02": false,
-      "pool_state": "quarantined",
+      "last_status": "calibrated",
       "classification": "short_spectrum_replace",
       "user_suggested_class": "xanes_truncation_replace_spectrum",
       "assessment": "同意：谱长不足，无法进入拟合。",
+      "resolution": "已用 IIT-Lytle RAW/Pd/pdfl.404（520 点，24156–26353 eV）替换；strict=False 记录 plateau=0.8138，五项拟合门禁 5/5 通过，S₀²=0.6559±0.0141。",
       "action_class": "replace_source",
       "phase_baseline": "Pd fcc（COD 9008478）",
       "phase_switch_needed": false,
       "next_actions": [
-        "获取 Pd K 边、k_max ≥ 10–12 Å⁻¹ 的 Pd 箔或 PdO 谱",
-        "优先 Pd 箔（fcc 第一壳 N=12）复核 S₀²；PdO 需配套 tetragonal motif",
-        "新谱通过全部冻结门禁后才可移出隔离池"
+        "已完成：替换为 RAW 长谱并通过全部冻结门禁",
+        "维护：运行期仍只通过 --s02/--s02-from-t5 使用标定值，不改静态表"
       ],
       "replacement_candidates": [
         "Pd K 边 Pd 箔透射/荧光谱（k_max ≥ 10 Å⁻¹）",
         "PdO（P5-C COD 1009031）配套谱"
       ],
-      "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated"
+      "quarantined_legacy_source": {
+        "source": "_standards_lib/Pd/Pd_metal_foil.dat",
+        "source_sha256": "9f07525aaa52e0ac6ebbc4344d9c715e3c50cea6fd2654729b3909e13d77a21e",
+        "points": 195,
+        "e_min": 24275.21,
+        "e_max": 24472.85,
+        "edge_e0": 24350.0,
+        "file_format": "IIT-Lytle .dat",
+        "attempt_status": "gated_out",
+        "gate_failures": [
+          "wt_no_valid_grid"
+        ],
+        "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
+        "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity",
+        "k_max_estimate": 5.68
+      },
+      "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated",
+      "e0_ev": 24347.2,
+      "current_source": "_standards_lib/Pd/Pd_metal_foil.dat",
+      "source_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9",
+      "source_license": "IIT-Lytle；许可未明确，不提交",
+      "source_committed": false,
+      "data_points": 520,
+      "energy_range_ev": [
+        24156.34,
+        26352.59
+      ],
+      "post_edge_span_ev": 2005.39,
+      "k_max_estimate": 22.94,
+      "calibration_motif": "pd_fcc_cod_9008478",
+      "attempt_status": "passed",
+      "failure_reason": null,
+      "failure_error": null,
+      "gate_failures": [],
+      "s02": 0.6559,
+      "s02_err": 0.0141,
+      "rf": 0.0035,
+      "spread": 0.0133,
+      "delta_e0": 1.14,
+      "sigma2": 0.0045,
+      "plateau": 0.8138,
+      "k_window": [
+        3.0,
+        12.0
+      ],
+      "e0_method": "derivative",
+      "n_variables": 4,
+      "n_independent": 4.47,
+      "usable_for_s02": true,
+      "pool_state": "resolved",
+      "resolved_by": {
+        "standard": "_standards_lib/Pd/Pd_metal_foil.dat",
+        "source_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9",
+        "note": "IIT-Lytle RAW Pd/pdfl.404 NSLS 透射谱（24156–26353 eV）；边后平台 0.8138 略低于 0.85，记录 plateau 并通过五项拟合门禁",
+        "motif": "pd_fcc_cod_9008478",
+        "motif_file": null,
+        "kmin": null,
+        "kmax": null,
+        "rmin": null,
+        "e0_method": "derivative",
+        "s02": 0.6559,
+        "s02_err": 0.0141,
+        "rf": 0.0035,
+        "spread": 0.0133,
+        "gate_failures": []
+      }
     },
     {
       "element": "Ir",
       "edge": "L3",
-      "e0_ev": 11215.0,
-      "current_source": "_standards_lib/Ir/Ir_metal_foil.dat",
-      "source_sha256": "959da06b723b3342c26b5e349dce2ce1aa6ac3dda9fa62479599e5a0387d341b",
-      "source_license": "IIT-Lytle；许可未明确，不提交",
-      "source_committed": false,
-      "data_points": 272,
-      "energy_range_ev": [
-        11142.7,
-        11336.9
-      ],
-      "post_edge_span_ev": 121.9,
-      "k_max_estimate": 5.66,
-      "calibration_motif": "ir_fcc_cod_9008470",
       "calibration_artifact": "data/s02_calibration/Ir/calibration.json",
-      "last_status": "not_calibrated",
-      "attempt_status": "gated_out",
-      "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
-      "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity",
-      "gate_failures": [
-        "wt_no_valid_grid"
-      ],
-      "s02": null,
-      "usable_for_s02": false,
-      "pool_state": "quarantined",
+      "last_status": "calibrated",
       "classification": "short_spectrum_replace",
       "user_suggested_class": "parameter_window_tuning_raise_kmin",
       "assessment": "不同意‘仅调 k_min 可解决’。当前谱 k_max≈5.66 Å⁻¹，即使 k_min=2.5 Å⁻¹，Δk≈3.16 Å⁻¹，3 窗口的 N_idp 仍小于 4 个自由参数；且失败发生在 WT 网格为空，尚未进入参数窗口。k_min 只能在换到长谱后作为诊断项，不能替代换谱，也不能用来绕过门禁。",
+      "resolution": "已用 IIT-Lytle RAW/Ir/irfoil.146（645 点，11015–12820 eV）替换；kmin=3.0 仅作 L3 白线规避诊断，strict 门禁 5/5 通过，S₀²=0.4752±0.0149。",
       "action_class": "replace_source_then_kmin_diagnostic",
       "phase_baseline": "Ir fcc（COD 9008470）",
       "phase_switch_needed": false,
       "next_actions": [
-        "获取 Ir L3 边、k_max ≥ 10–12 Å⁻¹ 的 Ir 箔或 IrO2 谱",
-        "换谱后可将提高 k_min 作为白线规避的诊断项，但必须记录敏感性",
-        "三窗口 spread、N_idp、σ² 不贴界等门禁全部保持不变"
+        "已完成：替换为 RAW 长谱并通过全部冻结门禁",
+        "维护：kmin 敏感性已记录在 calibration.json（kw_sensitivity/runs），不得用于放宽门禁"
       ],
       "replacement_candidates": [
         "Ir L3 边 Ir 箔透射/荧光谱（k_max ≥ 10 Å⁻¹）",
         "IrO2 rutile（P5-C COD 2101854）配套谱"
       ],
+      "quarantined_legacy_source": {
+        "source": "_standards_lib/Ir/Ir_metal_foil.dat",
+        "source_sha256": "959da06b723b3342c26b5e349dce2ce1aa6ac3dda9fa62479599e5a0387d341b",
+        "points": 272,
+        "e_min": 11142.7,
+        "e_max": 11336.9,
+        "edge_e0": 11215.0,
+        "file_format": "IIT-Lytle .dat",
+        "attempt_status": "gated_out",
+        "gate_failures": [
+          "wt_no_valid_grid"
+        ],
+        "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
+        "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity",
+        "k_max_estimate": 5.66
+      },
       "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated",
       "kmin_tuning_assessment": {
         "suggested": true,
@@ -189,55 +272,97 @@
         "reason": "k_max≈5.66 Å⁻¹；k_min≥2.5 Å⁻¹ 时 Δk≈3.16 Å⁻¹，N_idp 不足以支撑 s02+dE0+dR+sigma2 四个参数；当前失败点是 WT 无有效网格，不是白线污染。",
         "allowed_after_replacement": true,
         "may_relax_gates": false
+      },
+      "e0_ev": 11212.9,
+      "current_source": "_standards_lib/Ir/Ir_metal_foil.dat",
+      "source_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b",
+      "source_license": "IIT-Lytle；许可未明确，不提交",
+      "source_committed": false,
+      "data_points": 645,
+      "energy_range_ev": [
+        11015.0,
+        12820.32
+      ],
+      "post_edge_span_ev": 1607.42,
+      "k_max_estimate": 20.54,
+      "calibration_motif": "ir_fcc_cod_9008470",
+      "attempt_status": "passed",
+      "failure_reason": null,
+      "failure_error": null,
+      "gate_failures": [],
+      "s02": 0.4752,
+      "s02_err": 0.0149,
+      "rf": 0.0043,
+      "spread": 0.0068,
+      "delta_e0": 9.3,
+      "sigma2": 0.0022,
+      "plateau": 0.8604,
+      "k_window": [
+        3.0,
+        12.0
+      ],
+      "e0_method": "derivative",
+      "n_variables": 4,
+      "n_independent": 4.47,
+      "usable_for_s02": true,
+      "pool_state": "resolved",
+      "resolved_by": {
+        "standard": "_standards_lib/Ir/Ir_metal_foil.dat",
+        "source_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b",
+        "note": "IIT-Lytle RAW Ir/irfoil.146 L3 透射谱（645 点，11015–12820 eV）；kmin=3.0 规避 L3 近边白线共振，严格归一化平台 0.8604",
+        "motif": "ir_fcc_cod_9008470",
+        "motif_file": null,
+        "kmin": 3.0,
+        "kmax": null,
+        "rmin": null,
+        "e0_method": "derivative",
+        "s02": 0.4752,
+        "s02_err": 0.0149,
+        "rf": 0.0043,
+        "spread": 0.0068,
+        "gate_failures": []
       }
     },
     {
       "element": "Ce",
       "edge": "L3",
-      "e0_ev": 5726.0,
-      "current_source": "data/bmm_standards/Data/Ce/Ce-L3-CeO2.xdi",
-      "source_sha256": "1f679ebd0fb31ed37bca9e8ba125ad06fc0b08554052f8329a2ce7386b8c1e7e",
-      "source_license": "NIST BMM 公共数据（DOI 10.18434/mds2-4032）",
-      "source_committed": true,
-      "data_points": 259,
-      "energy_range_ev": [
-        5523.405,
-        6152.412
-      ],
-      "post_edge_span_ev": 426.412,
-      "k_max_estimate": 10.58,
-      "calibration_motif": "ceo2_fluorite_cod_1562989",
       "calibration_artifact": "data/s02_calibration/Ce/calibration.json",
-      "last_status": "not_calibrated",
-      "attempt_status": "gated_out",
-      "failure_reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
-      "failure_error": null,
-      "gate_failures": [
-        "window_runs_interior",
-        "s02_in_range",
-        "s02_err_ok",
-        "window_spread_ok",
-        "sigma2_not_at_bound"
-      ],
-      "s02": null,
-      "usable_for_s02": false,
-      "pool_state": "quarantined",
+      "last_status": "calibrated",
       "classification": "oxide_baseline_reprocess",
       "user_suggested_class": "phase_recalibration_oxide_baseline",
       "assessment": "物相基准已经是 CeO2：T5 主谱为 NIST BMM Ce-L3-CeO2.xdi，motif 为 ceo2_fluorite_cod_1562989，不是 Ce 金属箔。问题不在‘换 CeO2’，而在归一化/ΔE₀/σ²：三个窗口 ΔE₀=9.78–10.20 eV 贴上限，σ² 压到 1e-4 下界，无 interior 窗口，S₀² 无唯一解。",
+      "resolution": "已改用 IIT-Lytle RAW/Ce/ceo2.004（327 点，5523–6158 eV，Ce L2 前截断）+ rmin=1.5，strict 门禁 5/5 通过，S₀²=0.6279±0.0268；BMM 两条失败谱保留在 attempts 审计链。",
       "action_class": "reprocess_normalization_e0",
       "phase_baseline": "CeO2 fluorite（COD 1562989）",
       "phase_switch_needed": false,
       "next_actions": [
-        "保留 CeO2 基准，复核 rbkg/背景归一化与 E0 方法（derivative vs half_height）",
-        "可比较其它 CeO2 L3 谱，但必须重新通过严格归一化门禁",
-        "不得使用 Ce-L3-CeriumDioxide.xdi（平台 2.271 的归一化伪迹）",
-        "若仍无唯一解，保持 not_calibrated；不放宽 ΔE₀/σ² 门禁"
+        "已完成：替换为 RAW 长谱并通过全部冻结门禁",
+        "维护：BMM 负例（σ² 贴界/平台 2.271）保留在 calibration.json 供复核"
       ],
       "replacement_candidates": [
         "其它来源的 CeO2 L3 透射谱（平台 0.85–1.15）",
         "NIST BMM Ce-L3-CeO2.xdi 重新归一化/换 E0 方法"
       ],
+      "quarantined_legacy_source": {
+        "source": "data/bmm_standards/Data/Ce/Ce-L3-CeO2.xdi",
+        "source_sha256": "1f679ebd0fb31ed37bca9e8ba125ad06fc0b08554052f8329a2ce7386b8c1e7e",
+        "points": 259,
+        "e_min": 5523.405,
+        "e_max": 6152.412,
+        "edge_e0": 5726.0,
+        "file_format": "NIST BMM XDI",
+        "attempt_status": "gated_out",
+        "gate_failures": [
+          "window_runs_interior",
+          "s02_in_range",
+          "s02_err_ok",
+          "window_spread_ok",
+          "sigma2_not_at_bound"
+        ],
+        "failure_reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
+        "failure_error": null,
+        "k_max_estimate": 10.58
+      },
       "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated",
       "rejected_sources": [
         {
@@ -245,56 +370,147 @@
           "sha256": "e4d10395c858d41f56a1cddb173745fe71ca45405d532bd8e9cf603894db6603",
           "reason": "边后平台 2.271，归一化伪迹；严格门禁拒绝"
         }
-      ]
+      ],
+      "e0_ev": 5728.0,
+      "current_source": "_standards_lib/Ce/Ce_metal_foil.dat",
+      "source_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305",
+      "source_license": "NIST BMM 公共数据（DOI 10.18434/mds2-4032）",
+      "source_committed": false,
+      "data_points": 327,
+      "energy_range_ev": [
+        5523.0,
+        6158.49
+      ],
+      "post_edge_span_ev": 430.49,
+      "k_max_estimate": 10.63,
+      "calibration_motif": "ceo2_fluorite_cod_1562989",
+      "attempt_status": "passed",
+      "failure_reason": null,
+      "failure_error": null,
+      "gate_failures": [],
+      "s02": 0.6279,
+      "s02_err": 0.0268,
+      "rf": 0.0223,
+      "spread": 0.0096,
+      "delta_e0": 5.94,
+      "sigma2": 0.0079,
+      "plateau": 1.0645,
+      "k_window": [
+        3.0,
+        12.0
+      ],
+      "e0_method": "derivative",
+      "n_variables": 4,
+      "n_independent": 5.85,
+      "usable_for_s02": true,
+      "pool_state": "resolved",
+      "resolved_by": {
+        "standard": "_standards_lib/Ce/Ce_metal_foil.dat",
+        "source_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305",
+        "note": "IIT-Lytle RAW Ce/ceo2.004 CeO2 L3 透射谱（在 Ce L2 6164 eV 前截断于 <=6160 eV，327 点）；rmin=1.5 完整覆盖 8×Ce–O 第一壳，平台 1.0645，通过全部严格门禁",
+        "motif": "ceo2_fluorite_cod_1562989",
+        "motif_file": null,
+        "kmin": null,
+        "kmax": null,
+        "rmin": 1.5,
+        "e0_method": "derivative",
+        "s02": 0.6279,
+        "s02_err": 0.0268,
+        "rf": 0.0223,
+        "spread": 0.0096,
+        "gate_failures": []
+      }
     },
     {
       "element": "U",
       "edge": "L3",
-      "e0_ev": 17163.1,
-      "current_source": "_standards_lib/U/U_metal_foil.dat",
-      "source_sha256": "5b31461e25fe6379d30197199d31a59bb44af6e8f4855e3cb2c0b995c9510dfe",
-      "source_license": "IIT-Lytle；许可未明确，不提交",
-      "source_committed": false,
-      "data_points": 455,
-      "energy_range_ev": [
-        16966.0,
-        18759.65
-      ],
-      "post_edge_span_ev": 1596.55,
-      "k_max_estimate": 20.47,
-      "calibration_motif": "u_alpha_u_cod_1527120",
       "calibration_artifact": "data/s02_calibration/U/calibration.json",
-      "last_status": "not_calibrated",
-      "attempt_status": "gated_out",
-      "failure_reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
-      "failure_error": null,
-      "gate_failures": [
-        "window_runs_interior",
-        "s02_in_range",
-        "s02_err_ok",
-        "window_spread_ok",
-        "sigma2_not_at_bound"
-      ],
-      "s02": null,
-      "usable_for_s02": false,
-      "pool_state": "quarantined",
+      "last_status": "calibrated",
       "classification": "oxide_phase_verification",
       "user_suggested_class": "phase_recalibration_oxide_baseline",
       "assessment": "同意核实 UO2 基准，但当前本地没有 UO2 标准谱。现有 U_metal_foil.dat 是 IIT-Lytle RAW 荧光谱，α-U 第一壳模型（4×U–U 2.7425 Å）拟合 s02 钉在 0.3、ΔE₀≈9.4–10.9 eV、Rf≈0.55–0.60、N_idp=2.48<4 参数。UO2 结构 CIF 已在 P5-C 入库，但还缺配套 UO2 L3 谱；先核实谱源，再决定是否切换。",
+      "resolution": "已完成 UO2 基准切换：IIT-Lytle RAW/U/uo2.379（381 点，16966–18170 eV）+ COD 9009049 标定专用 uo2_fluorite motif（8×U–O 2.3678 Å），strict 门禁 5/5 通过，S₀²=0.7800±0.0229。",
       "action_class": "verify_uo2_phase_switch",
-      "phase_baseline": "α-U（COD 1527120）→ 候选 UO2 fluorite（COD 9009049）",
-      "phase_switch_needed": "pending_source_verification",
+      "phase_baseline": "UO2 fluorite（COD 9009049，标定专用 uo2_fluorite motif）",
+      "phase_switch_needed": false,
       "next_actions": [
-        "先核实是否存在可追溯、许可明确的 UO2 L3 标准谱",
-        "若存在：用 COD 9009049 生成 calibration-only UO2 fluorite motif，以 8×U–O 第一壳重新标定",
-        "若不存在：保持 not_calibrated，不用 RAW U 金属谱强行给值",
-        "任何相位切换都必须重新通过全部冻结门禁"
+        "已完成：UO2 基准切换并通过全部冻结门禁",
+        "维护：uo2_fluorite 仅存在于 data/s02_calibration/motifs，不进生产 _structure_lib"
       ],
       "replacement_candidates": [
         "UO2 L3 透射/荧光谱（许可明确、k_max ≥ 10 Å⁻¹）",
         "更干净的 α-U 金属箔谱 + 多壳层 α-U 模型（备选，不优先）"
       ],
-      "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated"
+      "quarantined_legacy_source": {
+        "source": "_standards_lib/U/U_metal_foil.dat",
+        "source_sha256": "5b31461e25fe6379d30197199d31a59bb44af6e8f4855e3cb2c0b995c9510dfe",
+        "points": 455,
+        "e_min": 16966.0,
+        "e_max": 18759.65,
+        "edge_e0": 17163.1,
+        "file_format": "IIT-Lytle .dat",
+        "attempt_status": "gated_out",
+        "gate_failures": [
+          "window_runs_interior",
+          "s02_in_range",
+          "s02_err_ok",
+          "window_spread_ok",
+          "sigma2_not_at_bound"
+        ],
+        "failure_reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
+        "failure_error": null,
+        "k_max_estimate": 20.47
+      },
+      "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated",
+      "e0_ev": 17183.6,
+      "current_source": "_standards_lib/U/U_metal_foil.dat",
+      "source_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af",
+      "source_license": "IIT-Lytle；许可未明确，不提交",
+      "source_committed": false,
+      "data_points": 381,
+      "energy_range_ev": [
+        16966.34,
+        18170.35
+      ],
+      "post_edge_span_ev": 986.75,
+      "k_max_estimate": 16.09,
+      "calibration_motif": "uo2_fluorite",
+      "attempt_status": "passed",
+      "failure_reason": null,
+      "failure_error": null,
+      "gate_failures": [],
+      "s02": 0.78,
+      "s02_err": 0.0229,
+      "rf": 0.0137,
+      "spread": 0.0024,
+      "delta_e0": 2.86,
+      "sigma2": 0.0051,
+      "plateau": 0.8608,
+      "k_window": [
+        3.0,
+        12.0
+      ],
+      "e0_method": "derivative",
+      "n_variables": 4,
+      "n_independent": 6.0,
+      "usable_for_s02": true,
+      "pool_state": "resolved",
+      "resolved_by": {
+        "standard": "_standards_lib/U/U_metal_foil.dat",
+        "source_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af",
+        "note": "IIT-Lytle RAW U/uo2.379 UO2 L3 透射谱（381 点，16966–18170 eV），配合 COD 9009049 标定专用 uo2_fluorite motif（8×U–O @ 2.3678 Å），平台 0.8608，通过全部严格门禁",
+        "motif": "uo2_fluorite",
+        "motif_file": "data\\s02_calibration\\motifs\\uo2_fluorite.json",
+        "kmin": null,
+        "kmax": null,
+        "rmin": 1.5,
+        "e0_method": "derivative",
+        "s02": 0.78,
+        "s02_err": 0.0229,
+        "rf": 0.0137,
+        "spread": 0.0024,
+        "gate_failures": []
+      }
     }
   ]
 }

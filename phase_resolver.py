@@ -119,6 +119,7 @@ class PhaseResolution:
     candidates: list[PhaseCandidate] = field(default_factory=list)
     status: str = "no_match"   # resolved / ambiguous / offline_miss / no_match
     structure_model: StructureModel | None = None
+    site_models: list[StructureModel] = field(default_factory=list)
     reason: str = ""
 
 
@@ -386,6 +387,23 @@ def _candidate_to_structure_model(
     return model
 
 
+def _candidate_to_all_site_models(
+        candidate: PhaseCandidate, absorber: str) -> list[StructureModel]:
+    """P5-D：把一个多位点候选展开成每个不等价吸收位一个模型。
+
+    只接受显式 ``--absorber-site all``；默认（未传）仍是
+    ``absorber_site_ambiguous``，绝不自动 Top-1。
+    """
+    sites = list(candidate.absorber_sites or [])
+    if not sites:
+        raise PhaseResolutionError(
+            "absorber_site_missing",
+            f"{candidate.source}:{candidate.id} 缺少吸收位；"
+            f"无法展开 --absorber-site all")
+    return [_candidate_to_structure_model(candidate, absorber, site_label)
+            for site_label in sites]
+
+
 # ---------------------------------------------------------------
 # 候选评分（SPEC 匹配）
 # ---------------------------------------------------------------
@@ -638,12 +656,23 @@ def resolve_phase(
     if (cand.experimental is True
             and cand.model_level in ("crystal_cif", "crystal_edited")):
         try:
-            resolution.structure_model = _candidate_to_structure_model(
-                cand, absorber, absorber_site)
+            if (absorber_site is not None
+                    and str(absorber_site).strip().lower() == "all"):
+                models = _candidate_to_all_site_models(cand, absorber)
+                resolution.site_models = models
+                resolution.structure_model = models[0]
+                # 单位点相：all 无歧义，回落为具体位点标签；
+                # 多位点相保留 "all" 供 P5-D 逐位点展开。
+                resolution.absorber_site = (
+                    models[0].absorber_site if len(models) == 1 else "all")
+            else:
+                resolution.structure_model = _candidate_to_structure_model(
+                    cand, absorber, absorber_site)
         except PhaseResolutionError as exc:
             # 缺 absorber_site / 多位点未指定：保留 resolved，但
             # structure_model 为 None；调用方通过 formal_cn 门禁会得到
             # 明确原因，而不是静默使用第一个位点。
+            resolution.site_models = []
             resolution.structure_model = None
             resolution.reason = exc.detail
     else:

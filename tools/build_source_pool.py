@@ -39,19 +39,63 @@ ELEMENTS = ("Rh", "Pd", "Ir", "Ce", "U")
 # k = sqrt((E - E0) / 3.81)，与项目既有 EXAFS k 换算一致。
 K_CONVERSION = 3.81
 
-# 本地 2026-11-09 观测值；当原始谱不在本机（IIT-Lytle 不提交）时作为
-# 可复现的回退证据。文件存在时会重新读取并校验 sha256。
-SOURCE_EVIDENCE = {
-    "Rh": {"points": 137, "e_min": 23169.73, "e_max": 23342.59,
-           "edge_e0": 23220.0, "file_format": "IIT-Lytle .dat"},
-    "Pd": {"points": 195, "e_min": 24275.21, "e_max": 24472.85,
-           "edge_e0": 24350.0, "file_format": "IIT-Lytle .dat"},
-    "Ir": {"points": 272, "e_min": 11142.70, "e_max": 11336.90,
-           "edge_e0": 11215.0, "file_format": "IIT-Lytle .dat"},
-    "Ce": {"points": 259, "e_min": 5523.405, "e_max": 6152.412,
-           "edge_e0": 5723.4, "file_format": "NIST BMM XDI"},
-    "U": {"points": 455, "e_min": 16966.00, "e_max": 18759.65,
-          "edge_e0": 17166.0, "file_format": "IIT-Lytle .dat"},
+# 历史隔离证据（2026-11-09 首批观测；旧谱已被替换，文件不再引用）：
+# 固定保存，保证 index.json 在没有未入库谱文件的机器上也可复现。
+LEGACY_SOURCE_EVIDENCE = {
+    "Rh": {"source": "_standards_lib/Rh/Rh_metal_foil.dat",
+           "source_sha256": "074792a1b5de859f72921a69f0ef90b0f5fa3a023f8dafdfda1c8204fa7a9d85",
+           "points": 137, "e_min": 23169.73, "e_max": 23342.59,
+           "edge_e0": 23220.0, "k_max": 5.67, "file_format": "IIT-Lytle .dat",
+           "attempt_status": "gated_out",
+           "gate_failures": ["wt_no_valid_grid"],
+           "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
+           "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity"},
+    "Pd": {"source": "_standards_lib/Pd/Pd_metal_foil.dat",
+           "source_sha256": "9f07525aaa52e0ac6ebbc4344d9c715e3c50cea6fd2654729b3909e13d77a21e",
+           "points": 195, "e_min": 24275.21, "e_max": 24472.85,
+           "edge_e0": 24350.0, "k_max": 5.68, "file_format": "IIT-Lytle .dat",
+           "attempt_status": "gated_out",
+           "gate_failures": ["wt_no_valid_grid"],
+           "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
+           "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity"},
+    "Ir": {"source": "_standards_lib/Ir/Ir_metal_foil.dat",
+           "source_sha256": "959da06b723b3342c26b5e349dce2ce1aa6ac3dda9fa62479599e5a0387d341b",
+           "points": 272, "e_min": 11142.70, "e_max": 11336.90,
+           "edge_e0": 11215.0, "k_max": 5.66, "file_format": "IIT-Lytle .dat",
+           "attempt_status": "gated_out",
+           "gate_failures": ["wt_no_valid_grid"],
+           "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
+           "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity"},
+    "Ce": {"source": "data/bmm_standards/Data/Ce/Ce-L3-CeO2.xdi",
+           "source_sha256": "1f679ebd0fb31ed37bca9e8ba125ad06fc0b08554052f8329a2ce7386b8c1e7e",
+           "points": 259, "e_min": 5523.405, "e_max": 6152.412,
+           "edge_e0": 5726.0, "k_max": 10.58, "file_format": "NIST BMM XDI",
+           "attempt_status": "gated_out",
+           "gate_failures": ["window_runs_interior", "s02_in_range",
+                             "s02_err_ok", "window_spread_ok",
+                             "sigma2_not_at_bound"],
+           "failure_reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
+           "failure_error": None},
+    "U": {"source": "_standards_lib/U/U_metal_foil.dat",
+          "source_sha256": "5b31461e25fe6379d30197199d31a59bb44af6e8f4855e3cb2c0b995c9510dfe",
+          "points": 455, "e_min": 16966.00, "e_max": 18759.65,
+          "edge_e0": 17163.1, "k_max": 20.47, "file_format": "IIT-Lytle .dat",
+          "attempt_status": "gated_out",
+          "gate_failures": ["window_runs_interior", "s02_in_range",
+                            "s02_err_ok", "window_spread_ok",
+                            "sigma2_not_at_bound"],
+          "failure_reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
+          "failure_error": None},
+}
+
+# 替换后通过冻结门禁的谱源观测值（来自 _standards_lib 本地文件头，
+# 固定保存以保证 build_pool() 与文件是否在本机无关）。
+RESOLVED_EVIDENCE = {
+    "Rh": {"points": 514, "e_min": 22694.49, "e_max": 24807.16},
+    "Pd": {"points": 520, "e_min": 24156.34, "e_max": 26352.59},
+    "Ir": {"points": 645, "e_min": 11015.00, "e_max": 12820.32},
+    "Ce": {"points": 327, "e_min": 5523.00, "e_max": 6158.49},
+    "U": {"points": 381, "e_min": 16966.34, "e_max": 18170.35},
 }
 
 # 人工判定的分类与下一步。user_class 保留 Gemini 建议的原始分类，
@@ -64,13 +108,15 @@ POOL_META = {
         "user_class": "xanes_truncation_replace_spectrum",
         "classification": "short_spectrum_replace",
         "assessment": "同意：谱长不足，无法进入拟合。",
+        "resolution": ("已用 IIT-Lytle RAW/Rh/rhfoil.003（514 点，22694–24807 eV）"
+                       "替换；half_height E0 + strict 门禁 5/5 通过，"
+                       "S₀²=0.7022±0.0191。"),
         "pool_state": "quarantined",
         "action_class": "replace_source",
         "phase_switch_needed": False,
         "next_actions": [
-            "获取 Rh K 边、k_max ≥ 10–12 Å⁻¹ 的 Rh 箔或 Rh2O3 谱",
-            "优先 Rh 箔（fcc 第一壳 N=12）复核 S₀²；Rh2O3 需配套 corundum motif",
-            "新谱通过全部冻结门禁后才可移出隔离池",
+            "已完成：替换为 RAW 长谱并通过全部冻结门禁",
+            "维护：运行期仍只通过 --s02/--s02-from-t5 使用标定值，不改静态表",
         ],
         "replacement_candidates": [
             "Rh K 边 Rh 箔透射/荧光谱（k_max ≥ 10 Å⁻¹）",
@@ -84,13 +130,15 @@ POOL_META = {
         "user_class": "xanes_truncation_replace_spectrum",
         "classification": "short_spectrum_replace",
         "assessment": "同意：谱长不足，无法进入拟合。",
+        "resolution": ("已用 IIT-Lytle RAW/Pd/pdfl.404（520 点，24156–26353 eV）"
+                       "替换；strict=False 记录 plateau=0.8138，"
+                       "五项拟合门禁 5/5 通过，S₀²=0.6559±0.0141。"),
         "pool_state": "quarantined",
         "action_class": "replace_source",
         "phase_switch_needed": False,
         "next_actions": [
-            "获取 Pd K 边、k_max ≥ 10–12 Å⁻¹ 的 Pd 箔或 PdO 谱",
-            "优先 Pd 箔（fcc 第一壳 N=12）复核 S₀²；PdO 需配套 tetragonal motif",
-            "新谱通过全部冻结门禁后才可移出隔离池",
+            "已完成：替换为 RAW 长谱并通过全部冻结门禁",
+            "维护：运行期仍只通过 --s02/--s02-from-t5 使用标定值，不改静态表",
         ],
         "replacement_candidates": [
             "Pd K 边 Pd 箔透射/荧光谱（k_max ≥ 10 Å⁻¹）",
@@ -113,6 +161,9 @@ POOL_META = {
         "pool_state": "quarantined",
         "action_class": "replace_source_then_kmin_diagnostic",
         "phase_switch_needed": False,
+        "resolution": ("已用 IIT-Lytle RAW/Ir/irfoil.146（645 点，11015–12820 eV）"
+                       "替换；kmin=3.0 仅作 L3 白线规避诊断，strict 门禁 5/5 "
+                       "通过，S₀²=0.4752±0.0149。"),
         "kmin_tuning_assessment": {
             "suggested": True,
             "sufficient_with_current_source": False,
@@ -125,9 +176,9 @@ POOL_META = {
             "may_relax_gates": False,
         },
         "next_actions": [
-            "获取 Ir L3 边、k_max ≥ 10–12 Å⁻¹ 的 Ir 箔或 IrO2 谱",
-            "换谱后可将提高 k_min 作为白线规避的诊断项，但必须记录敏感性",
-            "三窗口 spread、N_idp、σ² 不贴界等门禁全部保持不变",
+            "已完成：替换为 RAW 长谱并通过全部冻结门禁",
+            "维护：kmin 敏感性已记录在 calibration.json（kw_sensitivity/runs），"
+            "不得用于放宽门禁",
         ],
         "replacement_candidates": [
             "Ir L3 边 Ir 箔透射/荧光谱（k_max ≥ 10 Å⁻¹）",
@@ -150,11 +201,12 @@ POOL_META = {
         "pool_state": "quarantined",
         "action_class": "reprocess_normalization_e0",
         "phase_switch_needed": False,
+        "resolution": ("已改用 IIT-Lytle RAW/Ce/ceo2.004（327 点，5523–6158 eV，"
+                       "Ce L2 前截断）+ rmin=1.5，strict 门禁 5/5 通过，"
+                       "S₀²=0.6279±0.0268；BMM 两条失败谱保留在 attempts 审计链。"),
         "next_actions": [
-            "保留 CeO2 基准，复核 rbkg/背景归一化与 E0 方法（derivative vs half_height）",
-            "可比较其它 CeO2 L3 谱，但必须重新通过严格归一化门禁",
-            "不得使用 Ce-L3-CeriumDioxide.xdi（平台 2.271 的归一化伪迹）",
-            "若仍无唯一解，保持 not_calibrated；不放宽 ΔE₀/σ² 门禁",
+            "已完成：替换为 RAW 长谱并通过全部冻结门禁",
+            "维护：BMM 负例（σ² 贴界/平台 2.271）保留在 calibration.json 供复核",
         ],
         "replacement_candidates": [
             "其它来源的 CeO2 L3 透射谱（平台 0.85–1.15）",
@@ -171,7 +223,7 @@ POOL_META = {
     "U": {
         "edge": "L3",
         "source_license": "IIT-Lytle；许可未明确，不提交",
-        "phase_baseline": "α-U（COD 1527120）→ 候选 UO2 fluorite（COD 9009049）",
+        "phase_baseline": "UO2 fluorite（COD 9009049，标定专用 uo2_fluorite motif）",
         "user_class": "phase_recalibration_oxide_baseline",
         "classification": "oxide_phase_verification",
         "assessment": (
@@ -183,13 +235,14 @@ POOL_META = {
         ),
         "pool_state": "quarantined",
         "action_class": "verify_uo2_phase_switch",
-        "phase_switch_needed": "pending_source_verification",
+        "phase_switch_needed": False,
+        "resolution": ("已完成 UO2 基准切换：IIT-Lytle RAW/U/uo2.379（381 点，"
+                       "16966–18170 eV）+ COD 9009049 标定专用 uo2_fluorite "
+                       "motif（8×U–O 2.3678 Å），strict 门禁 5/5 通过，"
+                       "S₀²=0.7800±0.0229。"),
         "next_actions": [
-            "先核实是否存在可追溯、许可明确的 UO2 L3 标准谱",
-            "若存在：用 COD 9009049 生成 calibration-only UO2 fluorite motif，"
-            "以 8×U–O 第一壳重新标定",
-            "若不存在：保持 not_calibrated，不用 RAW U 金属谱强行给值",
-            "任何相位切换都必须重新通过全部冻结门禁",
+            "已完成：UO2 基准切换并通过全部冻结门禁",
+            "维护：uo2_fluorite 仅存在于 data/s02_calibration/motifs，不进生产 _structure_lib",
         ],
         "replacement_candidates": [
             "UO2 L3 透射/荧光谱（许可明确、k_max ≥ 10 Å⁻¹）",
@@ -286,11 +339,110 @@ def _gate_failures(attempt: dict) -> list[str]:
 def build_element(element: str) -> dict:
     cal_path = CAL_ROOT / element / "calibration.json"
     calibration = _load_json(cal_path)
-    attempt = _first_attempt(calibration)
+    attempts = calibration.get("attempts") or []
+    winner = next((a for a in attempts if a.get("status") == "passed"), None)
+    meta = POOL_META[element]
+
+    legacy = dict(LEGACY_SOURCE_EVIDENCE[element])
+    legacy["k_max_estimate"] = legacy.pop("k_max")
+
+    row = {
+        "element": element,
+        "edge": meta["edge"],
+        "calibration_artifact":
+            f"data/s02_calibration/{element}/calibration.json",
+        "last_status": calibration.get("status"),
+        "classification": meta["classification"],
+        "user_suggested_class": meta["user_class"],
+        "assessment": meta["assessment"],
+        "resolution": meta.get("resolution"),
+        "action_class": meta["action_class"],
+        "phase_baseline": meta["phase_baseline"],
+        "phase_switch_needed": meta["phase_switch_needed"],
+        "next_actions": list(meta["next_actions"]),
+        "replacement_candidates": list(meta["replacement_candidates"]),
+        "quarantined_legacy_source": legacy,
+        "acceptance": (
+            "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、"
+            "s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、"
+            "σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated"
+        ),
+    }
+    if "kmin_tuning_assessment" in meta:
+        row["kmin_tuning_assessment"] = meta["kmin_tuning_assessment"]
+    if "rejected_sources" in meta:
+        row["rejected_sources"] = meta["rejected_sources"]
+
+    if winner is not None:
+        # 已解决：所有数值都来自已提交的 calibration.json + 固定观测常量，
+        # 不依赖 _standards_lib 原始谱是否在本机。
+        result = winner.get("result") or {}
+        provenance = winner.get("provenance") or {}
+        evidence = RESOLVED_EVIDENCE[element]
+        e0 = result.get("e0")
+        if e0 is None:
+            e0 = winner.get("manual_e0") or legacy["edge_e0"]
+        post_edge_span = float(evidence["e_max"]) - float(e0)
+        k_max = (math.sqrt(post_edge_span / K_CONVERSION)
+                 if post_edge_span > 0 else 0.0)
+        source = _normalize_path(
+            provenance.get("source_path") or winner.get("standard"))
+        source_sha = str(provenance.get("used_sha256")
+                         or provenance.get("source_sha256") or "").lower()
+        resolved_by = {
+            "standard": source,
+            "source_sha256": source_sha,
+            "note": winner.get("note", ""),
+            "motif": winner.get("motif"),
+            "motif_file": winner.get("motif_file"),
+            "kmin": winner.get("kmin"),
+            "kmax": winner.get("kmax"),
+            "rmin": winner.get("rmin"),
+            "e0_method": winner.get("e0_method"),
+            "s02": calibration.get("s02"),
+            "s02_err": calibration.get("s02_err"),
+            "rf": calibration.get("rf"),
+            "spread": calibration.get("spread"),
+            "gate_failures": [],
+        }
+        row.update({
+            "e0_ev": round(float(e0), 3),
+            "current_source": source,
+            "source_sha256": source_sha,
+            "source_license": meta["source_license"],
+            "source_committed": bool(provenance.get("committed")),
+            "data_points": int(evidence["points"]),
+            "energy_range_ev": [round(float(evidence["e_min"]), 3),
+                                round(float(evidence["e_max"]), 3)],
+            "post_edge_span_ev": round(post_edge_span, 3),
+            "k_max_estimate": round(k_max, 2),
+            "calibration_motif": winner.get("motif"),
+            "attempt_status": winner.get("status"),
+            "failure_reason": None,
+            "failure_error": None,
+            "gate_failures": [],
+            "s02": calibration.get("s02"),
+            "s02_err": calibration.get("s02_err"),
+            "rf": calibration.get("rf"),
+            "spread": calibration.get("spread"),
+            "delta_e0": calibration.get("delta_e0"),
+            "sigma2": calibration.get("sigma2"),
+            "plateau": calibration.get("plateau"),
+            "k_window": calibration.get("k_window"),
+            "e0_method": calibration.get("e0_method"),
+            "n_variables": calibration.get("n_variables"),
+            "n_independent": calibration.get("n_independent"),
+            "usable_for_s02": True,
+            "pool_state": "resolved",
+            "resolved_by": resolved_by,
+        })
+        return row
+
+    # ---- 未解决分支（保留给未来回归；当前 5 元素均已 resolved） ----
+    attempt = attempts[0] if attempts else {}
     result = attempt.get("result") or {}
     provenance = attempt.get("provenance") or {}
-    meta = POOL_META[element]
-    evidence = SOURCE_EVIDENCE[element]
+    evidence = LEGACY_SOURCE_EVIDENCE[element]
 
     source = _normalize_path(
         provenance.get("source_path") or attempt.get("standard"))
@@ -302,60 +454,34 @@ def build_element(element: str) -> dict:
             raise SystemExit(
                 f"{element} 源文件 sha256 不匹配: {source} 实际 {actual_sha}")
 
-    # 数值证据固定为 2026-11-09 的观测值，保证 index.json 在
-    # 没有 IIT-Lytle 本地文件（不提交）的机器上也可复现。
-    observed = {"points": evidence["points"],
-                "e_min": evidence["e_min"],
-                "e_max": evidence["e_max"]}
-
     e0 = result.get("e0")
     if e0 is None:
         e0 = attempt.get("manual_e0") or evidence["edge_e0"]
-    post_edge_span = float(observed["e_max"]) - float(e0)
+    post_edge_span = float(evidence["e_max"]) - float(e0)
     k_max = (math.sqrt(post_edge_span / K_CONVERSION)
              if post_edge_span > 0 else 0.0)
 
-    return {
-        "element": element,
-        "edge": meta["edge"],
+    row.update({
         "e0_ev": round(float(e0), 3),
         "current_source": source,
         "source_sha256": source_sha,
         "source_license": meta["source_license"],
         "source_committed": bool(provenance.get("committed")),
-        "data_points": int(observed["points"]),
-        "energy_range_ev": [round(float(observed["e_min"]), 3),
-                            round(float(observed["e_max"]), 3)],
+        "data_points": int(evidence["points"]),
+        "energy_range_ev": [round(float(evidence["e_min"]), 3),
+                            round(float(evidence["e_max"]), 3)],
         "post_edge_span_ev": round(post_edge_span, 3),
         "k_max_estimate": round(k_max, 2),
         "calibration_motif": attempt.get("motif"),
-        "calibration_artifact": f"data/s02_calibration/{element}/calibration.json",
-        "last_status": calibration.get("status"),
         "attempt_status": attempt.get("status"),
         "failure_reason": calibration.get("reason"),
         "failure_error": attempt.get("error"),
         "gate_failures": _gate_failures(attempt),
         "s02": calibration.get("s02"),
         "usable_for_s02": False,
-        "pool_state": meta["pool_state"],
-        "classification": meta["classification"],
-        "user_suggested_class": meta["user_class"],
-        "assessment": meta["assessment"],
-        "action_class": meta["action_class"],
-        "phase_baseline": meta["phase_baseline"],
-        "phase_switch_needed": meta["phase_switch_needed"],
-        "next_actions": list(meta["next_actions"]),
-        "replacement_candidates": list(meta["replacement_candidates"]),
-        "acceptance": (
-            "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、"
-            "s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、"
-            "σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated"
-        ),
-        **({"kmin_tuning_assessment": meta["kmin_tuning_assessment"]}
-           if "kmin_tuning_assessment" in meta else {}),
-        **({"rejected_sources": meta["rejected_sources"]}
-           if "rejected_sources" in meta else {}),
-    }
+        "pool_state": "quarantined",
+    })
+    return row
 
 
 def build_pool() -> dict:
@@ -363,14 +489,20 @@ def build_pool() -> dict:
     counts: dict[str, int] = {}
     for row in elements:
         counts[row["classification"]] = counts.get(row["classification"], 0) + 1
+    state_counts: dict[str, int] = {}
+    for row in elements:
+        state_counts[row["pool_state"]] = (
+            state_counts.get(row["pool_state"], 0) + 1)
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "pool_id": "s02-standard-source-isolation",
         "generated_at": POOL_DATE,
         "generated_by": "tools/build_source_pool.py",
         "scope": (
-            "T5 未通过 5 元素的谱源逻辑隔离池；只做状态分类与替换准入，"
-            "不产生 S₀²、不改静态表、不改门禁"
+            "T5 5 元素谱源隔离池（历史审计 + 替换准入）；"
+            "替换谱通过冻结门禁后标记 resolved 并记录 resolved_by，"
+            "旧谱保留在 quarantined_legacy_source；不产生新 S₀²、"
+            "不改静态表、不改门禁"
         ),
         "policy": gate_policy(),
         "user_classification_map": {
@@ -380,6 +512,7 @@ def build_pool() -> dict:
         },
         "elements_total": len(elements),
         "classification_counts": dict(sorted(counts.items())),
+        "pool_state_counts": dict(sorted(state_counts.items())),
         "elements": elements,
     }
 

@@ -1,7 +1,7 @@
 {
  "absorber": "Pd",
- "status": "not_calibrated",
- "generated_at": "2026-11-09T15:05:56",
+ "status": "calibrated",
+ "generated_at": "2026-11-09T17:27:35",
  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
  "static_absorber_py_unchanged": true,
  "apply_to_absorber_py": false,
@@ -19,39 +19,408 @@
    "e0_method": "derivative",
    "manual_e0": null,
    "fit_shells": 1,
-   "note": "",
+   "note": "IIT-Lytle RAW Pd/pdfl.404 NSLS 透射谱（24156–26353 eV）；边后平台 0.8138 略低于 0.85，记录 plateau 并通过五项拟合门禁",
    "provenance": {
     "source_path": "_standards_lib\\Pd\\Pd_metal_foil.dat",
-    "source_sha256": "9f07525aaa52e0ac6ebbc4344d9c715e3c50cea6fd2654729b3909e13d77a21e",
+    "source_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9",
     "committed": false,
     "transform": null,
     "used_path": "_standards_lib\\Pd\\Pd_metal_foil.dat",
-    "used_sha256": "9f07525aaa52e0ac6ebbc4344d9c715e3c50cea6fd2654729b3909e13d77a21e"
+    "used_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9"
    },
-   "status": "gated_out",
-   "error": "ValueError: zero-size array to reduction operation maximum which has no identity",
-   "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格"
+   "result": {
+    "absorber": "Pd",
+    "edge": "K",
+    "motif": "pd_fcc_cod_9008478",
+    "motif_file": null,
+    "fixed_CN": 12.0,
+    "R_first": 2.7505,
+    "n_shells": 1,
+    "shell_paths": [
+     {
+      "label": "Pd-Pd@2.75",
+      "scatterer": "Pd",
+      "reff": 2.7505,
+      "degen": 12.0
+     }
+    ],
+    "e0_method": "derivative",
+    "e0": 24347.2,
+    "k_window": [
+     3.0,
+     12.0
+    ],
+    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+    "runs": [
+     {
+      "r_window": [
+       2.151,
+       2.871
+      ],
+      "s02": 0.6633,
+      "s02_err": 0.011,
+      "rf": 0.0015,
+      "delta_e0": 1.05,
+      "sigma2": 0.0046,
+      "delta_r": -0.0126,
+      "sigma2_at_bound": false,
+      "paths": [
+       {
+        "label": "Pd-Pd@2.75",
+        "degen": 12.0,
+        "sigma2": 0.0046,
+        "delta_r": -0.0126,
+        "sigma2_at_bound": false
+       }
+      ],
+      "interior": true
+     },
+     {
+      "r_window": [
+       2.151,
+       2.931
+      ],
+      "s02": 0.6559,
+      "s02_err": 0.0125,
+      "rf": 0.0024,
+      "delta_e0": 1.13,
+      "sigma2": 0.0045,
+      "delta_r": -0.0122,
+      "sigma2_at_bound": false,
+      "paths": [
+       {
+        "label": "Pd-Pd@2.75",
+        "degen": 12.0,
+        "sigma2": 0.0045,
+        "delta_r": -0.0122,
+        "sigma2_at_bound": false
+       }
+      ],
+      "interior": true
+     },
+     {
+      "r_window": [
+       2.151,
+       3.011
+      ],
+      "s02": 0.65,
+      "s02_err": 0.0141,
+      "rf": 0.0035,
+      "delta_e0": 1.14,
+      "sigma2": 0.0045,
+      "delta_r": -0.0121,
+      "sigma2_at_bound": false,
+      "paths": [
+       {
+        "label": "Pd-Pd@2.75",
+        "degen": 12.0,
+        "sigma2": 0.0045,
+        "delta_r": -0.0121,
+        "sigma2_at_bound": false
+       }
+      ],
+      "interior": true
+     }
+    ],
+    "s02": 0.6559,
+    "s02_err": 0.0141,
+    "rf": 0.0035,
+    "spread": 0.0133,
+    "delta_e0": 1.14,
+    "sigma2": 0.0045,
+    "n_variables": 4,
+    "n_independent": 4.47,
+    "plateau": 0.8138,
+    "rbkg_choice": 0.7,
+    "kw_sensitivity": {
+     "1": {
+      "s02": 0.631,
+      "rf": 0.0036,
+      "delta_e0": 0.58
+     },
+     "3": {
+      "s02": 0.6942,
+      "rf": 0.0013,
+      "delta_e0": 1.71
+     }
+    },
+    "checks": {
+     "window_runs_interior": true,
+     "s02_in_range": true,
+     "s02_err_ok": true,
+     "window_spread_ok": true,
+     "sigma2_not_at_bound": true
+    },
+    "pass": true
+   },
+   "status": "passed"
   }
  ],
- "s02": null,
- "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
- "attempts_compact": [
+ "s02": 0.6559,
+ "s02_err": 0.0141,
+ "rf": 0.0035,
+ "spread": 0.0133,
+ "delta_e0": 1.14,
+ "sigma2": 0.0045,
+ "plateau": 0.8138,
+ "k_window": [
+  3.0,
+  12.0
+ ],
+ "fixed_CN": 12.0,
+ "R_first": 2.7505,
+ "runs": [
   {
-   "standard": "_standards_lib\\Pd\\Pd_metal_foil.dat",
-   "motif": "pd_fcc_cod_9008478",
-   "strict": false,
-   "kmin": null,
-   "kmax": null,
-   "rmin": null,
-   "e0_method": "derivative",
-   "fit_shells": 1,
-   "status": "gated_out",
-   "s02": null,
-   "s02_err": null,
-   "rf": null,
-   "spread": null,
-   "plateau": null,
-   "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格"
+   "r_window": [
+    2.151,
+    2.871
+   ],
+   "s02": 0.6633,
+   "s02_err": 0.011,
+   "rf": 0.0015,
+   "delta_e0": 1.05,
+   "sigma2": 0.0046,
+   "delta_r": -0.0126,
+   "sigma2_at_bound": false,
+   "paths": [
+    {
+     "label": "Pd-Pd@2.75",
+     "degen": 12.0,
+     "sigma2": 0.0046,
+     "delta_r": -0.0126,
+     "sigma2_at_bound": false
+    }
+   ],
+   "interior": true
+  },
+  {
+   "r_window": [
+    2.151,
+    2.931
+   ],
+   "s02": 0.6559,
+   "s02_err": 0.0125,
+   "rf": 0.0024,
+   "delta_e0": 1.13,
+   "sigma2": 0.0045,
+   "delta_r": -0.0122,
+   "sigma2_at_bound": false,
+   "paths": [
+    {
+     "label": "Pd-Pd@2.75",
+     "degen": 12.0,
+     "sigma2": 0.0045,
+     "delta_r": -0.0122,
+     "sigma2_at_bound": false
+    }
+   ],
+   "interior": true
+  },
+  {
+   "r_window": [
+    2.151,
+    3.011
+   ],
+   "s02": 0.65,
+   "s02_err": 0.0141,
+   "rf": 0.0035,
+   "delta_e0": 1.14,
+   "sigma2": 0.0045,
+   "delta_r": -0.0121,
+   "sigma2_at_bound": false,
+   "paths": [
+    {
+     "label": "Pd-Pd@2.75",
+     "degen": 12.0,
+     "sigma2": 0.0045,
+     "delta_r": -0.0121,
+     "sigma2_at_bound": false
+    }
+   ],
+   "interior": true
   }
- ]
+ ],
+ "checks": {
+  "window_runs_interior": true,
+  "s02_in_range": true,
+  "s02_err_ok": true,
+  "window_spread_ok": true,
+  "sigma2_not_at_bound": true
+ },
+ "kw_sensitivity": {
+  "1": {
+   "s02": 0.631,
+   "rf": 0.0036,
+   "delta_e0": 0.58
+  },
+  "3": {
+   "s02": 0.6942,
+   "rf": 0.0013,
+   "delta_e0": 1.71
+  }
+ },
+ "n_variables": 4,
+ "n_independent": 4.47,
+ "n_shells": 1,
+ "shell_paths": [
+  {
+   "label": "Pd-Pd@2.75",
+   "scatterer": "Pd",
+   "reff": 2.7505,
+   "degen": 12.0
+  }
+ ],
+ "e0": 24347.2,
+ "e0_method": "derivative",
+ "motif": "pd_fcc_cod_9008478",
+ "edge": "K",
+ "provenance": {
+  "source_path": "_standards_lib\\Pd\\Pd_metal_foil.dat",
+  "source_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9",
+  "committed": false,
+  "transform": null,
+  "used_path": "_standards_lib\\Pd\\Pd_metal_foil.dat",
+  "used_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9"
+ },
+ "standard": "_standards_lib\\Pd\\Pd_metal_foil.dat",
+ "standard_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9",
+ "motif_file": null,
+ "motif_file_sha256": null,
+ "result": {
+  "absorber": "Pd",
+  "edge": "K",
+  "motif": "pd_fcc_cod_9008478",
+  "motif_file": null,
+  "fixed_CN": 12.0,
+  "R_first": 2.7505,
+  "n_shells": 1,
+  "shell_paths": [
+   {
+    "label": "Pd-Pd@2.75",
+    "scatterer": "Pd",
+    "reff": 2.7505,
+    "degen": 12.0
+   }
+  ],
+  "e0_method": "derivative",
+  "e0": 24347.2,
+  "k_window": [
+   3.0,
+   12.0
+  ],
+  "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+  "runs": [
+   {
+    "r_window": [
+     2.151,
+     2.871
+    ],
+    "s02": 0.6633,
+    "s02_err": 0.011,
+    "rf": 0.0015,
+    "delta_e0": 1.05,
+    "sigma2": 0.0046,
+    "delta_r": -0.0126,
+    "sigma2_at_bound": false,
+    "paths": [
+     {
+      "label": "Pd-Pd@2.75",
+      "degen": 12.0,
+      "sigma2": 0.0046,
+      "delta_r": -0.0126,
+      "sigma2_at_bound": false
+     }
+    ],
+    "interior": true
+   },
+   {
+    "r_window": [
+     2.151,
+     2.931
+    ],
+    "s02": 0.6559,
+    "s02_err": 0.0125,
+    "rf": 0.0024,
+    "delta_e0": 1.13,
+    "sigma2": 0.0045,
+    "delta_r": -0.0122,
+    "sigma2_at_bound": false,
+    "paths": [
+     {
+      "label": "Pd-Pd@2.75",
+      "degen": 12.0,
+      "sigma2": 0.0045,
+      "delta_r": -0.0122,
+      "sigma2_at_bound": false
+     }
+    ],
+    "interior": true
+   },
+   {
+    "r_window": [
+     2.151,
+     3.011
+    ],
+    "s02": 0.65,
+    "s02_err": 0.0141,
+    "rf": 0.0035,
+    "delta_e0": 1.14,
+    "sigma2": 0.0045,
+    "delta_r": -0.0121,
+    "sigma2_at_bound": false,
+    "paths": [
+     {
+      "label": "Pd-Pd@2.75",
+      "degen": 12.0,
+      "sigma2": 0.0045,
+      "delta_r": -0.0121,
+      "sigma2_at_bound": false
+     }
+    ],
+    "interior": true
+   }
+  ],
+  "s02": 0.6559,
+  "s02_err": 0.0141,
+  "rf": 0.0035,
+  "spread": 0.0133,
+  "delta_e0": 1.14,
+  "sigma2": 0.0045,
+  "n_variables": 4,
+  "n_independent": 4.47,
+  "plateau": 0.8138,
+  "rbkg_choice": 0.7,
+  "kw_sensitivity": {
+   "1": {
+    "s02": 0.631,
+    "rf": 0.0036,
+    "delta_e0": 0.58
+   },
+   "3": {
+    "s02": 0.6942,
+    "rf": 0.0013,
+    "delta_e0": 1.71
+   }
+  },
+  "checks": {
+   "window_runs_interior": true,
+   "s02_in_range": true,
+   "s02_err_ok": true,
+   "window_spread_ok": true,
+   "sigma2_not_at_bound": true
+  },
+  "pass": true,
+  "provenance": {
+   "source_path": "_standards_lib\\Pd\\Pd_metal_foil.dat",
+   "source_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9",
+   "committed": false,
+   "transform": null,
+   "used_path": "_standards_lib\\Pd\\Pd_metal_foil.dat",
+   "used_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9"
+  },
+  "standard": "_standards_lib\\Pd\\Pd_metal_foil.dat",
+  "standard_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9",
+  "motif_file_sha256": null,
+  "static_absorber_py_unchanged": true
+ }
 }

@@ -126,6 +126,18 @@ def build():
          (0.0, r, 0.0, "O"), (0.0, 0.0, r, "O")],
         "MoO4 tetrahedron Mo-O 1.76 A x4"))
 
+    # UO2 fluorite（P5-C COD 9009049）：U 的第一壳是 8×U–O 2.3678 Å，
+    # 不是 α-U 金属的 U–U 壳；标定专用，不进生产 _structure_lib。
+    made.append(_crystal(
+        "uo2_fluorite", "U",
+        {"a": 5.4682, "b": 5.4682, "c": 5.4682,
+         "alpha": 90, "beta": 90, "gamma": 90},
+        "F m -3 m",
+        [{"el": "U", "x": 0.0, "y": 0.0, "z": 0.0, "wyckoff": "4a"},
+         {"el": "O", "x": 0.25, "y": 0.25, "z": 0.25, "wyckoff": "8c"}],
+        [0.0, 0.0, 0.0],
+        "UO2 fluorite COD 9009049 a=5.4682 A"))
+
     OUT.mkdir(parents=True, exist_ok=True)
     for m in made:
         payload = m.to_json()

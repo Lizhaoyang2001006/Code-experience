@@ -1,7 +1,7 @@
 {
  "absorber": "Rh",
- "status": "not_calibrated",
- "generated_at": "2026-11-09T15:05:56",
+ "status": "calibrated",
+ "generated_at": "2026-11-09T17:27:34",
  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
  "static_absorber_py_unchanged": true,
  "apply_to_absorber_py": false,
@@ -12,46 +12,415 @@
    "standard_exists": true,
    "motif": "rh_fcc_cod_9008482",
    "motif_file": null,
-   "strict": false,
+   "strict": true,
    "kmin": null,
    "kmax": null,
    "rmin": null,
-   "e0_method": "derivative",
+   "e0_method": "half_height",
    "manual_e0": null,
    "fit_shells": 1,
-   "note": "",
+   "note": "IIT-Lytle RAW Rh/rhfoil.003 透射谱（514 点，22694–24807 eV）；半高点 E0 下边后平台 0.859 通过严格归一化门禁",
    "provenance": {
     "source_path": "_standards_lib\\Rh\\Rh_metal_foil.dat",
-    "source_sha256": "074792a1b5de859f72921a69f0ef90b0f5fa3a023f8dafdfda1c8204fa7a9d85",
+    "source_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e",
     "committed": false,
     "transform": null,
     "used_path": "_standards_lib\\Rh\\Rh_metal_foil.dat",
-    "used_sha256": "074792a1b5de859f72921a69f0ef90b0f5fa3a023f8dafdfda1c8204fa7a9d85"
+    "used_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e"
    },
-   "status": "gated_out",
-   "error": "ValueError: zero-size array to reduction operation maximum which has no identity",
-   "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格"
+   "result": {
+    "absorber": "Rh",
+    "edge": "K",
+    "motif": "rh_fcc_cod_9008482",
+    "motif_file": null,
+    "fixed_CN": 12.0,
+    "R_first": 2.6892,
+    "n_shells": 1,
+    "shell_paths": [
+     {
+      "label": "Rh-Rh@2.69",
+      "scatterer": "Rh",
+      "reff": 2.6892,
+      "degen": 12.0
+     }
+    ],
+    "e0_method": "half_height",
+    "e0": 23216.0784,
+    "k_window": [
+     3.0,
+     12.0
+    ],
+    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+    "runs": [
+     {
+      "r_window": [
+       2.089,
+       2.809
+      ],
+      "s02": 0.7054,
+      "s02_err": 0.0157,
+      "rf": 0.0021,
+      "delta_e0": -0.85,
+      "sigma2": 0.0028,
+      "delta_r": -0.0011,
+      "sigma2_at_bound": false,
+      "paths": [
+       {
+        "label": "Rh-Rh@2.69",
+        "degen": 12.0,
+        "sigma2": 0.0028,
+        "delta_r": -0.0011,
+        "sigma2_at_bound": false
+       }
+      ],
+      "interior": true
+     },
+     {
+      "r_window": [
+       2.089,
+       2.869
+      ],
+      "s02": 0.7022,
+      "s02_err": 0.0174,
+      "rf": 0.003,
+      "delta_e0": -0.74,
+      "sigma2": 0.0028,
+      "delta_r": -0.0006,
+      "sigma2_at_bound": false,
+      "paths": [
+       {
+        "label": "Rh-Rh@2.69",
+        "degen": 12.0,
+        "sigma2": 0.0028,
+        "delta_r": -0.0006,
+        "sigma2_at_bound": false
+       }
+      ],
+      "interior": true
+     },
+     {
+      "r_window": [
+       2.089,
+       2.949
+      ],
+      "s02": 0.7017,
+      "s02_err": 0.0191,
+      "rf": 0.0041,
+      "delta_e0": -0.71,
+      "sigma2": 0.0028,
+      "delta_r": -0.0004,
+      "sigma2_at_bound": false,
+      "paths": [
+       {
+        "label": "Rh-Rh@2.69",
+        "degen": 12.0,
+        "sigma2": 0.0028,
+        "delta_r": -0.0004,
+        "sigma2_at_bound": false
+       }
+      ],
+      "interior": true
+     }
+    ],
+    "s02": 0.7022,
+    "s02_err": 0.0191,
+    "rf": 0.0041,
+    "spread": 0.0037,
+    "delta_e0": -0.71,
+    "sigma2": 0.0028,
+    "n_variables": 4,
+    "n_independent": 4.47,
+    "plateau": 0.859,
+    "rbkg_choice": 0.7999999999999999,
+    "kw_sensitivity": {
+     "1": {
+      "s02": 0.6481,
+      "rf": 0.006,
+      "delta_e0": -1.43
+     },
+     "3": {
+      "s02": 0.7577,
+      "rf": 0.0012,
+      "delta_e0": -0.09
+     }
+    },
+    "checks": {
+     "window_runs_interior": true,
+     "s02_in_range": true,
+     "s02_err_ok": true,
+     "window_spread_ok": true,
+     "sigma2_not_at_bound": true
+    },
+    "pass": true
+   },
+   "status": "passed"
   }
  ],
- "s02": null,
- "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
- "attempts_compact": [
+ "s02": 0.7022,
+ "s02_err": 0.0191,
+ "rf": 0.0041,
+ "spread": 0.0037,
+ "delta_e0": -0.71,
+ "sigma2": 0.0028,
+ "plateau": 0.859,
+ "k_window": [
+  3.0,
+  12.0
+ ],
+ "fixed_CN": 12.0,
+ "R_first": 2.6892,
+ "runs": [
   {
-   "standard": "_standards_lib\\Rh\\Rh_metal_foil.dat",
-   "motif": "rh_fcc_cod_9008482",
-   "strict": false,
-   "kmin": null,
-   "kmax": null,
-   "rmin": null,
-   "e0_method": "derivative",
-   "fit_shells": 1,
-   "status": "gated_out",
-   "s02": null,
-   "s02_err": null,
-   "rf": null,
-   "spread": null,
-   "plateau": null,
-   "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格"
+   "r_window": [
+    2.089,
+    2.809
+   ],
+   "s02": 0.7054,
+   "s02_err": 0.0157,
+   "rf": 0.0021,
+   "delta_e0": -0.85,
+   "sigma2": 0.0028,
+   "delta_r": -0.0011,
+   "sigma2_at_bound": false,
+   "paths": [
+    {
+     "label": "Rh-Rh@2.69",
+     "degen": 12.0,
+     "sigma2": 0.0028,
+     "delta_r": -0.0011,
+     "sigma2_at_bound": false
+    }
+   ],
+   "interior": true
+  },
+  {
+   "r_window": [
+    2.089,
+    2.869
+   ],
+   "s02": 0.7022,
+   "s02_err": 0.0174,
+   "rf": 0.003,
+   "delta_e0": -0.74,
+   "sigma2": 0.0028,
+   "delta_r": -0.0006,
+   "sigma2_at_bound": false,
+   "paths": [
+    {
+     "label": "Rh-Rh@2.69",
+     "degen": 12.0,
+     "sigma2": 0.0028,
+     "delta_r": -0.0006,
+     "sigma2_at_bound": false
+    }
+   ],
+   "interior": true
+  },
+  {
+   "r_window": [
+    2.089,
+    2.949
+   ],
+   "s02": 0.7017,
+   "s02_err": 0.0191,
+   "rf": 0.0041,
+   "delta_e0": -0.71,
+   "sigma2": 0.0028,
+   "delta_r": -0.0004,
+   "sigma2_at_bound": false,
+   "paths": [
+    {
+     "label": "Rh-Rh@2.69",
+     "degen": 12.0,
+     "sigma2": 0.0028,
+     "delta_r": -0.0004,
+     "sigma2_at_bound": false
+    }
+   ],
+   "interior": true
   }
- ]
+ ],
+ "checks": {
+  "window_runs_interior": true,
+  "s02_in_range": true,
+  "s02_err_ok": true,
+  "window_spread_ok": true,
+  "sigma2_not_at_bound": true
+ },
+ "kw_sensitivity": {
+  "1": {
+   "s02": 0.6481,
+   "rf": 0.006,
+   "delta_e0": -1.43
+  },
+  "3": {
+   "s02": 0.7577,
+   "rf": 0.0012,
+   "delta_e0": -0.09
+  }
+ },
+ "n_variables": 4,
+ "n_independent": 4.47,
+ "n_shells": 1,
+ "shell_paths": [
+  {
+   "label": "Rh-Rh@2.69",
+   "scatterer": "Rh",
+   "reff": 2.6892,
+   "degen": 12.0
+  }
+ ],
+ "e0": 23216.0784,
+ "e0_method": "half_height",
+ "motif": "rh_fcc_cod_9008482",
+ "edge": "K",
+ "provenance": {
+  "source_path": "_standards_lib\\Rh\\Rh_metal_foil.dat",
+  "source_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e",
+  "committed": false,
+  "transform": null,
+  "used_path": "_standards_lib\\Rh\\Rh_metal_foil.dat",
+  "used_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e"
+ },
+ "standard": "_standards_lib\\Rh\\Rh_metal_foil.dat",
+ "standard_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e",
+ "motif_file": null,
+ "motif_file_sha256": null,
+ "result": {
+  "absorber": "Rh",
+  "edge": "K",
+  "motif": "rh_fcc_cod_9008482",
+  "motif_file": null,
+  "fixed_CN": 12.0,
+  "R_first": 2.6892,
+  "n_shells": 1,
+  "shell_paths": [
+   {
+    "label": "Rh-Rh@2.69",
+    "scatterer": "Rh",
+    "reff": 2.6892,
+    "degen": 12.0
+   }
+  ],
+  "e0_method": "half_height",
+  "e0": 23216.0784,
+  "k_window": [
+   3.0,
+   12.0
+  ],
+  "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+  "runs": [
+   {
+    "r_window": [
+     2.089,
+     2.809
+    ],
+    "s02": 0.7054,
+    "s02_err": 0.0157,
+    "rf": 0.0021,
+    "delta_e0": -0.85,
+    "sigma2": 0.0028,
+    "delta_r": -0.0011,
+    "sigma2_at_bound": false,
+    "paths": [
+     {
+      "label": "Rh-Rh@2.69",
+      "degen": 12.0,
+      "sigma2": 0.0028,
+      "delta_r": -0.0011,
+      "sigma2_at_bound": false
+     }
+    ],
+    "interior": true
+   },
+   {
+    "r_window": [
+     2.089,
+     2.869
+    ],
+    "s02": 0.7022,
+    "s02_err": 0.0174,
+    "rf": 0.003,
+    "delta_e0": -0.74,
+    "sigma2": 0.0028,
+    "delta_r": -0.0006,
+    "sigma2_at_bound": false,
+    "paths": [
+     {
+      "label": "Rh-Rh@2.69",
+      "degen": 12.0,
+      "sigma2": 0.0028,
+      "delta_r": -0.0006,
+      "sigma2_at_bound": false
+     }
+    ],
+    "interior": true
+   },
+   {
+    "r_window": [
+     2.089,
+     2.949
+    ],
+    "s02": 0.7017,
+    "s02_err": 0.0191,
+    "rf": 0.0041,
+    "delta_e0": -0.71,
+    "sigma2": 0.0028,
+    "delta_r": -0.0004,
+    "sigma2_at_bound": false,
+    "paths": [
+     {
+      "label": "Rh-Rh@2.69",
+      "degen": 12.0,
+      "sigma2": 0.0028,
+      "delta_r": -0.0004,
+      "sigma2_at_bound": false
+     }
+    ],
+    "interior": true
+   }
+  ],
+  "s02": 0.7022,
+  "s02_err": 0.0191,
+  "rf": 0.0041,
+  "spread": 0.0037,
+  "delta_e0": -0.71,
+  "sigma2": 0.0028,
+  "n_variables": 4,
+  "n_independent": 4.47,
+  "plateau": 0.859,
+  "rbkg_choice": 0.7999999999999999,
+  "kw_sensitivity": {
+   "1": {
+    "s02": 0.6481,
+    "rf": 0.006,
+    "delta_e0": -1.43
+   },
+   "3": {
+    "s02": 0.7577,
+    "rf": 0.0012,
+    "delta_e0": -0.09
+   }
+  },
+  "checks": {
+   "window_runs_interior": true,
+   "s02_in_range": true,
+   "s02_err_ok": true,
+   "window_spread_ok": true,
+   "sigma2_not_at_bound": true
+  },
+  "pass": true,
+  "provenance": {
+   "source_path": "_standards_lib\\Rh\\Rh_metal_foil.dat",
+   "source_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e",
+   "committed": false,
+   "transform": null,
+   "used_path": "_standards_lib\\Rh\\Rh_metal_foil.dat",
+   "used_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e"
+  },
+  "standard": "_standards_lib\\Rh\\Rh_metal_foil.dat",
+  "standard_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e",
+  "motif_file_sha256": null,
+  "static_absorber_py_unchanged": true
+ }
 }

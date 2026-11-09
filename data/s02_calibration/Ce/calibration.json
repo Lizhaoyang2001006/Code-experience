@@ -1,7 +1,7 @@
 {
  "absorber": "Ce",
- "status": "not_calibrated",
- "generated_at": "2026-11-09T15:07:03",
+ "status": "calibrated",
+ "generated_at": "2026-11-09T17:27:37",
  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
  "static_absorber_py_unchanged": true,
  "apply_to_absorber_py": false,
@@ -179,44 +179,421 @@
    },
    "status": "error",
    "error": "XAFSError: [S3] 归一化失败：边后平台 = 2.271（阈值 0.85–1.15）。稀释样品的低 Z 基体呈 E^-3 衰减，直线外推扣不掉，此时 FT 峰位与幅度均不可引用"
-  }
- ],
- "s02": null,
- "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
- "attempts_compact": [
-  {
-   "standard": "data\\bmm_standards\\Data\\Ce\\Ce-L3-CeO2.xdi",
-   "motif": "ceo2_fluorite_cod_1562989",
-   "strict": false,
-   "kmin": 3.5,
-   "kmax": 12.0,
-   "rmin": 1.6,
-   "e0_method": "derivative",
-   "fit_shells": 1,
-   "status": "gated_out",
-   "s02": null,
-   "s02_err": null,
-   "rf": null,
-   "spread": null,
-   "plateau": 1.203,
-   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound"
   },
   {
-   "standard": "data\\bmm_standards\\Data\\Ce\\Ce-L3-CeriumDioxide.xdi",
+   "standard": "_standards_lib\\Ce\\Ce_metal_foil.dat",
+   "standard_exists": true,
    "motif": "ceo2_fluorite_cod_1562989",
+   "motif_file": null,
    "strict": true,
-   "kmin": 3.5,
-   "kmax": 12.0,
-   "rmin": 1.6,
+   "kmin": null,
+   "kmax": null,
+   "rmin": 1.5,
    "e0_method": "derivative",
+   "manual_e0": null,
    "fit_shells": 1,
-   "status": "error",
-   "s02": null,
-   "s02_err": null,
-   "rf": null,
-   "spread": null,
-   "plateau": null,
-   "reason": "XAFSError: [S3] 归一化失败：边后平台 = 2.271（阈值 0.85–1.15）。稀释样品的低 Z 基体呈 E^-3 衰减，直线外推扣不掉，此时 FT 峰位与幅度均不可引用"
+   "note": "IIT-Lytle RAW Ce/ceo2.004 CeO2 L3 透射谱（在 Ce L2 6164 eV 前截断于 <=6160 eV，327 点）；rmin=1.5 完整覆盖 8×Ce–O 第一壳，平台 1.0645，通过全部严格门禁",
+   "provenance": {
+    "source_path": "_standards_lib\\Ce\\Ce_metal_foil.dat",
+    "source_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305",
+    "committed": false,
+    "transform": null,
+    "used_path": "_standards_lib\\Ce\\Ce_metal_foil.dat",
+    "used_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305"
+   },
+   "result": {
+    "absorber": "Ce",
+    "edge": "L3",
+    "motif": "ceo2_fluorite_cod_1562989",
+    "motif_file": null,
+    "fixed_CN": 8.0,
+    "R_first": 2.3414,
+    "n_shells": 1,
+    "shell_paths": [
+     {
+      "label": "Ce-O@2.34",
+      "scatterer": "O",
+      "reff": 2.3414,
+      "degen": 8.0
+     }
+    ],
+    "e0_method": "derivative",
+    "e0": 5728.0,
+    "k_window": [
+     3.0,
+     12.0
+    ],
+    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+    "runs": [
+     {
+      "r_window": [
+       1.5,
+       2.461
+      ],
+      "s02": 0.6267,
+      "s02_err": 0.0206,
+      "rf": 0.0123,
+      "delta_e0": 6.09,
+      "sigma2": 0.0077,
+      "delta_r": -0.03,
+      "sigma2_at_bound": false,
+      "paths": [
+       {
+        "label": "Ce-O@2.34",
+        "degen": 8.0,
+        "sigma2": 0.0077,
+        "delta_r": -0.03,
+        "sigma2_at_bound": false
+       }
+      ],
+      "interior": true
+     },
+     {
+      "r_window": [
+       1.5,
+       2.521
+      ],
+      "s02": 0.6279,
+      "s02_err": 0.0235,
+      "rf": 0.0169,
+      "delta_e0": 6.01,
+      "sigma2": 0.0077,
+      "delta_r": -0.03,
+      "sigma2_at_bound": false,
+      "paths": [
+       {
+        "label": "Ce-O@2.34",
+        "degen": 8.0,
+        "sigma2": 0.0077,
+        "delta_r": -0.03,
+        "sigma2_at_bound": false
+       }
+      ],
+      "interior": true
+     },
+     {
+      "r_window": [
+       1.5,
+       2.601
+      ],
+      "s02": 0.6363,
+      "s02_err": 0.0268,
+      "rf": 0.0223,
+      "delta_e0": 5.94,
+      "sigma2": 0.0079,
+      "delta_r": -0.03,
+      "sigma2_at_bound": false,
+      "paths": [
+       {
+        "label": "Ce-O@2.34",
+        "degen": 8.0,
+        "sigma2": 0.0079,
+        "delta_r": -0.03,
+        "sigma2_at_bound": false
+       }
+      ],
+      "interior": true
+     }
+    ],
+    "s02": 0.6279,
+    "s02_err": 0.0268,
+    "rf": 0.0223,
+    "spread": 0.0096,
+    "delta_e0": 5.94,
+    "sigma2": 0.0079,
+    "n_variables": 4,
+    "n_independent": 5.85,
+    "plateau": 1.0645,
+    "rbkg_choice": 0.7999999999999999,
+    "kw_sensitivity": {
+     "1": {
+      "s02": 0.6292,
+      "rf": 0.0043,
+      "delta_e0": 6.0
+     },
+     "3": {
+      "s02": 0.682,
+      "rf": 0.0581,
+      "delta_e0": 5.88
+     }
+    },
+    "checks": {
+     "window_runs_interior": true,
+     "s02_in_range": true,
+     "s02_err_ok": true,
+     "window_spread_ok": true,
+     "sigma2_not_at_bound": true
+    },
+    "pass": true
+   },
+   "status": "passed"
   }
- ]
+ ],
+ "s02": 0.6279,
+ "s02_err": 0.0268,
+ "rf": 0.0223,
+ "spread": 0.0096,
+ "delta_e0": 5.94,
+ "sigma2": 0.0079,
+ "plateau": 1.0645,
+ "k_window": [
+  3.0,
+  12.0
+ ],
+ "fixed_CN": 8.0,
+ "R_first": 2.3414,
+ "runs": [
+  {
+   "r_window": [
+    1.5,
+    2.461
+   ],
+   "s02": 0.6267,
+   "s02_err": 0.0206,
+   "rf": 0.0123,
+   "delta_e0": 6.09,
+   "sigma2": 0.0077,
+   "delta_r": -0.03,
+   "sigma2_at_bound": false,
+   "paths": [
+    {
+     "label": "Ce-O@2.34",
+     "degen": 8.0,
+     "sigma2": 0.0077,
+     "delta_r": -0.03,
+     "sigma2_at_bound": false
+    }
+   ],
+   "interior": true
+  },
+  {
+   "r_window": [
+    1.5,
+    2.521
+   ],
+   "s02": 0.6279,
+   "s02_err": 0.0235,
+   "rf": 0.0169,
+   "delta_e0": 6.01,
+   "sigma2": 0.0077,
+   "delta_r": -0.03,
+   "sigma2_at_bound": false,
+   "paths": [
+    {
+     "label": "Ce-O@2.34",
+     "degen": 8.0,
+     "sigma2": 0.0077,
+     "delta_r": -0.03,
+     "sigma2_at_bound": false
+    }
+   ],
+   "interior": true
+  },
+  {
+   "r_window": [
+    1.5,
+    2.601
+   ],
+   "s02": 0.6363,
+   "s02_err": 0.0268,
+   "rf": 0.0223,
+   "delta_e0": 5.94,
+   "sigma2": 0.0079,
+   "delta_r": -0.03,
+   "sigma2_at_bound": false,
+   "paths": [
+    {
+     "label": "Ce-O@2.34",
+     "degen": 8.0,
+     "sigma2": 0.0079,
+     "delta_r": -0.03,
+     "sigma2_at_bound": false
+    }
+   ],
+   "interior": true
+  }
+ ],
+ "checks": {
+  "window_runs_interior": true,
+  "s02_in_range": true,
+  "s02_err_ok": true,
+  "window_spread_ok": true,
+  "sigma2_not_at_bound": true
+ },
+ "kw_sensitivity": {
+  "1": {
+   "s02": 0.6292,
+   "rf": 0.0043,
+   "delta_e0": 6.0
+  },
+  "3": {
+   "s02": 0.682,
+   "rf": 0.0581,
+   "delta_e0": 5.88
+  }
+ },
+ "n_variables": 4,
+ "n_independent": 5.85,
+ "n_shells": 1,
+ "shell_paths": [
+  {
+   "label": "Ce-O@2.34",
+   "scatterer": "O",
+   "reff": 2.3414,
+   "degen": 8.0
+  }
+ ],
+ "e0": 5728.0,
+ "e0_method": "derivative",
+ "motif": "ceo2_fluorite_cod_1562989",
+ "edge": "L3",
+ "provenance": {
+  "source_path": "_standards_lib\\Ce\\Ce_metal_foil.dat",
+  "source_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305",
+  "committed": false,
+  "transform": null,
+  "used_path": "_standards_lib\\Ce\\Ce_metal_foil.dat",
+  "used_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305"
+ },
+ "standard": "_standards_lib\\Ce\\Ce_metal_foil.dat",
+ "standard_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305",
+ "motif_file": null,
+ "motif_file_sha256": null,
+ "result": {
+  "absorber": "Ce",
+  "edge": "L3",
+  "motif": "ceo2_fluorite_cod_1562989",
+  "motif_file": null,
+  "fixed_CN": 8.0,
+  "R_first": 2.3414,
+  "n_shells": 1,
+  "shell_paths": [
+   {
+    "label": "Ce-O@2.34",
+    "scatterer": "O",
+    "reff": 2.3414,
+    "degen": 8.0
+   }
+  ],
+  "e0_method": "derivative",
+  "e0": 5728.0,
+  "k_window": [
+   3.0,
+   12.0
+  ],
+  "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+  "runs": [
+   {
+    "r_window": [
+     1.5,
+     2.461
+    ],
+    "s02": 0.6267,
+    "s02_err": 0.0206,
+    "rf": 0.0123,
+    "delta_e0": 6.09,
+    "sigma2": 0.0077,
+    "delta_r": -0.03,
+    "sigma2_at_bound": false,
+    "paths": [
+     {
+      "label": "Ce-O@2.34",
+      "degen": 8.0,
+      "sigma2": 0.0077,
+      "delta_r": -0.03,
+      "sigma2_at_bound": false
+     }
+    ],
+    "interior": true
+   },
+   {
+    "r_window": [
+     1.5,
+     2.521
+    ],
+    "s02": 0.6279,
+    "s02_err": 0.0235,
+    "rf": 0.0169,
+    "delta_e0": 6.01,
+    "sigma2": 0.0077,
+    "delta_r": -0.03,
+    "sigma2_at_bound": false,
+    "paths": [
+     {
+      "label": "Ce-O@2.34",
+      "degen": 8.0,
+      "sigma2": 0.0077,
+      "delta_r": -0.03,
+      "sigma2_at_bound": false
+     }
+    ],
+    "interior": true
+   },
+   {
+    "r_window": [
+     1.5,
+     2.601
+    ],
+    "s02": 0.6363,
+    "s02_err": 0.0268,
+    "rf": 0.0223,
+    "delta_e0": 5.94,
+    "sigma2": 0.0079,
+    "delta_r": -0.03,
+    "sigma2_at_bound": false,
+    "paths": [
+     {
+      "label": "Ce-O@2.34",
+      "degen": 8.0,
+      "sigma2": 0.0079,
+      "delta_r": -0.03,
+      "sigma2_at_bound": false
+     }
+    ],
+    "interior": true
+   }
+  ],
+  "s02": 0.6279,
+  "s02_err": 0.0268,
+  "rf": 0.0223,
+  "spread": 0.0096,
+  "delta_e0": 5.94,
+  "sigma2": 0.0079,
+  "n_variables": 4,
+  "n_independent": 5.85,
+  "plateau": 1.0645,
+  "rbkg_choice": 0.7999999999999999,
+  "kw_sensitivity": {
+   "1": {
+    "s02": 0.6292,
+    "rf": 0.0043,
+    "delta_e0": 6.0
+   },
+   "3": {
+    "s02": 0.682,
+    "rf": 0.0581,
+    "delta_e0": 5.88
+   }
+  },
+  "checks": {
+   "window_runs_interior": true,
+   "s02_in_range": true,
+   "s02_err_ok": true,
+   "window_spread_ok": true,
+   "sigma2_not_at_bound": true
+  },
+  "pass": true,
+  "provenance": {
+   "source_path": "_standards_lib\\Ce\\Ce_metal_foil.dat",
+   "source_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305",
+   "committed": false,
+   "transform": null,
+   "used_path": "_standards_lib\\Ce\\Ce_metal_foil.dat",
+   "used_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305"
+  },
+  "standard": "_standards_lib\\Ce\\Ce_metal_foil.dat",
+  "standard_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305",
+  "motif_file_sha256": null,
+  "static_absorber_py_unchanged": true
+ }
 }
