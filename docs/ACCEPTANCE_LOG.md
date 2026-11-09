@@ -1375,3 +1375,64 @@ crawler 入库后按同一三扫描命令重跑，上述 r_factor/N/R 与 fit_ta
 - [x] 通过
 - 物理门禁、`absorber.py` 静态表、`calibrate_s02.py` 常量、
   44 条 phase pack 均未改动。
+
+
+## 13. P6.4：输出台账与参数/门禁全暴露（2026-11-09）
+
+### 13.1 范围
+
+- 新增 `xafs_provenance.py`：只记录、不判定；向 `_meta.json` 追加
+  `params / gates / decisions / summary` 四个顶层块，现有字段保持原样。
+- `params`：`effective / sources / units / stages / affects_formal_cn /
+  cli_argv / inputs / config_file / config_keys_applied`；来源标记
+  `cli / config / default / auto / calibrated / runtime_override`。
+  配置文件来源只统计用户文件里真实出现的键，不把 `DEFAULTS` 误标为
+  `config`。
+- `gates`：`normalization / self_absorption / structure_id / cif / fit /
+  formal_cn / xanes_cross_check / summary`，每条记录
+  `status / threshold / observed / action`；状态统一为
+  `passed / warning / failed / not_applicable / not_available`。
+- `decisions`：按 S1 → S7 → 正式 CN 记录合并扫描、E0、归一化、Rbkg、
+  FT 窗口、小波、结构识别、相解析、拟合、CN 可靠性、正式 CN 与 T8。
+- `summary`：门禁通过/警告/失败清单，另含 `cn_reliable / cn_status /
+  formal_cn_status / formal_cn_reject_reason`。
+- `run_xafs.py` / `xafs_report.py` 均接入 provenance，并新增
+  `--print-gates` / `--print-params`（默认关闭）；报告入口也写
+  `<stem>_meta.json`；operando 写 `operando_meta.json`
+  （PCA 方差 / SPOIL / MCR-ALS 门禁）。
+- 新增文档 `docs/CATALYSIS_CAPABILITY_AND_GATES.md`：体系能力矩阵、
+  逐输出“对催化剂分析的价值”、指标解读、门禁卡、参数分组与工作流。
+- 契约 `#132` 锁定阈值镜像、参数来源、门禁状态、两个入口的台账与
+  打印开关。
+
+### 13.2 结果
+
+- Fe 箔（`fe.060`，`--no-strict`）：`_meta.json` 含四个台账块；
+  `params` 83 项生效参数，`kmin=default`、`absorber=cli`、`rbkg=auto`；
+  `gates.normalization=warning`（平台 0.7953）；`decisions` 覆盖 S1–S7。
+- 配置文件冒烟：`kmin/kmax/kweight/post_window/strict` 正确标记为
+  `config`，`config_keys_applied` 与用户文件一致。
+- RuO2（`COD:9007541`，`--s02-from-t5`）：`gates.fit=failed`
+  （L1 `rf=0.0826`、coverage=False），`structure_id=warning`
+  （`no_match` → `library_miss_l1_fallback`），`formal_cn=failed`
+  （`N/N₀=0.521 out_of_range`、条件 `Rf=0.1314`），属预期物理拒签。
+- 台账不改变任何物理判定、`cn_table.csv` 列或拒签逻辑。
+
+### 13.3 测试
+
+- `regression_test.py`：**132 项 OK**；
+- `run_ci.py --stress`：132 契约 + 4 压力 PASS。
+
+### 13.4 提交与补丁
+
+- 提交：`P6.4: expose params, gates, decisions and summary ledger`
+- 补丁：`patches/P6.4-output-ledger.patch`（`db6321a..HEAD`）；
+  累计补丁 `patches/P6.1-single-site-formal-cn.patch`（`eb01675..HEAD`）。
+- `_standards_lib/`、`data/standards_raw/`、`logs/` 未提交；
+  根目录 `lepidocrocite.cif` 保留。
+
+### 13.5 结论
+
+- [x] 通过
+- 物理门禁、`absorber.py` 静态表（12 元素 `s02=None, calibrated=False`）、
+  `calibrate_s02.py` 常量、44 条 phase pack 均未改动。

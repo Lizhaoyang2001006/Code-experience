@@ -49,6 +49,7 @@ import xafs_fit
 import xafs_io
 import xafs_lcf
 import xafs_pipeline
+import xafs_provenance
 from xafs_core import XAFSConfigError
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -470,7 +471,10 @@ def process_sample(paths, outdir, align: bool = False,
           phase_index_path: str | Path | None = None,
           phase_pack_path: str | Path | None = None,
           absorber_site: str | None = None,
-          offline: bool = False):
+          offline: bool = False,
+          provenance=None,
+          print_gates: bool = False,
+          print_params: bool = False):
     """
     跑完 S1–S6 并落盘。返回 PipelineResult。
 
@@ -745,6 +749,111 @@ def process_sample(paths, outdir, align: bool = False,
                 meta["rdf"] = rdf_tab["summary"]
     if result.xanes_cross_check:
         meta["xanes_cross_check"] = result.xanes_cross_check
+
+    # P6.4：参数 / 门禁 / 决策 / 摘要台账（只增不改）。
+    if provenance is not None:
+        formal_block = ((result.fit or {}).get("formal_cn")
+                        if formal_cn else None)
+        overrides = {
+            "absorber": eff_absorber or result.absorber_symbol,
+            "e0": getattr(norm, "e0", None),
+            "rbkg": best["rbkg"],
+            "rbkg_confidence": best.get("confidence"),
+            "rbkg_manual": bool(rbkg is not None),
+            "post_window": list(post_window),
+            "s02": (result.fit or {}).get("s02", s02),
+            "s02_source": (result.fit or {}).get("s02_source", s02_source),
+            "formal_cn": bool(formal_cn),
+            "identify": bool(identify),
+            "fit": bool(fit),
+            "resolved_phase_id": (structure_model.model_id
+                                  if structure_model is not None else None),
+            "resolved_phase_source": (structure_model.source_type
+                                      if structure_model is not None else None),
+            "resolved_absorber_site": (structure_model.absorber_site
+                                       if structure_model is not None else None),
+            "model_level": (structure_model.model_level
+                            if structure_model is not None else None),
+            "fit_mode": (result.fit or {}).get("mode"),
+            "cn_status": (result.fit or {}).get("cn_status"),
+            "cn_reliable": (result.fit or {}).get("cn_reliable"),
+        }
+        source_overrides = {
+            "e0": "cli" if manual_e0 is not None else "auto",
+            "rbkg": "cli" if rbkg is not None else "auto",
+        }
+        if s02_source and "calibration" in str(s02_source).lower():
+            source_overrides["s02"] = "calibrated"
+        elif s02_source:
+            source_overrides["s02"] = "runtime_override"
+        decision_context = {
+            "n_scans": len(result.scans) if result.scans else None,
+            "n_rejected_scans": 0,
+            "align": bool(align),
+            "absorber": eff_absorber or result.absorber_symbol,
+            "e0_method": e0_method,
+            "e0": getattr(norm, "e0", None),
+            "edge_energy": edge_energy,
+            "plateau": getattr(norm, "plateau", None),
+            "strict": bool(strict),
+            "post_window": list(post_window),
+            "rbkg": best["rbkg"],
+            "rbkg_confidence": best.get("confidence"),
+            "rbkg_manual": bool(rbkg is not None),
+            "kmin": kmin, "kmax": kmax, "kweight": kweight,
+            "r_first_peak": r1,
+            "wt_sigma": wave_map.sigma,
+            "r_wt_peak": r_wt,
+            "k_wt_peak": result.k_wt,
+            "structure_status": (result.structure or {}).get("status"),
+            "structure_top1": (((result.structure or {}).get("ranked")
+                                or [{}])[0].get("id")),
+            "structure_margin": (((result.structure or {}).get("confidence")
+                                  or {}).get("margin")),
+            "structure_coverage_ok": (result.structure or {}).get("coverage_ok"),
+            "phase_id": (structure_model.model_id
+                         if structure_model is not None else phase_id),
+            "phase_source": (structure_model.source_type
+                             if structure_model is not None else None),
+            "model_level": (structure_model.model_level
+                            if structure_model is not None else None),
+            "absorber_site": (structure_model.absorber_site
+                              if structure_model is not None else absorber_site),
+            "catalytic_model": catalytic_model,
+            "fit_mode": (result.fit or {}).get("mode"),
+            "fit_motif": fit_motif,
+            "fit_rmin": (result.fit or {}).get("rmin", fit_rmin),
+            "fit_rmax": (result.fit or {}).get("rmax", fit_rmax),
+            "s02": (result.fit or {}).get("s02", s02),
+            "s02_source": (result.fit or {}).get("s02_source", s02_source),
+            "cn_reliable": (result.fit or {}).get("cn_reliable"),
+            "cn_status": (result.fit or {}).get("cn_status"),
+            "fit_flags": (result.fit or {}).get("flags"),
+            "formal_status": (formal_block or {}).get("status"),
+            "formal_reject_reason": (formal_block or {}).get("reject_reason"),
+            "n_ratio": (((result.fit or {}).get("conditional_cn")
+                         or {}).get("n_ratio")),
+            "xanes_cross_check_warnings": (
+                len((result.xanes_cross_check or {}).get("warnings") or [])
+                if result.xanes_cross_check else None),
+        }
+        block = xafs_provenance.build_output_meta(
+            provenance,
+            norm=norm, strict=strict,
+            self_absorption=((result.fit or {}).get("self_absorption")
+                             or result.self_absorption),
+            structure=result.structure,
+            gate_result=gate_result, gate_results=gate_results,
+            fit_out=result.fit, formal_block=formal_block,
+            xanes_cross_check=result.xanes_cross_check,
+            overrides=overrides, source_overrides=source_overrides,
+            decision_context=decision_context)
+        meta.update(block)
+        if print_params and verbose:
+            print(xafs_provenance.format_params(block["params"]))
+        if print_gates and verbose:
+            print(xafs_provenance.format_gates(block["gates"]))
+
     xafs_io.write_json(outdir / f"{stem}_meta.json", meta)
 
     if diagnostics:
@@ -886,6 +995,12 @@ def main():
     parser.add_argument("--allow-unusual-coordination", action="store_true",
                         help="CIF 门禁：允许键长超出 PAIR_BOND_REF±0.08 Å 的"
                              "非常规配位；默认拒绝，需显式打开")
+    parser.add_argument("--print-gates", action="store_true",
+                        help="P6.4 处理完成后在终端打印置信门禁表"
+                             "（门禁/阈值/观测/状态/动作）；默认只写 _meta.json")
+    parser.add_argument("--print-params", action="store_true",
+                        help="P6.4 处理完成后在终端打印生效参数与来源"
+                             "（cli/config/default/auto）；默认只写 _meta.json")
     parser.add_argument("--self-absorption-formula", default=None,
                         help="荧光自吸收校正的样品总化学式（如 Fe3O4）；"
                              "仅荧光模式，且必须同时给厚度/密度")
@@ -1210,6 +1325,27 @@ def main():
                      "02_Fe_standards" / "Fe_lepidocrocite.000")]
         args.absorber = args.absorber or "Fe"
 
+    # P6.4：参数台账快照（只记录，不参与判定）。
+    prov = xafs_provenance.Provenance.from_args(
+        args, config, sys.argv[1:], parser=parser, inputs=files,
+        overrides={
+            "post_window": list(post_window),
+            "vary_c3": xafs_provenance._jsonable(vary_c3),
+            "vary_c4": xafs_provenance._jsonable(vary_c4),
+            "fit_kweights": xafs_provenance._jsonable(fit_kweights),
+            "deglitch": xafs_provenance._jsonable(deglitch),
+            "lcf_standards": xafs_provenance._jsonable(lcf_standards),
+            "shared_sigma2": xafs_provenance._jsonable(shared_sigma2),
+            "constraints": xafs_provenance._jsonable(constraints),
+            "self_absorption_angles": list(sa_angles),
+            "bvs_restraint": xafs_provenance._jsonable(bvs_restraint),
+        },
+        source_overrides={
+            "bvs_restraint": ("config" if config.get("bvs_restraint")
+                              else "cli" if args.bvs_target is not None
+                              else "default"),
+        })
+
     # ---- T7 多元素布局：逐元素 s02 覆盖表 ----
     multi_s02 = {}
     if args.multi_element_s02:
@@ -1297,7 +1433,8 @@ def main():
                 phase_index_path=args.phase_index,
                 phase_pack_path=args.phase_pack,
                 absorber_site=args.absorber_site,
-                offline=args.offline)
+                offline=args.offline,
+                provenance=prov)
 
         run_multi_element(
             files, args.outdir, fallback_absorber=args.absorber,
@@ -1355,6 +1492,7 @@ def main():
                 self_absorption_line=args.self_absorption_line,
                 s02=op_s02,
                 s02_source=op_s02_src,
+                provenance=prov,
                 verbose=False))
         std_scans = None
         if lcf_standards:
@@ -1369,6 +1507,14 @@ def main():
         op_dir = Path(args.outdir) / "operando"
         made = xafs_diagnostics.write_operando_diagnostics(
             op, op_dir, stem="operando")
+        op_meta = xafs_provenance.build_operando_meta(
+            prov, op, overrides={"operando": True})
+        xafs_io.write_json(Path(args.outdir) / "operando_meta.json", op_meta)
+        print(f"  → {Path(args.outdir) / 'operando_meta.json'}")
+        if args.print_params:
+            print(xafs_provenance.format_params(op_meta["params"]))
+        if args.print_gates:
+            print(xafs_provenance.format_gates(op_meta["gates"]))
         print(f"原位序列：{len(results)} 条谱，n_components="
               f"{op['n_components']}，accepted="
               f"{op['accepted_standards']}，rejected="
@@ -1444,7 +1590,8 @@ def main():
                     phase_index_path=args.phase_index,
                     phase_pack_path=args.phase_pack,
                     absorber_site=args.absorber_site,
-                    offline=args.offline)
+                    offline=args.offline,
+                    provenance=prov)
             except Exception as exc:  # 批处理：单个失败不中断整批
                 errors.append({"file": fpath, "error": str(exc)})
                 print(f"  ❌ 失败: {exc}")
@@ -1494,15 +1641,18 @@ def main():
         self_absorption_angles=sa_angles,
         self_absorption_line=args.self_absorption_line,
         formal_cn=args.formal_cn,
-                    legacy_auto_fit=args.legacy_auto_fit,
-                    xanes_cross_check=args.xanes_cross_check,
-                    phase_cif=args.phase_cif,
-                    phase_id=args.phase_id,
-                    phase_spec=args.phase,
-                    phase_index_path=args.phase_index,
-                    phase_pack_path=args.phase_pack,
-                    absorber_site=args.absorber_site,
-                    offline=args.offline)
+        legacy_auto_fit=args.legacy_auto_fit,
+        xanes_cross_check=args.xanes_cross_check,
+        phase_cif=args.phase_cif,
+        phase_id=args.phase_id,
+        phase_spec=args.phase,
+        phase_index_path=args.phase_index,
+        phase_pack_path=args.phase_pack,
+        absorber_site=args.absorber_site,
+        offline=args.offline,
+        provenance=prov,
+        print_gates=args.print_gates,
+        print_params=args.print_params)
 
     print("-" * 66)
     for f in sorted(result.outdir.glob(f"{result.stem}*")):

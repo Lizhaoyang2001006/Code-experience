@@ -101,6 +101,7 @@ import xafs_diagnostics               # noqa: E402
 import xafs_fit                       # noqa: E402
 import xafs_io                        # noqa: E402
 import xafs_pipeline                  # noqa: E402
+import xafs_provenance                # noqa: E402
 import xafs_report                    # noqa: E402
 import xafs_window_tuner              # noqa: E402
 from absorber import get_absorber      # noqa: E402
@@ -6150,6 +6151,151 @@ O1 O 0 0 0 0.5
                                          strict=True, verbose=False)
         self.assertIn("归一化失败", str(ctx.exception))
         self.assertIn("--no-strict", str(ctx.exception))
+
+    def test_p6_4_output_ledger_and_print_flags(self):
+        """#132 P6.4：参数/门禁/决策/摘要台账、打印开关与阈值不漂移。"""
+        import argparse
+        import contextlib
+        import io
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        # 1) 阈值镜像必须与冻结常量一致（防止台账与物理门禁脱节）
+        self.assertEqual(xafs_provenance.PLATEAU_LO, 0.85)
+        self.assertEqual(xafs_provenance.PLATEAU_HI, 1.15)
+        self.assertEqual(xafs_provenance.RF_LIMIT, 0.08)
+        self.assertEqual(xafs_provenance.DELTA_E0_LIMIT, 15.0)
+        self.assertEqual(xafs_provenance.N_ERR_LIMIT, 1.0)
+        self.assertEqual(xafs_provenance.N_ERR_FRACTION_LIMIT, 0.5)
+        self.assertEqual(xafs_provenance.CIF_CN_NORMAL, (2, 12))
+        self.assertEqual(xafs_provenance.CIF_CN_WARN_HI, 16)
+        self.assertEqual(xafs_provenance.CN_RATIO_OK, (0.7, 1.3))
+        self.assertEqual(xafs_provenance.CN_RATIO_WARN, (0.6, 1.4))
+        self.assertEqual(xafs_provenance.SID_SCORE_LIMIT, 0.16)
+        self.assertEqual(xafs_provenance.SID_MARGIN, 0.03)
+
+        # 2) 参数来源：CLI / config / default / auto
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--kmin", type=float, default=3.0)
+        parser.add_argument("--kmax", type=float, default=12.0)
+        parser.add_argument("--config", default=None)
+        parser.add_argument("--print-gates", action="store_true")
+        args = parser.parse_args(["--kmin", "3.5", "--print-gates"])
+        prov = xafs_provenance.Provenance.from_args(
+            args, {}, ["--kmin", "3.5", "--print-gates"],
+            parser=parser, inputs=["a.xdi"])
+        block = prov.param_block()
+        self.assertEqual(block["sources"]["kmin"], "cli")
+        self.assertEqual(block["sources"]["print_gates"], "cli")
+        self.assertEqual(block["sources"]["kmax"], "default")
+        self.assertEqual(block["effective"]["kmin"], 3.5)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = Path(tmp) / "cfg.json"
+            cfg.write_text(json.dumps({"kmin": 3.2}), encoding="utf-8")
+            args2 = parser.parse_args(["--config", str(cfg)])
+            prov2 = xafs_provenance.Provenance.from_args(
+                args2, {"kmin": 3.2}, ["--config", str(cfg)], parser=parser)
+            block2 = prov2.param_block()
+            self.assertEqual(block2["sources"]["kmin"], "config")
+            self.assertEqual(block2["config_keys_applied"], ["kmin"])
+
+        # 3) 门禁台账：通过 / 失败 / 不适用
+        gates = xafs_provenance.build_gate_ledger(
+            norm=SimpleNamespace(plateau=0.98, edge_step=0.4),
+            strict=True,
+            self_absorption={"mode": "transmission", "risk": "none",
+                             "cn_gate": False, "corrected": False},
+            structure={"status": "confident",
+                       "confidence": {"best_score": 0.05, "margin": 0.1,
+                                      "second_score": 0.15},
+                       "coverage_ok": True, "ranked": [{"id": "fe_bcc"}]})
+        self.assertEqual(gates["normalization"]["status"], "passed")
+        self.assertEqual(gates["normalization"]["threshold"], [0.85, 1.15])
+        self.assertEqual(gates["self_absorption"]["status"], "passed")
+        self.assertEqual(gates["structure_id"]["status"], "passed")
+        self.assertEqual(gates["fit"]["status"], "not_applicable")
+        self.assertEqual(gates["summary"]["passed"],
+                         ["normalization", "self_absorption", "structure_id"])
+
+        fit_obj = SimpleNamespace(
+            r_factor=0.2, delta_e0=2.0, overfit=False, paths=[],
+            n_independent=10, n_variables=5)
+        fit_gate = xafs_provenance.build_gate_ledger(
+            fit_out={"fit": fit_obj, "flags": {}, "coverage_ok": True,
+                     "cn_reliable": False, "cn_status": "diagnostic_only"}
+        )["fit"]
+        self.assertEqual(fit_gate["status"], "failed")
+        self.assertIn("r_factor", fit_gate["failed_checks"])
+        self.assertEqual(fit_gate["action"], "cn_quantification_blocked")
+
+        l1_gate = xafs_provenance.build_gate_ledger(
+            fit_out={"mode": "l1_first_shell",
+                     "l1": {"rf": 0.05, "delta_e0": 1.0, "N": 4.0,
+                            "N_err": 0.2, "n_independent": 8,
+                            "n_variables": 4},
+                     "flags": {}, "coverage_ok": True,
+                     "cn_reliable": True, "cn_status": "ok"}
+        )["fit"]
+        self.assertEqual(l1_gate["status"], "passed")
+
+        formal_gate = xafs_provenance.build_gate_ledger(
+            fit_out={"conditional_cn": {
+                "n_ratio": 0.5, "n_status": "out_of_range",
+                "conditional_n_fit": {"r_factor": 0.10},
+                "hamilton_f_test": {"significant": False},
+                "consistency_passed": False}},
+            formal_block={"status": "consistency_failed",
+                          "reject_reason": "N/N0 out of range"}
+        )["formal_cn"]
+        self.assertEqual(formal_gate["status"], "failed")
+        self.assertEqual(formal_gate["action"], "formal_cn_refused")
+
+        # 4) run_xafs 单样品：_meta.json 必须包含四个台账块
+        import run_xafs
+        with tempfile.TemporaryDirectory() as tmp:
+            args3 = parser.parse_args(["--kmin", "3.0"])
+            prov3 = xafs_provenance.Provenance.from_args(
+                args3, {}, ["--kmin", "3.0"], parser=parser,
+                inputs=[str(FE_FOIL)])
+            run_xafs.process_sample(
+                [str(FE_FOIL)], tmp, absorber="Fe", strict=False,
+                provenance=prov3, verbose=False)
+            meta = json.loads(
+                (Path(tmp) / "fe_meta.json").read_text(encoding="utf-8"))
+            for key in ("params", "gates", "decisions", "summary"):
+                self.assertIn(key, meta)
+            self.assertEqual(meta["params"]["sources"]["kmin"], "cli")
+            self.assertEqual(meta["gates"]["normalization"]["status"],
+                             "warning")
+            self.assertGreaterEqual(len(meta["decisions"]), 3)
+
+        # 5) report 入口同样写 _meta.json，且 source.mode=report
+        with tempfile.TemporaryDirectory() as tmp:
+            xafs_report.main([
+                str(FE_FOIL), "--absorber", "Fe", "--no-strict",
+                "--no-fit", "--no-html", "--no-window-tuner",
+                "-o", tmp, "--print-gates", "--print-params"])
+            meta = json.loads(
+                (Path(tmp) / "fe_meta.json").read_text(encoding="utf-8"))
+            self.assertEqual(meta["source"]["mode"], "report")
+            for key in ("params", "gates", "decisions", "summary"):
+                self.assertIn(key, meta)
+
+        # 6) 两个入口都暴露 --print-gates / --print-params
+        for module, flag in (
+                (run_xafs, "--print-gates"),
+                (run_xafs, "--print-params"),
+                (xafs_report, "--print-gates"),
+                (xafs_report, "--print-params")):
+            buf = io.StringIO()
+            with patch.object(sys, "argv", ["prog", "--help"]), \
+                    contextlib.redirect_stdout(buf), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit):
+                    module.main()
+            self.assertIn(flag, buf.getvalue(),
+                          f"{module.__name__} 缺少 {flag}")
 
     def test_p6_2_edge_entry_alignments(self):
         """#130 P6.2：frac:(x,y,z) 吸收位、P1b/P5 配置键镜像、XDI 自动元素回退与 report 异常分支。"""

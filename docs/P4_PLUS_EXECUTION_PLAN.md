@@ -268,3 +268,19 @@
 - `run_xafs.py` operando 模式对 S6.5/S7 参数显式报错，不再静默忽略；
 - S3 strict 报错补 `--no-strict` 提示；
 - 契约 `#131` 锁定上述入口对齐。
+
+
+## P6.4：输出台账与参数/门禁全暴露（已完成）
+
+- 新增 `xafs_provenance.py`：向 `_meta.json` 追加
+  `params / gates / decisions / summary`，只记录、不参与任何物理判定；
+- 参数来源区分 `cli / config / default / auto / calibrated /
+  runtime_override`，配置文件来源只统计用户文件真实出现的键；
+- 门禁统一记录 `threshold / observed / status / action`，覆盖归一化、
+  自吸收、结构识别、CIF、拟合、正式 CN 与 T8；
+- `run_xafs.py` / `xafs_report.py` 新增 `--print-gates` /
+  `--print-params`；报告入口写 `<stem>_meta.json`，operando 写
+  `operando_meta.json`；
+- 新增 `docs/CATALYSIS_CAPABILITY_AND_GATES.md`：体系能力矩阵、
+  逐输出“对催化剂分析的价值”、指标解读、门禁卡、参数分组与工作流；
+- 契约 `#132` 锁定台账、参数来源、门禁状态与打印开关。

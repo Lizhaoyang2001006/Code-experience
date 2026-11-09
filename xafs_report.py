@@ -65,6 +65,7 @@ import xafs_fit         # noqa: E402
 import xafs_io          # noqa: E402
 import xafs_lcf         # noqa: E402
 import xafs_pipeline    # noqa: E402
+import xafs_provenance  # noqa: E402
 import xafs_window_tuner  # noqa: E402
 import structure_id     # noqa: E402
 from absorber import get_absorber    # noqa: E402
@@ -1438,6 +1439,12 @@ def main(argv=None):
     parser.add_argument("--allow-unusual-coordination", action="store_true",
                         help="CIF 门禁：允许键长超出 PAIR_BOND_REF±0.08 Å；"
                              "默认拒绝")
+    parser.add_argument("--print-gates", action="store_true",
+                        help="P6.4 报告完成后在终端打印置信门禁表"
+                             "（门禁/阈值/观测/状态/动作）")
+    parser.add_argument("--print-params", action="store_true",
+                        help="P6.4 报告完成后在终端打印生效参数与来源"
+                             "（cli/config/default/auto）")
     parser.add_argument("--phase-cif", action="append", default=None,
                         help="P1b 用户真实 CIF 路径（可重复，最高优先级）")
     parser.add_argument("--phase-id", default=None,
@@ -1757,6 +1764,28 @@ def main(argv=None):
             f"{abs_cfg.edge} 不一致；改边请先在 absorber.py 配好再跑，"
             f"避免只改标签不改 FEFF HOLE/边能")
 
+    # P6.4：参数台账快照（只记录，不参与判定）。
+    _argv = list(argv) if argv is not None else sys.argv[1:]
+    prov = xafs_provenance.Provenance.from_args(
+        args, config, _argv, parser=parser, inputs=args.files,
+        overrides={
+            "post_window": list(post_window),
+            "vary_c3": xafs_provenance._jsonable(vary_c3),
+            "vary_c4": xafs_provenance._jsonable(vary_c4),
+            "fit_kweights": xafs_provenance._jsonable(fit_kweights),
+            "deglitch": xafs_provenance._jsonable(deglitch),
+            "lcf_standards": xafs_provenance._jsonable(lcf_standards),
+            "shared_sigma2": xafs_provenance._jsonable(shared_sigma2),
+            "constraints": xafs_provenance._jsonable(constraints),
+            "self_absorption_angles": list(sa_angles),
+            "bvs_restraint": xafs_provenance._jsonable(bvs_restraint),
+        },
+        source_overrides={
+            "bvs_restraint": ("config" if config.get("bvs_restraint")
+                              else "cli" if args.bvs_target is not None
+                              else "default"),
+        })
+
     # ---- B15-1 原位序列汇总报告：每个文件=一个时间点，不合并 ----
     if args.operando:
         if args.no_fit:
@@ -1808,6 +1837,14 @@ def main(argv=None):
             **xafs_config.operando_kwargs_from_config(config))
         made = xafs_diagnostics.write_operando_diagnostics(
             op, op_root / "operando", stem="operando")
+        op_meta = xafs_provenance.build_operando_meta(
+            prov, op, overrides={"operando": True})
+        xafs_io.write_json(op_root / "operando_meta.json", op_meta)
+        print(f"  → {op_root / 'operando_meta.json'}")
+        if args.print_params:
+            print(xafs_provenance.format_params(op_meta["params"]))
+        if args.print_gates:
+            print(xafs_provenance.format_gates(op_meta["gates"]))
         indicator_rows = [
             ("n_spectra", len(args.files), "条", "原位时间序列"),
             ("n_components", op["n_components"], "个",
@@ -1997,8 +2034,10 @@ def main(argv=None):
 
     s02 = (fout or {}).get(
         "s02", s02_val if s02_val is not None else abs_cfg.s02)
+    formal_block = None
     if args.formal_cn:
         formal = (fout or {}).get("formal_cn") or {}
+        formal_block = formal
         rows = list(formal.get("rows") or [])
         model = formal.get("model") or {}
         if not rows:
@@ -2020,6 +2059,152 @@ def main(argv=None):
         cn_table.write_cn_table(out / "cn_table.csv", rows)
         print(f"  → {out / 'cn_table.csv'} "
               f"（formal CN status={formal.get('status', 'no_cif')}）")
+
+    # P6.4：报告入口也写同一套参数/门禁/决策/摘要台账。
+    resolved_model = structure_model
+    overrides = {
+        "absorber": eff_absorber,
+        "e0": st["e0"],
+        "rbkg": st["rbkg"]["rbkg"],
+        "rbkg_confidence": st["rbkg"].get("confidence"),
+        "rbkg_manual": bool(getattr(args, "rbkg", None) is not None),
+        "post_window": list(post_window),
+        "s02": (fout or {}).get("s02", s02_val),
+        "s02_source": (fout or {}).get("s02_source", s02_source),
+        "formal_cn": bool(args.formal_cn),
+        "identify": True,
+        "fit": not bool(args.no_fit),
+        "resolved_phase_id": (resolved_model.model_id
+                              if resolved_model is not None else None),
+        "resolved_phase_source": (resolved_model.source_type
+                                  if resolved_model is not None else None),
+        "resolved_absorber_site": (resolved_model.absorber_site
+                                   if resolved_model is not None else None),
+        "model_level": (resolved_model.model_level
+                        if resolved_model is not None else None),
+        "fit_mode": (fout or {}).get("mode"),
+        "cn_status": (fout or {}).get("cn_status"),
+        "cn_reliable": (fout or {}).get("cn_reliable"),
+    }
+    source_overrides = {
+        "e0": "auto",
+        "rbkg": ("cli" if getattr(args, "rbkg", None) is not None
+                 else "auto"),
+    }
+    if s02_source and "calibration" in str(s02_source).lower():
+        source_overrides["s02"] = "calibrated"
+    elif s02_source:
+        source_overrides["s02"] = "runtime_override"
+    decision_context = {
+        "n_scans": len(st["scans"]) if st.get("scans") else None,
+        "absorber": eff_absorber,
+        "e0_method": "auto",
+        "e0": st["e0"],
+        "plateau": st["norm"].plateau,
+        "strict": bool(args.strict),
+        "post_window": list(post_window),
+        "rbkg": st["rbkg"]["rbkg"],
+        "rbkg_confidence": st["rbkg"].get("confidence"),
+        "rbkg_manual": bool(getattr(args, "rbkg", None) is not None),
+        "kmin": args.kmin, "kmax": args.kmax,
+        "kweight": int(st["result"].ft.kweight),
+        "r_first_peak": st["r1"],
+        "wt_sigma": st["wt"].sigma,
+        "r_wt_peak": getattr(st["result"], "r_wt", None),
+        "k_wt_peak": getattr(st["result"], "k_wt", None),
+        "structure_status": (sid or {}).get("status"),
+        "structure_top1": (((sid or {}).get("ranked") or [{}])[0].get("id")),
+        "structure_margin": (((sid or {}).get("confidence")
+                              or {}).get("margin")),
+        "structure_coverage_ok": (sid or {}).get("coverage_ok"),
+        "phase_id": (resolved_model.model_id
+                     if resolved_model is not None else args.phase_id),
+        "phase_source": (resolved_model.source_type
+                         if resolved_model is not None else None),
+        "model_level": (resolved_model.model_level
+                        if resolved_model is not None else None),
+        "absorber_site": (resolved_model.absorber_site
+                          if resolved_model is not None else args.absorber_site),
+        "catalytic_model": args.catalytic_model,
+        "fit_mode": (fout or {}).get("mode"),
+        "fit_motif": args.fit_motif,
+        "fit_rmin": (fout or {}).get("rmin", args.fit_rmin),
+        "fit_rmax": (fout or {}).get("rmax", args.fit_rmax),
+        "s02": (fout or {}).get("s02", s02_val),
+        "s02_source": (fout or {}).get("s02_source", s02_source),
+        "cn_reliable": (fout or {}).get("cn_reliable"),
+        "cn_status": (fout or {}).get("cn_status"),
+        "fit_flags": (fout or {}).get("flags"),
+        "formal_status": (formal_block or {}).get("status"),
+        "formal_reject_reason": (formal_block or {}).get("reject_reason"),
+        "n_ratio": (((fout or {}).get("conditional_cn")
+                     or {}).get("n_ratio")),
+        "xanes_cross_check_warnings": (
+            len((getattr(st["result"], "xanes_cross_check", None)
+                 or {}).get("warnings") or [])
+            if getattr(st["result"], "xanes_cross_check", None) else None),
+    }
+    report_meta = {
+        "source": {
+            "files": [str(f) for f in args.files],
+            "stem": stem,
+            "mode": "report",
+        },
+        "absorber": eff_absorber,
+        "edge": abs_cfg.edge,
+        "e0": st["e0"],
+        "normalization": {
+            "edge_step": st["norm"].edge_step,
+            "plateau": st["norm"].plateau,
+            "strict": bool(args.strict),
+        },
+        "rbkg": {
+            "selected": st["rbkg"]["rbkg"],
+            "confidence": st["rbkg"].get("confidence"),
+        },
+        "ft": {
+            "kmin": args.kmin, "kmax": args.kmax,
+            "kweight": int(st["result"].ft.kweight),
+            "r_first_peak": st["r1"],
+        },
+        "wt": {
+            "sigma": st["wt"].sigma,
+            "r_peak": getattr(st["result"], "r_wt", None),
+            "k_peak": getattr(st["result"], "k_wt", None),
+        },
+        "self_absorption": ((fout or {}).get("self_absorption")
+                            or st["result"].self_absorption),
+        "structure_id": sid,
+        "fit": {
+            "mode": (fout or {}).get("mode"),
+            "status": (fout or {}).get("status"),
+            "cn_reliable": (fout or {}).get("cn_reliable"),
+            "cn_status": (fout or {}).get("cn_status"),
+            "r_factor": ((fout or {}).get("fit").r_factor
+                         if (fout or {}).get("fit") is not None else None),
+            "delta_e0": ((fout or {}).get("fit").delta_e0
+                         if (fout or {}).get("fit") is not None else None),
+        },
+        "formal_cn": formal_block,
+    }
+    report_meta.update(xafs_provenance.build_output_meta(
+        prov,
+        norm=st["norm"], strict=args.strict,
+        self_absorption=((fout or {}).get("self_absorption")
+                         or st["result"].self_absorption),
+        structure=sid,
+        gate_result=gate_result, gate_results=gate_results,
+        fit_out=fout, formal_block=formal_block,
+        xanes_cross_check=getattr(st["result"], "xanes_cross_check", None),
+        overrides=overrides, source_overrides=source_overrides,
+        decision_context=decision_context))
+    xafs_io.write_json(out / f"{stem}_meta.json", report_meta)
+    print(f"  → {out / f'{stem}_meta.json'} "
+          f"（params/gates/decisions/summary）")
+    if args.print_params:
+        print(xafs_provenance.format_params(report_meta["params"]))
+    if args.print_gates:
+        print(xafs_provenance.format_gates(report_meta["gates"]))
     edge_label = f"{args.absorber} {abs_cfg.edge}-edge"
     shells = (parse_shell_spec(args.shells)
               or shells_from_fit(fout, absorber_symbol=args.absorber))
