@@ -6012,6 +6012,60 @@ O1 O 0 0 0 0.5
         self.assertEqual(out["formal_cn"]["status"], "hypothesis_model_only")
         self.assertEqual(out["cn_status"], "hypothesis_model_only")
 
+    def test_p6_1_single_site_oxide_formal_cn_end_to_end(self):
+        """#129 P6.1：单晶位氧化物（不在 _structure_lib 中）通过已验证 CIF 完成正式 CN，不被 L1 劫持。"""
+        from larch.xafs import feffpath
+        from types import SimpleNamespace
+
+        import run_xafs
+
+        s02, s02_src = run_xafs.load_t5_s02("Ru")
+        pr = phase_resolver.resolve_phase(
+            "Ru", phase_id="COD:9007541", offline=True)
+        self.assertEqual(pr.status, "resolved")
+        self.assertEqual(pr.structure_model.occupancy_policy, "implicit_1.0")
+        gate = cif_gate.gate_cif(
+            pr.selected.cif_path, "Ru",
+            absorber_site=pr.absorber_site, kmin=3.0, kmax=12.0)
+        self.assertTrue(gate.ok, gate.reason)
+
+        motif = xafs_fit._site_motif_from_model(pr.structure_model)
+        plan = xafs_fit.select_shell_paths(
+            motif, edge="K", kmin=3.0, kmax=12.0)
+        k = np.arange(3.0, 12.0, 0.05)
+        plist = []
+        for sh, f in zip(plan["shells"], plan["files"]):
+            p = feffpath(str(f), s02=s02, sigma2=0.004, e0=1.0, deltar=0.0)
+            p.degen = float(sh["degen"])
+            p._calc_chi()
+            plist.append(p)
+        chi = artemis.exafs_model_k(plist, k)
+        rng = np.random.default_rng(42)
+        chi = chi + rng.normal(0.0, 5e-4, size=chi.shape)
+        chi_k = ChiK(k=k, chi=chi, background=np.zeros_like(k),
+                     mu_norm=np.ones_like(k), rbkg=1.0)
+        ft = athena.ft_to_r_space(k, chi, None, 3.0, 12.0, 2)
+        res = SimpleNamespace(
+            chi_k=chi_k, ft=ft, absorber_symbol="Ru", structure=None,
+            merged=None, norm=None, self_absorption=None,
+            data_sha256="b" * 64)
+
+        out = xafs_fit.run(
+            res, identify=True, fit=True, absorber_symbol="Ru",
+            s02=s02, s02_source=s02_src, formal_cn=True,
+            structure_model=pr.structure_model, gate_result=gate,
+            verbose=False)
+        # 诊断轨因 _structure_lib/Ru 只有 ru_hcp 返回 l1_first_shell，
+        # 但正式轨必须独立用 COD:9007541 (RuO2) 跑通 P3 条件 CN 并输出 ok！
+        self.assertEqual(out["fit"]["mode"], "l1_first_shell")
+        self.assertEqual(out["cn_status"], "ok")
+        self.assertEqual(out["formal_cn"]["status"], "ok")
+        rows = out["formal_cn"]["rows"]
+        self.assertGreaterEqual(len(rows), 1)
+        self.assertEqual(rows[0]["phase_id"], "COD:9007541")
+        self.assertAlmostEqual(float(rows[0]["n0"]), 6.0, places=3)
+        self.assertAlmostEqual(float(rows[0]["n_fit"]), 6.0, delta=0.35)
+
 
 if __name__ == "__main__":
     # unittest 默认写 stderr；PowerShell 会把任何 stderr 记录当成

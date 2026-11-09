@@ -575,6 +575,10 @@ def process_sample(paths, outdir, align: bool = False,
                     "FIT", f"CIF gate rejected multi-site: {labels} — "
                            f"{failed[0].reason}")
             gate_result = gate_results[0]
+            for m, g in zip(structure_models, gate_results):
+                m.occupancy_policy = g.occupancy_source
+                m.n0_shells = list(g.n0_shells)
+                m.warnings = list(g.warnings)
         else:
             gate_result = cif_gate.gate_cif(
                 resolution.selected.cif_path, absorber,
@@ -583,6 +587,10 @@ def process_sample(paths, outdir, align: bool = False,
             if not gate_result.ok:
                 raise XAFSConfigError(
                     "FIT", f"CIF gate rejected: {gate_result.code} — {gate_result.reason}")
+            if structure_model is not None:
+                structure_model.occupancy_policy = gate_result.occupancy_source
+                structure_model.n0_shells = list(gate_result.n0_shells)
+                structure_model.warnings = list(gate_result.warnings)
         if verbose:
             if multi_site:
                 weights = ", ".join(
@@ -634,6 +642,7 @@ def process_sample(paths, outdir, align: bool = False,
                 data_sha256=result.data_sha256,
                 verbose=verbose)
             result.fit["formal_cn"] = multi
+            result.fit["cn_status"] = multi.get("status", "multi_site_failed")
 
     # ---- 落盘 ----
     stem, norm, chi_k, ft, wave_map = (result.stem, result.norm, result.chi_k,

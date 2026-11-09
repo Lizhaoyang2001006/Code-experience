@@ -1284,3 +1284,49 @@ crawler 入库后按同一三扫描命令重跑，上述 r_factor/N/R 与 fit_ta
   - IIT-Lytle 谱许可未明确，原始谱仍不提交；
   - 12 个 T5 元素静态表保持 `s02=None`，运行期只经 `--s02-from-t5` 解锁；
   - 多元素多晶位相仍必须显式 `--absorber-site` 或 `all`，不自动 Top-1。
+
+## 11. P6.1：单晶位/多晶位正式 CN 端到端闭环（2026-11-09）
+
+### 11.1 范围
+
+- `xafs_fit.py`：新增 `_attach_single_site_formal_cn`，让单晶位正式 CN
+  与诊断轨 `_structure_lib` 解耦；单晶位 P5-C 氧化物与用户 `--phase-cif`
+  不再因 S6.5 未命中而退回 `l1_diagnostic_only`；
+- `phase_resolver.py`：`occupancy_policy` 按 CIF 是否含
+  `_atom_site_occupancy` 初始化为 `explicit` / `implicit_1.0`；
+- `run_xafs.py`：门禁结果回填 `occupancy_source` / `n0_shells` /
+  `warnings`；多位点正式 CN 后同步 `fit.cn_status`；
+- `xafs_report.py`：新增 `--s02-from-t5` 与 `--phase-*` /
+  `--absorber-site` / `--offline`，接入 T5 标定、相解析与 CIF 门禁；
+- `xafs_fit.py` 三处 S₀² 报错补 `--s02-from-t5` 提示；
+- 契约 `#129` 锁定 RuO2 单晶位端到端正式 CN。
+
+### 11.2 结果
+
+- RuO2（`COD:9007541`）：诊断轨仍 `l1_first_shell`，正式轨不再被劫持，
+  输出物理拒绝 `N/N₀=0.521 out_of_range`；`occupancy_policy=implicit_1.0`。
+- NiO（`COD:1010093`）：诊断 `motif`、正式 `ok`；首壳
+  `Ni-O@2.08, N₀=6.0, N_fit=6.327`；无回归。
+- Fe3O4（`COD:1010369`，`--absorber-site all`）：`fit.cn_status` 与
+  `_meta.json` 均为 `multi_site_failed`；位点权重 1/3 : 1/3 : 1/3。
+- `xafs_report.py --s02-from-t5 --formal-cn --phase-id COD:9007541` 可完整
+  跑通并写出 `cn_table.csv`。
+
+### 11.3 测试
+
+- `regression_test.py`：**129 项 OK**（127.3 s）；
+- `run_ci.py --stress`：129 契约 + 4 压力 PASS（186.8 s）；
+- 定向 `#75 / #76 / #127 / #128 / #129`：5/5 OK。
+
+### 11.4 提交与补丁
+
+- 提交：`P6.1: decouple single-site formal CN from diagnostic library`
+- 补丁：`patches/P6.1-single-site-formal-cn.patch`
+- `_standards_lib/`、`data/standards_raw/`、`logs/` 未提交。
+
+### 11.5 结论
+
+- [x] 通过
+- 遗留问题：
+  - 稀释样品（如 Ru-K-RuO2.xdi）边后平台 0.106，仍须 `--no-strict`；
+  - 条件 CN 的物理拒绝（N/N₀ 越界、Rf 超限）保持硬拒绝，不放宽。

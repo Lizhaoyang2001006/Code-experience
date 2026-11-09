@@ -1032,6 +1032,118 @@ def _formal_cn_meta(formal_cn: bool, structure_model: StructureModel | None,
     }
 
 
+def _t5_s02_hint(symbol: str) -> str:
+    """若该元素已有 T5 独立标定产物，返回 CLI 提示后缀。"""
+    t5_cal = (Path(__file__).resolve().parent / "data"
+              / "s02_calibration" / symbol / "calibration.json")
+    return ("（该元素已有 T5 独立标定值，CLI 可加 --s02-from-t5 或显式传 --s02）"
+            if t5_cal.is_file() else "")
+
+
+def _attach_single_site_formal_cn(
+    out: dict,
+    res,
+    *,
+    absorber,
+    s02_label: str,
+    formal_cn: bool,
+    structure_model: StructureModel | None,
+    gate_result=None,
+    rmin: float | None = None,
+    rmax: float | None = None,
+    include_ms: bool = False,
+    isotropic_deltar: bool = False,
+    hetero_cocupancy: bool = False,
+    is_l1: bool = False,
+    verbose: bool = True,
+) -> None:
+    """挂载单晶位正式 CN 结果（与诊断轨 _structure_lib 解耦）。
+
+    - 未提供 ``structure_model`` 且诊断轨为 L1 时，保持 #76 的 ``l1_diagnostic_only``；
+    - 未提供 ``structure_model`` 且诊断轨为 motif 时，保持 #75 的 ``no_cif``；
+    - 提供合格 ``structure_model`` + ``gate_result.ok`` 时，直接由已验证 CIF 构建
+      ``_site_motif_from_model(structure_model)`` -> ``select_shell_paths`` ->
+      ``map_n0_to_plan`` -> ``run_conditional_cn`` -> ``build_formal_cn_block``。
+    """
+    if is_l1 and structure_model is None:
+        out.update(_formal_cn_meta(
+            formal_cn, None,
+            status_override=("l1_diagnostic_only" if formal_cn else None),
+            reason_override=("L1 合成团簇只做诊断，不进入正式 CN 表"
+                             if formal_cn else None)))
+        return
+
+    out.update(_formal_cn_meta(formal_cn, structure_model))
+    if not (formal_cn and structure_model is not None):
+        return
+    formal_block = out.get("formal_cn") or {}
+    if formal_block.get("status") != "pending_consistency":
+        return
+
+    conditional_cn = None
+    conditional_cn_error = ""
+    n0_mapping = None
+    formal_plan = None
+    if gate_result is not None and getattr(gate_result, "ok", False):
+        try:
+            formal_motif = _site_motif_from_model(structure_model)
+            formal_plan = select_shell_paths(
+                formal_motif, edge=absorber.edge,
+                rmin=rmin, rmax=rmax,
+                kmin=res.ft.kmin, kmax=res.ft.kmax,
+                include_ms=include_ms,
+                isotropic_deltar=isotropic_deltar,
+                hetero_cocupancy=hetero_cocupancy)
+            n0_mapping = map_n0_to_plan(
+                formal_plan, gate_result.n0_shells,
+                kmin=res.ft.kmin, kmax=res.ft.kmax)
+            if n0_mapping["mapping_ok"]:
+                conditional_cn = run_conditional_cn(
+                    res, formal_plan, n0_mapping,
+                    absorber_symbol=absorber.symbol, s02=absorber.s02,
+                    kmin=res.ft.kmin, kmax=res.ft.kmax,
+                    rmin=formal_plan["rmin"], rmax=formal_plan["rmax"],
+                    verbose=verbose)
+            else:
+                conditional_cn_error = (
+                    "N₀ 映射失败: " + n0_mapping["mapping_reason"])
+            if verbose and conditional_cn is not None:
+                print(f"  [P3] 条件 CN: N/N₀={conditional_cn['n_ratio']} "
+                      f"({conditional_cn['n_status']}), "
+                      f"consistency_passed={conditional_cn['consistency_passed']}")
+        except (CNError, XAFSConfigError, XAFSDataError) as exc:
+            conditional_cn_error = (
+                "条件 CN 跳过: " + getattr(exc, "message", str(exc)))
+            if verbose:
+                print(f"  [P3] {conditional_cn_error}")
+    else:
+        conditional_cn_error = "缺少 CIF gate 结果，未运行条件 CN"
+        if verbose:
+            print(f"  [P3] {conditional_cn_error}")
+
+    if conditional_cn is not None:
+        out["conditional_cn"] = conditional_cn
+    if (conditional_cn is not None and n0_mapping is not None
+            and formal_plan is not None):
+        block = build_formal_cn_block(
+            conditional_cn=conditional_cn, plan=formal_plan,
+            n0_mapping=n0_mapping,
+            structure_model=structure_model,
+            absorber=absorber,
+            cn_systematics=out.get("cn_systematics"),
+            s02_source=s02_label,
+            data_sha256=(getattr(res, "data_sha256", "") or ""))
+    else:
+        block = {
+            "status": "consistency_failed",
+            "rows": [],
+            "reject_reason": (conditional_cn_error or "条件 CN 未运行"),
+            "model": structure_model.to_json(),
+        }
+    out["formal_cn"] = block
+    out["cn_status"] = block["status"]
+
+
 def fit_identified(res, motif_id: str | None = None,
                    absorber_symbol: str | None = None,
                    rmin: float | None = None, rmax: float | None = None,
@@ -1086,7 +1198,7 @@ def fit_identified(res, motif_id: str | None = None,
     if absorber.s02 is None:
         raise XAFSConfigError(
             "FIT", f"{absorber.symbol} 未标定 S₀²，拒绝 CN 定量；"
-                   f"先在 absorber.py 用标准样标定")
+                   f"先在 absorber.py 用标准样标定{_t5_s02_hint(absorber.symbol)}")
     s02_label = (s02_source if s02_source is not None else
                  ("--s02 runtime override" if s02 is not None
                   else "absorber.py"))
@@ -1183,11 +1295,13 @@ def fit_identified(res, motif_id: str | None = None,
             if fit_weights:
                 out["warning"] += ("；识别状态不是 confident，"
                                    "--fit-weights 未执行（返回 L1 第一壳）")
-            out.update(_formal_cn_meta(
-                formal_cn, structure_model,
-                status_override=("l1_diagnostic_only" if formal_cn else None),
-                reason_override=("L1 合成团簇只做诊断，不进入正式 CN 表"
-                                 if formal_cn else None)))
+            _attach_single_site_formal_cn(
+                out, res, absorber=absorber, s02_label=s02_label,
+                formal_cn=formal_cn, structure_model=structure_model,
+                gate_result=gate_result, rmin=rmin, rmax=rmax,
+                include_ms=include_ms, isotropic_deltar=isotropic_deltar,
+                hetero_cocupancy=hetero_cocupancy, is_l1=True,
+                verbose=verbose)
             return out
 
     motif = (catalytic_motif if catalytic_motif is not None
@@ -1203,38 +1317,6 @@ def fit_identified(res, motif_id: str | None = None,
                               include_ms=include_ms,
                               isotropic_deltar=isotropic_deltar,
                               hetero_cocupancy=hetero_cocupancy)
-
-    # ---- P3 条件 CN：固定 N → 自由 N（首壳单一比例因子）→ Hamilton F-test ----
-    conditional_cn = None
-    conditional_cn_error = ""
-    n0_mapping = None
-    if formal_cn and gate_result is not None and gate_result.ok:
-        try:
-            n0_mapping = map_n0_to_plan(plan, gate_result.n0_shells,
-                                        kmin=res.ft.kmin, kmax=res.ft.kmax)
-            if n0_mapping["mapping_ok"]:
-                conditional_cn = run_conditional_cn(
-                    res, plan, n0_mapping,
-                    absorber_symbol=absorber.symbol, s02=absorber.s02,
-                    kmin=res.ft.kmin, kmax=res.ft.kmax,
-                    rmin=plan["rmin"], rmax=plan["rmax"],
-                    verbose=verbose)
-            else:
-                conditional_cn_error = (
-                    "N₀ 映射失败: " + n0_mapping["mapping_reason"])
-            if verbose and conditional_cn is not None:
-                print(f"  [P3] 条件 CN: N/N₀={conditional_cn['n_ratio']} "
-                      f"({conditional_cn['n_status']}), "
-                      f"consistency_passed={conditional_cn['consistency_passed']}")
-        except (XAFSConfigError, XAFSDataError) as exc:
-            conditional_cn_error = (
-                "条件 CN 跳过: " + getattr(exc, "message", str(exc)))
-            if verbose:
-                print(f"  [P3] {conditional_cn_error}")
-    elif formal_cn and structure_model is not None:
-        conditional_cn_error = "缺少 CIF gate 结果，未运行条件 CN"
-        if verbose:
-            print(f"  [P3] {conditional_cn_error}")
 
     if verbose:
         print(f"  [S7] motif={motif.id}  R∈[{plan['rmin']:.2f},{plan['rmax']:.2f}] Å"
@@ -1609,8 +1691,6 @@ def fit_identified(res, motif_id: str | None = None,
                fit, flags=flags, self_abs=self_abs,
                truncated_shells=len(plan["truncated"]),
                fit_weights=fit_weights)}
-    if conditional_cn is not None:
-        out["conditional_cn"] = conditional_cn
     if fit_weights and fit.mixture_weights:
         w_max_err = max(float(w["weight_err"])
                         for w in fit.mixture_weights)
@@ -1730,30 +1810,8 @@ def fit_identified(res, motif_id: str | None = None,
             print(f"       ⚠ 相分数不可靠：{'、'.join(reasons)}")
         elif not cn_reliable:
             print(f"       ⚠ CN 不可靠：{'、'.join(reasons)}")
-    out.update(_formal_cn_meta(formal_cn, structure_model))
-    if formal_cn and structure_model is not None:
-        formal_block = out.get("formal_cn") or {}
-        if formal_block.get("status") == "pending_consistency":
-            if conditional_cn is not None and n0_mapping is not None:
-                block = build_formal_cn_block(
-                    conditional_cn=conditional_cn, plan=plan,
-                    n0_mapping=n0_mapping,
-                    structure_model=structure_model,
-                    absorber=absorber,
-                    cn_systematics=out.get("cn_systematics"),
-                    s02_source=s02_label,
-                    data_sha256=(getattr(res, "data_sha256", "") or ""))
-            else:
-                block = {
-                    "status": "consistency_failed",
-                    "rows": [],
-                    "reject_reason": (conditional_cn_error
-                                      or "条件 CN 未运行"),
-                    "model": structure_model.to_json(),
-                }
-            out["formal_cn"] = block
-            out["cn_status"] = block["status"]
     if formal_cn and catalytic_model is not None:
+        out["diagnostic_only"] = True
         out["formal_cn"] = {
             "status": "hypothesis_model_only",
             "rows": [],
@@ -1764,6 +1822,14 @@ def fit_identified(res, motif_id: str | None = None,
             "model": None,
         }
         out["cn_status"] = "hypothesis_model_only"
+    else:
+        _attach_single_site_formal_cn(
+            out, res, absorber=absorber, s02_label=s02_label,
+            formal_cn=formal_cn, structure_model=structure_model,
+            gate_result=gate_result, rmin=rmin, rmax=rmax,
+            include_ms=include_ms, isotropic_deltar=isotropic_deltar,
+            hetero_cocupancy=hetero_cocupancy, is_l1=False,
+            verbose=verbose)
     return out
 
 
@@ -1890,7 +1956,7 @@ def run_operando_exafs_series(
         raise XAFSConfigError(
             "OPERANDO",
             f"{absorber.symbol} 未标定 S₀²；原位 EXAFS 序列联合精修需要 "
-            f"显式 s02（0.4–1.3）")
+            f"显式 s02（0.4–1.3）{_t5_s02_hint(absorber.symbol)}")
 
     if catalytic_model is not None:
         target = structure_lib.parse_catalytic_cluster_spec(
@@ -2725,7 +2791,7 @@ def build_formal_cn_block(
 # P5-D：多位点正式 CN（--absorber-site all）
 # ================================================================
 def _site_fractional(model: StructureModel) -> list[float]:
-    """从 StructureModel 取吸收位的分数坐标。"""
+    """从 StructureModel 取吸收位的分数坐标（asym_sites 缺失时回退解析 source_cif）。"""
     label = str(model.absorber_site or "")
     m = re.match(r"frac:\(([^,]+),([^,]+),([^)]+)\)", label)
     if m:
@@ -2733,6 +2799,13 @@ def _site_fractional(model: StructureModel) -> list[float]:
     for site in (model.asym_sites or []):
         if str(site.get("label")) == label:
             return [float(site["x"]), float(site["y"]), float(site["z"])]
+    if model.source_cif and Path(model.source_cif).is_file():
+        import phase_pack
+        parsed = phase_pack.parse_cif(model.source_cif)
+        for site in parsed.get("sites", []):
+            if str(site.get("label")) == label:
+                fx, fy, fz = site["fract"]
+                return [float(fx), float(fy), float(fz)]
     raise CNError(
         "absorber_site_missing",
         f"{model.model_id}: 找不到吸收位 {label!r} 的分数坐标")
@@ -2846,7 +2919,8 @@ def run_multi_site_formal_cn(
                 else structure_id.absorber_with_s02(absorber_symbol, s02))
     if absorber.s02 is None:
         raise XAFSConfigError(
-            "FIT", f"{absorber.symbol} 未标定 S₀²，拒绝多位点 CN 定量")
+            "FIT", f"{absorber.symbol} 未标定 S₀²，拒绝多位点 CN 定量"
+                   f"{_t5_s02_hint(absorber.symbol)}")
 
     rows: list[dict] = []
     per_site: list[dict] = []

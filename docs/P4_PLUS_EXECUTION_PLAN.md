@@ -244,3 +244,16 @@
 - `Rh2O3` 改用 `COD:1544346`（`P b n a` #60，`6 × Rh–O @ 2.050 Å`）；
 - `--catalytic-model + --formal-cn` → `hypothesis_model_only`；
 - 契约 `#128` 锁定 44/44 phase pack 全量门禁。
+
+
+## P6.1：单晶位/多晶位正式 CN 端到端闭环（已完成）
+
+- `xafs_fit._attach_single_site_formal_cn`：正式轨独立用
+  `_site_motif_from_model(structure_model)` 构建 FEFF 路径，
+  不再受 `_structure_lib` 诊断识别状态影响；
+- 未提供 `structure_model` 时仍保持 `#75`（`no_cif`）与
+  `#76`（`l1_diagnostic_only`）契约；
+- `phase_resolver` 与 `run_xafs` 同步 `occupancy_policy` /
+  `n0_shells` / `warnings`；
+- `xafs_report.py` 接入 `--s02-from-t5` 与 `--phase-*` 正式 CN 入口；
+- 契约 `#129` 锁定 RuO2 单晶位端到端正式 CN。

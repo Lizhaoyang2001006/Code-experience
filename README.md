@@ -20,9 +20,10 @@ Artemis 的图形界面。
 | 标定资产 | `data/s02_calibration/` | T5 标定产物、motifs、source_pool |
 | 设计规范 | `docs/REVIEW_AND_REVISED_PLAN.md` | 正式 CN 物理门禁总纲（§1–§6） |
 | 执行计划 | `docs/P4_PLUS_EXECUTION_PLAN.md` | P4+/P5/P6 催化能力扩展计划 |
-| 验收账本 | `docs/ACCEPTANCE_LOG.md` | P0a–P6 完整验收记录 |
+| 验收账本 | `docs/ACCEPTANCE_LOG.md` | P0a–P6.1 完整验收记录 |
 | 爬虫说明 | `docs/CIF_CRAWLER_INTEGRATION.md` | COD 目标表、P5-C 入库与 T5 谱源整合 |
 | 执行记录 | `docs/P6_EXECUTION_INSTRUCTIONS.md` | P6 门禁修复与项目整合的权威执行指令 |
+| 执行记录 | `docs/P6_1_EXECUTION_INSTRUCTIONS.md` | P6.1 单晶位/多晶位正式 CN 端到端闭环修复 |
 
 ## 安装
 

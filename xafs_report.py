@@ -1424,6 +1424,23 @@ def main(argv=None):
     parser.add_argument("--s02", type=float, default=None,
                         help="B18-2 运行时覆盖 S₀²（0.4–1.3），解锁未标定元素；"
                              "不修改 absorber.py 静态标定表")
+    parser.add_argument("--s02-from-t5", action="store_true",
+                        help="P5 从 data/s02_calibration/<El>/calibration.json "
+                             "加载通过冻结门禁的独立 S₀²（显式 --s02 优先）")
+    parser.add_argument("--phase-cif", action="append", default=None,
+                        help="P1b 用户真实 CIF 路径（可重复，最高优先级）")
+    parser.add_argument("--phase-id", default=None,
+                        help="P1b 精确数据库编号 SOURCE:ID，如 COD:1100108")
+    parser.add_argument("--phase", default=None,
+                        help="P1b 相 SPEC 字符串")
+    parser.add_argument("--phase-index", default=None,
+                        help="P1b 本地 phase_index.json 路径")
+    parser.add_argument("--phase-pack", default=None,
+                        help="P1b phase pack 根目录")
+    parser.add_argument("--absorber-site", default=None,
+                        help="P1b 吸收位标签或 'all'")
+    parser.add_argument("--offline", action="store_true",
+                        help="P1b 离线模式")
     parser.add_argument("--hetero-cocupancy", action="store_true",
                         help="B13-2 异核共占位双分支精修（需含占据度 CIF motif）")
     parser.add_argument("--constraints", default=None,
@@ -1816,6 +1833,66 @@ def main(argv=None):
         print(f"  [B2-2] XANES LCF: {w}   Rf={lcf_res['r_factor']:.2e}"
               f"  → {out / f'{stem}_lcf.json'}")
 
+    s02_val = args.s02
+    s02_source = "--s02 runtime override" if s02_val is not None else None
+    if s02_val is None and args.s02_from_t5:
+        import run_xafs
+        s02_val, s02_source = run_xafs.load_t5_s02(args.absorber)
+
+    structure_model = None
+    structure_models: list = []
+    gate_result = None
+    gate_results: list = []
+    if args.formal_cn and (args.phase_cif or args.phase_id
+                           or args.phase or args.phase_index):
+        import cif_gate
+        import phase_resolver
+        resolution = phase_resolver.resolve_phase(
+            args.absorber,
+            phase_cif=args.phase_cif,
+            phase_id=args.phase_id,
+            phase_spec=args.phase,
+            phase_index_path=args.phase_index,
+            phase_pack_path=args.phase_pack,
+            absorber_site=args.absorber_site,
+            offline=args.offline)
+        if resolution.status != "resolved":
+            raise XAFSConfigError(
+                "FIT", f"--phase-* 解析失败 ({resolution.code}): "
+                       f"{resolution.reason}")
+        structure_model = resolution.structure_model
+        structure_models = list(resolution.site_models)
+        multi_site = len(structure_models) > 1
+        gate_kwargs = dict(
+            kmin=args.kmin, kmax=args.kmax, rmax=6.0,
+            allow_computed=False, allow_unusual_coordination=False,
+            is_computed=not resolution.selected.experimental)
+        if multi_site:
+            gate_results = cif_gate.gate_cif_all_sites(
+                resolution.selected.cif_path, args.absorber, **gate_kwargs)
+            failed = [g for g in gate_results if not g.ok]
+            if failed:
+                raise XAFSConfigError(
+                    "FIT", f"CIF gate rejected multi-site: {failed[0].reason}")
+            gate_result = gate_results[0]
+            for m, g in zip(structure_models, gate_results):
+                m.occupancy_policy = g.occupancy_source
+                m.n0_shells = list(g.n0_shells)
+                m.warnings = list(g.warnings)
+        else:
+            gate_result = cif_gate.gate_cif(
+                resolution.selected.cif_path, args.absorber,
+                absorber_site=resolution.absorber_site, **gate_kwargs)
+            if not gate_result.ok:
+                raise XAFSConfigError(
+                    "FIT", f"CIF gate rejected: {gate_result.code} — "
+                           f"{gate_result.reason}")
+            if structure_model is not None:
+                structure_model.occupancy_policy = gate_result.occupancy_source
+                structure_model.n0_shells = list(gate_result.n0_shells)
+                structure_model.warnings = list(gate_result.warnings)
+
+    multi_site_formal = bool(args.formal_cn and len(structure_models) > 1)
     print("== S6.5 结构识别 + S7 拟合 ==")
     out_fit = xafs_fit.run(
         st["result"], identify=True, fit=not args.no_fit,
@@ -1831,9 +1908,23 @@ def main(argv=None):
         catalytic_model=args.catalytic_model,
         hetero_cocupancy=args.hetero_cocupancy,
         constraints=constraints,
-        s02=args.s02,
-        formal_cn=args.formal_cn,
+        s02=s02_val,
+        s02_source=s02_source,
+        formal_cn=args.formal_cn and not multi_site_formal,
+        structure_model=structure_model,
+        gate_result=gate_result,
         verbose=True)
+    if multi_site_formal and out_fit.get("fit") is not None:
+        multi = xafs_fit.run_multi_site_formal_cn(
+            st["result"],
+            site_models=structure_models,
+            gate_results=gate_results,
+            s02=s02_val,
+            s02_source=s02_source,
+            data_sha256=(getattr(st["result"], "data_sha256", "") or ""),
+            verbose=True)
+        out_fit["fit"]["formal_cn"] = multi
+        out_fit["fit"]["cn_status"] = multi.get("status", "multi_site_failed")
     sid = out_fit["structure"]
     fout = out_fit.get("fit")
     xafs_io.write_json(out / f"{stem}_structure_id.json", sid)
@@ -1848,7 +1939,7 @@ def main(argv=None):
     print(f"  → {out / f'{stem}_fit.json'}")
 
     s02 = (fout or {}).get(
-        "s02", args.s02 if args.s02 is not None else abs_cfg.s02)
+        "s02", s02_val if s02_val is not None else abs_cfg.s02)
     if args.formal_cn:
         formal = (fout or {}).get("formal_cn") or {}
         rows = list(formal.get("rows") or [])

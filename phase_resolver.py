@@ -361,6 +361,12 @@ def _candidate_to_structure_model(
             "occ": s["occ"],
         })
 
+    has_occ_tag = False
+    if candidate.cif_path and Path(candidate.cif_path).is_file():
+        has_occ_tag = "_atom_site_occupancy" in Path(
+            candidate.cif_path).read_text(encoding="utf-8", errors="ignore")
+    occ_policy = "explicit" if has_occ_tag else "implicit_1.0"
+
     model = StructureModel(
         model_id=f"{candidate.source}:{candidate.id}",
         absorber=absorber,
@@ -374,7 +380,7 @@ def _candidate_to_structure_model(
         spacegroup=candidate.spacegroup,
         asym_sites=asym_sites or None,
         cif_path=candidate.cif_path,
-        occupancy_policy="explicit",
+        occupancy_policy=occ_policy,
         edits=[],
         assumptions={
             "p1b": "phase_resolver resolved; verified_source_cif; "
