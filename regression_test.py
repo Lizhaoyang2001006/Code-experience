@@ -63,9 +63,10 @@ P4+ 新增：
     - P5-A T5 标定产物完整性 / --only 增量合并 / --s02-from-t5 溯源
     - P5-B Mo 双壳 bcc 标定 / Ce σ² 压界与归一化伪迹拒绝
     - P5-C 固定 COD ID 补齐 18 个常见相 / coverage 无缺口
+    - P5-prep 标准谱源隔离池 / 5 个未通过元素门禁冻结
 
-当前共 125 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+
-CIF 抓取/条件 CN/T7/T8/P5-A/P5-B/P5-C 契约）。
+当前共 126 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+
+CIF 抓取/条件 CN/T7/T8/P5-A/P5-B/P5-C/P5-prep 契约）。
 
 运行:
     python regression_test.py
@@ -5680,6 +5681,79 @@ O1 O 0 0 0 0.5
             self.assertEqual(res.status, "resolved", phase_name)
             self.assertIsNone(res.structure_model, phase_name)
             self.assertIn("多个吸收位点", res.reason, phase_name)
+
+    def test_p5_standard_source_isolation_pool(self):
+        """#126 P5-prep：5 个未通过元素的谱源隔离池与门禁冻结。"""
+        from tools import build_source_pool
+
+        pool = json.loads((ROOT / "data" / "s02_calibration" /
+                           "source_pool" / "index.json")
+                          .read_text(encoding="utf-8"))
+        self.assertEqual(pool["schema_version"], 1)
+        self.assertEqual(pool["pool_id"], "s02-standard-source-isolation")
+        self.assertEqual(pool["elements_total"], 5)
+        # 索引必须能由标定产物与门禁常量确定性重建。
+        self.assertEqual(build_source_pool.build_pool(), pool)
+
+        rows = {row["element"]: row for row in pool["elements"]}
+        self.assertEqual(set(rows), {"Rh", "Pd", "Ir", "Ce", "U"})
+        expected_class = {
+            "Rh": "short_spectrum_replace",
+            "Pd": "short_spectrum_replace",
+            "Ir": "short_spectrum_replace",
+            "Ce": "oxide_baseline_reprocess",
+            "U": "oxide_phase_verification",
+        }
+        for element, row in rows.items():
+            self.assertEqual(row["classification"], expected_class[element])
+            self.assertEqual(row["pool_state"], "quarantined")
+            self.assertFalse(row["usable_for_s02"])
+            self.assertIsNone(row["s02"])
+            self.assertEqual(row["last_status"], "not_calibrated")
+            self.assertTrue(row["gate_failures"], element)
+            cfg = get_absorber(element)
+            self.assertIsNone(cfg.s02, element)
+            self.assertFalse(cfg.calibrated, element)
+
+        # 谱长判定：Rh/Pd/Ir 是短谱；Ce/U 不是截断问题。
+        for element in ("Rh", "Pd", "Ir"):
+            self.assertLess(rows[element]["k_max_estimate"], 6.0, element)
+        self.assertGreater(rows["Ce"]["k_max_estimate"], 10.0)
+        self.assertGreater(rows["U"]["k_max_estimate"], 10.0)
+
+        # Ir 的 k_min 建议只能换谱后诊断，不能作为通过手段。
+        ir = rows["Ir"]
+        self.assertFalse(ir["kmin_tuning_assessment"]
+                         ["sufficient_with_current_source"])
+        self.assertFalse(ir["kmin_tuning_assessment"]["may_relax_gates"])
+
+        # Ce 已经使用 CeO2 基准；U 的 UO2 切换必须等谱源核实。
+        self.assertFalse(rows["Ce"]["phase_switch_needed"])
+        self.assertIn("Ce-L3-CeO2.xdi", rows["Ce"]["current_source"])
+        self.assertIn("CeO2", rows["Ce"]["phase_baseline"])
+        self.assertEqual(rows["U"]["phase_switch_needed"],
+                         "pending_source_verification")
+
+        # 门禁冻结：与 calibrate_s02.py 常量一致，且未放宽。
+        policy = pool["policy"]
+        self.assertEqual(policy["s02_pass_range"], [0.4, 1.15])
+        self.assertEqual(policy["s02_err_max"], 0.06)
+        self.assertEqual(policy["rf_max"], 0.12)
+        self.assertEqual(policy["abs_delta_e0_max_ev"], 10.0)
+        self.assertEqual(policy["window_fracs"], [0.12, 0.18, 0.26])
+        self.assertEqual(policy["window_spread_max"], 0.05)
+        self.assertEqual(policy["delta_r_limits"], [-0.03, 0.03])
+        self.assertEqual(policy["gate_relaxation"], "forbidden")
+        self.assertEqual(policy["manual_window_trimming"], "forbidden")
+        self.assertEqual(policy["auto_top1_selection"], "forbidden")
+
+        # T5 总索引仍保持 5 个 not_calibrated、s02=None。
+        t5_index = json.loads((ROOT / "data" / "s02_calibration" /
+                               "index.json").read_text(encoding="utf-8"))
+        t5 = {row["absorber"]: row for row in t5_index["elements"]}
+        for element in rows:
+            self.assertEqual(t5[element]["status"], "not_calibrated", element)
+            self.assertIsNone(t5[element]["s02"], element)
 
 
 if __name__ == "__main__":

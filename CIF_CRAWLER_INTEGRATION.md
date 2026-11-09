@@ -14,7 +14,7 @@
 - 17 个 COD motif 入库，结构库共 **43 个 motif**，覆盖 **17/17** 吸收元素；
 - T5 12 条 IIT-Lytle 真实谱全部落盘，**0 个 placeholder**；
 - 旧 ID 迁移完成：`LEGACY_MOTIFS_LEFT 0`、`QUARANTINE_FILES 0`；
-- `regression_test.py` **125 项** + 4 个压力测试全部通过（`run_ci.py --stress` PASS；P5-C 后）。
+- `regression_test.py` **126 项** + 4 个压力测试全部通过（`run_ci.py --stress` PASS；P5-prep 后）。
 
 运行期仍然完全离线：`run_xafs.py` 不导入根爬虫，不读取 `data/cif_crawler_index.json` 取几何，只通过
 `structure_lib.load_library(absorber)` 读取 `_structure_lib`。
@@ -161,8 +161,8 @@ U3O8 均未采用）。`phase_coverage.json` 的 `missing_common_phases` 全部
 ### 5.1 回归与压力
 
 ```text
-regression_test.py: 125 tests OK (142.474s)
-run_ci.py --stress: PASS (215.1s)
+regression_test.py: 126 tests OK (176.600s)
+run_ci.py --stress: PASS (200.4s)
   stress_test_co.py   PASS
   stress_test_ni.py   PASS
   stress_test_cu.py   PASS
@@ -225,4 +225,4 @@ python cif_crawler.py --t5
 
 ## 8. 一句话状态
 
-**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 125+4 CI 全部通过；phase pack 已由 P5-C 扩到 44 条；T5 已产出 7/12 独立标定产物（静态表未改），运行期可用 `--s02-from-t5` 溯源，T7 多元素与 T8 联合校验已实现。**
+**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 126+4 CI 全部通过；phase pack 已由 P5-C 扩到 44 条；T5 已产出 7/12 独立标定产物（静态表未改），运行期可用 `--s02-from-t5` 溯源，T7 多元素与 T8 联合校验已实现；P5-prep 已把 5 个未通过元素纳入谱源隔离池并冻结门禁。**
