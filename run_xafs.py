@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import re
 import sys
@@ -48,6 +49,10 @@ import xafs_fit
 import xafs_io
 import xafs_lcf
 import xafs_pipeline
+from xafs_core import XAFSConfigError
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+T5_CALIBRATION_DIR = PROJECT_ROOT / "data" / "s02_calibration"
 
 # Windows 控制台默认 GBK；帮助文本含 Å/σ²/S₀²/α 等字符，
 # 不重配会在 --help 时抛 UnicodeEncodeError。改 UTF-8 + replace
@@ -131,6 +136,100 @@ def _normalize_element(value) -> str | None:
     return el
 
 
+def _sha256_file(path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _project_rel(path) -> str:
+    try:
+        return str(Path(path).resolve().relative_to(PROJECT_ROOT))
+    except ValueError:
+        return str(Path(path).resolve())
+
+
+def load_t5_s02(element, root=None) -> tuple[float, str]:
+    """读取 T5 独立标定产物中的 S₀²，并返回可写入正式表的溯源串。
+
+    只接受 ``data/s02_calibration/<元素>/calibration.json`` 中
+    ``status="calibrated"`` 的结果。未通过元素**明确拒绝**，不静默
+    回退到静态表或猜测值。该函数不修改 ``absorber.py``（#60）。
+    """
+    el = _normalize_element(element)
+    if el is None:
+        raise XAFSConfigError(
+            "T5", f"未知吸收元素 {element!r}；无法读取 T5 标定产物")
+    root = Path(root) if root is not None else T5_CALIBRATION_DIR
+    path = root / el / "calibration.json"
+    if not path.is_file():
+        raise XAFSConfigError(
+            "T5", f"{el} 缺少 T5 标定产物 {_project_rel(path)}；"
+                   f"先运行 calibrate_t5.py，或显式给 --s02")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise XAFSConfigError(
+            "T5", f"{_project_rel(path)} 读取/解析失败: {exc}") from exc
+    if str(payload.get("absorber", "")).capitalize() != el:
+        raise XAFSConfigError(
+            "T5", f"{_project_rel(path)} 的 absorber="
+                   f"{payload.get('absorber')!r} 与请求元素 {el!r} 不一致")
+    status = payload.get("status")
+    if status != "calibrated":
+        reason = payload.get("reason") or "未通过标定门禁"
+        raise XAFSConfigError(
+            "T5", f"{el} 的 T5 标定状态={status!r}，拒绝自动注入 S₀²："
+                   f"{reason}；请显式 --s02 或先补标定")
+    if payload.get("static_absorber_py_unchanged") is not True:
+        raise XAFSConfigError(
+            "T5", f"{_project_rel(path)} 未声明 "
+                   f"static_absorber_py_unchanged=True；拒绝作为 T5 产物使用")
+    try:
+        s02 = float(payload.get("s02"))
+    except (TypeError, ValueError) as exc:
+        raise XAFSConfigError(
+            "T5", f"{_project_rel(path)} 的 s02={payload.get('s02')!r} "
+                   f"不是数值") from exc
+    if not (0.4 <= s02 <= 1.3):
+        raise XAFSConfigError(
+            "T5", f"{el} 的 T5 s02={s02} 超出 [0.4, 1.3]")
+    calibration_sha = _sha256_file(path)
+    source = (f"s02_calibration:{_project_rel(path)}"
+              f"#sha256:{calibration_sha[:12]}")
+    standard_sha = payload.get("standard_sha256")
+    if standard_sha:
+        source += f";standard_sha256:{str(standard_sha)[:12]}"
+    return s02, source
+
+
+def _resolve_s02_for_paths(args, paths, absorber_hint=None):
+    """按 CLI 优先级解析 S₀²：显式 --s02 > --s02-from-t5 > 静态表。
+
+    返回 ``(s02, source)``；未启用任何覆盖时返回 ``(None, None)``，
+    由 ``xafs_fit`` 沿用 absorber.py 静态表。
+    """
+    if getattr(args, "s02", None) is not None:
+        return float(args.s02), "--s02 runtime override"
+    if not getattr(args, "s02_from_t5", False):
+        return None, None
+    hint = absorber_hint if absorber_hint is not None \
+        else getattr(args, "absorber", None)
+    if hint:
+        # 显式 --absorber 优先：避免文件头与用户指定元素不一致时，
+        # S₀² 与真正用于拟合的元素错配。
+        element = _normalize_element(hint)
+    else:
+        element, _source = detect_absorber(paths[0])
+    if element is None:
+        raise XAFSConfigError(
+            "T5", f"{Path(paths[0]).name}: 启用 --s02-from-t5 但无法判定"
+                   f"吸收元素；请显式给 --absorber")
+    return load_t5_s02(element)
+
+
 def detect_absorber(path, fallback: str | None = None) -> tuple[str | None, str]:
     """从 XDI/纯文本头自动判定吸收元素。
 
@@ -183,6 +282,8 @@ def _multi_row(element, path, res, outdir) -> dict:
         "fit_mode": fit.get("mode"),
         "fit_motif": fit.get("motif"),
         "cn_reliable": fit.get("cn_reliable"),
+        "s02_source": fit.get("s02_source"),
+        "s02": fit.get("s02"),
         "r_factor": None,
         "first_shell": None,
         "warnings": [],
@@ -292,8 +393,8 @@ def _multi_markdown(summary: dict) -> str:
         "- **不自动选择/推荐 Top-1 元素或相**；各元素结果并列，"
         "由用户依据科学问题判断。",
         "",
-        "| 元素 | 文件 | 识别状态 | 拟合 motif | 第一壳 | N_fit | N0 | Rf | CN 可靠 | 警告 |",
-        "|------|------|----------|------------|--------|-------|----|----|---------|------|",
+        "| 元素 | 文件 | 识别状态 | 拟合 motif | 第一壳 | N_fit | N0 | Rf | CN 可靠 | S₀²来源 | 警告 |",
+        "|------|------|----------|------------|--------|-------|----|----|---------|----------|------|",
     ]
     for r in summary["rows"]:
         fs = r.get("first_shell") or {}
@@ -305,7 +406,8 @@ def _multi_markdown(summary: dict) -> str:
             f"{r.get('identify_status') or '—'} | {r.get('fit_motif') or '—'} | "
             f"{fs.get('label') or '—'} | {fmt(fs.get('n_fit'))} | "
             f"{fmt(fs.get('n0'))} | {fmt(r.get('r_factor'), 4)} | "
-            f"{r.get('cn_reliable')} | {warns} |")
+            f"{r.get('cn_reliable')} | {r.get('s02_source') or '—'} | "
+            f"{warns} |")
     if summary["errors"]:
         lines += ["", "## 失败文件", ""]
         for e in summary["errors"]:
@@ -348,6 +450,7 @@ def process_sample(paths, outdir, align: bool = False,
                    hetero_cocupancy: bool = False,
                    constraints=None,
                    s02: float | None = None,
+                   s02_source: str | None = None,
                    phase_correct: bool = False,
                    chi2_contour: bool = False,
                    self_absorption_formula: str | None = None,
@@ -479,6 +582,7 @@ def process_sample(paths, outdir, align: bool = False,
             hetero_cocupancy=hetero_cocupancy,
             constraints=constraints,
             s02=s02,
+            s02_source=s02_source,
             verbose=verbose,
             formal_cn=formal_cn,
             structure_model=structure_model,
@@ -678,6 +782,11 @@ def main():
                         help="B18-2 运行时覆盖 S₀²（0.4–1.3）：解锁 absorber.py "
                              "未标定元素（Au/Mo/Cr/Zn 等）的 S6.5/S7，"
                              "不修改静态标定表")
+    parser.add_argument("--s02-from-t5", action="store_true",
+                        help="从 data/s02_calibration/<元素>/calibration.json "
+                             "读取 T5 独立标定值；仅接受 status=calibrated "
+                             "的元素，未通过元素明确拒绝；显式 --s02/"
+                             "--multi-element-s02 优先。不修改静态表")
     parser.add_argument("--hetero-cocupancy", action="store_true",
                         help="B13-2 异核共占位双分支精修：对 motif.cif_file 中"
                              "occ<1 的异核位点拆成逐元素路径并共享 ΔR/σ²"
@@ -959,6 +1068,8 @@ def main():
         parser.error("--formal-cn 需要同时给 --fit（正式 CN 依赖 S7 拟合结果）")
     if args.s02 is not None and not (0.4 <= args.s02 <= 1.3):
         parser.error("--s02 必须在 [0.4, 1.3] 内")
+    if args.s02_from_t5 and not (args.identify or args.fit):
+        parser.error("--s02-from-t5 需要 --identify 或 --fit（S₀² 只用于拟合链）")
     for _flag, _label in (("catalytic_model", "--catalytic-model"),
                           ("hetero_cocupancy", "--hetero-cocupancy"),
                           ("constraints", "--constraints")):
@@ -1045,6 +1156,15 @@ def main():
             parser.error("--multi-element 没有可处理文件")
 
         def _run_one_element(fpath, element, sub_out):
+            # 优先级：--multi-element-s02 > 全局 --s02 > T5 独立标定产物。
+            s02_val = multi_s02.get(element)
+            s02_src = (f"--multi-element-s02 ({element})"
+                       if s02_val is not None else None)
+            if s02_val is None and args.s02 is not None:
+                s02_val = args.s02
+                s02_src = "--s02 runtime override"
+            elif s02_val is None and args.s02_from_t5:
+                s02_val, s02_src = load_t5_s02(element)
             return process_sample(
                 [fpath], sub_out, align=args.align, absorber=element,
                 edge_energy=args.edge_energy, e0_method=args.e0_method,
@@ -1070,7 +1190,8 @@ def main():
                 catalytic_model=args.catalytic_model,
                 hetero_cocupancy=args.hetero_cocupancy,
                 constraints=constraints,
-                s02=multi_s02.get(element, args.s02),
+                s02=s02_val,
+                s02_source=s02_src,
                 phase_correct=args.phase_correct,
                 chi2_contour=args.chi2_contour,
                 self_absorption_formula=args.self_absorption_formula,
@@ -1101,6 +1222,7 @@ def main():
             parser.error("--operando 与 --batch-dir 不能同时使用")
         if len(files) < 3:
             parser.error("--operando 至少需要 3 个样品文件")
+        op_s02, op_s02_src = _resolve_s02_for_paths(args, files, args.absorber)
         results = []
         for i, fpath in enumerate(files, 1):
             print(f"[operando {i}/{len(files)}] {Path(fpath).name}")
@@ -1120,7 +1242,8 @@ def main():
                 self_absorption_density=args.self_absorption_density,
                 self_absorption_angles=sa_angles,
                 self_absorption_line=args.self_absorption_line,
-                s02=args.s02,
+                s02=op_s02,
+                s02_source=op_s02_src,
                 verbose=False))
         std_scans = None
         if lcf_standards:
@@ -1159,6 +1282,8 @@ def main():
             sub_out = batch_out / stem
             print(f"\n[{i}/{len(files)}] {Path(fpath).name}")
             try:
+                file_s02, file_s02_src = _resolve_s02_for_paths(
+                    args, [fpath], args.absorber)
                 process_sample(
                     [fpath], sub_out, align=args.align, absorber=args.absorber,
                     edge_energy=args.edge_energy, e0_method=args.e0_method,
@@ -1184,7 +1309,8 @@ def main():
                     catalytic_model=args.catalytic_model,
                     hetero_cocupancy=args.hetero_cocupancy,
                     constraints=constraints,
-                    s02=args.s02,
+                    s02=file_s02,
+                    s02_source=file_s02_src,
                     phase_correct=args.phase_correct,
                     chi2_contour=args.chi2_contour,
                     self_absorption_formula=args.self_absorption_formula,
@@ -1216,6 +1342,7 @@ def main():
     print("=" * 66)
     print(f"处理 {len(files)} 个文件 → {args.outdir}")
     print("=" * 66)
+    run_s02, run_s02_src = _resolve_s02_for_paths(args, files, args.absorber)
     result = process_sample(
         files, args.outdir, align=args.align, absorber=args.absorber,
         edge_energy=args.edge_energy, e0_method=args.e0_method,
@@ -1238,7 +1365,8 @@ def main():
         catalytic_model=args.catalytic_model,
         hetero_cocupancy=args.hetero_cocupancy,
         constraints=constraints,
-        s02=args.s02,
+        s02=run_s02,
+        s02_source=run_s02_src,
         phase_correct=args.phase_correct,
         chi2_contour=args.chi2_contour,
         self_absorption_formula=args.self_absorption_formula,

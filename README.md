@@ -42,8 +42,9 @@ python xafs_report.py
 - 识别 `confident`：按 motif 自动选壳层，做多壳层 CN；
 - `partial` / `ambiguous` / `no_match`：默认只做 L1 第一壳；
 - 未在 absorber.py 标定 S₀² 的新元素：拒绝 CN 定量；可用运行时
-  `--s02 <值>` 显式覆盖（现有 Fe/Co/Ni/Cu/Pt 均已标定；T5 独立标定
-  产物见下文，不写静态表）；
+  `--s02 <值>` 显式覆盖，或对 T5 已通过元素用 `--s02-from-t5`
+  从独立产物读取（现有 Fe/Co/Ni/Cu/Pt 均已标定；T5 产物见下文，
+  不写静态表）；
 - `--fit-weights`（仅 `kind="mixture"`）：固定每路径晶体学简并度，
   用 softmax 放开各组分权重（恒正、和=1），输出 `mixture_weights`
   `[{group, weight, weight_err}]`。此时表里的 `N` 是**有效简并度
@@ -75,7 +76,7 @@ python xafs_report.py
 | `calibrate_s02.py` | 标定 S₀²（金属箔/氧化物标样，生产等效协议；`--motif-file` 用标定专用结构） |
 | `calibrate_t5.py` | T5 批量标定 12 元素，产物落 `data/s02_calibration/`（不改静态表） |
 | `absorber.py` | 吸收元素配置表（边能量/S₀²/kmax），元素泛化唯一入口 |
-| `regression_test.py` | 121 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验） |
+| `regression_test.py` | 123 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源） |
 | `run_ci.py` | 跨平台 CI：编译 + 契约回归 + 可选压力测试，输出 ci_report.json/md |
 | `stress_test_{co,ni,cu,nio}.py` | 元素泛化/护栏/CN 回收压力测试 |
 | `xafs_config.py` | 配置文件支持（.yaml/.json）、批处理入口（--batch-dir） |
@@ -103,7 +104,8 @@ python xafs_report.py
 跑批量标定，产物在 `data/s02_calibration/`（`index.json`、逐元素
 `calibration.json`、`REPORT.md`）。**不写 `absorber.py`**——#60 要求
 静态表中这 12 个元素保持 `s02=None`/`calibrated=False`；运行时用
-`run_xafs.py --s02 <值>` 显式覆盖。
+`run_xafs.py --s02 <值>` 显式覆盖，或对已通过元素用
+`run_xafs.py --s02-from-t5 --fit` 读取独立产物（见下文 P5-A）。
 
 | 元素 | S₀² | 标样 / motif | Rf | 窗口极差 |
 |------|------|--------------|----|----------|
@@ -127,12 +129,17 @@ Tugarinovite s02_err>0.06、MoS₂ 单窗口、Mo 箔撞上界）、Rh/Pd/Ir
 ```text
 python run_xafs.py a.dat b.dat --multi-element --multi-element-s02 "Fe=0.803,Co=0.7308"
 python run_xafs.py sample.xdi --absorber Fe --xanes-cross-check
+python run_xafs.py Cr-K-Cr2O3.xdi --absorber Cr --s02-from-t5 --identify --fit
 ```
 
 - `--multi-element`：逐文件从 XDI `Element.symbol` / `Absorber:` 头自动判定
   吸收元素，分元素独立子目录跑批，输出 `multi_element_summary.json/.md`；
   各元素结果**并列**，`recommended=null`、`best_element=null`，不自动
   选择/推荐 Top-1。
+- `--s02-from-t5`：从 `data/s02_calibration/<元素>/calibration.json` 读取
+  T5 已通过元素的 S₀²；只接受 `status="calibrated"` 且
+  `static_absorber_py_unchanged=True` 的产物，未通过元素明确拒绝。
+  优先级 `--multi-element-s02` > 全局 `--s02` > T5 产物。
 - `--xanes-cross-check`：归一化平台、边步、E0 导数双峰、白线可靠性与位置、
   K 边极端 CN–白线对比、荧光自吸收风险；只写警告到
   `<stem>_meta.json.xanes_cross_check`，`affects_cn_reliable=False`，
@@ -686,6 +693,28 @@ kmax=12.0)` 按 `ΔR_Rayleigh = π/[2(kmax−kmin)]` 检查任意两壳；
 N=12.259、R=2.8591 Å、Rf=0.0022；真实 Mo 箔 `s02=0.88`：
 top1=`mo_bcc`，N₁=7.47/R₁=2.7196 Å、N₂=6.20/R₂=3.1355 Å、
 Rf=0.0082。
+
+### P5-A T5 运行期溯源（`--s02-from-t5`，2026-11-09）
+`run_xafs.py --s02-from-t5 --identify/--fit` 从逐元素
+`data/s02_calibration/<元素>/calibration.json` 读取 T5 S₀²，不改
+`absorber.py` 静态表。读取规则：
+
+- 只接受 `status="calibrated"` 且 `static_absorber_py_unchanged=True`；
+  未通过元素（如 Mo/Rh/Pd/Ir/Ce/U）抛 `XAFSConfigError`，错误含
+  “未通过”，不静默回退到静态表或猜测值；
+- 显式 `--s02` / `--multi-element-s02` 优先；显式 `--absorber` 优先于
+  文件头元素判定，避免 S₀² 与拟合元素错配；
+- 溯源串写入 L1/motif 输出与 `<stem>_meta.json.fit.s02_source`：
+  `s02_calibration:<相对路径>#sha256:<12位>;standard_sha256:<12位>`；
+- 正式 CN 表把 T5 产物来源记为 `s02_calibrated=True`（普通 `--s02`
+  手填值仍为 `False`）；
+- `calibrate_t5.py --only <元素>` 只重跑所选元素，其余元素从既有
+  `<元素>/calibration.json` 合并回 `index.json`/`REPORT.md`，不丢结果。
+
+Cr₂O₃ 真实谱冒烟：`fit.s02=0.6482`，`s02_source` 以
+`s02_calibration:` 开头；L1 `N=6.34±0.21`、`R=1.975 Å`、`Rf=0.0216`。
+契约 #122 锁定产物完整性与 `--only` 增量合并，#123 锁定加载器与
+来源优先级。
 
 ### B19-1 原位序列 EXAFS 联合精修
 `xafs_fit.run_operando_exafs_series(results, absorber_symbol, motif=None,

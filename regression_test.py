@@ -60,9 +60,10 @@ Phase III（B9–B12）新增 15 项契约：
 P4+ 新增：
     - T7 多元素综合报告：自动分元素、并列结果、不推荐 Top-1
     - T8 XANES–EXAFS 软校验：只产生警告，不改变 cn_reliable
+    - P5-A T5 标定产物完整性 / --only 增量合并 / --s02-from-t5 溯源
 
-当前共 121 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+
-CIF 抓取/条件 CN/T7/T8 契约）。
+当前共 123 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+
+CIF 抓取/条件 CN/T7/T8/P5-A 契约）。
 
 运行:
     python regression_test.py
@@ -5421,6 +5422,126 @@ O1 O 0 0 0 0.5
         self.assertEqual(
             cc2["checks"]["cn_white_line_contrast"]["status"],
             "unavailable")
+
+    def test_t5_artifacts_static_lock_and_incremental_merge(self):
+        """#122 P5-A：T5 产物完整、#60 静态锁定、--only 增量不丢元素。"""
+        import calibrate_s02
+        import calibrate_t5
+        from unittest import mock
+        from xafs_core import XAFSDataError
+
+        locked = {"Cr", "Mn", "Zn", "Mo", "Ru", "Rh", "Pd", "Ag",
+                  "Ir", "Au", "Ce", "U"}
+        self.assertEqual(set(calibrate_s02.T5_STATIC_LOCKED), locked)
+        for el in sorted(locked):
+            cfg = get_absorber(el)
+            self.assertIsNone(cfg.s02, el)
+            self.assertFalse(cfg.calibrated, el)
+
+        index_path = ROOT / "data" / "s02_calibration" / "index.json"
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+        self.assertTrue(index["static_absorber_py_unchanged"])
+        self.assertFalse(index["apply_to_absorber_py"])
+        self.assertEqual(index["runtime_override"], "--s02")
+        rows = {r["absorber"]: r for r in index["elements"]}
+        self.assertEqual(set(rows), set(calibrate_t5.ELEMENTS))
+        self.assertEqual(index["pass_count"] + index["fail_count"], 12)
+        self.assertGreaterEqual(index["pass_count"], 6)
+        self.assertNotIn("C:\\\\", index_path.read_text(encoding="utf-8"))
+        for el in ("Cr", "Mn", "Zn", "Ru", "Ag", "Au"):
+            self.assertEqual(rows[el]["status"], "calibrated", el)
+            self.assertIsNotNone(rows[el]["s02"], el)
+        for el in ("Mo", "Rh", "Pd", "Ir", "Ce", "U"):
+            self.assertEqual(rows[el]["status"], "not_calibrated", el)
+            self.assertIsNone(rows[el]["s02"], el)
+            self.assertTrue(rows[el].get("reason"), el)
+
+        # --apply 对 #60 锁定元素硬拒绝（不真正跑标定）。
+        with mock.patch.object(calibrate_s02, "calibrate_s02",
+                               return_value={"pass": True, "s02": 0.6}):
+            with self.assertRaises(SystemExit) as cm:
+                calibrate_s02.main([
+                    "dummy.dat", "--absorber", "Cr", "--apply"])
+        self.assertIn("#60", str(cm.exception))
+
+        # 标定专用 motif 缺 sites 必须拒绝，不得回退到 expand_full。
+        payload = json.loads((ROOT / "data" / "s02_calibration" / "motifs" /
+                              "cr2o3_corundum.json").read_text(
+                                  encoding="utf-8"))
+        payload["sites"] = []
+        with tempfile.TemporaryDirectory() as tmp:
+            bad = Path(tmp) / "bad.json"
+            bad.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaises(XAFSDataError):
+                calibrate_s02.load_motif_json(bad, "Cr")
+
+        # --only 只重跑 Cr，但 index/REPORT 必须保留既有 Mn/Au。
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            for el in ("Mn", "Au"):
+                el_dir = tmp / el
+                el_dir.mkdir()
+                existing = {
+                    "absorber": el, "status": "calibrated",
+                    "s02": 0.5, "s02_err": 0.01, "rf": 0.01,
+                    "spread": 0.001, "motif": f"{el.lower()}_motif",
+                    "standard": "dummy", "standard_sha256": "a" * 64,
+                    "attempts_compact": [],
+                }
+                (el_dir / "calibration.json").write_text(
+                    json.dumps(existing), encoding="utf-8")
+            new_cr = {
+                "absorber": "Cr", "status": "calibrated", "s02": 0.6482,
+                "s02_err": 0.0198, "rf": 0.0074, "spread": 0.0053,
+                "motif": "cr2o3_corundum", "standard": "dummy",
+                "standard_sha256": "b" * 64, "attempts_compact": [],
+            }
+            with mock.patch.object(calibrate_t5, "_run_element",
+                                   return_value=new_cr):
+                rc = calibrate_t5.main(
+                    ["--only", "Cr", "--outdir", str(tmp)])
+            self.assertEqual(rc, 0)
+            merged = json.loads((tmp / "index.json").read_text(
+                encoding="utf-8"))
+            self.assertEqual([r["absorber"] for r in merged["elements"]],
+                             ["Cr", "Mn", "Au"])
+            self.assertEqual(merged["pass_count"], 3)
+            self.assertTrue((tmp / "REPORT.md").is_file())
+
+    def test_t5_s02_loader_and_provenance(self):
+        """#123 P5-A：--s02-from-t5 只接受已标定元素并记录溯源。"""
+        import run_xafs
+
+        s02, source = run_xafs.load_t5_s02("Cr")
+        self.assertAlmostEqual(s02, 0.6482, places=4)
+        self.assertTrue(source.startswith("s02_calibration:"))
+        self.assertIn("sha256:", source)
+        self.assertIn("standard_sha256:", source)
+
+        with self.assertRaises(XAFSConfigError) as cm:
+            run_xafs.load_t5_s02("Mo")
+        self.assertIn("未通过", str(cm.exception))
+        with self.assertRaises(XAFSConfigError):
+            run_xafs.load_t5_s02("Xx")
+
+        # 显式 --s02 优先于 T5 产物；未显式给值时从 T5 读取。
+        from types import SimpleNamespace
+        args = SimpleNamespace(s02=0.9, s02_from_t5=True, absorber="Cr")
+        val, src = run_xafs._resolve_s02_for_paths(args, ["dummy.dat"])
+        self.assertEqual(val, 0.9)
+        self.assertEqual(src, "--s02 runtime override")
+        args2 = SimpleNamespace(s02=None, s02_from_t5=True, absorber=None)
+        val2, src2 = run_xafs._resolve_s02_for_paths(
+            args2, [str(ROOT / "data" / "bmm_standards" / "Data" / "Cr" /
+                         "Cr-K-Cr2O3.xdi")])
+        self.assertAlmostEqual(val2, 0.6482, places=4)
+        self.assertTrue(src2.startswith("s02_calibration:"))
+
+        # 正式表：T5 产物视为已标定，普通 --s02 手填值不算。
+        self.assertTrue(xafs_fit._s02_calibrated_flag(
+            get_absorber("Cr"), "s02_calibration:x"))
+        self.assertFalse(xafs_fit._s02_calibrated_flag(
+            get_absorber("Cr"), "--s02 runtime override"))
 
 
 if __name__ == "__main__":

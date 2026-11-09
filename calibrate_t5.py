@@ -316,9 +316,38 @@ def _run_element(element, outdir: Path) -> dict:
     return payload
 
 
+def _load_existing_payloads(outdir: Path) -> dict[str, dict]:
+    """读取 ``<元素>/calibration.json``，供 ``--only`` 增量合并。
+
+    局部重跑只更新所选元素；其余元素从既有逐元素产物恢复，避免把
+    ``index.json`` 覆盖成子集。缺失/损坏的产物跳过并打印警告，不伪造。
+    """
+    payloads: dict[str, dict] = {}
+    for el in ELEMENTS:
+        path = outdir / el / "calibration.json"
+        if not path.is_file():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"[T5] 警告: 跳过无法读取的既有产物 {path}: {exc}",
+                  file=sys.stderr)
+            continue
+        if data.get("absorber") != el:
+            print(f"[T5] 警告: {path} 的 absorber={data.get('absorber')!r} "
+                  f"与目录元素 {el!r} 不一致，已跳过", file=sys.stderr)
+            continue
+        payloads[el] = data
+    return payloads
+
+
 def write_index(results: list[dict], outdir: Path) -> dict:
     rows = []
     for r in results:
+        attempts = r.get("attempts_compact")
+        if attempts is None:
+            attempts = [_compact_attempt(a)
+                        for a in (r.get("attempts") or [])]
         rows.append({
             "absorber": r["absorber"],
             "status": r["status"],
@@ -330,8 +359,7 @@ def write_index(results: list[dict], outdir: Path) -> dict:
             "standard": r.get("standard"),
             "standard_sha256": r.get("standard_sha256"),
             "reason": r.get("reason"),
-            "attempts": r.get("attempts_compact")
-                        or [_compact_attempt(a) for a in r["attempts"]],
+            "attempts": attempts,
         })
     passed = [r for r in rows if r["status"] == "calibrated"]
     index = {
@@ -424,6 +452,12 @@ def main(argv=None):
                   f"Rf={payload.get('rf')}  spread={payload.get('spread')}")
         else:
             print(f"  ✗ 未标定：{payload.get('reason')}")
+    if args.only:
+        # 增量合并：局部重跑不得丢掉未重跑元素的既有产物。
+        merged = {r["absorber"]: r for r in results}
+        for el, payload in _load_existing_payloads(outdir).items():
+            merged.setdefault(el, payload)
+        results = [merged[el] for el in ELEMENTS if el in merged]
     index = write_index(results, outdir)
     report = write_report(index, outdir)
     print("-" * 66)

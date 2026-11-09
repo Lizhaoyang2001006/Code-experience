@@ -978,6 +978,17 @@ def write_rdf_csv(path, rdf: dict):
     return path
 
 
+def _s02_calibrated_flag(absorber, s02_source: str | None) -> bool:
+    """正式表 S₀² 是否来自“已标定”来源。
+
+    静态表已标定（absorber.calibrated=True）或 T5 独立标定产物
+    （``s02_calibration:`` 前缀）都算已标定；普通 ``--s02`` 手填值
+    仍为 False。这不改变 #60 的静态表约束。
+    """
+    return (bool(getattr(absorber, "calibrated", False))
+            or str(s02_source or "").startswith("s02_calibration:"))
+
+
 def _formal_cn_meta(formal_cn: bool, structure_model: StructureModel | None,
                     status_override: str | None = None,
                     reason_override: str | None = None) -> dict:
@@ -1038,6 +1049,7 @@ def fit_identified(res, motif_id: str | None = None,
                    hetero_cocupancy: bool = False,
                    constraints=None,
                    s02: float | None = None,
+                   s02_source: str | None = None,
                    verbose: bool = True,
                    formal_cn: bool = False,
                    structure_model: StructureModel | None = None,
@@ -1074,8 +1086,13 @@ def fit_identified(res, motif_id: str | None = None,
         raise XAFSConfigError(
             "FIT", f"{absorber.symbol} 未标定 S₀²，拒绝 CN 定量；"
                    f"先在 absorber.py 用标准样标定")
-    s02_source = ("--s02 runtime override" if s02 is not None
-                  else "absorber.py")
+    s02_label = (s02_source if s02_source is not None else
+                 ("--s02 runtime override" if s02 is not None
+                  else "absorber.py"))
+    if str(s02_label).startswith("s02_calibration:") and s02 is None:
+        raise XAFSConfigError(
+            "FIT", "T5 S₀² 来源已给出但 s02=None；拒绝在没有数值的情况下"
+                   "记录标定溯源")
     self_abs = _self_absorption_diag(res)
 
     # ---- B13-1 显式催化模型：绕过晶相库搜索，直接进 S7 ----
@@ -1143,6 +1160,7 @@ def fit_identified(res, motif_id: str | None = None,
             out = {"mode": "l1_first_shell", "status": status,
                    "coverage_ok": sid.get("coverage_ok"),
                    "cn_reliable": l1_reliable,
+                   "s02": absorber.s02, "s02_source": s02_label,
                    "flags": {"c3_dropped_by_nidp":
                              bool(l1.get("c3_dropped_by_nidp", False)),
                              "c3_at_bound": l1_c3_bound},
@@ -1565,7 +1583,8 @@ def fit_identified(res, motif_id: str | None = None,
            "mixture_weights": (fit.mixture_weights if fit_weights else None),
            "flags": flags,
            "structure": sid, "rmin": plan["rmin"], "rmax": plan["rmax"],
-           "s02": absorber.s02, "shells": plan["shells"], "fit": fit,
+           "s02": absorber.s02, "s02_source": s02_label,
+           "shells": plan["shells"], "fit": fit,
            "fit_space": fit.fit_space,
            "aic": fit.aic, "bic": fit.bic,
            "bvs": fit.bvs, "bvs_target": fit.bvs_target,
@@ -1721,7 +1740,7 @@ def fit_identified(res, motif_id: str | None = None,
                     structure_model=structure_model,
                     absorber=absorber,
                     cn_systematics=out.get("cn_systematics"),
-                    s02_source=s02_source,
+                    s02_source=s02_label,
                     data_sha256=(getattr(res, "data_sha256", "") or ""))
             else:
                 block = {
@@ -1753,6 +1772,7 @@ def run(res, identify: bool = True, fit: bool = False,
         hetero_cocupancy: bool = False,
         constraints=None,
         s02: float | None = None,
+        s02_source: str | None = None,
         verbose: bool = True,
         formal_cn: bool = False,
         structure_model: StructureModel | None = None,
@@ -1790,6 +1810,7 @@ def run(res, identify: bool = True, fit: bool = False,
             hetero_cocupancy=hetero_cocupancy,
             constraints=constraints,
             s02=s02,
+            s02_source=s02_source,
             verbose=verbose,
             formal_cn=formal_cn,
             structure_model=structure_model,
@@ -2667,7 +2688,7 @@ def build_formal_cn_block(
             "rf": rf,
             "s02": absorber.s02,
             "s02_source": s02_source,
-            "s02_calibrated": bool(absorber.calibrated),
+            "s02_calibrated": _s02_calibrated_flag(absorber, s02_source),
             "kmin": conditional_cn.get("kmin", ""),
             "kmax": conditional_cn.get("kmax", ""),
             "kweight": conditional_cn.get("kweight", ""),
