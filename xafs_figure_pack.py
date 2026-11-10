@@ -51,7 +51,6 @@ import csv
 import hashlib
 import json
 import math
-import shutil
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -1099,7 +1098,8 @@ def panel_structure(ax, ctx: dict) -> Panel:
         return Panel("Figure1f_structure", "Figure 1(f)", "Structure ID",
                      "结构识别候选排名。",
                      status="skipped", reason="no structure identification")
-    ranked = ranked[:6]
+    all_ranked = list(structure.get("ranked") or [])
+    ranked = all_ranked[:6]   # 图上只画前 6 个，避免标签重叠
     labels = [str(x.get("id") or "?") for x in ranked]
     scores = [_as_float(x.get("score")) or float("nan") for x in ranked]
     ypos = np.arange(len(ranked))
@@ -1123,12 +1123,14 @@ def panel_structure(ax, ctx: dict) -> Panel:
                  loc="left", fontweight="bold")
     ax.grid(axis="x", alpha=0.2)
     rows = []
-    for i, x in enumerate(ranked):
+    for i, x in enumerate(all_ranked):
         rows.append({
             "rank": i + 1,
             "id": x.get("id"),
             "kind": x.get("kind"),
+            "nuclearity": x.get("nuclearity"),
             "score": _as_float(x.get("score")),
+            "score_mag": _as_float(x.get("score_mag")),
             "sigma2": _as_float(x.get("sigma2")),
             "de0": _as_float(x.get("de0")),
             "status": status,
@@ -1140,8 +1142,8 @@ def panel_structure(ax, ctx: dict) -> Panel:
         "no_match 表示诊断库缺条目，不等于数据无效。",
         source=_rel(ctx, ctx.get("structure_path")) if ctx.get("structure_path")
         else "meta.json:structure_id",
-        columns=["rank", "id", "kind", "score", "sigma2", "de0",
-                 "status", "coverage_ok"], rows=rows)
+        columns=["rank", "id", "kind", "nuclearity", "score", "score_mag",
+                 "sigma2", "de0", "status", "coverage_ok"], rows=rows)
 
 
 def panel_cn_gate(ax, ctx: dict) -> Panel:
@@ -1513,7 +1515,7 @@ def _key_params(ctx: dict) -> list[dict]:
     keys = [k for k in preferred if k in effective]
     keys += [k for k in sorted(effective)
              if k in formal and k not in keys]
-    keys = keys[:18]
+    keys = keys[:14]
     rows = []
     for key in keys:
         rows.append({
@@ -1536,7 +1538,7 @@ def panel_param_table(ax, ctx: dict) -> Panel:
     _render_table(
         ax, ["Parameter", "Value", "Source", "Unit", "Stage"],
         [[r["parameter"], r["value"], r["source"], r["unit"], r["stage"]]
-         for r in rows], fontsize=6.2, title="(f) Key parameters")
+         for r in rows], fontsize=6.6, title="(f) Key parameters")
     return Panel(
         "Figure2f_param_table", "Figure 2(f)", "Key parameter table",
         "关键参数表：影响正式 CN 的参数及其来源/单位/阶段，直接作为图片"
@@ -1619,8 +1621,17 @@ def panel_fit_paths(ax, ctx: dict) -> Panel:
                     fmt="o", ms=math.sqrt(size) / 2.2, color="#1565c0",
                     ecolor="#546e7a", capsize=2.5, lw=0.9, zorder=3)
         label = row.get("label") or "path"
+        dr = row.get("delta_r")
+        s2 = row.get("sigma2")
+        extra = []
+        if dr is not None:
+            extra.append(f"ΔR={float(dr):+.3f}Å")
+        if s2 is not None:
+            extra.append(f"σ²={float(s2) * 1e3:.2f}e-3")
+        if extra:
+            label += "\n" + "  ".join(extra)
         ax.annotate(label, (r, n), textcoords="offset points", xytext=(6, 5),
-                    fontsize=6.3, color="#263238")
+                    fontsize=6.0, color="#263238")
         n0 = row.get("n0")
         if n0 is not None:
             ax.scatter([r], [n0], marker="D", s=26, facecolor="white",
@@ -2564,25 +2575,39 @@ def _emit_figure(ctx: dict, fns: list[Callable], *, base: str, title: str,
                  panels_manifest: list[dict],
                  notes: list[str],
                  hspace: float = 0.32,
-                 wspace: float = 0.24) -> dict:
-    """落盘一张总图、各独立面板图与逐面板 CSV。"""
+                 wspace: float = 0.24,
+                 standalone_panels: bool = False) -> dict:
+    """落盘一张总图、逐面板 CSV（归入 panels/）及可选的独立面板图。
+
+    总图已包含全部子面板；默认不再重复渲染散装单面板 PNG，
+    避免耗时翻倍与 figures/ 根目录被淹没。需要单面板图时显式打开
+    ``standalone_panels``，输出到 ``figures/panels/``。
+    """
     fig, panels = _master_figure(
         ctx, fns, title=title, figsize=figsize, nrow=nrow, ncol=ncol,
         panel_ids=[], hspace=hspace, wspace=wspace)
     paths = _save_master(fig, figures_dir / base, formats, dpi)
     image_ext = formats[0]
+    panels_dir = figures_dir / "panels"
+    panels_dir.mkdir(parents=True, exist_ok=True)
     for fn, panel in zip(fns, panels):
+        image_rel = None
         if panel.status == "ok":
-            _save_standalone(ctx, fn, figures_dir / panel.id, formats, dpi,
-                             standalone_size, panel)
+            if standalone_panels:
+                _save_standalone(ctx, fn, panels_dir / panel.id, formats, dpi,
+                                 standalone_size, panel)
+                image_rel = f"panels/{panel.id}.{image_ext}"
+            else:
+                # 面板图即所属总图：不重复渲染，仍可被清单定位。
+                image_rel = f"{base}.{image_ext}"
         csv_name = _panel_csv_name(panel)
+        csv_rel = None
         if csv_name:
-            _write_panel_csv(figures_dir / csv_name, panel)
+            _write_panel_csv(panels_dir / csv_name, panel)
+            csv_rel = f"panels/{csv_name}"
         panels_manifest.append(_manifest_panel(
             ctx, panel, figures_dir,
-            image=(f"{panel.id}.{image_ext}"
-                   if panel.status == "ok" else None),
-            csv_name=csv_name))
+            image=image_rel, csv_name=csv_rel))
         if panel.status != "ok":
             notes.append(f"{panel.label} skipped: {panel.reason}")
     return {"paths": paths, "panels": panels}
@@ -2593,19 +2618,14 @@ def _emit_figure(ctx: dict, fns: list[Callable], *, base: str, title: str,
 # ---------------------------------------------------------------
 def _write_data_bundle(ctx: dict, figures_dir: Path,
                        manifest: dict) -> list[str]:
-    """把长表、源文件副本与汇总写入 ``figures/data/``。"""
+    """跨面板汇总写入 ``figures/data/``。
+
+    源 JSON/CSV 不在此复制：父目录已有唯一权威副本，逐面板 CSV 在
+    ``figures/panels/``。本目录只保留无法从单个面板还原的汇总表。
+    """
     data_dir = figures_dir / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
     written: list[str] = []
-    for name, path in (
-            ("meta.json", ctx.get("meta_path")),
-            ("fit.json", ctx.get("fit_path")),
-            ("structure_id.json", ctx.get("structure_path")),
-            ("cn_table.csv", ctx.get("cn_path")),
-            ("fit_table.csv", ctx.get("fit_table_path"))):
-        if path is not None and Path(path).is_file():
-            shutil.copyfile(path, data_dir / name)
-            written.append(name)
 
     fit = ctx.get("fit") or {}
     meta = ctx.get("meta") or {}
@@ -2688,54 +2708,7 @@ def _write_data_bundle(ctx: dict, figures_dir: Path,
              "affects_formal_cn"], param_rows)
         written.append("all_parameters.csv")
 
-    # 4) 参数相关矩阵长表
-    corr = obj.get("correlation")
-    names = [str(x) for x in (obj.get("parameter_names") or [])]
-    if corr and names:
-        mat = np.asarray(corr, dtype=float)
-        n = min(len(names), mat.shape[0], mat.shape[1])
-        corr_rows = [{"param_i": names[i], "param_j": names[j],
-                      "rho": float(mat[i, j])}
-                     for i in range(n) for j in range(n)]
-        _write_rows_csv(data_dir / "fit_correlation.csv",
-                        ["param_i", "param_j", "rho"], corr_rows)
-        written.append("fit_correlation.csv")
-
-    # 5) CIF 配位壳层全表
-    cif_rows = _cif_shell_rows(ctx)
-    if cif_rows:
-        _write_rows_csv(
-            data_dir / "cif_shells.csv",
-            ["element", "r_A", "n0", "n_members", "sub_rayleigh_grouped",
-             "source"], cif_rows)
-        written.append("cif_shells.csv")
-
-    # 6) 结构识别候选全表
-    structure = ctx.get("structure") or {}
-    ranked = structure.get("ranked") or []
-    if ranked:
-        structure_rows = []
-        for rank, item in enumerate(ranked, 1):
-            if not isinstance(item, dict):
-                continue
-            structure_rows.append({
-                "rank": rank,
-                "id": item.get("id"),
-                "kind": item.get("kind"),
-                "nuclearity": item.get("nuclearity"),
-                "score": _as_float(item.get("score")),
-                "score_mag": _as_float(item.get("score_mag")),
-                "sigma2": _as_float(item.get("sigma2")),
-                "de0": _as_float(item.get("de0")),
-            })
-        if structure_rows:
-            _write_rows_csv(
-                data_dir / "structure_candidates.csv",
-                ["rank", "id", "kind", "nuclearity", "score", "score_mag",
-                 "sigma2", "de0"], structure_rows)
-            written.append("structure_candidates.csv")
-
-    # 7) 门禁全表（保留完整 observed/threshold JSON）
+    # 4) 门禁全表（保留完整 observed/threshold JSON；面板表会截断）
     gates = meta.get("gates") or {}
     gate_rows = []
     for name, payload in gates.items():
@@ -2757,7 +2730,7 @@ def _write_data_bundle(ctx: dict, figures_dir: Path,
              "reject_reason", "location"], gate_rows)
         written.append("gate_checks.csv")
 
-    # 8) 决策全表（不截断 detail）
+    # 5) 决策全表（不截断 detail；面板表只画前 12 条）
     decision_rows = []
     for item in (meta.get("decisions") or []):
         if not isinstance(item, dict):
@@ -2774,7 +2747,7 @@ def _write_data_bundle(ctx: dict, figures_dir: Path,
             ["step", "decision", "status", "detail"], decision_rows)
         written.append("decisions.csv")
 
-    # 9) 面板索引
+    # 6) 面板索引
     index_rows = [{
         "label": p.get("label"),
         "id": p.get("id"),
@@ -2792,11 +2765,12 @@ def _write_data_bundle(ctx: dict, figures_dir: Path,
          "source", "caption"], index_rows)
     written.append("panel_index.csv")
 
-    # 10) 汇总 JSON
+    # 7) 汇总 JSON
     gates = meta.get("gates") or {}
     summary_counts = _summary_counts(gates)
     structure = ctx.get("structure") or {}
     formal_block = _formal_block(ctx)
+    cif_rows = _cif_shell_rows(ctx)
     summary = {
         "schema": "xafs-figure-pack-data/v1",
         "generated_at": manifest.get("generated_at"),
@@ -2850,35 +2824,35 @@ def _write_data_bundle(ctx: dict, figures_dir: Path,
 本目录由 `xafs_figure_pack.py` 自动生成，对应 `figures/` 中的 Figure 1–4
 与 Table S1/S2。所有文件均为只读快照，不重新拟合、不改变正式输出。
 
-## 源文件副本
+目录分工（不重复拷贝）：
 
-| 文件 | 内容 |
-|---|---|
-| `meta.json` | `<stem>_meta.json` 原样副本：参数、门禁、决策、摘要台账 |
-| `fit.json` | `<stem>_fit.json` 原样副本：拟合结果、路径、误差、相关矩阵 |
-| `structure_id.json` | `<stem>_structure_id.json` 原样副本：结构识别候选与置信 |
-| `cn_table.csv` | 正式 CN 表原样副本（存在时） |
-| `fit_table.csv` | 拟合壳层表原样副本（存在时） |
+- `figures/` 根目录：4 张总图 + Table S1/S2 表图 + 清单/索引。
+- `figures/panels/`：每个子面板的唯一 CSV（需要时还含独立面板 PNG）。
+- `figures/data/`：本目录，只放无法从单个面板还原的跨面板汇总。
+- 父目录：`<stem>_meta.json` / `<stem>_fit.json` /
+  `<stem>_structure_id.json` / `<stem>_cn_table.csv` 等权威原件，
+  不在本目录重复复制。
 
-## 长表
+## 跨面板汇总
 
 | 文件 | 内容 |
 |---|---|
 | `all_fit_paths.csv` | 主拟合 + fixed/conditional/free N + L1 的全部路径参数 |
 | `fit_variants.csv` | 主拟合与 fixed/conditional/free N 三套变体的 Rf、变量数、Hamilton F |
 | `all_parameters.csv` | `meta.params.effective` 全参数：值、来源、单位、阶段、是否影响正式 CN |
-| `fit_correlation.csv` | 参数相关矩阵长表（`param_i, param_j, rho`） |
-| `cif_shells.csv` | CIF/拟合模型的全部配位壳层：元素、R、N₀、成员数、亚 Rayleigh 合并 |
-| `structure_candidates.csv` | 结构识别候选排序：id、类型、score、σ²、ΔE₀ |
-| `gate_checks.csv` | 全部门禁：状态、动作、阈值、观测值、拒绝原因、代码位置 |
+| `gate_checks.csv` | 全部门禁：状态、动作、完整阈值/观测值、拒绝原因、代码位置 |
 | `decisions.csv` | S1 → S7 → 正式 CN 的完整决策轨迹（detail 不截断） |
-| `panel_index.csv` | 30 个面板 ↔ 图 ↔ CSV ↔ 源文件 ↔ 图注 ↔ 状态 |
+| `panel_index.csv` | 全部面板 ↔ 图 ↔ 面板 CSV ↔ 源文件 ↔ 图注 ↔ 状态 |
 | `summary.json` | 机器可读汇总：样品、拟合、正式 CN、结构识别与计数 |
+
+参数相关矩阵、CIF 壳层表、结构候选等逐面板数据只在
+`figures/panels/` 保留一份，避免同一张表多处落盘。
 
 ## 使用建议
 
-- 重绘某个面板：读 `panel_index.csv` 找到对应面板 CSV。
-- 回复审稿：优先给 `summary.json` + `gate_checks.csv` + `fit_correlation.csv`。
+- 重绘某个面板：读 `panel_index.csv` 找到 `panels/` 下对应 CSV。
+- 回复审稿：优先给 `summary.json` + `gate_checks.csv` +
+  `panels/Figure3a_fitcorr.csv`。
 - 复核拟合：`all_fit_paths.csv` 与 `fit_variants.csv` 提供路径级和变体级数据。
 - 缺失数据不会伪造：对应面板在 `figure_manifest.json` 中标记
   `status=skipped` 并写明原因。
@@ -2943,8 +2917,9 @@ def _write_markdown(ctx: dict, figures_dir: Path, manifest: dict) -> Path:
         lines.append(f"| {item['label']} | {image} | {csv_name} | {caption} |")
     data_files = manifest.get("data_files") or []
     if data_files:
-        lines += ["", "## Self-contained data bundle", "",
-                  "`data/` contains source copies plus long-form tables:",
+        lines += ["", "## Cross-panel data bundle", "",
+                  "`data/` holds cross-panel summary tables; the authoritative",
+                  "source JSON/CSV stay in the parent output directory:",
                   ""]
         for name in data_files:
             lines.append(f"- `{name}`")
@@ -2958,8 +2933,13 @@ def _write_markdown(ctx: dict, figures_dir: Path, manifest: dict) -> Path:
 
 def build_pack(outdir: Path | str, *, stem: str | None = None,
                formats: tuple[str, ...] = ("png",),
-               dpi: int = 300, verbose: bool = True) -> dict:
-    """生成完整图包；返回 manifest。"""
+               dpi: int = 300, standalone_panels: bool = False,
+               verbose: bool = True) -> dict:
+    """生成完整图包；返回 manifest。
+
+    ``standalone_panels=False``（默认）只画 4 张总图 + Table S1/S2，
+    子面板 CSV 收口到 ``figures/panels/``；打开时额外渲染单面板 PNG。
+    """
     _style()
     ctx = load_context(Path(outdir), stem)
     figures_dir = ctx["outdir"] / "figures"
@@ -2984,7 +2964,8 @@ def build_pack(outdir: Path | str, *, stem: str | None = None,
         figsize=(13.5, 16.5), nrow=4, ncol=2,
         formats=formats, dpi=dpi, figures_dir=figures_dir,
         standalone_size=(6.4, 4.2),
-        panels_manifest=panels_manifest, notes=notes)
+        panels_manifest=panels_manifest, notes=notes,
+        standalone_panels=standalone_panels)
 
     # ---- Figure 2 ----
     fig2 = _emit_figure(
@@ -2996,7 +2977,8 @@ def build_pack(outdir: Path | str, *, stem: str | None = None,
         figsize=(14.0, 15.0), nrow=3, ncol=2,
         formats=formats, dpi=dpi, figures_dir=figures_dir,
         standalone_size=(7.2, 4.8),
-        panels_manifest=panels_manifest, notes=notes)
+        panels_manifest=panels_manifest, notes=notes,
+        standalone_panels=standalone_panels)
 
     # ---- Figure 3 ----
     fig3 = _emit_figure(
@@ -3010,7 +2992,7 @@ def build_pack(outdir: Path | str, *, stem: str | None = None,
         formats=formats, dpi=dpi, figures_dir=figures_dir,
         standalone_size=(7.2, 4.8),
         panels_manifest=panels_manifest, notes=notes,
-        hspace=0.55)
+        hspace=0.55, standalone_panels=standalone_panels)
 
     # ---- Figure 4 ----
     fig4 = _emit_figure(
@@ -3023,26 +3005,36 @@ def build_pack(outdir: Path | str, *, stem: str | None = None,
         formats=formats, dpi=dpi, figures_dir=figures_dir,
         standalone_size=(7.2, 4.8),
         panels_manifest=panels_manifest, notes=notes,
-        hspace=0.40)
+        hspace=0.40, standalone_panels=standalone_panels)
 
-    # ---- 补充表格图 ----
+    # ---- 补充表格图（独立成图；逐面板 CSV 归入 panels/）----
     image_ext = formats[0]
+    panels_dir = figures_dir / "panels"
+    panels_dir.mkdir(parents=True, exist_ok=True)
     for fn, figsize in ((supplementary_cn_table, (12.0, 4.8)),
                         (supplementary_fit_table, (10.0, 4.2))):
-        probe = fn(plt.subplots(figsize=(1, 1))[1], ctx)
-        plt.close("all")
-        if probe.status != "ok":
+        fig, ax = plt.subplots(figsize=figsize)
+        try:
+            panel = fn(ax, ctx)
+            if panel.status == "ok":
+                fig.tight_layout()
+                for fmt in formats:
+                    fig.savefig(figures_dir / f"{panel.id}.{fmt}", dpi=dpi)
+        finally:
+            plt.close(fig)
+        if panel.status != "ok":
             panels_manifest.append(_manifest_panel(
-                ctx, probe, figures_dir, image=None, csv_name=None))
-            notes.append(f"{probe.label} skipped: {probe.reason}")
+                ctx, panel, figures_dir, image=None, csv_name=None))
+            notes.append(f"{panel.label} skipped: {panel.reason}")
             continue
-        panel = _save_standalone(ctx, fn, figures_dir / probe.id, formats,
-                                 dpi, figsize, probe)
-        csv_name = f"{panel.id}.csv"
-        _write_panel_csv(figures_dir / csv_name, panel)
+        csv_name = _panel_csv_name(panel)
+        csv_rel = None
+        if csv_name:
+            _write_panel_csv(panels_dir / csv_name, panel)
+            csv_rel = f"panels/{csv_name}"
         panels_manifest.append(_manifest_panel(
-            ctx, panel, figures_dir, image=f"{panel.id}.{image_ext}",
-            csv_name=csv_name))
+            ctx, panel, figures_dir,
+            image=f"{panel.id}.{image_ext}", csv_name=csv_rel))
 
     manifest = {
         "schema": "xafs-figure-pack/v1",
@@ -3092,7 +3084,7 @@ def build_pack(outdir: Path | str, *, stem: str | None = None,
         print(f"  总图 2: {figures_dir / fig2['paths'][0]}")
         print(f"  总图 3: {figures_dir / fig3['paths'][0]}")
         print(f"  总图 4: {figures_dir / fig4['paths'][0]}")
-        print(f"  面板 CSV: {len(manifest['csv_files'])} 个")
+        print(f"  面板 CSV: {figures_dir / 'panels'}（{len(manifest['csv_files'])} 个）")
         print(f"  数据包: {figures_dir / 'data'}（{len(data_files)} 个文件）")
         print(f"  清单: {manifest_path}")
         print(f"  索引: {md_path}")
@@ -3114,12 +3106,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--formats", default="png",
                         help="输出格式，逗号分隔（默认 png；可 png,pdf）")
     parser.add_argument("--dpi", type=int, default=300, help="图片 DPI（默认 300）")
+    parser.add_argument("--standalone-panels", action="store_true",
+                        help="额外把子面板单独渲染为 panels/<id>.png"
+                             "（默认关闭：只输出 4 张总图 + Table S1/S2）")
     parser.add_argument("--quiet", action="store_true", help="只打印错误")
     args = parser.parse_args(argv)
     formats = tuple(x.strip() for x in args.formats.split(",") if x.strip())
     try:
         build_pack(args.outdir, stem=args.stem, formats=formats,
-                   dpi=args.dpi, verbose=not args.quiet)
+                   dpi=args.dpi, standalone_panels=args.standalone_panels,
+                   verbose=not args.quiet)
     except FigurePackError as exc:
         print(f"图包生成失败: {exc}", file=sys.stderr)
         return 2

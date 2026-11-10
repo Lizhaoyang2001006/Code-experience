@@ -12,15 +12,17 @@ xafs_report.py — 成果展示层：五联图 + CN 拟合表 + 全套数据导�
 
   表（可粘贴）
     <stem>_fit_table.csv   拟合表（utf-8-sig，Excel 直接打开）
-    <stem>_fit_table.txt   拟合表（制表符分隔，粘贴 Word/Excel 自动成表）
     <stem>_indicators.csv  关键物理指标汇总（指标/值/单位/说明）
     <stem>_report.html     单文件 HTML 报告（图片内联、门禁结论置顶）
+    <stem>_meta.json       参数/门禁/决策/结构识别台账
+    <stem>_structure_id.json  结构识别候选（全量 ranked + top3）
 
   逐面板数据（与图一一对应）
     <stem>_mu.csv          (a) E, μ(scan1..3), μ(merged)
     <stem>_xanes.csv       (b) E, μ, 边前基线, μ_norm
     <stem>_chik.csv        (c) k, χ(k), k²χ(k)
     <stem>_chir.csv        (d) R, Re χ(R), Im χ(R), |χ(R)|
+    <stem>_chiq.csv        第一壳反 FT χ(q)：q, Re, Im, |χ(q)|
     <stem>_wavelet.csv     (e) W(R,k) 矩阵（行=k，列=R；与 run_xafs 一致）
 
 依赖方向：core ← io ← athena ← {artemis, larch_wt} ← 本模块。
@@ -94,6 +96,10 @@ SHELLS = [("Fe–O", 1.0, 1.8), ("Fe–Fe(1)", 2.2, 3.2), ("Fe–Fe(2)", 3.3, 3.
 
 def process_scans(files, absorber: str = "Fe", strict: bool = False,
                   kmin: float = KMIN, kmax: float = KMAX,
+                  kweight: int = 2,
+                  e0_method: str = "derivative",
+                  manual_e0: float | None = None,
+                  rbkg: float | None = None,
                   post_window=(150.0, 600.0),
                   despike: bool = False,
                   deglitch: list[tuple[float, float]] | None = None,
@@ -113,7 +119,9 @@ def process_scans(files, absorber: str = "Fe", strict: bool = False,
     这里只把 PipelineResult 展平成本模块画图用的 dict。
     """
     res = xafs_pipeline.process_sample(
-        files, align=True, absorber=absorber, kmin=kmin, kmax=kmax, kweight=2,
+        files, align=True, absorber=absorber,
+        e0_method=e0_method, manual_e0=manual_e0, rbkg=rbkg,
+        kmin=kmin, kmax=kmax, kweight=kweight,
         post_window=post_window,
         strict=strict, despike=despike, deglitch=deglitch,
         deadtime=deadtime,
@@ -444,17 +452,13 @@ def plot_fit_table(rows: list, out: Path, stem: str, title: str,
 
 
 def export_fit_table(rows: list, out: Path, stem: str):
-    """CSV（utf-8-sig）+ TSV（粘贴 Word/Excel 自动成表）。"""
+    """导出拟合参数表 CSV（utf-8-sig，Excel/Origin 可直接打开）。"""
     has_c3 = any(len(r) > 7 and str(r[7]).strip() for r in rows)
     header = list(FIT_HEADER) + (["C3 (Å³)"] if has_c3 else [])
     body = rows if has_c3 else [r[:7] for r in rows]
     with open(out / f"{stem}_fit_table.csv", "w", newline="",
               encoding="utf-8-sig") as fh:
         csv.writer(fh).writerows([header] + body)
-    with open(out / f"{stem}_fit_table.txt", "w", encoding="utf-8-sig") as fh:
-        fh.write("\t".join(header) + "\n")
-        for row in body:
-            fh.write("\t".join(row) + "\n")
 
 
 # ================================================================
@@ -1405,6 +1409,15 @@ def main(argv=None):
     parser.add_argument("--sample", default=None, help="图上显示的样品名")
     parser.add_argument("--kmin", type=float, default=KMIN)
     parser.add_argument("--kmax", type=float, default=KMAX)
+    parser.add_argument("--kweight", type=int, default=2,
+                        help="FT 与 Rbkg 的 k 权重（默认 2）")
+    parser.add_argument("--rbkg", type=float, default=None,
+                        help="显式指定 Rbkg (Å)，跳过自动寻优")
+    parser.add_argument("--e0-method", default="derivative",
+                        choices=["derivative", "half_height", "manual"],
+                        help="S2 E0 判定算法（默认 derivative）")
+    parser.add_argument("--manual-e0", type=float, default=None,
+                        help="手动指定 E0 (eV)，配合 --e0-method manual")
     parser.add_argument("--strict", action=argparse.BooleanOptionalAction,
                         default=True,
                         help="边后平台门禁（默认中断；--no-strict 降级）")
@@ -1576,21 +1589,16 @@ def main(argv=None):
         deglitch = xafs_config.parse_deglitch(args.deglitch)
     except ValueError as exc:
         parser.error(str(exc))
-    lcf_standards = None
-    if args.lcf_standards:
-        lcf_standards = [s.strip() for s in args.lcf_standards.split(",")
-                         if s.strip()]
-        if not lcf_standards:
-            parser.error("--lcf-standards 至少需要一个端元文件")
-    vary_c3 = (None if args.vary_c3 is None
-               else ([0] if args.vary_c3 == "first" else True))
-    vary_c4 = (None if args.vary_c4 is None
-               else ([0] if args.vary_c4 == "first" else True))
+    if isinstance(args.lcf_standards, str) and args.lcf_standards.strip() \
+            and not [s.strip() for s in args.lcf_standards.split(",")
+                     if s.strip()]:
+        parser.error("--lcf-standards 至少需要一个端元文件")
 
     # ---- 配置文件加载与 CLI 合并 ----（与 run_xafs 同一逻辑）
     config = xafs_config.load_config(args.config)
     _cli_defaults = {
-        "kmin": KMIN, "kmax": KMAX, "strict": True,
+        "kmin": KMIN, "kmax": KMAX, "kweight": 2,
+        "rbkg": None, "strict": True,
         "self_absorption_formula": None,
         "self_absorption_thickness": None,
         "self_absorption_density": None,
@@ -1892,6 +1900,8 @@ def main(argv=None):
     print(f"== 数据处理：{sample}（{len(args.files)} 个文件）==")
     st = process_scans(args.files, absorber=args.absorber,
                        strict=args.strict, kmin=args.kmin, kmax=args.kmax,
+                       kweight=args.kweight, e0_method=args.e0_method,
+                       manual_e0=args.manual_e0, rbkg=args.rbkg,
                        post_window=post_window,
                        despike=args.despike, deglitch=deglitch,
                        deadtime=args.deadtime,
@@ -2155,11 +2165,17 @@ def main(argv=None):
                  or {}).get("warnings") or [])
             if getattr(st["result"], "xanes_cross_check", None) else None),
     }
+    merged_meta = dict(getattr(st["merged"], "meta", None) or {})
+    l1_block = (fout or {}).get("l1") or {}
+    fit_obj_meta = (fout or {}).get("fit")
     report_meta = {
         "source": {
+            **merged_meta,
             "files": [str(f) for f in args.files],
             "stem": stem,
             "mode": "report",
+            "report_mode": merged_meta.get("mode"),
+            "data_sha256": getattr(st["result"], "data_sha256", ""),
         },
         "absorber": eff_absorber,
         "edge": abs_cfg.edge,
@@ -2167,11 +2183,13 @@ def main(argv=None):
         "normalization": {
             "edge_step": st["norm"].edge_step,
             "plateau": st["norm"].plateau,
+            "plateau_ok": bool(0.85 <= st["norm"].plateau <= 1.15),
             "strict": bool(args.strict),
         },
         "rbkg": {
             "selected": st["rbkg"]["rbkg"],
             "confidence": st["rbkg"].get("confidence"),
+            "table": getattr(st["result"], "rbkg_table", []) or [],
         },
         "ft": {
             "kmin": args.kmin, "kmax": args.kmax,
@@ -2191,10 +2209,13 @@ def main(argv=None):
             "status": (fout or {}).get("status"),
             "cn_reliable": (fout or {}).get("cn_reliable"),
             "cn_status": (fout or {}).get("cn_status"),
-            "r_factor": ((fout or {}).get("fit").r_factor
-                         if (fout or {}).get("fit") is not None else None),
-            "delta_e0": ((fout or {}).get("fit").delta_e0
-                         if (fout or {}).get("fit") is not None else None),
+            # L1 第一壳降级时 fit=None，真实 Rf/ΔE0 在 l1 块里，不能写 None。
+            "r_factor": (fit_obj_meta.r_factor
+                         if fit_obj_meta is not None
+                         else l1_block.get("rf")),
+            "delta_e0": (fit_obj_meta.delta_e0
+                         if fit_obj_meta is not None
+                         else l1_block.get("delta_e0")),
         },
         "formal_cn": formal_block,
     }

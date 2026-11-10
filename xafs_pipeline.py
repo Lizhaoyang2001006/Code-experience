@@ -298,6 +298,11 @@ def process_sample(paths, align: bool = False, absorber: str | None = None,
     shell = (ft.r > 1.0) & (ft.r < 2.6)
     r1 = float(ft.r[shell][np.argmax(ft.magnitude[shell])]) if shell.any() \
         else np.nan
+    # S5b 第一壳反傅里叶滤波 χ(q)：窗口锚定 FT 第一峰，与 xafs_report
+    # 的窗口规则一致。入口层只负责落盘，数学仍留在 athena。
+    q_rmin = max(1.0, r1 - 0.5) if np.isfinite(r1) else 1.0
+    q_rmax = min(3.4, r1 + 0.5) if np.isfinite(r1) else 2.6
+    chi_q = athena.back_ft_to_q_space(ft.r, ft.chi_r, q_rmin, q_rmax)
     if verbose:
         print(f"  [S5] FT 第一峰 = {r1:.3f} Å   k_max = {chi_k.k.max():.1f} Å⁻¹")
 
@@ -324,4 +329,5 @@ def process_sample(paths, align: bool = False, absorber: str | None = None,
                           self_absorption=sa_info,
                           xanes_features=xanes_features,
                           snr=snr,
-                          absorber_symbol=absorber)
+                          absorber_symbol=absorber,
+                          chi_q=chi_q)

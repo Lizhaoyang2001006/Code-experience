@@ -131,8 +131,7 @@ ax.set_title("Table S1. Fe K-edge EXAFS curve-fitting parameters for ...",
 | `<stem>_chik.csv` | 逐点 | k_inv_A, chi, k2chi |
 | `<stem>_chir.csv` | 逐点 | R_A, chi_R_re, chi_R_im, magnitude |
 | `<stem>_wavelet.csv` | 矩阵 | 首行 `k\R` + R 值；每行 k 值 + 该 k 下各 R 的 W（4 位小数，与 `WaveletMap.magnitude` 同向） |
-| `<stem>_fit_table.csv` | 表格 | 与 PNG 同构 7 列（粘贴友好） |
-| `<stem>_fit_table.txt` | TSV | 同上，制表符分隔——粘贴 Word/Excel 自动成表 |
+| `<stem>_fit_table.csv` | 表格 | 与 PNG 同构 7 列（粘贴友好；P6.6 起不再另出重复的 TSV） |
 | `<stem>_indicators.csv` | 汇总 | indicator, value, unit, 说明 |
 
 **indicators.csv 必含行**（防读图猜测的最低集）：

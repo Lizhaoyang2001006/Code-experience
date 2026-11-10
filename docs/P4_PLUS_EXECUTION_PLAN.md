@@ -309,3 +309,33 @@
 - 两个入口新增 `--figure-pack` / `--figure-formats` / `--figure-dpi`；
   `--operando` 明确不支持单结构总图；
 - 契约 `#133` 锁定图包文件、逐面板 CSV、表格图、数据包与两个入口开关。
+
+
+## P6.6：双入口产物对齐与图包分层瘦身（已完成）
+
+- **缺字段补齐**：
+  - `PipelineResult` 新增 `chi_q`（第一壳反 FT）与 `data_sha256`；
+  - `run_xafs.py` 落盘 `<stem>_chiq.csv`（q/Re/Im/|χ(q)|），
+    `<stem>_structure_id.json` 保留全量 `ranked`（同时保留 `top3`）；
+  - `xafs_report.py` 的 `_meta.json` 补齐 `rbkg.table`、
+    `normalization.plateau_ok`、`source.data_sha256/n_points/n_scans/merge_info`；
+    L1 降级时 `fit.r_factor/delta_e0` 回退 `l1.rf/delta_e0`；
+  - `xafs_report.py` 新增 `--kweight / --rbkg / --e0-method / --manual-e0`，
+    并纳入配置文件合并；
+  - `--batch-dir` 分支补传 `fit_space` 与 `bvs_restraint`，消除入口漏参。
+- **目录分层**：
+  - `figures/` 根目录只保留 4 张总图、Table S1/S2、manifest 与索引；
+  - 逐面板 CSV 收口到 `figures/panels/`；
+  - `figures/data/` 只保留跨面板汇总（`summary.json`、`panel_index.csv`、
+    `all_fit_paths.csv`、`fit_variants.csv`、`all_parameters.csv`、
+    `gate_checks.csv`、`decisions.csv`、`README.md`），不再复制父目录
+    源 JSON/CSV，也不重复相关矩阵/CIF 壳层/结构候选表。
+- **默认免重绘**：`build_pack(standalone_panels=False)`；独立 CLI 新增
+  `--standalone-panels`，需要时才渲染 `panels/<id>.png`。
+- **图面增强**：Figure 1(f) 只画前 6 个候选但 CSV 保留全部；
+  Figure 3(b) 标注 ΔR 与 σ²；Figure 2(f) 关键参数限 14 行并提升字号。
+- **去重**：移除 `xafs_report.py` 冗余的 `<stem>_fit_table.txt`
+  （与 `_fit_table.csv` 内容重复）。
+- 契约 `#133` 对齐新目录结构并断言不再重复落盘；新增 `#134` 锁定
+  report meta 完整、4 个 CLI 参数、`_chiq.csv`/全量 `_structure_id.json`、
+  `--batch-dir` 透传与 `--standalone-panels`。

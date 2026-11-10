@@ -1503,3 +1503,87 @@ crawler 入库后按同一三扫描命令重跑，上述 r_factor/N/R 与 fit_ta
 - [x] 通过
 - 物理门禁、`absorber.py` 静态表（12 元素 `s02=None, calibrated=False`）、
   `calibrate_s02.py` 常量、44 条 phase pack 均未改动。
+
+
+## 15. P6.6：双入口产物对齐与图包分层瘦身（2026-11-10）
+
+### 15.1 范围
+
+修复“全项目功能运行阻碍”，只做入口/落盘一致性与输出取舍，不改物理：
+
+- **缺失产物补齐**
+  - `xafs_core.PipelineResult` 新增 `chi_q: BackFourierTransform` 与
+    `data_sha256`；
+  - `xafs_pipeline.process_sample` 在 S5 后按第一壳峰位 `r1±0.5 Å`
+    生成反 FT，并随结果返回；
+  - `run_xafs.py` 落盘 `<stem>_chiq.csv`（`q_inv_A, chiq_re, chiq_im,
+    chiq_mag`）；
+  - `run_xafs.py` 的 `<stem>_structure_id.json` 保留完整 `ranked`
+    （同时保留 `top3`），不再截断为 3 条。
+- **report 入口 meta 补齐**
+  - `rbkg.table`、`normalization.plateau_ok`、
+    `source.data_sha256/n_points/n_scans/merge_info`；
+  - L1 第一壳降级时 `fit.r_factor/delta_e0` 回退 `l1.rf/delta_e0`，
+    不再写 `None`；
+  - `source.mode` 保持 `"report"`（契约 `#132`），原合并模式存入
+    `report_mode`。
+- **report 入口参数对齐**
+  - 新增 `--kweight / --rbkg / --e0-method / --manual-e0`，并纳入
+    配置文件合并与 `_cli_defaults`。
+- **批处理入口漏参**
+  - `--batch-dir` 分支补传 `fit_space` 与 `bvs_restraint`，与单文件
+    路径一致。
+- **目录分层与去重**
+  - `figures/` 根目录只留 4 张总图、Table S1/S2、`figure_manifest.json`、
+    `figure_pack.md`；
+  - 逐面板 CSV 收口到 `figures/panels/`；
+  - `figures/data/` 仅保留跨面板汇总（`summary.json`、`panel_index.csv`、
+    `all_fit_paths.csv`、`fit_variants.csv`、`all_parameters.csv`、
+    `gate_checks.csv`、`decisions.csv`、`README.md`），不再复制父目录
+    源 JSON/CSV，不再重复 `fit_correlation.csv` / `cif_shells.csv` /
+    `structure_candidates.csv`；
+  - 默认 `standalone_panels=False`：不重复渲染 28 张单面板图；需要时
+    用 `--standalone-panels` 输出到 `panels/`；
+  - 移除 `xafs_report.py` 冗余的 `<stem>_fit_table.txt`。
+- **图面可读性**
+  - Figure 1(f) 图面只画前 6 个候选，CSV 保留全部并新增
+    `nuclearity/score_mag`；
+  - Figure 3(b) 标注 `ΔR` 与 `σ²`；
+  - Figure 2(f) 关键参数限 14 行、字号提升到 6.6。
+
+### 15.2 真实输出验证
+
+- Fe 箔 `xafs_report.py --fit-motif fe_bcc --figure-pack`：
+  - `fe_meta.json`：`rbkg.table` 10 行、`plateau_ok=False`、
+    `data_sha256` 存在、`n_points=511`、`n_scans=1`、
+    `fit.r_factor≈0.0234`、`fit.delta_e0≈0.591`；
+  - Figure 1(f) 13 行、Figure 3(d)/4(b) `ok`；无 `_fit_table.txt`；
+  - 根目录 13 个文件，`figures/` 顶层 9 项（2 目录 + 4 总图 +
+    Table S2 + manifest/index），`panels/` 28 个 CSV，`data/` 8 个文件。
+- Fe 箔 `run_xafs.py --identify --fit --figure-pack`：
+  - 生成 `fe_chiq.csv`、`fe_structure_id.json`（`ranked=13`、
+    `top3=3`）；`source.data_sha256` 存在；
+  - Figure 1(f) 13 行、Figure 4(b) 601 行，均 `ok`。
+
+### 15.3 测试
+
+- `regression_test.py`：**134 项 OK**（191.7 s，较 P6.5 的 207.6 s
+  更快）；`#133` 20.0 s、`#134` 37.7 s 单独复跑均 OK。
+- `run_ci.py --stress`：134 契约 + 4 压力 PASS（CI PASS，273.3 s），
+  产出 `ci_report.json` / `ci_report.md`。
+- `#134` 锁定：report meta 完整性、4 个 CLI 参数、`_chiq.csv`/
+  全量 `_structure_id.json`、`--batch-dir` 透传、`--standalone-panels`。
+
+### 15.4 提交与补丁
+
+- 提交：`P6.6: align entry outputs and streamline figure pack layouts`
+- 补丁：`patches/P6.6-*.patch`（`78af226..HEAD`）；
+  累计补丁 `patches/P6.1-single-site-formal-cn.patch` 刷新到 `HEAD`。
+- `_standards_lib/`、`data/standards_raw/`、`logs/`、`patches/` 未提交；
+  根目录 `lepidocrocite.cif` 保留。
+
+### 15.5 结论
+
+- [x] 通过
+- 物理门禁、`absorber.py` 静态表（12 元素 `s02=None, calibrated=False`）、
+  `calibrate_s02.py` 常量、44 条 phase pack 均未改动。

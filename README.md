@@ -95,9 +95,9 @@ python xafs_report.py
 | `calibrate_s02.py` | 标定 S₀²（金属箔/氧化物标样，生产等效协议；`--motif-file` 用标定专用结构） |
 | `calibrate_t5.py` | T5 批量标定 12 元素，产物落 `data/s02_calibration/`（不改静态表） |
 | `absorber.py` | 吸收元素配置表（边能量/S₀²/kmax），元素泛化唯一入口 |
-| `regression_test.py` | 133 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝、P5-C 18 个常见相 COD 补齐/coverage 无缺口、P5-prep 标准谱源隔离池/5 元素门禁冻结、P5-D 多位点正式 CN、P6 phase pack 44/44 门禁、P6.1 单晶位正式 CN 与诊断库解耦、P6.2 边界入口对齐、P6.3 双入口配置/operando 守卫、P6.4 参数/门禁/决策/摘要台账与打印开关、P6.5 催化剂结构图包/逐面板 CSV/数据包） |
+| `regression_test.py` | 134 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝、P5-C 18 个常见相 COD 补齐/coverage 无缺口、P5-prep 标准谱源隔离池/5 元素门禁冻结、P5-D 多位点正式 CN、P6 phase pack 44/44 门禁、P6.1 单晶位正式 CN 与诊断库解耦、P6.2 边界入口对齐、P6.3 双入口配置/operando 守卫、P6.4 参数/门禁/决策/摘要台账与打印开关、P6.5 催化剂结构图包/逐面板 CSV/数据包、P6.6 双入口产物对齐/图包分层瘦身/q 空间与全量结构候选落盘） |
 | `xafs_provenance.py` | P6.4 输出台账：参数来源、门禁命中、决策轨迹、结果摘要（只记录，不判定） |
-| `xafs_figure_pack.py` | P6.5 图包后处理：Figure 1–4 总图、逐面板 CSV、表格图、自包含 `figures/data/`（只读已有输出，不重新拟合） |
+| `xafs_figure_pack.py` | P6.5/P6.6 图包后处理：Figure 1–4 总图、表格图、`figures/panels/` 逐面板 CSV、`figures/data/` 跨面板汇总；默认不重复渲染单面板（只读已有输出，不重新拟合） |
 | `run_ci.py` | 跨平台 CI：编译 + 契约回归 + 可选压力测试，输出 ci_report.json/md |
 | `stress_test_{co,ni,cu,nio}.py` | 元素泛化/护栏/CN 回收压力测试 |
 | `xafs_config.py` | 配置文件支持（.yaml/.json）、批处理入口（--batch-dir） |
@@ -277,16 +277,19 @@ FT 内核嵌进页面，浏览器里拖 kmin/kmax/kweight/dk，实时看 `|χ(R)
 
 ### CI 自动化回归
 ```powershell
-python run_ci.py            # 编译 + 133 项契约回归
+python run_ci.py            # 编译 + 134 项契约回归
 python run_ci.py --stress   # 额外跑 Co/Ni/Cu/NiO 压力测试
 ```
 产物 `ci_report.json` / `ci_report.md`；任一步失败即非零退出。
 `.github/workflows/xafs-ci.yml` 在 push/PR 时自动执行。
 
-### 催化剂结构图包（P6.5）
+### 催化剂结构图包（P6.5 / P6.6）
 ```powershell
-# 已有输出目录，独立补图包
+# 已有输出目录，独立补图包（默认只出总图 + 表格图）
 python xafs_figure_pack.py xafs_out/RuO2 --formats png,pdf --dpi 300
+
+# 需要逐面板独立图片时显式打开（输出到 figures/panels/）
+python xafs_figure_pack.py xafs_out/RuO2 --standalone-panels
 
 # 或在两个入口直接生成
 python run_xafs.py sample.xdi --absorber Fe --identify --fit --figure-pack
@@ -294,13 +297,22 @@ python xafs_report.py sample.xdi --absorber Fe --fit --figure-pack
 ```
 输出 `figures/`：Figure 1 结构总图（a–h）、Figure 2 置信/过程仪表盘
 （a–f）、Figure 3 拟合与误差诊断（a–h）、Figure 4 数据特征与输入清单
-（a–f）、Table S1/S2 表格图；每个面板同名 `.csv` 保存实际绘图数据。
-`figures/data/` 另含源 JSON/CSV 副本、全路径表、全参数表、拟合变体、
-相关矩阵、CIF 壳层、结构候选、门禁表、决策表、面板索引、
-`summary.json` 与 `README.md`。`figure_manifest.json`
-记录每个面板的图、CSV、源文件与图注，`figure_pack.md` 为人可读索引。
-图包只读已有输出，不重新拟合、不改变任何判定；`--operando` 不支持
-单结构总图。
+（a–f）、Table S1/S2 表格图。目录分层固定为：
+
+- `figures/` 根目录：4 张总图 + `Figure2g_cn_table.png` /
+  `Figure2h_fit_table.png` + `figure_manifest.json` / `figure_pack.md`；
+- `figures/panels/`：每个面板唯一的 `.csv` 实际绘图数据；加
+  `--standalone-panels` 时才额外生成 `panels/<id>.png`；
+- `figures/data/`：只放跨面板汇总（`summary.json`、`panel_index.csv`、
+  `all_fit_paths.csv`、`fit_variants.csv`、`all_parameters.csv`、
+  `gate_checks.csv`、`decisions.csv`、`README.md`），不再复制父目录
+  源 JSON/CSV，也不重复 `fit_correlation.csv` / `cif_shells.csv` /
+  `structure_candidates.csv`。
+
+`figure_manifest.json` 记录每个面板的图、CSV、源文件与图注；
+`figure_pack.md` 为人可读索引。图 1(f) 的 CSV 保留全部结构候选
+（图面只画前 6 个），并带 `nuclearity/score_mag` 列。图包只读已有
+输出，不重新拟合、不改变任何判定；`--operando` 不支持单结构总图。
 
 ### 批处理输出目录
 `--batch-dir` 的输出优先级：显式 `-o` > 配置文件 `batch.outdir` >
@@ -321,7 +333,7 @@ python xafs_report.py sample.xdi --absorber Fe --fit --figure-pack
 
 ### B1-2 Back-FT χ(q)
 `athena.back_ft_to_q_space(r, chi_r, rmin, rmax, dr)` 对选定 R 窗做
-反傅里叶变换，报告输出 `<stem>_chiq.csv`；用于检查第一壳在 q 空间
+反傅里叶变换，两个入口都输出 `<stem>_chiq.csv`；用于检查第一壳在 q 空间
 的相位/振幅，不引入新的拟合变量。
 
 ### B1-3 受约束多散射（MS）

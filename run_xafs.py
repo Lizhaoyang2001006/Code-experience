@@ -679,14 +679,28 @@ def process_sample(paths, outdir, align: bool = False,
         f"# R(A)  FT kmin={kmin} kmax={kmax}",
         [ft.r, ft.real, ft.imag, ft.magnitude],
         ["R(A)", "Re", "Im", "|chi(R)|"])
+    # S5b 反傅里叶滤波 χ(q)：供 q 空间诊断、图包 Figure 4(b) 与外部复算。
+    if getattr(result, "chi_q", None) is not None:
+        bft = result.chi_q
+        with open(outdir / f"{stem}_chiq.csv", "w", newline="",
+                  encoding="utf-8") as fh:
+            w = csv.writer(fh)
+            w.writerow(["q_inv_A", "chiq_re", "chiq_im", "chiq_mag"])
+            for qv, rev, imv, magv in zip(
+                    bft.q, bft.real, bft.imag, bft.magnitude):
+                w.writerow([f"{float(qv):.6g}", f"{float(rev):.6g}",
+                            f"{float(imv):.6g}", f"{float(magv):.6g}"])
     with open(outdir / f"{stem}_wt.dat", "w", encoding="utf-8") as f:
         f.write(f"# CWT sigma={wave_map.sigma}  row=k, col=R\n")
         f.write("# k \\ R  " + "  ".join(f"{v:.2f}" for v in wave_map.r) + "\n")
         for i, kc in enumerate(wave_map.k_centers):
             f.write(f"{kc:.2f}  "
                     + "  ".join(f"{v:.4f}" for v in wave_map.magnitude[i]) + "\n")
+    source_meta = dict(result.merged.meta or {})
+    if getattr(result, "data_sha256", None):
+        source_meta.setdefault("data_sha256", result.data_sha256)
     meta = {
-        "source": result.merged.meta,
+        "source": source_meta,
         "absorber": result.absorber_symbol,
         "e0": result.e0,
         "normalization": {
@@ -705,6 +719,8 @@ def process_sample(paths, outdir, align: bool = False,
         meta["structure_id"] = {
             "status": result.structure.get("status"),
             "confidence": result.structure.get("confidence"),
+            # 完整排名不截断：图包 Figure 1(f) 与候选对比需要全部候选。
+            "ranked": result.structure["ranked"],
             "top3": result.structure["ranked"][:3],
             "indistinguishable": result.structure["indistinguishable"],
             "uncovered_peaks": result.structure["uncovered_peaks"],
@@ -717,6 +733,9 @@ def process_sample(paths, outdir, align: bool = False,
                 result.structure["l1_first_shell"]
         if result.structure.get("l1_error"):
             meta["structure_id"]["l1_error"] = result.structure["l1_error"]
+        # 与 report 入口对齐：结构识别单文件落盘，便于下游/图包直接消费。
+        xafs_io.write_json(
+            outdir / f"{stem}_structure_id.json", meta["structure_id"])
     if result.fit:
         meta["fit"] = _fit_outputs(result.fit, outdir, stem)
         if formal_cn:
@@ -1128,16 +1147,10 @@ def main():
         deglitch = xafs_config.parse_deglitch(args.deglitch)
     except ValueError as exc:
         parser.error(str(exc))
-    lcf_standards = None
-    if args.lcf_standards:
-        lcf_standards = [s.strip() for s in args.lcf_standards.split(",")
-                         if s.strip()]
-        if not lcf_standards:
-            parser.error("--lcf-standards 至少需要一个端元文件")
-    vary_c3 = (None if args.vary_c3 is None
-               else ([0] if args.vary_c3 == "first" else True))
-    vary_c4 = (None if args.vary_c4 is None
-               else ([0] if args.vary_c4 == "first" else True))
+    if isinstance(args.lcf_standards, str) and args.lcf_standards.strip() \
+            and not [s.strip() for s in args.lcf_standards.split(",")
+                     if s.strip()]:
+        parser.error("--lcf-standards 至少需要一个端元文件")
 
     # ---- 配置文件加载与 CLI 合并（CLI 显式给出的优先；仅代码默认值时被覆盖）----
     config = xafs_config.load_config(args.config)
@@ -1595,6 +1608,8 @@ def main():
                     vary_c4=vary_c4,
                     isotropic_deltar=args.isotropic_deltar,
                     shared_sigma2=shared_sigma2,
+                    fit_space=args.fit_space,
+                    bvs_restraint=bvs_restraint,
                     mback=args.mback, chi_std=chi_std, chi_std_k=chi_std_k,
                     clamp_lo=args.clamp_lo, clamp_hi=args.clamp_hi,
                     catalytic_model=args.catalytic_model,

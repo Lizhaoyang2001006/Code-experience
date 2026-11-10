@@ -1,6 +1,6 @@
 # 催化剂 XAFS 分析：能力、结果、置信门禁与参数台账
 
-> 适用版本：P6.5（HEAD `a7d37b8` 之后的图包提交）
+> 适用版本：P6.6（图包分层与双入口产物对齐）
 > 代码依据：所有阈值均来自当前代码常量，不是文档口径。
 > 配套契约：`regression_test.py` 第 `#132` 项。
 
@@ -124,7 +124,7 @@
 |---|---|---|---|
 | `<stem>_chi.dat` / `_chik.csv` | k、χ、kⁿχ | **键长**：振荡频率；**配位数/无序**：振幅；**重散射体**：高 k 振荡；反应前后直接对比可看局域结构变化 | 振幅受 S₀²、自吸收、σ² 共同影响，不能单独把振幅当 N |
 | `<stem>_ft.dat` / `_chir.csv` | R、Re、Im、\|χ(R)\| | **壳层结构**：第一壳 M–O/N、第二壳 M–M/M–C；峰位给出表观键长；峰高给出相对配位/无序；实部/虚部用于拟合对比 | FT 峰位未做相移校正，不等于真实键长；真实键长看拟合 R 或 `_phase_corrected` |
-| `<stem>_chiq.csv` | q 空间反傅里叶 | 检查背景扣除/反变换质量；q 空间拟合可降低低 R 背景泄漏的影响 | 不是独立的结构信息，主要用于拟合质量与一致性 |
+| `<stem>_chiq.csv` | q 空间反傅里叶 | 检查背景扣除/反变换质量；q 空间拟合可降低低 R 背景泄漏的影响 | 两个入口都会落盘；不是独立的结构信息，主要用于拟合质量与一致性 |
 | `<stem>_rdf.csv` | 非高斯 g(R)（放开 C3/C4 时） | **非谐性/静态无序**：纳米颗粒表面弛豫、缺陷、界面应力；判断 σ² 是否被高斯模型低估 | 只有显式放开 C3/C4 才有；不要用它替代常规 CN |
 
 **催化解读示例：**
@@ -145,10 +145,10 @@
 
 | 输出 | 是什么 | 对催化剂分析的价值 | 注意事项 |
 |---|---|---|---|
-| `<stem>_structure_id.json` | 候选排名、score、margin、未解释峰、coverage | **物相判断**：最像哪个相、是否有并列/混合相/库缺条目；`partial` 提示模型不完整；`no_match` 提示库没有正确相，应改用用户 CIF 或 L1 | 这是诊断轨，不是正式晶体学证明；`confident` 也不等于结构确证 |
+| `<stem>_structure_id.json` | 候选排名（全量 `ranked` + `top3`）、score、margin、未解释峰、coverage | **物相判断**：最像哪个相、是否有并列/混合相/库缺条目；`partial` 提示模型不完整；`no_match` 提示库没有正确相，应改用用户 CIF 或 L1 | 这是诊断轨，不是正式晶体学证明；`confident` 也不等于结构确证 |
 | `<stem>_fit.json` | 拟合参数、误差、相关性、flags、`cn_status` | **配位数 N**：活性位饱和度/欠配位；**键长 R**：氧化态/吸附物；**σ²**：静态无序/缺陷；**ΔE0**：电子结构/模型偏差；**Rf**：模型质量；**flags**：哪些壳不可信 | N 与 σ² 强相关；看 `N_err`、`sigma2_at_bound`、`r_factor_bad` |
 | `<stem>_fit.csv` / `_fit_table.csv` | 壳层、N、N_err、R、R_err、σ²、Rf、N_idp、N_var | **论文 SI 表 S1**：直接给出每个壳的拟合参数与误差；跨样品比较活性位结构 | 表中 N 是简并度/有效简并度；`motif_weights` 模式下 N 不是 CN |
-| `<stem>_fit_table.png/.txt` | 拟合表图/文本 | 组会/审稿人快速审阅；与 `_xas.png` 配套 | 图中标题会标注 CN unreliable / weights mode |
+| `<stem>_fit_table.png` | 拟合表图 | 组会/审稿人快速审阅；与 `_xas.png` 配套 | 只由报告入口生成；原 `_fit_table.txt` 与 CSV 重复，P6.6 起不再输出 |
 | `<stem>_chi2_contour.*` | χ²(N, σ²) 置信椭圆 | **回应审稿人**：“N 和 σ² 是否强相关？” 直接展示 1σ/2σ/3σ 置信区；判断 CN 的不确定度是否被低估 | 只在有 S7 拟合时生成；椭圆形状依赖拟合窗口与模型 |
 
 **催化解读示例：**
@@ -212,27 +212,29 @@
 | `_exafs_evolution.csv/.png` | FT 随时间的演化 | **键长/无序变化**：反应条件下活性位是否重构、是否有金属–金属键生成 | FT 峰位是表观值；关键时间点应做正式拟合 |
 | `operando_meta.json` | 原位序列参数 + PCA/SPOIL/MCR 门禁 | 记录 `n_components`、接受/拒绝的标准谱、MCR Rf；保证原位分析可复现 | 与逐扫描的 `_meta.json` 分开 |
 
-### 4.9 催化剂结构图包（P6.5）
+### 4.9 催化剂结构图包（P6.5 / P6.6）
 
 `xafs_figure_pack.py` 只读已有输出，整理为可直接用于论文/组会/审稿回复
 的图包；不重新拟合、不改变 `cn_table.csv`、`fit.json`、`_meta.json` 或
-任何拒签逻辑。
+任何拒签逻辑。P6.6 起默认**不再重复渲染 28 张单面板图**，并取消
+`figures/data/` 中与父目录/逐面板 CSV 重复的副本。
 
 | 输出 | 是什么 | 对催化剂分析的价值 | 注意事项 |
 |---|---|---|---|
-| `figures/Figure1_master.png` | 8 面板结构总图：(a) XANES (b) χ(k) (c) FT (d) 小波 (e) 拟合壳层 (f) 结构识别 (g) 正式 CN 门禁 (h) 结构卡片 | 一张图解释“这个催化剂是什么结构、拟合到了什么、CN 是否过门禁” | 每个面板都有同名 CSV；缺失数据写 `skipped`，不伪造 |
-| `figures/Figure2_confidence.png` | 6 面板置信/过程仪表盘：门禁状态板、决策轨迹、参数来源、门禁表、决策表、关键参数表 | 回答“结果为什么可信/为什么被拒”，把 P6.4 台账直接变成图 | 阈值与 `_meta.json:gates` 一致 |
-| `figures/Figure3_diagnostics.png` | 8 面板拟合与误差诊断：参数相关矩阵、路径 N–R、CN 误差预算、Rbkg 寻优、归一化分解、拟合窗口、稳定性检查、扫描/数据质量 | 证明 N 的不确定度不是拍脑袋；定位 N–σ² 补偿、撞界、自吸收和过拟合 | 相关矩阵来自 `fit.json`；Rbkg 曲线需 `_meta.json:rbkg.table` |
-| `figures/Figure4_features.png` | 6 面板数据特征与输入清单：dμ/dE、q 空间、FT 峰识别、CIF 配位壳层、特征总表、输入文件清单（行数/大小/SHA256） | 补齐“峰在哪、q 空间是否正常、CIF 有哪些壳层、结果基于哪些文件” | 未识别峰提示模型缺壳层或多位点 |
+| `figures/Figure1_master.png` | 8 面板结构总图：(a) XANES (b) χ(k) (c) FT (d) 小波 (e) 拟合壳层 (f) 结构识别 (g) 正式 CN 门禁 (h) 结构卡片 | 一张图解释“这个催化剂是什么结构、拟合到了什么、CN 是否过门禁” | 每个面板在 `panels/` 有 CSV；缺失数据写 `skipped`，不伪造 |
+| `figures/Figure2_confidence.png` | 6 面板置信/过程仪表盘：门禁状态板、决策轨迹、参数来源、门禁表、决策表、关键参数表 | 回答“结果为什么可信/为什么被拒”，把 P6.4 台账直接变成图 | 阈值与 `_meta.json:gates` 一致；关键参数表限 14 行，完整值查 `all_parameters.csv` |
+| `figures/Figure3_diagnostics.png` | 8 面板拟合与误差诊断：参数相关矩阵、路径 N–R（标注 ΔR/σ²）、CN 误差预算、Rbkg 寻优、归一化分解、拟合窗口、稳定性检查、扫描/数据质量 | 证明 N 的不确定度不是拍脑袋；定位 N–σ² 补偿、撞界、自吸收和过拟合 | 相关矩阵来自 `fit.json`；Rbkg 曲线需 `_meta.json:rbkg.table` |
+| `figures/Figure4_features.png` | 6 面板数据特征与输入清单：dμ/dE、q 空间、FT 峰识别、CIF 配位壳层、特征总表、输入文件清单（行数/大小/SHA256） | 补齐“峰在哪、q 空间是否正常、CIF 有哪些壳层、结果基于哪些文件” | q 空间面板需两侧入口输出的 `_chiq.csv`；未识别峰提示模型缺壳层或多位点 |
 | `figures/Figure2g_cn_table.png` / `Figure2h_fit_table.png` | Table S1/S2 表格直接出图 | 论文补充材料；无需再用 Excel 排版 | CSV 保留完整列 |
-| `figures/<panel>.csv` | 每个面板实际绘图数据 | 图与数据一一对应，可直接重绘/复查 | 面板 `status=skipped` 时无 CSV |
-| `figures/data/` | 自包含数据包：源 JSON/CSV 副本、`all_fit_paths.csv`、`all_parameters.csv`、`fit_variants.csv`、`fit_correlation.csv`、`cif_shells.csv`、`structure_candidates.csv`、`gate_checks.csv`、`decisions.csv`、`panel_index.csv`、`summary.json`、`README.md` | 后续补图/补表不再回头挖输出目录；审稿回复可直接给长表 | 源副本不替代正式输出 |
-| `figures/figure_manifest.json` | Figure 1(a) ↔ CSV ↔ 源文件 ↔ 图注映射 | 机器可读索引，便于批量排版与追溯 | 记录面板状态与 skip 原因 |
+| `figures/panels/<panel>.csv` | 每个面板唯一的实际绘图数据 | 图与数据一一对应，可直接重绘/复查 | 面板 `status=skipped` 时无 CSV |
+| `figures/panels/<panel>.png` | 可选的单面板独立图 | 单独插入 PPT/补充材料 | 仅 `--standalone-panels` 时生成；默认不重复渲染 |
+| `figures/data/` | 跨面板汇总：`all_fit_paths.csv`、`all_parameters.csv`、`fit_variants.csv`、`gate_checks.csv`、`decisions.csv`、`panel_index.csv`、`summary.json`、`README.md` | 审稿回复可直接给长表；补图不必回挖输出目录 | 不再复制父目录源 JSON/CSV，也不重复逐面板表；权威原件仍在输出根目录 |
+| `figures/figure_manifest.json` | Figure 1(a) ↔ 总图/独立图 ↔ CSV ↔ 源文件 ↔ 图注映射 | 机器可读索引，便于批量排版与追溯 | 默认 `image` 指向所属总图；`--standalone-panels` 后指向 `panels/<id>.png` |
 | `figures/figure_pack.md` | 人可读索引 | 快速定位每个面板解释什么 | 与 manifest 同步生成 |
 
 两个入口均支持 `--figure-pack` / `--figure-formats` / `--figure-dpi`；
-`--operando` 明确不支持单结构总图，需对 `scan_XX` 目录单独运行
-`xafs_figure_pack.py`。
+独立 CLI 另有 `--standalone-panels`（默认关闭）。`--operando` 明确不支持
+单结构总图，需对 `scan_XX` 目录单独运行 `xafs_figure_pack.py`。
 
 ### 4.10 诊断图
 
@@ -603,7 +605,8 @@ gates.structure_id.action=library_miss_l1_fallback
 
 - 参数/门禁/决策/摘要台账：`xafs_provenance.py`
 - 催化剂结构图包：`xafs_figure_pack.py`
-- 契约：`regression_test.py` 第 `#132` 项（台账）与 `#133` 项（图包）
-- 当前契约基线：133 项（P6.5 收尾后）
+- 契约：`regression_test.py` 第 `#132` 项（台账）、`#133` 项（图包）
+  与 `#134` 项（双入口产物对齐/图包分层瘦身）
+- 当前契约基线：134 项（P6.6 收尾后）
 - 软件版本：`xafs-cn-p4plus`
 - 门禁常量冻结：`absorber.py` 静态 S₀² 表、`calibrate_s02.py` 门禁、44 条 phase pack 均未改动

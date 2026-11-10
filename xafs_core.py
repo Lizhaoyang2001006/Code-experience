@@ -300,3 +300,5 @@ class PipelineResult:
     xanes_features: dict = field(default_factory=dict)  # B2-1 XANES 定量特征/颈部指纹
     snr: Optional[dict] = None        # B9-2 高 k 信噪比诊断（high_k_snr 输出）
     xanes_cross_check: Optional[dict] = None  # T8 XANES–EXAFS 软校验（只警告）
+    chi_q: Optional[BackFourierTransform] = None  # S5b 第一壳反 FT χ(q)
+    data_sha256: str = ""             # 原始输入文件 SHA256（审计/复现）

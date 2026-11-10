@@ -6576,19 +6576,38 @@ O1 O 0 0 0 0.5
                 out, stem="fe", formats=("png",), dpi=72, verbose=False)
             figures = out / "figures"
 
+            # 顶层只放总图 / 表图 / 清单：不再被 28 张散装子图和 30 个 CSV 淹没。
             for name in ("Figure1_master.png", "Figure2_confidence.png",
                          "Figure3_diagnostics.png", "Figure4_features.png",
-                         "Figure1a_xanes.csv", "Figure2d_gate_table.png",
-                         "Figure2h_fit_table.png", "Figure3a_fitcorr.csv",
-                         "Figure3d_rbkg.png", "Figure4a_derivative.csv",
-                         "Figure4d_cif_shells.png", "figure_manifest.json",
-                         "figure_pack.md", "data/summary.json",
-                         "data/panel_index.csv", "data/all_fit_paths.csv",
-                         "data/fit_variants.csv",
-                         "data/fit_correlation.csv",
-                         "data/cif_shells.csv"):
+                         "Figure2g_cn_table.png", "Figure2h_fit_table.png",
+                         "figure_manifest.json", "figure_pack.md"):
                 self.assertTrue((figures / name).is_file(),
                                 f"缺少图包文件 {name}")
+            # 逐面板 CSV 收口到 panels/
+            for name in ("panels/Figure1a_xanes.csv",
+                         "panels/Figure2d_gate_table.csv",
+                         "panels/Figure2h_fit_table.csv",
+                         "panels/Figure3a_fitcorr.csv",
+                         "panels/Figure3d_rbkg.csv",
+                         "panels/Figure4a_derivative.csv",
+                         "panels/Figure4c_ft_peaks.csv",
+                         "panels/Figure4d_cif_shells.csv"):
+                self.assertTrue((figures / name).is_file(),
+                                f"缺少面板 CSV {name}")
+            # data/ 只留跨面板汇总，不再重复复制源文件或逐面板表。
+            for name in ("data/summary.json", "data/panel_index.csv",
+                         "data/all_fit_paths.csv", "data/fit_variants.csv",
+                         "data/all_parameters.csv", "data/gate_checks.csv",
+                         "data/decisions.csv", "data/README.md"):
+                self.assertTrue((figures / name).is_file(),
+                                f"缺少数据包文件 {name}")
+            for name in ("data/meta.json", "data/fit.json",
+                         "data/structure_id.json", "data/cn_table.csv",
+                         "data/fit_table.csv", "data/fit_correlation.csv",
+                         "data/cif_shells.csv", "data/structure_candidates.csv",
+                         "Figure1a_xanes.png", "Figure3d_rbkg.png"):
+                self.assertFalse((figures / name).is_file(),
+                                 f"不应重复落盘 {name}")
 
             on_disk = json.loads(
                 (figures / "figure_manifest.json").read_text(
@@ -6599,20 +6618,24 @@ O1 O 0 0 0 0.5
                             on_disk["notes"])
             by_label = {p["label"]: p for p in on_disk["panels"]}
             self.assertEqual(by_label["Figure 1(a)"]["csv"],
-                             "Figure1a_xanes.csv")
+                             "panels/Figure1a_xanes.csv")
             self.assertEqual(by_label["Table S1"]["image"],
                              "Figure2g_cn_table.png")
             self.assertEqual(by_label["Figure 3(a)"]["csv"],
-                             "Figure3a_fitcorr.csv")
+                             "panels/Figure3a_fitcorr.csv")
+            # 全量结构候选：图 1(f) 的 CSV 不截断到 Top-3/6
+            self.assertEqual(by_label["Figure 1(f)"]["n_rows"], 2)
             for panel in on_disk["panels"]:
                 self.assertIsNotNone(panel["image"], panel["label"])
                 self.assertIsNotNone(panel["csv"], panel["label"])
+                self.assertTrue((figures / panel["image"]).is_file(),
+                                f"{panel['label']} 图片缺失: {panel['image']}")
                 self.assertTrue((figures / panel["csv"]).is_file(),
                                 f"{panel['label']} CSV 缺失")
 
             for key in ("Figure1", "Figure2", "Figure3", "Figure4"):
                 self.assertIn(key, on_disk["masters"])
-            self.assertGreaterEqual(len(on_disk["data_files"]), 10)
+            self.assertGreaterEqual(len(on_disk["data_files"]), 8)
 
             summary = json.loads(
                 (figures / "data" / "summary.json").read_text(
@@ -6622,19 +6645,30 @@ O1 O 0 0 0 0.5
             self.assertGreaterEqual(summary["counts"]["fit_paths"], 2)
             self.assertGreaterEqual(summary["counts"]["cif_shells"], 2)
 
-            header = (figures / "Figure2h_fit_table.csv").read_text(
+            header = (figures / "panels" / "Figure2h_fit_table.csv").read_text(
                 encoding="utf-8").splitlines()[0]
             for col in ("shell", "n", "n_err", "n0", "r", "sigma2"):
                 self.assertIn(col, header)
-            header = (figures / "Figure4c_ft_peaks.csv").read_text(
+            header = (figures / "panels" / "Figure4c_ft_peaks.csv").read_text(
                 encoding="utf-8").splitlines()[0]
             for col in ("rank", "r_A", "amplitude", "assignment"):
                 self.assertIn(col, header)
 
-        # 两个入口都暴露 --figure-pack；独立 CLI 也暴露 --formats
+            # 需要单面板图时显式打开，落到 panels/ 而不是根目录。
+            xafs_figure_pack.build_pack(
+                out, stem="fe", formats=("png",), dpi=72,
+                standalone_panels=True, verbose=False)
+            for name in ("panels/Figure1a_xanes.png",
+                         "panels/Figure3d_rbkg.png",
+                         "panels/Figure4d_cif_shells.png"):
+                self.assertTrue((figures / name).is_file(),
+                                f"缺少独立面板图 {name}")
+
+        # 两个入口都暴露 --figure-pack；独立 CLI 也暴露 --formats/--standalone-panels
         for module, flag in ((run_xafs, "--figure-pack"),
                              (xafs_report, "--figure-pack"),
-                             (xafs_figure_pack, "--formats")):
+                             (xafs_figure_pack, "--formats"),
+                             (xafs_figure_pack, "--standalone-panels")):
             buf = io.StringIO()
             with patch.object(sys, "argv", ["prog", "--help"]), \
                     contextlib.redirect_stdout(buf), \
@@ -6643,6 +6677,108 @@ O1 O 0 0 0 0.5
                     module.main()
             self.assertIn(flag, buf.getvalue(),
                           f"{module.__name__} 缺少 {flag}")
+
+    def test_p6_6_entry_parity_and_streamlined_outputs(self):
+        """#134 P6.6：入口产物对齐与输出分层瘦身。
+
+        - report 的 meta 补齐 rbkg.table / plateau_ok / data_sha256 / L1 Rf；
+        - report CLI 暴露 --rbkg/--e0-method/--manual-e0/--kweight；
+        - run_xafs 落盘 _chiq.csv 与全量 _structure_id.json；
+        - figures/ 顶层只留总图/表图/清单，面板 CSV 在 panels/，data/ 无副本；
+        - --batch-dir 分支透传 fit_space/bvs_restraint。
+        """
+        import contextlib
+        import io
+        from unittest.mock import patch
+
+        import run_xafs
+        import xafs_figure_pack
+
+        # 1) report 入口：meta 完整 + 图包面板不再因缺字段跳过
+        with tempfile.TemporaryDirectory() as tmp:
+            xafs_report.main([
+                str(FE_FOIL), "--absorber", "Fe", "--no-strict",
+                "--fit-motif", "fe_bcc", "--no-html", "--no-window-tuner",
+                "--figure-pack", "--figure-dpi", "72", "-o", tmp])
+            out = Path(tmp)
+            meta = json.loads(
+                (out / "fe_meta.json").read_text(encoding="utf-8"))
+            self.assertTrue(meta["rbkg"].get("table"),
+                            "report 的 rbkg.table 未落盘")
+            self.assertIn("plateau_ok", meta["normalization"])
+            self.assertTrue(meta["source"].get("data_sha256"),
+                            "report 的 source.data_sha256 缺失")
+            self.assertIsNotNone(meta["fit"].get("r_factor"),
+                                 "fit.r_factor 不应为 None")
+            self.assertIsNotNone(meta["fit"].get("delta_e0"),
+                                 "fit.delta_e0 不应为 None")
+            self.assertFalse((out / "fe_fit_table.txt").exists(),
+                             "冗余 _fit_table.txt 不应再生成")
+            self.assertTrue((out / "fe_chiq.csv").is_file())
+            self.assertTrue((out / "fe_structure_id.json").is_file())
+
+            manifest = json.loads(
+                (out / "figures" / "figure_manifest.json").read_text(
+                    encoding="utf-8"))
+            by_label = {p["label"]: p for p in manifest["panels"]}
+            for label in ("Figure 1(f)", "Figure 3(d)", "Figure 4(b)"):
+                self.assertEqual(by_label[label]["status"], "ok",
+                                 f"{label} 不应跳过: {manifest['notes']}")
+            self.assertGreater(by_label["Figure 1(f)"]["n_rows"], 3,
+                               "结构候选仍被截断")
+            # 顶层无散装子图/CSV
+            top = {p.name for p in (out / "figures").iterdir()}
+            self.assertNotIn("Figure1a_xanes.png", top)
+            self.assertNotIn("Figure1a_xanes.csv", top)
+            self.assertTrue((out / "figures" / "panels"
+                             / "Figure1a_xanes.csv").is_file())
+            self.assertFalse((out / "figures" / "data" / "meta.json").exists())
+            self.assertFalse(
+                (out / "figures" / "data" / "fit_correlation.csv").exists())
+
+        # 2) run_xafs 入口：q 空间与全量结构候选落盘并进图包
+        with tempfile.TemporaryDirectory() as tmp:
+            run_xafs.process_sample(
+                [str(FE_FOIL)], Path(tmp), absorber="Fe", strict=False,
+                identify=True, fit=True, fit_motif="fe_bcc",
+                figure_pack=True, figure_dpi=72, verbose=False)
+            out = Path(tmp)
+            chiq = out / "fe_chiq.csv"
+            self.assertTrue(chiq.is_file(), "run_xafs 未落盘 _chiq.csv")
+            header = chiq.read_text(encoding="utf-8").splitlines()[0]
+            for col in ("q_inv_A", "chiq_re", "chiq_im", "chiq_mag"):
+                self.assertIn(col, header)
+            sid = json.loads(
+                (out / "fe_structure_id.json").read_text(encoding="utf-8"))
+            self.assertGreater(len(sid.get("ranked") or []), 3,
+                               "run_xafs 仍把结构候选截断到 <=3")
+            meta = json.loads(
+                (out / "fe_meta.json").read_text(encoding="utf-8"))
+            self.assertTrue(meta["source"].get("data_sha256"))
+            manifest = json.loads(
+                (out / "figures" / "figure_manifest.json").read_text(
+                    encoding="utf-8"))
+            by_label = {p["label"]: p for p in manifest["panels"]}
+            self.assertEqual(by_label["Figure 4(b)"]["status"], "ok",
+                             manifest["notes"])
+
+        # 3) report CLI 暴露 4 个参数；--batch-dir 不再漏传 fit_space/bvs
+        buf = io.StringIO()
+        with patch.object(sys, "argv", ["prog", "--help"]), \
+                contextlib.redirect_stdout(buf), \
+                contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                xafs_report.main()
+        for flag in ("--rbkg", "--e0-method", "--manual-e0", "--kweight"):
+            self.assertIn(flag, buf.getvalue(), f"xafs_report 缺少 {flag}")
+
+        src = Path(run_xafs.__file__).read_text(encoding="utf-8")
+        self.assertGreaterEqual(src.count("fit_space=args.fit_space"), 2,
+                                "--batch-dir 分支漏传 fit_space")
+        self.assertGreaterEqual(src.count("bvs_restraint=bvs_restraint"), 2,
+                                "--batch-dir 分支漏传 bvs_restraint")
+        self.assertIn("_structure_id.json", src)
+        self.assertIn("_chiq.csv", src)
 
     def test_p6_2_edge_entry_alignments(self):
         """#130 P6.2：frac:(x,y,z) 吸收位、P1b/P5 配置键镜像、XDI 自动元素回退与 report 异常分支。"""
