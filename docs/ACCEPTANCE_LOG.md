@@ -1666,8 +1666,8 @@ crawler 入库后按同一三扫描命令重跑，上述 r_factor/N/R 与 fit_ta
     S₀²=0.6566、N=7.933±0.489、R=2.517 Å、Rf=0.0219。
 - **补丁灾备**：`patches/` 仍在 `.gitignore`（普通 `git clean -fd`
   不会删，但 `-fdx` 会）。已将全部补丁推送到远端孤立分支
-  `patch/P6-archive`（当前快照 commit `8734fe8`，含 P4+ ~ P6.6 与
-  `patches/README.md`）；恢复命令
+  `patch/P6-archive`（含 P4+ ~ P6.6 与 `patches/README.md`，
+  快照随 main HEAD 刷新）；恢复命令
   `git checkout patch/P6-archive -- patches/`。主分支构建/回归
   不依赖该分支。
 
