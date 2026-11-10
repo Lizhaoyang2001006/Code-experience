@@ -89,6 +89,7 @@ sys.path.insert(0, str(ROOT))
 import artemis                        # noqa: E402
 import athena                         # noqa: E402
 import cn_table                       # noqa: E402
+import cn_disclosure                  # noqa: E402
 import larch_wt                       # noqa: E402
 import motif_provenance               # noqa: E402
 import phase_pack                     # noqa: E402
@@ -4047,6 +4048,72 @@ Ru1 Ru 0.5 0.5 0.5 0.3
         self.assertEqual(rows[0]["n_fit"], "")
         self.assertEqual(rows[0]["gate_status"], "no_cif")
         self.assertTrue(rows[0]["reject_reason"])
+
+    # ------------------------------------------------------------
+    # CN disclosure standard (docs/CN_REPORTING_STANDARD.md)
+    # ------------------------------------------------------------
+    @staticmethod
+    def _disclosure_payload():
+        return {
+            "path_files": ["feff0001.dat"],
+            "cn_status": "diagnostic_only",
+            "cn_systematics": {"relative_1sigma": 0.30},
+            "fit": {
+                "paths": [{"label": "M-O", "N": 4.0, "R": 2.0,
+                           "sigma2": 0.003}],
+                "s02": 0.8,
+                "delta_e0": 1.0,
+                "kmin": 3.0,
+                "kmax": 12.0,
+                "kweights": [2],
+                "rmin": 1.0,
+                "rmax": 2.2,
+                "r_factor": 0.02,
+                "n_independent": 12.0,
+                "n_variables": 5,
+            },
+            "structure": {
+                "source_type": "constructed_cluster",
+                "source_ref": "manual M-O4 cluster",
+                "cif": None,
+                "cif_declared": True,
+                "feff_inputs": ["feff.inp"],
+            },
+        }
+
+    def test_cn_disclosure_complete_payload(self):
+        """CN 披露标准：完整 payload 无问题。"""
+        self.assertEqual(
+            cn_disclosure.check_fit_payload(self._disclosure_payload()), [])
+
+    def test_cn_disclosure_flags_missing_provenance(self):
+        """CN 披露标准：缺结构来源/CN 状态必须报出。"""
+        payload = self._disclosure_payload()
+        payload.pop("structure")
+        payload.pop("cn_status")
+        issues = cn_disclosure.check_fit_payload(payload)
+        self.assertTrue(any("structure/CIF" in x for x in issues))
+        self.assertTrue(any("CN status" in x for x in issues))
+
+    def test_cn_disclosure_explicit_no_cif(self):
+        """CN 披露标准：cif=None 视为显式声明，不报 CIF 缺失。"""
+        issues = cn_disclosure.check_fit_payload(self._disclosure_payload())
+        self.assertFalse(any("CIF status" in x for x in issues))
+
+    def test_cn_disclosure_flags_diagnostic_mismatch(self):
+        """CN 披露标准：diagnostic_only 不得配 formal 状态。"""
+        payload = self._disclosure_payload()
+        payload["diagnostic_only"] = True
+        payload["cn_status"] = "formal"
+        issues = cn_disclosure.check_fit_payload(payload)
+        self.assertTrue(any("diagnostic" in x.lower() for x in issues))
+
+    def test_paper_figures_reuses_disclosure_check(self):
+        """paper_figures 复用项目级 CN 披露检查。"""
+        import paper_figures as pf
+
+        fit = pf.load_fit(self._disclosure_payload())
+        self.assertEqual(pf.validate_cn_disclosure(fit), [])
 
     # ------------------------------------------------------------
     # 79–82. P0b：motif provenance 升级

@@ -20,3 +20,5 @@ _standards_lib/
 *.log
 logs/
 patches/
+# 本机 SAC 诊断缓存（可由 motif 重建），不随仓库提交
+_structure_lib/_dynamic_cache/sac_67ee250afb79/

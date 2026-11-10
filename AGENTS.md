@@ -5,6 +5,7 @@
 1. `README.md`（能力、CLI、数值基准）
 2. `.trae/skills/xafs-pipeline-report/SKILL.md`（执行流程与交互规范）
 3. `.trae/skills/xafs-pipeline-report/references/pipeline-reference.md`（参数与门禁）
+4. `docs/CN_REPORTING_STANDARD.md`（CN 报告、结构/CIF 披露与状态分级）
 
 ## 工作方式
 
@@ -13,6 +14,8 @@
 - 吸收元素或边不确定时先问用户，不要猜。
 - 用户给原始谱文件时，先确认文件存在、格式（XDI / Athena `.prj` / 普通 dat）和吸收元素。
 - 输出统一写到 `xafs_out/<样品名>/`，不要覆盖已有结果。
+- CN 输出必须披露结构/CIF 来源、拟合参数和逐壳层状态；交付前运行
+  `python cn_disclosure.py <fit.json>`，或用 `paper_figures.py --strict-disclosure`。
 - 修改代码、提交、推送前先征得用户同意；不要擅自 `git clean`。
 
 ## CLI 入口

@@ -14,6 +14,9 @@ Artemis 的图形界面。
 | 核心入口 | `run_xafs.py` | 单样品全流程（处理 / 识别 / 拟合 / 正式 CN） |
 | 核心入口 | `calibrate_t5.py` | T5 独立 S₀² 标定（冻结门禁，不放宽） |
 | 核心入口 | `run_ci.py` | 回归契约 + 压力测试总入口 |
+| 论文出图 | `paper_figures.py` | 通用 XAFS 论文主图 + CN 拟合表 |
+| 报告检查 | `cn_disclosure.py` | 独立检查 fit JSON 的结构/CIF 披露与 CN 状态 |
+| 报告规范 | `docs/CN_REPORTING_STANDARD.md` | CN 报告、结构/CIF 披露、状态分级与交付清单 |
 | 构建期工具 | `tools/cif_crawler.py` | 固定 COD ID → 正式 phase pack（44 条真实 CIF） |
 | 构建期工具 | `tools/build_source_pool.py` | T5 谱源隔离池生成与校验 |
 | 结构库 | `_structure_lib/` | 诊断 motif + `_phase_pack/` 正式 CIF |
@@ -378,6 +381,19 @@ CIF 顶替。可用 `--structure-json` 传入或覆盖 provenance；模块 docst
 内是最小调用示例；本机 Pt 案例的完整产物和可复现脚本在
 `xafs_out/Pt1CeO2-flu_paper/`（分析产物不入库），通用检查表见
 `xafs_out/Pt1CeO2-flu_analysis/lessons_learned.md`。
+
+CN 报告的完整项目标准见 `docs/CN_REPORTING_STANDARD.md`（不依赖
+`xafs_out/`）。可单独检查任意 fit JSON：
+
+```powershell
+python cn_disclosure.py paper_out/sample_fit.json
+python cn_disclosure.py paper_out/sample_fit.json --warn-only
+```
+
+`paper_figures.py --strict-disclosure` 会把披露缺口从警告升级为错误；
+默认只警告，避免破坏历史脚本。检查结果也会写入 CN 表 Markdown 的
+`Disclosure warnings` 段和 CSV 的 `disclosure_status` /
+`disclosure_issues` 列。
 
 当前目录缺少 `data/standards_raw/`、`_standards_lib/` 或需要补齐 COD CIF 时，
 先运行构建期爬虫：

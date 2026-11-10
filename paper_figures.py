@@ -93,6 +93,7 @@ import athena           # noqa: E402
 import xafs_pipeline    # noqa: E402
 from absorber import get_absorber  # noqa: E402
 from xafs_core import FitResult, PipelineResult  # noqa: E402
+from cn_disclosure import check_fit_payload, cif_status  # noqa: E402
 
 # 控制台默认 GBK，打印 Å / σ² / Δ 会直接崩；入口统一改成 UTF-8。
 for _stream in (sys.stdout, sys.stderr):
@@ -761,14 +762,33 @@ def cn_rows(fit: FitData) -> list[dict]:
     return rows
 
 
-def _cif_status(s: dict) -> str:
-    if s.get("cif"):
-        return "provided"
-    if s.get("cif_sha256"):
-        return "hash_only"
-    if s.get("cif_declared") or s.get("_cif_declared"):
-        return "none"
-    return "not_stated"
+def validate_cn_disclosure(fit: FitData) -> list[str]:
+    """检查 CN 输出是否达到项目披露标准；只报告缺口，不改数值。
+
+    规则见 ``docs/CN_REPORTING_STANDARD.md``。空列表表示最低披露要求
+    已满足；任何问题都只影响报告文字/门禁，不影响拟合结果。
+    """
+    payload = {
+        "structure": fit.structure,
+        "path_files": list(fit.path_files or []),
+        "cn_status": fit.cn_status,
+        "cn_systematics": fit.cn_systematics or {},
+        "n_independent": fit.n_independent,
+        "n_variables": fit.n_variables,
+        "diagnostic_only": fit.diagnostic_only,
+        "fit": {
+            "paths": fit.paths,
+            "s02": fit.s02,
+            "delta_e0": fit.delta_e0,
+            "kmin": fit.kmin,
+            "kmax": fit.kmax,
+            "kweight": fit.kweight,
+            "rmin": fit.rmin,
+            "rmax": fit.rmax,
+            "r_factor": fit.r_factor,
+        },
+    }
+    return check_fit_payload(payload)
 
 
 def _structure_fields(fit: FitData) -> list[tuple[str, str]]:
@@ -938,16 +958,20 @@ def write_cn_csv(fit: FitData, out: str | Path, stem: str = "cn_table") -> Path:
         "model_level", "absorber_site", "provenance_status",
         "cif_status", "cif_file", "cif_sha256",
         "feff_inputs", "feff_input_sha256",
+        "disclosure_status", "disclosure_issues",
     ]
     budget = (fit.cn_systematics or {}).get("relative_1sigma")
     s = fit.structure or {}
+    disclosure_issues = validate_cn_disclosure(fit)
     struct_cols = [
         s.get("source_type") or "", s.get("source_ref") or "",
         s.get("phase_id") or "", s.get("model_level") or "",
         s.get("absorber_site") or "", s.get("provenance_status") or "",
-        _cif_status(s), s.get("cif") or "", s.get("cif_sha256") or "",
+        cif_status(s), s.get("cif") or "", s.get("cif_sha256") or "",
         "; ".join(str(x) for x in (s.get("feff_inputs") or [])),
         "; ".join(str(x) for x in (s.get("feff_input_sha256") or []) if x),
+        ("warn" if disclosure_issues else "ok"),
+        "; ".join(disclosure_issues),
     ]
     with open(path, "w", encoding="utf-8-sig", newline="") as fh:
         writer = csv.writer(fh)
@@ -984,6 +1008,10 @@ def write_cn_markdown(fit: FitData, out: str | Path,
     notes = [f"- **{r['shell']}**: {r['note']}" for r in rows if r["note"]]
     if notes:
         lines += ["", "**Notes**", ""] + notes
+    issues = validate_cn_disclosure(fit)
+    if issues:
+        lines += ["", "**Disclosure warnings**", ""]
+        lines += [f"- {issue}" for issue in issues]
     lines += ["", "**Structure / CIF provenance**", "",
               "| Field | Value |", "|---|---|"]
     for label, value in _structure_fields(fit):
@@ -1325,6 +1353,7 @@ def make_paper_figure(
     fit_path_files: Sequence[str | Path] | None = None,
     fit_kweight: int | None = None,
     structure: dict | None = None,
+    strict_disclosure: bool = False,
     fit_r_plot: tuple[float, float] | None = None,
     rmax_plot: float = 6.0,
     shade_rbkg: bool = True,
@@ -1358,6 +1387,9 @@ def make_paper_figure(
         结构/CIF provenance dict；与 fit JSON 自带的 ``structure`` 合并
         （本参数优先）。可用 ``structure_provenance(...)`` 构造。它只影响
         图注和 CN 表的披露文字，不参与任何拟合或数值判定。
+    strict_disclosure :
+        True 时若 CN 披露不完整（见 ``docs/CN_REPORTING_STANDARD.md``）
+        直接抛 ``ValueError``；默认只打印警告。
     fit_r_plot :
         R 空间拟合面板的横轴范围；默认 ``0 .. max(3.5, rmax+0.8)``。
     """
@@ -1395,6 +1427,17 @@ def make_paper_figure(
         raise ValueError(
             "fit JSON 缺少足够的 path_files；无法重建 (d)(e) 面板。"
             "请确认 fit JSON 含 path_files，或传 fit_path_files。")
+
+    disclosure_issues = validate_cn_disclosure(fit_data) if has_fit else []
+    if disclosure_issues:
+        if strict_disclosure:
+            raise ValueError(
+                "CN disclosure standard not met:\n  - "
+                + "\n  - ".join(disclosure_issues))
+        if verbose:
+            print("[paper] CN disclosure warnings:")
+            for issue in disclosure_issues:
+                print(f"        - {issue}")
 
     # ---- 画布 ----
     if has_fit:
@@ -1546,6 +1589,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--structure-json", default=None,
                    help="结构/CIF provenance JSON；与 fit JSON 自带的 "
                         "structure 合并后写入图注、CN 表和 CSV")
+    p.add_argument("--strict-disclosure", action="store_true",
+                   help="CN 披露不完整时直接报错；默认只打印警告")
     p.add_argument("--fit-r-plot", type=float, nargs=2, default=None,
                    metavar=("LO", "HI"), help="R 空间拟合面板横轴范围")
     p.add_argument("--rmax-plot", type=float, default=6.0,
@@ -1586,6 +1631,7 @@ def main(argv: list[str] | None = None) -> int:
         fit=args.fit_json,
         fit_kweight=args.fit_kweight,
         structure=structure,
+        strict_disclosure=args.strict_disclosure,
         fit_r_plot=(tuple(args.fit_r_plot) if args.fit_r_plot else None),
         rmax_plot=args.rmax_plot,
         shade_rbkg=not args.no_rbkg_shade,
