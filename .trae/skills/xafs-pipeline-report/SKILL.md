@@ -97,8 +97,9 @@ agent 从中提取处理参数（Rbkg/k 窗口…），不让用户翻译物理�
 2. 金属箔标样 → `python calibrate_s02.py <箔数据> --absorber X --no-strict [--apply]`
    （生产等效协议 + 3 窗口鲁棒性门禁，详见 references/pipeline-reference.md。
    当前已标定：Fe=0.803 / Co=0.7308 / Ni=0.7795 / Cu=0.8670 / Pt=0.8075（L3）；
-   **Fe 箔数据在现行协议下被门禁拒绝**（厚样谐波嫌疑），Fe 值由
-   氧化物价态验收结果锚定保留）
+   Fe 于 2026-11-10 用 BMM Fe-K-IronFoil.xdi 单壳 half_height 重标定
+   0.6566（3 窗口极差 0.0205；IIT-Lytle 5 µm 箔交叉 0.6335）——
+   该值只用于金属 Fe 交叉检查，不替换氧化物价态锚定的生产值 0.803）
 3. 该元素结构假设（CIF / 文献坐标 / 构造团簇）
    → 见 [references/structure-identification.md](references/structure-identification.md)
 
@@ -194,10 +195,12 @@ fit    = artemis.fit_r_space(chi_k, ft, datfiles, rmin, rmax, kmin=3.0,
 7. 验收（γ-FeOOH, k=3–12, S₀²=0.803）：
    Fe-O N=6.5±0.4 R=1.994；Fe-Fe(1) N=7.3±0.6 R=3.052（合并 6+2 边共享）；
    Fe-Fe(2) N=1.0±0.6 R=3.979；R-factor 0.074（简化 3 壳层模型）。
-   Fe 箔标定（2026-11 并列裁决后复核值）：Rbkg=0.80，N=6.8/7.6,
-   R=2.446/2.821, R-factor 0.0036, ΔE0=+0.64 eV。
-   （注：optimize_rbkg 的 5% 并列裁决将箔 Rbkg 从 0.90 改为 0.80，
-   拟合 R/Rf 不变、N 在误差棒内移动，S₀²=0.803 标定仍成立。）
+   Fe 箔单壳重标定（2026-11-10，交叉检查）：BMM Fe-K-IronFoil.xdi,
+   half_height, S₀²=0.6566（极差 0.0205）；生产单壳 N=7.93±0.49,
+   R=2.517 Å, Rf=0.0219, ΔE₀=+9.66 eV。**该值只适用于金属 Fe**；
+   氧化物验收仍用 0.803（0.6566 会使 Fe-O N 高约 22%）。
+   （历史 0.803 口径的箔复核值：Rbkg=0.80，N=6.8/7.6, R=2.446/2.821,
+   R-factor 0.0036, ΔE0=+0.64 eV。）
 
 ## 3. 绘图与导出层（xafs_report.py）
 

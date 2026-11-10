@@ -44,6 +44,11 @@ class AbsorberConfig:
 # K 边 kmax_ceiling 取 15（数据质量通常先于物理极限恶化）；
 # L 边按下一吸收边估算后取保守值。
 ABSORBERS = {
+    # 生产值 0.803：氧化物价态验收锚定的跨材料折中值（原始流程不可复原）。
+    # 金属 Fe 交叉标定（2026-11-10）: BMM Fe-K-IronFoil.xdi, fe_bcc 单壳
+    # N=8, E0=half_height → 0.6566（3 窗口 0.6471/0.6566/0.6676，极差
+    # 0.0205，Rf≤0.0422；IIT-Lytle 5 µm 箔交叉 0.6335）。该值只适用于
+    # 金属 Fe，不替换 0.803——否则 Fe 氧化物 CN 会高约 22%。
     "Fe": AbsorberConfig("Fe", 26, "K", 7112.0, 0.803, 15.0),
     "Co": AbsorberConfig("Co", 27, "K", 7709.0, 0.7308, 15.0),
     # 标定: Co 箔 co_hcp N=12, Rf=0.0001, 2026-11-05

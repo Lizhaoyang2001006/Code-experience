@@ -850,6 +850,7 @@ class RegressionTest(unittest.TestCase):
         fit1 = self.lep_fit["fit"]["fit"]
         out3 = xafs_fit.fit_identified(
             self.lep, absorber_symbol="Fe", kweights=(1, 2, 3),
+            s02=0.803,  # 固定历史口径，隔离多 k 权算法与静态标定值
             verbose=False)
         fit3 = out3["fit"]
         self.assertEqual(tuple(fit3.kweights), (1, 2, 3))
@@ -2013,7 +2014,8 @@ Ni1 Ni 0.5 0.5 0.5 0.4
             structure=None, absorber_symbol="Fe", self_absorption=None)
         out = xafs_fit.fit_identified(
             res, motif_id="lepidocrocite", absorber_symbol="Fe",
-            rmin=1.2, rmax=2.4, vary_c4=True, verbose=False)
+            rmin=1.2, rmax=2.4, vary_c4=True, s02=0.803,
+            verbose=False)
         fit = out["fit"]
         c4 = fit.paths[0].c4
         self.assertIsNotNone(c4, "vary_c4=True 未产生 C4 变量")
@@ -2809,7 +2811,7 @@ Ru1 Ru 0.5 0.5 0.5 0.3
         out_sac = xafs_fit.fit_identified(
             res_sac, absorber_symbol="Fe",
             catalytic_model="dac:Co@2.50,N4@2.00",
-            rmin=1.0, rmax=2.6, verbose=False)
+            rmin=1.0, rmax=2.6, s02=s02, verbose=False)
         self.assertEqual(out_sac["mode"], "motif")
         mm = out_sac["mm_bond_ftest"]
         self.assertIsNotNone(mm)
@@ -2823,7 +2825,7 @@ Ru1 Ru 0.5 0.5 0.5 0.3
         out_dac = xafs_fit.fit_identified(
             res_dac, absorber_symbol="Fe",
             catalytic_model="dac:Co@2.50,N4@2.00",
-            rmin=1.0, rmax=2.6, verbose=False)
+            rmin=1.0, rmax=2.6, s02=s02, verbose=False)
         self.assertEqual(out_dac["mode"], "motif")
         co = [p for p in out_dac["fit"].paths if "Co" in p.label]
         self.assertEqual(len(co), 1)
@@ -2854,7 +2856,8 @@ Ru1 Ru 0.5 0.5 0.5 0.3
         out_ax = xafs_fit.fit_identified(
             res_ax, absorber_symbol="Fe",
             catalytic_model="sac:N4@2.00,axial=O@2.10,C=none",
-            rmin=1.0, rmax=2.6, shared_sigma2="all", verbose=False)
+            rmin=1.0, rmax=2.6, shared_sigma2="all", s02=s02,
+            verbose=False)
         by_el = {("O" if "O" in p.label else "N"): p
                  for p in out_ax["fit"].paths}
         self.assertLess(abs(by_el["N"].degeneracy - 4.0), 0.5,
@@ -3735,7 +3738,7 @@ Ru1 Ru 0.5 0.5 0.5 0.3
 
         out = xafs_fit.run_operando_exafs_series(
             results, "Fe", catalytic_model="sac:O4@1.98,C=none",
-            share_sigma2_across_series=True)
+            share_sigma2_across_series=True, s02=0.803)
         self.assertEqual(out["motif"], motif.id)
         self.assertEqual(len(out["names"]), 4)
         label = out["shells"][0]

@@ -1587,3 +1587,63 @@ crawler 入库后按同一三扫描命令重跑，上述 r_factor/N/R 与 fit_ta
 - [x] 通过
 - 物理门禁、`absorber.py` 静态表（12 元素 `s02=None, calibrated=False`）、
   `calibrate_s02.py` 常量、44 条 phase pack 均未改动。
+
+## 16. Fe 箔 S₀² 可复现重标定与生产值决策（2026-11-10）
+
+### 16.1 背景
+
+- 审计问题：`absorber.py` 的 Fe=0.803 无原始标定流程可复现，仅由
+  氧化物（γ-FeOOH/lepidocrocite）价态验收结果锚定。
+- 目标：用真实箔数据 + `calibrate_s02.py` 既有门禁给出可复现值，
+  同时不破坏既有验收基线。
+
+### 16.2 主标定（BMM Fe-K-IronFoil.xdi）
+
+- 数据：`data/bmm_standards/Data/Fe/Fe-K-IronFoil.xdi`（393 点，
+  6912–7965 eV，已跟踪）。
+- 命令：
+  `python calibrate_s02.py "data\bmm_standards\Data\Fe\Fe-K-IronFoil.xdi" --absorber Fe --motif fe_bcc --fit-shells 1 --e0-method half_height --no-strict --force -o %TEMP%\fe_bmm_1sh_hh`
+- 结果：`E0=7119.9233 eV`，`fixed_CN=8`，`k=[3,12]`；
+  3 窗口 S₀²=0.6471/0.6566/0.6676（极差 0.0205），
+  `s02_err_max=0.0503`，`Rf_max=0.0422`，`ΔE₀≈+8.9 eV`，门禁 5/5 PASS。
+- 交叉检查：IIT-Lytle 5 µm Fe 箔（`fesol.009` 透射派生）同协议
+  → S₀²=0.6335（极差 0.02，`Rf_max=0.0419`），与 BMM 一致。
+- 失败候选（记录，不放宽门禁）：BMM 单壳 `derivative`（ΔE₀=+15）；
+  BMM 双壳 `half_height`/`derivative`；fe.060 双壳 `derivative`
+  （第二壳 σ² 撞下界）；fe.060 单壳 `half_height`。
+
+### 16.3 生产单壳验证（S₀²=0.6566）
+
+- 命令：
+  `python xafs_report.py "data\bmm_standards\Data\Fe\Fe-K-IronFoil.xdi" --absorber Fe --no-strict --fit-motif fe_bcc --fit-rmax 2.60 --e0-method half_height --no-html --no-window-tuner`
+- 结果：Fe-Fe@2.48 `N=7.933±0.489`（晶体学 8）、`R=2.517 Å`、
+  `σ²=0.0028`、`Rf=0.02187`、`ΔE₀=+9.66 eV`，`s02_source=absorber.py`。
+- 默认双壳（不传 `--fit-rmax`）在 0.6566 下给出 N=11.513/13.381，
+  说明该标定只对单壳 bcc 模型成立。
+
+### 16.4 决策：生产值保留 Fe=0.803
+
+- 零退化铁律要求默认 LEPIDO 第一壳 `N≈6.35`；若把静态值改为
+  0.6566，同模型 N≈7.845（×1.223），Fe 氧化物/羟基氧化物 CN 全体
+  偏高约 22%，验收基线退化。
+- 因此：`absorber.py` 生产值保持 **0.803**；0.6566 作为
+  **金属 Fe 专用交叉值**写入注释与文档，金属箔研究用
+  `--s02 0.6566 --fit-rmax 2.60`。
+- `calibrate_s02.py` 协议与门禁常量未改；`absorber.py` 其余 12 个
+  未标定元素仍 `s02=None, calibrated=False`。
+
+### 16.5 文档同步
+
+- `README.md`、`.trae/skills/xafs-pipeline-report/SKILL.md`、
+  `references/pipeline-reference.md`、`EXECUTION_MASTER_PLAN.md`
+  统一为“0.803 生产值 + 0.6566 金属交叉值”口径。
+
+### 16.6 测试与提交
+
+- `regression_test.py`：**134 项 OK**（341.1 s，exit 0），含默认
+  LEPIDO 第一壳 `N≈6.35` 零退化断言；标定契约断言 Fe=0.803。
+- 数值算法测试显式固定 `s02=0.803`，隔离静态标定值与拟合算法。
+- 提交仅含代码/文档；`_standards_lib/`、`data/standards_raw/`、
+  `logs/`、`patches/` 未提交，根目录 `lepidocrocite.cif` 保留。
+
+
