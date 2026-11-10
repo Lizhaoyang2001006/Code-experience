@@ -1,8 +1,8 @@
 diff --git a/.trae/skills/xafs-pipeline-report/SKILL.md b/.trae/skills/xafs-pipeline-report/SKILL.md
-index a603cf7..66134c3 100644
+index a603cf7..d35a64e 100644
 --- a/.trae/skills/xafs-pipeline-report/SKILL.md
 +++ b/.trae/skills/xafs-pipeline-report/SKILL.md
-@@ -97,8 +97,9 @@ agent 从中提取处理参数（Rbkg/k 窗口…），不让用户翻译物理
+@@ -97,8 +97,10 @@ agent 从中提取处理参数（Rbkg/k 窗口…），不让用户翻译物理
  2. 金属箔标样 → `python calibrate_s02.py <箔数据> --absorber X --no-strict [--apply]`
     （生产等效协议 + 3 窗口鲁棒性门禁，详见 references/pipeline-reference.md。
     当前已标定：Fe=0.803 / Co=0.7308 / Ni=0.7795 / Cu=0.8670 / Pt=0.8075（L3）；
@@ -10,11 +10,12 @@ index a603cf7..66134c3 100644
 -   氧化物价态验收结果锚定保留）
 +   Fe 于 2026-11-10 用 BMM Fe-K-IronFoil.xdi 单壳 half_height 重标定
 +   0.6566（3 窗口极差 0.0205；IIT-Lytle 5 µm 箔交叉 0.6335）——
-+   该值只用于金属 Fe 交叉检查，不替换氧化物价态锚定的生产值 0.803）
++   该值只用于金属 Fe 交叉检查（`--chemical-state metal`），
++   不替换氧化物价态锚定的生产值 0.803）
  3. 该元素结构假设（CIF / 文献坐标 / 构造团簇）
     → 见 [references/structure-identification.md](references/structure-identification.md)
  
-@@ -120,12 +121,14 @@ res = xafs_pipeline.process_sample(files, align=True, absorber="Fe", strict=Fals
+@@ -120,12 +122,14 @@ res = xafs_pipeline.process_sample(files, align=True, absorber="Fe", strict=Fals
  # strict=False：降级为警告（已知标样如厚 Fe 箔平台 0.79 用）。
  ```
  
@@ -31,7 +32,7 @@ index a603cf7..66134c3 100644
  ```
  
  需要逐步调用时的底层签名与陷阱见
-@@ -192,10 +195,12 @@ fit    = artemis.fit_r_space(chi_k, ft, datfiles, rmin, rmax, kmin=3.0,
+@@ -192,10 +196,13 @@ fit    = artemis.fit_r_space(chi_k, ft, datfiles, rmin, rmax, kmin=3.0,
  7. 验收（γ-FeOOH, k=3–12, S₀²=0.803）：
     Fe-O N=6.5±0.4 R=1.994；Fe-Fe(1) N=7.3±0.6 R=3.052（合并 6+2 边共享）；
     Fe-Fe(2) N=1.0±0.6 R=3.979；R-factor 0.074（简化 3 壳层模型）。
@@ -42,13 +43,14 @@ index a603cf7..66134c3 100644
 +   Fe 箔单壳重标定（2026-11-10，交叉检查）：BMM Fe-K-IronFoil.xdi,
 +   half_height, S₀²=0.6566（极差 0.0205）；生产单壳 N=7.93±0.49,
 +   R=2.517 Å, Rf=0.0219, ΔE₀=+9.66 eV。**该值只适用于金属 Fe**；
-+   氧化物验收仍用 0.803（0.6566 会使 Fe-O N 高约 22%）。
++   金属链用 `--chemical-state metal --fit-rmax 2.60`；氧化物验收仍用
++   0.803（0.6566 会使 Fe-O N 高约 22%）。
 +   （历史 0.803 口径的箔复核值：Rbkg=0.80，N=6.8/7.6, R=2.446/2.821,
 +   R-factor 0.0036, ΔE0=+0.64 eV。）
  
  ## 3. 绘图与导出层（xafs_report.py）
  
-@@ -204,18 +209,21 @@ fit    = artemis.fit_r_space(chi_k, ft, datfiles, rmin, rmax, kmin=3.0,
+@@ -204,18 +211,21 @@ fit    = artemis.fit_r_space(chi_k, ft, datfiles, rmin, rmax, kmin=3.0,
  `export_indicators`（数据）。**优先复用该模块，不要从零写图。**
  逐面板规格见 [references/figure-spec.md](references/figure-spec.md)。
  
@@ -110,7 +112,7 @@ index f34f7fd..79716a8 100644
  无文件参数或 `--demo` 运行内置 lepidocrocite + Fe 箔示例。
  FEFF 结果缓存在 `_feff_cache\`，重复运行不重算。
 diff --git a/.trae/skills/xafs-pipeline-report/references/pipeline-reference.md b/.trae/skills/xafs-pipeline-report/references/pipeline-reference.md
-index dee1d7e..f48b189 100644
+index dee1d7e..7dbd8fc 100644
 --- a/.trae/skills/xafs-pipeline-report/references/pipeline-reference.md
 +++ b/.trae/skills/xafs-pipeline-report/references/pipeline-reference.md
 @@ -242,9 +242,14 @@ python calibrate_s02.py ... --force     # 覆盖已有标定值（重标定是
@@ -127,11 +129,19 @@ index dee1d7e..f48b189 100644
 +  0.6566 只对单壳 bcc 模型成立；默认双壳 fit 会把 N 抬到 11.5/13.4，
 +  金属箔定量须 `--fit-rmax 2.60`。**该值只适用于金属 Fe**：生产值
 +  0.803 保留为氧化物价态锚定；0.6566 会使 Fe 氧化物 CN 高约 22%，
-+  需要金属口径时显式 `--s02 0.6566`。
++  需要金属口径时显式 `--chemical-state metal`（等价 `--s02 0.6566`）。
  - 标定结果存 `xafs_out/_cal_<elem>/calibration.json`（runs/kw 诊断/门禁全留档）。
  - **describe_paths 返回的 file 是相对文件名**（feff0001.dat），拼路径
    必须加 FEFF 工作目录，否则 feffpath() 抛 "not found"。
-@@ -381,7 +386,7 @@ for name, kmax, files, vn in configs:
+@@ -361,6 +366,7 @@ fit_r_space(chi_k, ft, datfiles, rmin, rmax, kmin=3.0, kmax=12.0,
+ ### 诊断脚本模板（临时文件 _diag.py，跑完删）
+ ```python
+ from absorber import get_absorber        # s02 一律查标定表，不再硬编码
++# 金属 Fe 显式化学态：resolve_s02("Fe", "metal") -> 0.6566；默认仍 0.803
+ for name, kmax, files, vn in configs:
+     ft = athena.ft_to_r_space(chi_k.k, chi_k.chi, None, 3.0, kmax, 2)
+     fit = artemis.fit_r_space(chi_k, ft, files, 1.0, 3.9,
+@@ -381,7 +387,7 @@ for name, kmax, files, vn in configs:
  | WT 第一壳 | k≈5.7, R≈1.46 Å | 同上 |
  | Fe 箔拟合 | N=6.8±0.7/7.4±0.8, R=2.447/2.822, Rf=0.0037 | fe.060/150/300 |
  | lepido 拟合 | N=6.5/7.3/1.0, R=1.994/3.052/3.979, Rf=0.0737 | 3 壳层, k=3–12 |
@@ -140,7 +150,7 @@ index dee1d7e..f48b189 100644
  | Pt 箔 L3 拟合 | N=11.69±0.22, R=2.764 Å, Rf=0.0038, ΔE₀=+8.12 | Pt-L3-PlatinumFoil, pt_fcc |
  | Pt–Cl L1（ligand=Cl） | N=3.98±0.14, R=2.302 Å, Rf=0.0228 | K₂PtCl₄（平方平面 CN=4） |
  | LEPIDO 默认拟合（B4-1） | Rf=0.0273, N=6.35, R=2.002 Å；ε_R=0.009899, χ²_ν=314.2 | 3 扫描合并；F-test F=32.34, confidence=0.9991 |
-@@ -389,12 +394,13 @@ for name, kmax, files, vn in configs:
+@@ -389,12 +395,13 @@ for name, kmax, files, vn in configs:
  | LEPIDO WT 切片（B3-1） | Fe–O k_peak=5.5, Fe–Fe k_peak=6.4 Å⁻¹（kmin=2.5） | 2D WT R-factor=0.046 |
  | LEPIDO C3（B4-2） | C3=+1.0315e-3 Å³, R=2.046 Å, CN=5.5 | `--vary-c3 first`；默认 R=2.002/N=6.35 |
  
@@ -160,7 +170,7 @@ index dee1d7e..f48b189 100644
  
  ## 工程化与诊断增强（P1，2026-11）
  
-@@ -428,8 +434,9 @@ python xafs_report.py <谱文件> --absorber Fe --config xafs.yaml --no-strict
+@@ -428,8 +435,9 @@ python xafs_report.py <谱文件> --absorber Fe --config xafs.yaml --no-strict
  S1.5–S3 之间插入中值滑窗（窗口=5）+ MAD 门禁（阈值=3×MAD），默认关闭。
  实测 lepidocrocite 替换 79 个离群点，E0/edge_step/Rbkg 结果与未去毛刺一致。
  
@@ -415,7 +425,7 @@ index ca86d93..0000000
 -
 -**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 127+4 CI 全部通过；phase pack 已由 P5-C 扩到 44 条；T5 独立标定 12/12（静态表未改），运行期可用 `--s02-from-t5` 溯源，T7 多元素、T8 联合校验与 P5-D 多位点正式 CN 已实现；P5-prep 隔离池 5 元素在 P5-S02 换谱后全部 resolved。**
 diff --git a/EXECUTION_MASTER_PLAN.md b/EXECUTION_MASTER_PLAN.md
-index 8532b33..cf989ff 100644
+index 8532b33..2bdeb04 100644
 --- a/EXECUTION_MASTER_PLAN.md
 +++ b/EXECUTION_MASTER_PLAN.md
 @@ -21,7 +21,8 @@
@@ -424,12 +434,12 @@ index 8532b33..cf989ff 100644
  4. **物理诚实铁律**：
 -   - **严禁**修改 `absorber.py` 中已标定的 $S_0^2$ 值（Fe=0.803, Co=0.7308, Ni=0.7795, Cu=0.8670, Pt=0.8075）；
 +   - **严禁无标定地修改** `absorber.py` 中已标定的 $S_0^2$ 值（Fe=0.803, Co=0.7308, Ni=0.7795, Cu=0.8670, Pt=0.8075）；任何重标定必须通过 `calibrate_s02.py` 门禁并记录数据、命令与窗口极差；
-+   - Fe=0.803 是氧化物价态验收锚定的跨材料生产值（原始流程不可复原）；2026-11-10 BMM Fe-K-IronFoil.xdi 单壳 bcc 交叉标定 0.6566（IIT-Lytle 5 µm 箔 0.6335）**只适用于金属 Fe**，不替换 0.803（替换会使 Fe 氧化物 CN 高约 22%，违反第 2 条零退化铁律）；金属 Fe 定量用 `--s02 0.6566 --fit-rmax 2.60`；
++   - Fe=0.803 是氧化物价态验收锚定的跨材料生产值（原始流程不可复原）；2026-11-10 BMM Fe-K-IronFoil.xdi 单壳 bcc 交叉标定 0.6566（IIT-Lytle 5 µm 箔 0.6335）**只适用于金属 Fe**，不替换 0.803（替换会使 Fe 氧化物 CN 高约 22%，违反第 2 条零退化铁律）；金属 Fe 定量用 `--chemical-state metal --fit-rmax 2.60`（等价 `--s02 0.6566`）；
     - **严禁**为了降低 R-factor 放宽 `cn_reliable` 门禁或插值伪造实验数据点。
  5. **Windows PowerShell 环境防坑铁律**：
     - PowerShell 不支持 `&&`（必须用 `;` 或分行），不支持 `python -c` 多行含花括号脚本（一律写临时 `.py` 文件执行后删除）；
 diff --git a/README.md b/README.md
-index b02db64..adf94b4 100644
+index b02db64..78f8e16 100644
 --- a/README.md
 +++ b/README.md
 @@ -20,9 +20,11 @@ Artemis 的图形界面。
@@ -445,18 +455,28 @@ index b02db64..adf94b4 100644
  
  ## 安装
  
-@@ -93,7 +95,9 @@ python xafs_report.py
+@@ -61,7 +63,8 @@ python xafs_report.py
+ - 未在 absorber.py 标定 S₀² 的新元素：拒绝 CN 定量；可用运行时
+   `--s02 <值>` 显式覆盖，或对 T5 已通过元素用 `--s02-from-t5`
+   从独立产物读取（现有 Fe/Co/Ni/Cu/Pt 均已标定；T5 产物见下文，
+-  不写静态表）；
++  不写静态表）；Fe 金属相用 `--chemical-state metal`（0.6566），
++  Fe 氧化物/羟基氧化物保持默认 0.803；
+ - `--fit-weights`（仅 `kind="mixture"`）：固定每路径晶体学简并度，
+   用 softmax 放开各组分权重（恒正、和=1），输出 `mixture_weights`
+   `[{group, weight, weight_err}]`。此时表里的 `N` 是**有效简并度
+@@ -93,7 +96,9 @@ python xafs_report.py
  | `calibrate_s02.py` | 标定 S₀²（金属箔/氧化物标样，生产等效协议；`--motif-file` 用标定专用结构） |
  | `calibrate_t5.py` | T5 批量标定 12 元素，产物落 `data/s02_calibration/`（不改静态表） |
  | `absorber.py` | 吸收元素配置表（边能量/S₀²/kmax），元素泛化唯一入口 |
 -| `regression_test.py` | 126 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝、P5-C 18 个常见相 COD 补齐/coverage 无缺口、P5-prep 标准谱源隔离池/5 元素门禁冻结） |
-+| `regression_test.py` | 134 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝、P5-C 18 个常见相 COD 补齐/coverage 无缺口、P5-prep 标准谱源隔离池/5 元素门禁冻结、P5-D 多位点正式 CN、P6 phase pack 44/44 门禁、P6.1 单晶位正式 CN 与诊断库解耦、P6.2 边界入口对齐、P6.3 双入口配置/operando 守卫、P6.4 参数/门禁/决策/摘要台账与打印开关、P6.5 催化剂结构图包/逐面板 CSV/数据包、P6.6 双入口产物对齐/图包分层瘦身/q 空间与全量结构候选落盘） |
++| `regression_test.py` | 135 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、化学态 S₀² 多态（Fe metal 0.6566）、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝、P5-C 18 个常见相 COD 补齐/coverage 无缺口、P5-prep 标准谱源隔离池/5 元素门禁冻结、P5-D 多位点正式 CN、P6 phase pack 44/44 门禁、P6.1 单晶位正式 CN 与诊断库解耦、P6.2 边界入口对齐、P6.3 双入口配置/operando 守卫、P6.4 参数/门禁/决策/摘要台账与打印开关、P6.5 催化剂结构图包/逐面板 CSV/数据包、P6.6 双入口产物对齐/图包分层瘦身/q 空间与全量结构候选落盘） |
 +| `xafs_provenance.py` | P6.4 输出台账：参数来源、门禁命中、决策轨迹、结果摘要（只记录，不判定） |
 +| `xafs_figure_pack.py` | P6.5/P6.6 图包后处理：Figure 1–4 总图、表格图、`figures/panels/` 逐面板 CSV、`figures/data/` 跨面板汇总；默认不重复渲染单面板（只读已有输出，不重新拟合） |
  | `run_ci.py` | 跨平台 CI：编译 + 契约回归 + 可选压力测试，输出 ci_report.json/md |
  | `stress_test_{co,ni,cu,nio}.py` | 元素泛化/护栏/CN 回收压力测试 |
  | `xafs_config.py` | 配置文件支持（.yaml/.json）、批处理入口（--batch-dir） |
-@@ -104,16 +108,25 @@ python xafs_report.py
+@@ -104,16 +109,33 @@ python xafs_report.py
  
  | 元素 | S₀² | 箔相假设 | 数据 | 窗口极差 |
  |------|-------|----------|------|----------|
@@ -477,16 +497,37 @@ index b02db64..adf94b4 100644
 +`fe_bcc` 第一壳 N=8 固定，E0=half_height，3 窗口
 +S₀²=0.6471/0.6566/0.6676（极差 0.0205），Rf≤0.0422，ΔE₀≈+8.9 eV，
 +门禁 5/5；IIT-Lytle 5 µm Fe 箔独立交叉检查 0.6335（极差 0.02）。
-+生产单壳拟合（`--fit-rmax 2.60 --s02 0.6566`）回收 N=7.93±0.49
++生产单壳拟合（`--fit-rmax 2.60 --chemical-state metal`）回收 N=7.93±0.49
 +（晶体学 8）、R=2.517 Å、Rf=0.0219。**该值只对单壳 bcc 模型成立**：
 +默认双壳拟合会把 N 抬到 11.5/13.4。它不能直接替代生产值 0.803——
 +0.803 是氧化物价态验收锚定的跨材料折中值（原始流程不可复原），改用
 +0.6566 会使 Fe 氧化物/羟基氧化物 CN 高约 22%（lepidocrocite 第一壳
-+N≈7.8）。金属 Fe 研究用 `--s02 0.6566`；氧化物 CN 保持默认 0.803。
++N≈7.8）。金属 Fe 研究用 `--chemical-state metal`（等价 `--s02 0.6566`，
++来源记为 `chemical_state:Fe=metal`）；氧化物 CN 保持默认 0.803。
++
++金属 Fe 生产链示例：
++
++```powershell
++python xafs_report.py foil.xdi --absorber Fe --fit-motif fe_bcc \
++  --chemical-state metal --fit-rmax 2.60
++```
  
  **T5 独立标定产物（12 个未标定元素，2026-11-09）：**
  
-@@ -226,12 +239,29 @@ python run_xafs.py <谱文件> --absorber Fe --config xafs.yaml
+@@ -159,7 +181,11 @@ python run_xafs.py Cr-K-Cr2O3.xdi --absorber Cr --s02-from-t5 --identify --fit
+ - `--s02-from-t5`：从 `data/s02_calibration/<元素>/calibration.json` 读取
+   T5 已通过元素的 S₀²；只接受 `status="calibrated"` 且
+   `static_absorber_py_unchanged=True` 的产物，未通过元素明确拒绝。
+-  优先级 `--multi-element-s02` > 全局 `--s02` > T5 产物。
++  优先级 `--multi-element-s02` > 全局 `--s02` > `--chemical-state`
++  > T5 产物 > 静态表。
++- `--chemical-state`：化学态 S₀² 多态，支持 `metal` 或
++  `Fe=metal,Co=metal`。当前仅 Fe 金属相有交叉标定 0.6566；默认
++  生产值仍为 0.803，静态表只读。未列出的逐元素映射继续走 T5/静态表。
+ - `--xanes-cross-check`：归一化平台、边步、E0 导数双峰、白线可靠性与位置、
+   K 边极端 CN–白线对比、荧光自吸收风险；只写警告到
+   `<stem>_meta.json.xanes_cross_check`，`affects_cn_reliable=False`，
+@@ -226,12 +252,29 @@ python run_xafs.py <谱文件> --absorber Fe --config xafs.yaml
  S1.5–S3 之间插入中值滑窗（窗口=5）+ MAD 门禁（阈值=3×MAD），默认关闭。
  实测 lepidocrocite 替换 79 个离群点，E0/edge_step/Rbkg 结果与未去毛刺一致。
  
@@ -522,12 +563,12 @@ index b02db64..adf94b4 100644
  
  ### 多 kweight / σ 的 WT 对比（S8，`--wt-sweep`）
  `xafs_diagnostics.wt_sweep` 在 FT 第一峰 ±0.5 Å 锚定下扫描 σ∈{1.0,1.5,2.0}
-@@ -273,12 +303,43 @@ FT 内核嵌进页面，浏览器里拖 kmin/kmax/kweight/dk，实时看 `|χ(R)
+@@ -273,12 +316,43 @@ FT 内核嵌进页面，浏览器里拖 kmin/kmax/kweight/dk，实时看 `|χ(R)
  
  ### CI 自动化回归
  ```powershell
 -python run_ci.py            # 编译 + 74 项契约回归
-+python run_ci.py            # 编译 + 134 项契约回归
++python run_ci.py            # 编译 + 135 项契约回归
  python run_ci.py --stress   # 额外跑 Co/Ni/Cu/NiO 压力测试
  ```
  产物 `ci_report.json` / `ci_report.md`；任一步失败即非零退出。
@@ -567,7 +608,7 @@ index b02db64..adf94b4 100644
  ### 批处理输出目录
  `--batch-dir` 的输出优先级：显式 `-o` > 配置文件 `batch.outdir` >
  默认 `xafs_out_batch`。
-@@ -298,7 +359,7 @@ python run_ci.py --stress   # 额外跑 Co/Ni/Cu/NiO 压力测试
+@@ -298,7 +372,7 @@ python run_ci.py --stress   # 额外跑 Co/Ni/Cu/NiO 压力测试
  
  ### B1-2 Back-FT χ(q)
  `athena.back_ft_to_q_space(r, chi_r, rmin, rmax, dr)` 对选定 R 窗做
@@ -576,19 +617,20 @@ index b02db64..adf94b4 100644
  的相位/振幅，不引入新的拟合变量。
  
  ### B1-3 受约束多散射（MS）
-@@ -852,7 +913,9 @@ Ni–O 6.67/2.0698 Å、Ni–Ni 7.64/3.1255 Å）；CuO top1=`cuo_tenorite`
+@@ -852,7 +926,10 @@ Ni–O 6.67/2.0698 Å、Ni–Ni 7.64/3.1255 Å）；CuO top1=`cuo_tenorite`
  - **S₀² 是本管线归一化约定下的相对值**。`absorber.py` 已有 Fe 0.803、
    Co 0.7308、Ni 0.7795、Cu 0.8670、Pt 0.8075（真实箔标定，协议见
    `calibrate_s02.py` 模块注释：N 固定晶体学、生产等效拟合、3 窗口鲁棒性
 -  门禁、kw 敏感性只记录不门禁）。S₀² 跨管线不可移植。
 +  门禁、kw 敏感性只记录不门禁）。S₀² 跨管线不可移植；Fe 的 0.803 是
 +  氧化物价态锚定的跨材料折中值，BMM 箔单壳重标定 0.6566 只适用于
-+  金属 Fe（氧化物 CN 用 0.6566 会高约 22%）。
++  金属 Fe（氧化物 CN 用 0.6566 会高约 22%）；金属链显式
++  `--chemical-state metal`。
  - **形式误差 ≠ 绝对精度**。`N_err` 只来自最小二乘协方差；S₀² 传递、
    代表路径/壳层合并、N–σ²–ΔE₀ 相关和归一化偏差会带来约 ±20–40%
    的系统误差。输出里的 `cn_reliable` 和 `cn_systematic_budget` 必须一起看。
 diff --git a/absorber.py b/absorber.py
-index fa3e44c..84c6f8b 100644
+index fa3e44c..4b12808 100644
 --- a/absorber.py
 +++ b/absorber.py
 @@ -44,6 +44,11 @@ class AbsorberConfig:
@@ -603,6 +645,78 @@ index fa3e44c..84c6f8b 100644
      "Fe": AbsorberConfig("Fe", 26, "K", 7112.0, 0.803, 15.0),
      "Co": AbsorberConfig("Co", 27, "K", 7709.0, 0.7308, 15.0),
      # 标定: Co 箔 co_hcp N=12, Rf=0.0001, 2026-11-05
+@@ -97,3 +102,71 @@ def get_absorber(symbol: str) -> AbsorberConfig:
+             "absorber", f"元素 {symbol} 未收录。已收录: {sorted(ABSORBERS)}。"
+                         f"新元素需按 absorber.py 头注的三步流程接入")
+     return ABSORBERS[key]
++
++
++# 化学态多态：静态表 ``s02`` 仍是默认生产值；只有显式选择化学态时才
++# 返回态特异值。当前仅 Fe 金属相有真实箔交叉标定（0.6566），氧化物/
++# 羟基氧化物继续沿用默认 0.803。新增态必须通过 calibrate_s02.py 门禁。
++S02_CHEMICAL_STATES: dict[str, dict[str, float]] = {
++    "Fe": {"metal": 0.6566},
++}
++
++
++def resolve_s02(symbol: str, chemical_state: str | None = None) -> float | None:
++    """解析元素 S₀²；``chemical_state=None`` 等同 ``get_absorber().s02``。
++
++    化学态仅作显式 opt-in，不修改静态表（零退化）。未知态、或该元素
++    没有对应态标定时抛 ``XAFSConfigError``，不静默退回默认值。
++    """
++    cfg = get_absorber(symbol)
++    if chemical_state is None:
++        return cfg.s02
++    state = str(chemical_state).strip().lower()
++    states = S02_CHEMICAL_STATES.get(cfg.symbol, {})
++    if state not in states:
++        available = ", ".join(sorted(states)) or "无"
++        raise XAFSConfigError(
++            "absorber",
++            f"{cfg.symbol} 没有化学态 {chemical_state!r} 的 S₀² 标定；"
++            f"可用化学态: {available}。未标定元素请显式传 --s02")
++    return states[state]
++
++
++def resolve_s02_spec(symbol: str, spec: str | None
++                     ) -> tuple[float | None, str | None]:
++    """解析 CLI 化学态表达式，返回 ``(s02, source)``。
++
++    支持两种写法：
++    - ``metal``：全局态，应用到当前元素；无该态标定则报错；
++    - ``Fe=metal,Co=metal``：逐元素映射，当前元素未列出时返回
++      ``(None, None)``，由调用方继续走 T5/静态表优先级。
++    """
++    if spec is None or not str(spec).strip():
++        return None, None
++    text = str(spec).strip()
++    cfg = get_absorber(symbol)
++    if "=" not in text:
++        return (resolve_s02(cfg.symbol, text),
++                f"chemical_state:{cfg.symbol}={text.strip().lower()}")
++    mapping: dict[str, str] = {}
++    for part in text.split(","):
++        part = part.strip()
++        if not part:
++            continue
++        if "=" not in part:
++            raise XAFSConfigError(
++                "absorber",
++                f"--chemical-state 混用格式: {text!r}；请统一用 "
++                f"'metal' 或 'Fe=metal,Co=metal'")
++        key, state = part.split("=", 1)
++        try:
++            el = get_absorber(key).symbol
++        except XAFSConfigError:
++            raise XAFSConfigError(
++                "absorber", f"--chemical-state 未知元素: {key!r}") from None
++        mapping[el] = state.strip().lower()
++    state = mapping.get(cfg.symbol)
++    if state is None:
++        return None, None
++    return (resolve_s02(cfg.symbol, state),
++            f"chemical_state:{cfg.symbol}={state}")
 diff --git a/cif_gate.py b/cif_gate.py
 index 0ba4152..0947754 100644
 --- a/cif_gate.py
@@ -617,10 +731,10 @@ index 0ba4152..0947754 100644
                      if d2 < best_d2:
                          best_d2 = d2
 diff --git a/docs/ACCEPTANCE_LOG.md b/docs/ACCEPTANCE_LOG.md
-index e0ea7a2..cab43f1 100644
+index e0ea7a2..856ff8e 100644
 --- a/docs/ACCEPTANCE_LOG.md
 +++ b/docs/ACCEPTANCE_LOG.md
-@@ -1284,3 +1284,366 @@ crawler 入库后按同一三扫描命令重跑，上述 r_factor/N/R 与 fit_ta
+@@ -1284,3 +1284,391 @@ crawler 入库后按同一三扫描命令重跑，上述 r_factor/N/R 与 fit_ta
    - IIT-Lytle 谱许可未明确，原始谱仍不提交；
    - 12 个 T5 元素静态表保持 `s02=None`，运行期只经 `--s02-from-t5` 解锁；
    - 多元素多晶位相仍必须显式 `--absorber-site` 或 `all`，不自动 Top-1。
@@ -954,10 +1068,11 @@ index e0ea7a2..cab43f1 100644
 +
 +### 16.3 生产单壳验证（S₀²=0.6566）
 +
-+- 命令：
-+  `python xafs_report.py "data\bmm_standards\Data\Fe\Fe-K-IronFoil.xdi" --absorber Fe --no-strict --fit-motif fe_bcc --fit-rmax 2.60 --e0-method half_height --no-html --no-window-tuner`
++- 命令（推荐 `--chemical-state metal`，与 `--s02 0.6566` 等价）：
++  `python xafs_report.py "data\bmm_standards\Data\Fe\Fe-K-IronFoil.xdi" --absorber Fe --no-strict --fit-motif fe_bcc --fit-rmax 2.60 --e0-method half_height --chemical-state metal --no-html --no-window-tuner`
 +- 结果：Fe-Fe@2.48 `N=7.933±0.489`（晶体学 8）、`R=2.517 Å`、
-+  `σ²=0.0028`、`Rf=0.02187`、`ΔE₀=+9.66 eV`，`s02_source=absorber.py`。
++  `σ²=0.0028`、`Rf=0.02187`、`ΔE₀=+9.66 eV`，
++  `s02_source=chemical_state:Fe=metal`。
 +- 默认双壳（不传 `--fit-rmax`）在 0.6566 下给出 N=11.513/13.381，
 +  说明该标定只对单壳 bcc 模型成立。
 +
@@ -968,7 +1083,8 @@ index e0ea7a2..cab43f1 100644
 +  偏高约 22%，验收基线退化。
 +- 因此：`absorber.py` 生产值保持 **0.803**；0.6566 作为
 +  **金属 Fe 专用交叉值**写入注释与文档，金属箔研究用
-+  `--s02 0.6566 --fit-rmax 2.60`。
++  `--chemical-state metal --fit-rmax 2.60`（等价旧写法
++  `--s02 0.6566`）。
 +- `calibrate_s02.py` 协议与门禁常量未改；`absorber.py` 其余 12 个
 +  未标定元素仍 `s02=None, calibrated=False`。
 +
@@ -980,16 +1096,39 @@ index e0ea7a2..cab43f1 100644
 +
 +### 16.6 测试与提交
 +
-+- `regression_test.py`：**134 项 OK**（341.1 s，exit 0），含默认
++- `regression_test.py`：**135 项 OK**（305.4 s，exit 0），含默认
 +  LEPIDO 第一壳 `N≈6.35` 零退化断言；标定契约断言 Fe=0.803。
-+- 数值算法测试显式固定 `s02=0.803`，隔离静态标定值与拟合算法。
++- 新增 `test_chemical_state_s02_polymorphism`：化学态解析、CLI 优先级、
++  逐元素映射与来源标记；显式固定 `s02=0.803` 的算法测试保持隔离。
 +- 提交仅含代码/文档；`_standards_lib/`、`data/standards_raw/`、
 +  `logs/`、`patches/` 未提交，根目录 `lepidocrocite.cif` 保留。
++
++### 16.7 化学态多态与补丁归档（2026-11-10）
++
++- **化学态 S₀²（显式 opt-in，不改默认值）**：
++  - `absorber.py` 新增 `S02_CHEMICAL_STATES = {"Fe": {"metal": 0.6566}}`、
++    `resolve_s02(symbol, chemical_state=None)` 与
++    `resolve_s02_spec(symbol, spec)`；未知态/无该态标定显式报错，
++    不静默退回默认值。
++  - `xafs_report.py` / `run_xafs.py` 新增 `--chemical-state`，支持
++    `metal` 与 `Fe=metal,Co=metal`；优先级：显式 `--s02` /
++    `--multi-element-s02` > `--chemical-state` > `--s02-from-t5` >
++    静态表。逐元素映射未列出的元素继续走后续优先级。
++  - 来源记为 `chemical_state:Fe=metal`；`xafs_fit._s02_calibrated_flag`
++    将其视为已标定来源。静态表仍只读（Fe=0.803）。
++  - 实测：Fe 箔 `--chemical-state metal --fit-rmax 2.60` 得到
++    S₀²=0.6566、N=7.933±0.489、R=2.517 Å、Rf=0.0219。
++- **补丁灾备**：`patches/` 仍在 `.gitignore`（普通 `git clean -fd`
++  不会删，但 `-fdx` 会）。已将全部补丁推送到远端孤立分支
++  `patch/P6-archive`（commit `05c402b`，含 P4+ ~ P6.6 与
++  `patches/README.md`）；恢复命令
++  `git checkout patch/P6-archive -- patches/`。主分支构建/回归
++  不依赖该分支。
 +
 +
 diff --git a/docs/CATALYSIS_CAPABILITY_AND_GATES.md b/docs/CATALYSIS_CAPABILITY_AND_GATES.md
 new file mode 100644
-index 0000000..913e478
+index 0000000..94bf77c
 --- /dev/null
 +++ b/docs/CATALYSIS_CAPABILITY_AND_GATES.md
 @@ -0,0 +1,612 @@
@@ -1600,11 +1739,11 @@ index 0000000..913e478
 +
 +- 参数/门禁/决策/摘要台账：`xafs_provenance.py`
 +- 催化剂结构图包：`xafs_figure_pack.py`
-+- 契约：`regression_test.py` 第 `#132` 项（台账）、`#133` 项（图包）
-+  与 `#134` 项（双入口产物对齐/图包分层瘦身）
-+- 当前契约基线：134 项（P6.6 收尾后）
++- 契约：`regression_test.py` 第 `#132` 项（台账）、`#133` 项（图包）、
++  `#134` 项（双入口产物对齐/图包分层瘦身）与化学态 S₀² 多态契约
++- 当前契约基线：135 项（化学态多态新增后）
 +- 软件版本：`xafs-cn-p4plus`
-+- 门禁常量冻结：`absorber.py` 静态 S₀² 表、`calibrate_s02.py` 门禁、44 条 phase pack 均未改动
++- 门禁常量冻结：`absorber.py` 静态 S₀² 表、`calibrate_s02.py` 门禁、44 条 phase pack 均未改动（化学态映射为显式 opt-in，不写静态表）
 diff --git a/docs/P4_PLUS_EXECUTION_PLAN.md b/docs/P4_PLUS_EXECUTION_PLAN.md
 index 7119f42..6c41de4 100644
 --- a/docs/P4_PLUS_EXECUTION_PLAN.md
@@ -2680,10 +2819,22 @@ index 2c5823c..423695e 100644
          assumptions={
              "p1b": "phase_resolver resolved; verified_source_cif; "
 diff --git a/regression_test.py b/regression_test.py
-index 58dfad9..0647e5c 100644
+index 58dfad9..735b96f 100644
 --- a/regression_test.py
 +++ b/regression_test.py
-@@ -101,6 +101,7 @@ import xafs_diagnostics               # noqa: E402
+@@ -65,8 +65,9 @@ P4+ 新增：
+     - P5-C 固定 COD ID 补齐 18 个常见相 / coverage 无缺口
+     - P5-prep 标准谱源隔离池 / 5 个未通过元素门禁冻结
+ 
+-当前共 126 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+
+-CIF 抓取/条件 CN/T7/T8/P5-A/P5-B/P5-C/P5-prep 契约）。
++当前共 135 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约、P4+
++CIF 抓取/条件 CN/T7/T8/P5-A/P5-B/P5-C/P5-prep 契约，以及 Fe 化学态
++S₀² 多态契约）。
+ 
+ 运行:
+     python regression_test.py
+@@ -101,6 +102,7 @@ import xafs_diagnostics               # noqa: E402
  import xafs_fit                       # noqa: E402
  import xafs_io                        # noqa: E402
  import xafs_pipeline                  # noqa: E402
@@ -2691,7 +2842,7 @@ index 58dfad9..0647e5c 100644
  import xafs_report                    # noqa: E402
  import xafs_window_tuner              # noqa: E402
  from absorber import get_absorber      # noqa: E402
-@@ -849,6 +850,7 @@ class RegressionTest(unittest.TestCase):
+@@ -849,6 +851,7 @@ class RegressionTest(unittest.TestCase):
          fit1 = self.lep_fit["fit"]["fit"]
          out3 = xafs_fit.fit_identified(
              self.lep, absorber_symbol="Fe", kweights=(1, 2, 3),
@@ -2699,7 +2850,7 @@ index 58dfad9..0647e5c 100644
              verbose=False)
          fit3 = out3["fit"]
          self.assertEqual(tuple(fit3.kweights), (1, 2, 3))
-@@ -2012,7 +2014,8 @@ Ni1 Ni 0.5 0.5 0.5 0.4
+@@ -2012,7 +2015,8 @@ Ni1 Ni 0.5 0.5 0.5 0.4
              structure=None, absorber_symbol="Fe", self_absorption=None)
          out = xafs_fit.fit_identified(
              res, motif_id="lepidocrocite", absorber_symbol="Fe",
@@ -2709,7 +2860,7 @@ index 58dfad9..0647e5c 100644
          fit = out["fit"]
          c4 = fit.paths[0].c4
          self.assertIsNotNone(c4, "vary_c4=True 未产生 C4 变量")
-@@ -2808,7 +2811,7 @@ Ru1 Ru 0.5 0.5 0.5 0.3
+@@ -2808,7 +2812,7 @@ Ru1 Ru 0.5 0.5 0.5 0.3
          out_sac = xafs_fit.fit_identified(
              res_sac, absorber_symbol="Fe",
              catalytic_model="dac:Co@2.50,N4@2.00",
@@ -2718,7 +2869,7 @@ index 58dfad9..0647e5c 100644
          self.assertEqual(out_sac["mode"], "motif")
          mm = out_sac["mm_bond_ftest"]
          self.assertIsNotNone(mm)
-@@ -2822,7 +2825,7 @@ Ru1 Ru 0.5 0.5 0.5 0.3
+@@ -2822,7 +2826,7 @@ Ru1 Ru 0.5 0.5 0.5 0.3
          out_dac = xafs_fit.fit_identified(
              res_dac, absorber_symbol="Fe",
              catalytic_model="dac:Co@2.50,N4@2.00",
@@ -2727,7 +2878,7 @@ index 58dfad9..0647e5c 100644
          self.assertEqual(out_dac["mode"], "motif")
          co = [p for p in out_dac["fit"].paths if "Co" in p.label]
          self.assertEqual(len(co), 1)
-@@ -2853,7 +2856,8 @@ Ru1 Ru 0.5 0.5 0.5 0.3
+@@ -2853,7 +2857,8 @@ Ru1 Ru 0.5 0.5 0.5 0.3
          out_ax = xafs_fit.fit_identified(
              res_ax, absorber_symbol="Fe",
              catalytic_model="sac:N4@2.00,axial=O@2.10,C=none",
@@ -2737,7 +2888,63 @@ index 58dfad9..0647e5c 100644
          by_el = {("O" if "O" in p.label else "N"): p
                   for p in out_ax["fit"].paths}
          self.assertLess(abs(by_el["N"].degeneracy - 4.0), 0.5,
-@@ -3734,7 +3738,7 @@ Ru1 Ru 0.5 0.5 0.5 0.3
+@@ -3698,6 +3703,55 @@ Ru1 Ru 0.5 0.5 0.5 0.3
+                 s02=1.5, verbose=False)
+         self.assertIn("s02", xafs_config.DEFAULTS)
+ 
++    # ------------------------------------------------------------
++    # 化学态 S₀² 多态（Fe 金属交叉值 opt-in）
++    # ------------------------------------------------------------
++    def test_chemical_state_s02_polymorphism(self):
++        """化学态 S₀²：Fe 金属 0.6566，默认生产值 0.803 不变。"""
++        from types import SimpleNamespace
++        from absorber import resolve_s02
++        import run_xafs
++
++        self.assertEqual(get_absorber("Fe").s02, 0.803)
++        self.assertEqual(resolve_s02("Fe"), 0.803)
++        self.assertEqual(resolve_s02("Fe", "metal"), 0.6566)
++        self.assertEqual(resolve_s02("Fe", "METAL"), 0.6566)
++        with self.assertRaises(XAFSConfigError):
++            resolve_s02("Fe", "oxide")
++        with self.assertRaises(XAFSConfigError):
++            resolve_s02("Au", "metal")
++        self.assertEqual(get_absorber("Fe").s02, 0.803,
++                         "化学态解析不得修改静态表")
++
++        # CLI 优先级：显式 --s02 > 化学态 > T5 > 静态表。
++        args = SimpleNamespace(s02=None, s02_from_t5=False,
++                               chemical_state="metal", absorber="Fe")
++        val, src = run_xafs._resolve_s02_for_paths(args, ["dummy.dat"])
++        self.assertEqual(val, 0.6566)
++        self.assertEqual(src, "chemical_state:Fe=metal")
++        args.s02 = 0.9
++        val, src = run_xafs._resolve_s02_for_paths(args, ["dummy.dat"])
++        self.assertEqual(val, 0.9)
++        self.assertEqual(src, "--s02 runtime override")
++
++        # 逐元素映射：未列出的元素返回 (None, None)，多元素批处理不误伤。
++        args_map = SimpleNamespace(s02=None, s02_from_t5=False,
++                                   chemical_state="Fe=metal", absorber="Cu")
++        self.assertEqual(
++            run_xafs._resolve_s02_for_paths(args_map, ["dummy.dat"]),
++            (None, None))
++        args_map.absorber = "Fe"
++        self.assertEqual(
++            run_xafs._resolve_s02_for_paths(args_map, ["dummy.dat"]),
++            (0.6566, "chemical_state:Fe=metal"))
++
++        # 来源标记：化学态值视为已标定，普通手填 --s02 不算（用未标定
++        # 元素隔离静态表 calibrated=True 的影响）。
++        self.assertTrue(xafs_fit._s02_calibrated_flag(
++            get_absorber("Cr"), "chemical_state:Cr=metal"))
++        self.assertFalse(xafs_fit._s02_calibrated_flag(
++            get_absorber("Cr"), "--s02 runtime override"))
++
+     # ------------------------------------------------------------
+     # B19-1 原位序列 EXAFS 联合精修
+     # ------------------------------------------------------------
+@@ -3734,7 +3788,7 @@ Ru1 Ru 0.5 0.5 0.5 0.3
  
          out = xafs_fit.run_operando_exafs_series(
              results, "Fe", catalytic_model="sac:O4@1.98,C=none",
@@ -2746,7 +2953,7 @@ index 58dfad9..0647e5c 100644
          self.assertEqual(out["motif"], motif.id)
          self.assertEqual(len(out["names"]), 4)
          label = out["shells"][0]
-@@ -6012,6 +6016,838 @@ O1 O 0 0 0 0.5
+@@ -6012,6 +6066,838 @@ O1 O 0 0 0 0.5
          self.assertEqual(out["formal_cn"]["status"], "hypothesis_model_only")
          self.assertEqual(out["cn_status"], "hypothesis_model_only")
  
@@ -3586,7 +3793,7 @@ index 58dfad9..0647e5c 100644
  if __name__ == "__main__":
      # unittest 默认写 stderr；PowerShell 会把任何 stderr 记录当成
 diff --git a/run_xafs.py b/run_xafs.py
-index 60fe14b..34fdaad 100644
+index 60fe14b..91a74cc 100644
 --- a/run_xafs.py
 +++ b/run_xafs.py
 @@ -49,6 +49,8 @@ import xafs_fit
@@ -3598,7 +3805,38 @@ index 60fe14b..34fdaad 100644
  from xafs_core import XAFSConfigError
  
  PROJECT_ROOT = Path(__file__).resolve().parent
-@@ -422,6 +424,7 @@ def process_sample(paths, outdir, align: bool = False,
+@@ -206,13 +208,29 @@ def load_t5_s02(element, root=None) -> tuple[float, str]:
+ 
+ 
+ def _resolve_s02_for_paths(args, paths, absorber_hint=None):
+-    """按 CLI 优先级解析 S₀²：显式 --s02 > --s02-from-t5 > 静态表。
++    """按 CLI 优先级解析 S₀²：显式 --s02 > --chemical-state
++    > --s02-from-t5 > 静态表。
+ 
+     返回 ``(s02, source)``；未启用任何覆盖时返回 ``(None, None)``，
+     由 ``xafs_fit`` 沿用 absorber.py 静态表。
+     """
+     if getattr(args, "s02", None) is not None:
+         return float(args.s02), "--s02 runtime override"
++    state_spec = getattr(args, "chemical_state", None)
++    if state_spec:
++        hint = absorber_hint if absorber_hint is not None \
++            else getattr(args, "absorber", None)
++        if hint:
++            element = _normalize_element(hint)
++        else:
++            element, _source = detect_absorber(paths[0])
++        if element is None:
++            raise XAFSConfigError(
++                "absorber", f"{Path(paths[0]).name}: 启用 --chemical-state "
++                             f"但无法判定吸收元素；请显式给 --absorber")
++        s02, source = absorber_mod.resolve_s02_spec(element, state_spec)
++        if s02 is not None:
++            return s02, source
+     if not getattr(args, "s02_from_t5", False):
+         return None, None
+     hint = absorber_hint if absorber_hint is not None \
+@@ -422,6 +440,7 @@ def process_sample(paths, outdir, align: bool = False,
                     e0_method: str = "derivative", manual_e0: float | None = None,
                     rbkg: float | None = None, kmin: float = 3.0, kmax: float = 12.0,
                     kweight: int = 2, post_window=(150, 600),
@@ -3606,7 +3844,7 @@ index 60fe14b..34fdaad 100644
                     strict: bool = True,
                     diagnostics: bool = False, identify: bool = False,
                     fit: bool = False, fit_motif: str | None = None,
-@@ -469,7 +472,13 @@ def process_sample(paths, outdir, align: bool = False,
+@@ -469,7 +488,13 @@ def process_sample(paths, outdir, align: bool = False,
            phase_index_path: str | Path | None = None,
            phase_pack_path: str | Path | None = None,
            absorber_site: str | None = None,
@@ -3621,7 +3859,7 @@ index 60fe14b..34fdaad 100644
      """
      跑完 S1–S6 并落盘。返回 PipelineResult。
  
-@@ -517,16 +526,21 @@ def process_sample(paths, outdir, align: bool = False,
+@@ -517,16 +542,21 @@ def process_sample(paths, outdir, align: bool = False,
              print(f"  [B2-2] XANES LCF: {w}   Rf={lcf_res['r_factor']:.2e}")
  
      # P1b phase resolution: parse --phase-* into StructureModel (formal CN strict track)
@@ -3645,7 +3883,7 @@ index 60fe14b..34fdaad 100644
              phase_cif=phase_cif,
              phase_id=phase_id,
              phase_spec=phase_spec,
-@@ -560,13 +574,13 @@ def process_sample(paths, outdir, align: bool = False,
+@@ -560,13 +590,13 @@ def process_sample(paths, outdir, align: bool = False,
          gate_kwargs = dict(
              kmin=kmin, kmax=kmax, rmax=6.0,
              allow_computed=False,
@@ -3661,7 +3899,7 @@ index 60fe14b..34fdaad 100644
              failed = [g for g in gate_results if not g.ok]
              if failed:
                  labels = ", ".join(
-@@ -575,14 +589,22 @@ def process_sample(paths, outdir, align: bool = False,
+@@ -575,14 +605,22 @@ def process_sample(paths, outdir, align: bool = False,
                      "FIT", f"CIF gate rejected multi-site: {labels} — "
                             f"{failed[0].reason}")
              gate_result = gate_results[0]
@@ -3685,7 +3923,7 @@ index 60fe14b..34fdaad 100644
          if verbose:
              if multi_site:
                  weights = ", ".join(
-@@ -634,6 +656,7 @@ def process_sample(paths, outdir, align: bool = False,
+@@ -634,6 +672,7 @@ def process_sample(paths, outdir, align: bool = False,
                  data_sha256=result.data_sha256,
                  verbose=verbose)
              result.fit["formal_cn"] = multi
@@ -3693,7 +3931,7 @@ index 60fe14b..34fdaad 100644
  
      # ---- 落盘 ----
      stem, norm, chi_k, ft, wave_map = (result.stem, result.norm, result.chi_k,
-@@ -656,14 +679,28 @@ def process_sample(paths, outdir, align: bool = False,
+@@ -656,14 +695,28 @@ def process_sample(paths, outdir, align: bool = False,
          f"# R(A)  FT kmin={kmin} kmax={kmax}",
          [ft.r, ft.real, ft.imag, ft.magnitude],
          ["R(A)", "Re", "Im", "|chi(R)|"])
@@ -3723,7 +3961,7 @@ index 60fe14b..34fdaad 100644
          "absorber": result.absorber_symbol,
          "e0": result.e0,
          "normalization": {
-@@ -682,6 +719,8 @@ def process_sample(paths, outdir, align: bool = False,
+@@ -682,6 +735,8 @@ def process_sample(paths, outdir, align: bool = False,
          meta["structure_id"] = {
              "status": result.structure.get("status"),
              "confidence": result.structure.get("confidence"),
@@ -3732,7 +3970,7 @@ index 60fe14b..34fdaad 100644
              "top3": result.structure["ranked"][:3],
              "indistinguishable": result.structure["indistinguishable"],
              "uncovered_peaks": result.structure["uncovered_peaks"],
-@@ -694,6 +733,9 @@ def process_sample(paths, outdir, align: bool = False,
+@@ -694,6 +749,9 @@ def process_sample(paths, outdir, align: bool = False,
                  result.structure["l1_first_shell"]
          if result.structure.get("l1_error"):
              meta["structure_id"]["l1_error"] = result.structure["l1_error"]
@@ -3742,7 +3980,7 @@ index 60fe14b..34fdaad 100644
      if result.fit:
          meta["fit"] = _fit_outputs(result.fit, outdir, stem)
          if formal_cn:
-@@ -730,13 +772,123 @@ def process_sample(paths, outdir, align: bool = False,
+@@ -730,13 +788,124 @@ def process_sample(paths, outdir, align: bool = False,
                  meta["rdf"] = rdf_tab["summary"]
      if result.xanes_cross_check:
          meta["xanes_cross_check"] = result.xanes_cross_check
@@ -3779,7 +4017,8 @@ index 60fe14b..34fdaad 100644
 +            "e0": "cli" if manual_e0 is not None else "auto",
 +            "rbkg": "cli" if rbkg is not None else "auto",
 +        }
-+        if s02_source and "calibration" in str(s02_source).lower():
++        if s02_source and ("calibration" in str(s02_source).lower()
++                           or str(s02_source).startswith("chemical_state:")):
 +            source_overrides["s02"] = "calibrated"
 +        elif s02_source:
 +            source_overrides["s02"] = "runtime_override"
@@ -3867,7 +4106,7 @@ index 60fe14b..34fdaad 100644
  
      # ---- B14-2 审稿级诊断：相移校正真键长 / 二维 χ² 等高线 ----
      if phase_correct or chi2_contour:
-@@ -760,6 +912,16 @@ def process_sample(paths, outdir, align: bool = False,
+@@ -760,6 +929,16 @@ def process_sample(paths, outdir, align: bool = False,
                  print(f"  [B14-2] χ² 等高线：min_chi2={cc['min_chi2']:.3f} "
                        f"→ {cc['png']}")
  
@@ -3884,7 +4123,7 @@ index 60fe14b..34fdaad 100644
      return result
  
  
-@@ -774,7 +936,15 @@ def main():
+@@ -774,7 +953,15 @@ def main():
                          help="边后平台不在 0.85–1.15 时是否中断（默认中断；"
                               "--no-strict 降级为警告，供已知厚样/标样使用）")
      parser.add_argument("--diagnostics", action="store_true",
@@ -3901,7 +4140,19 @@ index 60fe14b..34fdaad 100644
      parser.add_argument("--phase-correct", action="store_true",
                          help="B14-2 相移校正真键长 FT/WT 诊断"
                               "（默认关闭；需 --identify 或 --fit）")
-@@ -865,6 +1035,18 @@ def main():
+@@ -836,6 +1023,11 @@ def main():
+                              "读取 T5 独立标定值；仅接受 status=calibrated "
+                              "的元素，未通过元素明确拒绝；显式 --s02/"
+                              "--multi-element-s02 优先。不修改静态表")
++    parser.add_argument("--chemical-state", default=None,
++                        help="化学态 S₀² 多态：'metal' 或 'Fe=metal'；"
++                             "当前仅 Fe 金属相有交叉标定 0.6566（默认生产值"
++                             "仍为 0.803）；优先级 --s02/--multi-element-s02 "
++                             "> --chemical-state > --s02-from-t5 > 静态表")
+     parser.add_argument("--hetero-cocupancy", action="store_true",
+                         help="B13-2 异核共占位双分支精修：对 motif.cif_file 中"
+                              "occ<1 的异核位点拆成逐元素路径并共享 ΔR/σ²"
+@@ -865,6 +1057,18 @@ def main():
                          choices=["derivative", "half_height", "manual"])
      parser.add_argument("--manual-e0", type=float, default=None)
      parser.add_argument("--rbkg", type=float, default=None, help="指定 Rbkg，跳过寻优")
@@ -3920,7 +4171,7 @@ index 60fe14b..34fdaad 100644
      parser.add_argument("--self-absorption-formula", default=None,
                          help="荧光自吸收校正的样品总化学式（如 Fe3O4）；"
                               "仅荧光模式，且必须同时给厚度/密度")
-@@ -946,6 +1128,8 @@ def main():
+@@ -946,6 +1150,8 @@ def main():
                          help="T7 逐元素运行时 S₀² 覆盖，如 'Fe=0.803,"
                               "Co=0.7308'（未列出的元素沿用 --s02/静态表）")
      args = parser.parse_args()
@@ -3929,7 +4180,7 @@ index 60fe14b..34fdaad 100644
  
      # ---- 解析 --shared-sigma2（'all' 或 JSON 列表如 '[[0,1],[2]]'）----
      shared_sigma2 = None
-@@ -969,16 +1153,10 @@ def main():
+@@ -969,16 +1175,10 @@ def main():
          deglitch = xafs_config.parse_deglitch(args.deglitch)
      except ValueError as exc:
          parser.error(str(exc))
@@ -3950,7 +4201,7 @@ index 60fe14b..34fdaad 100644
  
      # ---- 配置文件加载与 CLI 合并（CLI 显式给出的优先；仅代码默认值时被覆盖）----
      config = xafs_config.load_config(args.config)
-@@ -1013,12 +1191,14 @@ def main():
+@@ -1013,12 +1213,14 @@ def main():
      if args.constraints is None and config.get("constraints") is not None:
          args.constraints = config["constraints"]
  
@@ -3966,7 +4217,7 @@ index 60fe14b..34fdaad 100644
      if args.deglitch is None and config.get("deglitch") is not None:
          args.deglitch = config["deglitch"]
      if args.fit_kweights is None and config.get("fit_kweights") is not None:
-@@ -1070,6 +1250,19 @@ def main():
+@@ -1070,6 +1272,19 @@ def main():
      vary_c3 = xafs_config.normalize_cumulant_switch(args.vary_c3)
      vary_c4 = xafs_config.normalize_cumulant_switch(args.vary_c4)
  
@@ -3986,7 +4237,7 @@ index 60fe14b..34fdaad 100644
      # ---- B10-1 chi_std 先验谱：两列 k, chi(k) ----
      chi_std = chi_std_k = None
      if args.chi_std:
-@@ -1174,6 +1367,27 @@ def main():
+@@ -1174,6 +1389,27 @@ def main():
                       "02_Fe_standards" / "Fe_lepidocrocite.000")]
          args.absorber = args.absorber or "Fe"
  
@@ -4014,7 +4265,25 @@ index 60fe14b..34fdaad 100644
      # ---- T7 多元素布局：逐元素 s02 覆盖表 ----
      multi_s02 = {}
      if args.multi_element_s02:
-@@ -1218,7 +1432,10 @@ def main():
+@@ -1205,20 +1441,26 @@ def main():
+             parser.error("--multi-element 没有可处理文件")
+ 
+         def _run_one_element(fpath, element, sub_out):
+-            # 优先级：--multi-element-s02 > 全局 --s02 > T5 独立标定产物。
++            # 优先级：--multi-element-s02 > 全局 --s02 > 化学态 > T5。
+             s02_val = multi_s02.get(element)
+             s02_src = (f"--multi-element-s02 ({element})"
+                        if s02_val is not None else None)
+             if s02_val is None and args.s02 is not None:
+                 s02_val = args.s02
+                 s02_src = "--s02 runtime override"
+-            elif s02_val is None and args.s02_from_t5:
++            if s02_val is None and args.chemical_state:
++                s02_val, s02_src = absorber_mod.resolve_s02_spec(
++                    element, args.chemical_state)
++            if s02_val is None and args.s02_from_t5:
+                 s02_val, s02_src = load_t5_s02(element)
+             return process_sample(
                  [fpath], sub_out, align=args.align, absorber=element,
                  edge_energy=args.edge_energy, e0_method=args.e0_method,
                  manual_e0=args.manual_e0, rbkg=args.rbkg, kmin=args.kmin,
@@ -4026,7 +4295,7 @@ index 60fe14b..34fdaad 100644
                  diagnostics=args.diagnostics, identify=args.identify,
                  fit=args.fit, fit_motif=args.fit_motif,
                  fit_rmin=args.fit_rmin, fit_rmax=args.fit_rmax,
-@@ -1258,7 +1475,11 @@ def main():
+@@ -1258,7 +1500,11 @@ def main():
                  phase_index_path=args.phase_index,
                  phase_pack_path=args.phase_pack,
                  absorber_site=args.absorber_site,
@@ -4039,7 +4308,7 @@ index 60fe14b..34fdaad 100644
  
          run_multi_element(
              files, args.outdir, fallback_absorber=args.absorber,
-@@ -1269,8 +1490,30 @@ def main():
+@@ -1269,8 +1515,30 @@ def main():
      if args.operando:
          if args.batch_dir:
              parser.error("--operando 与 --batch-dir 不能同时使用")
@@ -4070,7 +4339,7 @@ index 60fe14b..34fdaad 100644
          op_s02, op_s02_src = _resolve_s02_for_paths(args, files, args.absorber)
          results = []
          for i, fpath in enumerate(files, 1):
-@@ -1280,8 +1523,12 @@ def main():
+@@ -1280,8 +1548,12 @@ def main():
                  align=args.align, absorber=args.absorber,
                  edge_energy=args.edge_energy, e0_method=args.e0_method,
                  manual_e0=args.manual_e0, rbkg=args.rbkg, kmin=args.kmin,
@@ -4085,7 +4354,7 @@ index 60fe14b..34fdaad 100644
                  deadtime=args.deadtime,
                  reject_outlier_scans=args.reject_outlier_scans,
                  mback=args.mback, chi_std=chi_std, chi_std_k=chi_std_k,
-@@ -1293,6 +1540,7 @@ def main():
+@@ -1293,6 +1565,7 @@ def main():
                  self_absorption_line=args.self_absorption_line,
                  s02=op_s02,
                  s02_source=op_s02_src,
@@ -4093,7 +4362,7 @@ index 60fe14b..34fdaad 100644
                  verbose=False))
          std_scans = None
          if lcf_standards:
-@@ -1301,10 +1549,20 @@ def main():
+@@ -1301,10 +1574,20 @@ def main():
                  std = xafs_pipeline.process_sample(
                      [p], absorber=args.absorber, strict=False, verbose=False)
                  std_scans[Path(p).stem] = std.norm
@@ -4115,7 +4384,7 @@ index 60fe14b..34fdaad 100644
          print(f"原位序列：{len(results)} 条谱，n_components="
                f"{op['n_components']}，accepted="
                f"{op['accepted_standards']}，rejected="
-@@ -1337,7 +1595,10 @@ def main():
+@@ -1337,7 +1620,10 @@ def main():
                      [fpath], sub_out, align=args.align, absorber=args.absorber,
                      edge_energy=args.edge_energy, e0_method=args.e0_method,
                      manual_e0=args.manual_e0, rbkg=args.rbkg, kmin=args.kmin,
@@ -4127,7 +4396,7 @@ index 60fe14b..34fdaad 100644
                      diagnostics=args.diagnostics, identify=args.identify,
                      fit=args.fit, fit_motif=args.fit_motif,
                      fit_rmin=args.fit_rmin, fit_rmax=args.fit_rmax,
-@@ -1353,6 +1614,8 @@ def main():
+@@ -1353,6 +1639,8 @@ def main():
                      vary_c4=vary_c4,
                      isotropic_deltar=args.isotropic_deltar,
                      shared_sigma2=shared_sigma2,
@@ -4136,7 +4405,7 @@ index 60fe14b..34fdaad 100644
                      mback=args.mback, chi_std=chi_std, chi_std_k=chi_std_k,
                      clamp_lo=args.clamp_lo, clamp_hi=args.clamp_hi,
                      catalytic_model=args.catalytic_model,
-@@ -1377,7 +1640,11 @@ def main():
+@@ -1377,7 +1665,11 @@ def main():
                      phase_index_path=args.phase_index,
                      phase_pack_path=args.phase_pack,
                      absorber_site=args.absorber_site,
@@ -4149,7 +4418,7 @@ index 60fe14b..34fdaad 100644
              except Exception as exc:  # 批处理：单个失败不中断整批
                  errors.append({"file": fpath, "error": str(exc)})
                  print(f"  ❌ 失败: {exc}")
-@@ -1396,7 +1663,10 @@ def main():
+@@ -1396,7 +1688,10 @@ def main():
          files, args.outdir, align=args.align, absorber=args.absorber,
          edge_energy=args.edge_energy, e0_method=args.e0_method,
          manual_e0=args.manual_e0, rbkg=args.rbkg, kmin=args.kmin,
@@ -4161,7 +4430,7 @@ index 60fe14b..34fdaad 100644
          diagnostics=args.diagnostics, identify=args.identify, fit=args.fit,
          fit_motif=args.fit_motif, fit_rmin=args.fit_rmin,
          fit_rmax=args.fit_rmax, allow_ambiguous=args.allow_ambiguous,
-@@ -1424,15 +1694,21 @@ def main():
+@@ -1424,15 +1719,21 @@ def main():
          self_absorption_angles=sa_angles,
          self_absorption_line=args.self_absorption_line,
          formal_cn=args.formal_cn,
@@ -7468,10 +7737,29 @@ index 0000000..cc1320f
 +if __name__ == "__main__":
 +    raise SystemExit(main())
 diff --git a/xafs_fit.py b/xafs_fit.py
-index a76862d..3ff7b92 100644
+index a76862d..95ef68b 100644
 --- a/xafs_fit.py
 +++ b/xafs_fit.py
-@@ -1032,6 +1032,118 @@ def _formal_cn_meta(formal_cn: bool, structure_model: StructureModel | None,
+@@ -982,12 +982,14 @@ def write_rdf_csv(path, rdf: dict):
+ def _s02_calibrated_flag(absorber, s02_source: str | None) -> bool:
+     """正式表 S₀² 是否来自“已标定”来源。
+ 
+-    静态表已标定（absorber.calibrated=True）或 T5 独立标定产物
+-    （``s02_calibration:`` 前缀）都算已标定；普通 ``--s02`` 手填值
+-    仍为 False。这不改变 #60 的静态表约束。
++    静态表已标定（absorber.calibrated=True）、T5 独立标定产物
++    （``s02_calibration:`` 前缀）或化学态标定（``chemical_state:``
++    前缀）都算已标定；普通 ``--s02`` 手填值仍为 False。
++    这不改变 #60 的静态表约束。
+     """
+     return (bool(getattr(absorber, "calibrated", False))
+-            or str(s02_source or "").startswith("s02_calibration:"))
++            or str(s02_source or "").startswith("s02_calibration:")
++            or str(s02_source or "").startswith("chemical_state:"))
+ 
+ 
+ def _formal_cn_meta(formal_cn: bool, structure_model: StructureModel | None,
+@@ -1032,6 +1034,118 @@ def _formal_cn_meta(formal_cn: bool, structure_model: StructureModel | None,
      }
  
  
@@ -7590,7 +7878,7 @@ index a76862d..3ff7b92 100644
  def fit_identified(res, motif_id: str | None = None,
                     absorber_symbol: str | None = None,
                     rmin: float | None = None, rmax: float | None = None,
-@@ -1086,7 +1198,7 @@ def fit_identified(res, motif_id: str | None = None,
+@@ -1086,7 +1200,7 @@ def fit_identified(res, motif_id: str | None = None,
      if absorber.s02 is None:
          raise XAFSConfigError(
              "FIT", f"{absorber.symbol} 未标定 S₀²，拒绝 CN 定量；"
@@ -7599,7 +7887,7 @@ index a76862d..3ff7b92 100644
      s02_label = (s02_source if s02_source is not None else
                   ("--s02 runtime override" if s02 is not None
                    else "absorber.py"))
-@@ -1183,11 +1295,13 @@ def fit_identified(res, motif_id: str | None = None,
+@@ -1183,11 +1297,13 @@ def fit_identified(res, motif_id: str | None = None,
              if fit_weights:
                  out["warning"] += ("；识别状态不是 confident，"
                                     "--fit-weights 未执行（返回 L1 第一壳）")
@@ -7618,7 +7906,7 @@ index a76862d..3ff7b92 100644
              return out
  
      motif = (catalytic_motif if catalytic_motif is not None
-@@ -1204,38 +1318,6 @@ def fit_identified(res, motif_id: str | None = None,
+@@ -1204,38 +1320,6 @@ def fit_identified(res, motif_id: str | None = None,
                                isotropic_deltar=isotropic_deltar,
                                hetero_cocupancy=hetero_cocupancy)
  
@@ -7657,7 +7945,7 @@ index a76862d..3ff7b92 100644
      if verbose:
          print(f"  [S7] motif={motif.id}  R∈[{plan['rmin']:.2f},{plan['rmax']:.2f}] Å"
                f"  S₀²={absorber.s02}  N_idp={plan['n_independent']:.1f}")
-@@ -1609,8 +1691,6 @@ def fit_identified(res, motif_id: str | None = None,
+@@ -1609,8 +1693,6 @@ def fit_identified(res, motif_id: str | None = None,
                 fit, flags=flags, self_abs=self_abs,
                 truncated_shells=len(plan["truncated"]),
                 fit_weights=fit_weights)}
@@ -7666,7 +7954,7 @@ index a76862d..3ff7b92 100644
      if fit_weights and fit.mixture_weights:
          w_max_err = max(float(w["weight_err"])
                          for w in fit.mixture_weights)
-@@ -1730,30 +1810,8 @@ def fit_identified(res, motif_id: str | None = None,
+@@ -1730,30 +1812,8 @@ def fit_identified(res, motif_id: str | None = None,
              print(f"       ⚠ 相分数不可靠：{'、'.join(reasons)}")
          elif not cn_reliable:
              print(f"       ⚠ CN 不可靠：{'、'.join(reasons)}")
@@ -7698,7 +7986,7 @@ index a76862d..3ff7b92 100644
          out["formal_cn"] = {
              "status": "hypothesis_model_only",
              "rows": [],
-@@ -1764,6 +1822,14 @@ def fit_identified(res, motif_id: str | None = None,
+@@ -1764,6 +1824,14 @@ def fit_identified(res, motif_id: str | None = None,
              "model": None,
          }
          out["cn_status"] = "hypothesis_model_only"
@@ -7713,7 +8001,7 @@ index a76862d..3ff7b92 100644
      return out
  
  
-@@ -1890,7 +1956,7 @@ def run_operando_exafs_series(
+@@ -1890,7 +1958,7 @@ def run_operando_exafs_series(
          raise XAFSConfigError(
              "OPERANDO",
              f"{absorber.symbol} 未标定 S₀²；原位 EXAFS 序列联合精修需要 "
@@ -7722,7 +8010,7 @@ index a76862d..3ff7b92 100644
  
      if catalytic_model is not None:
          target = structure_lib.parse_catalytic_cluster_spec(
-@@ -2725,7 +2791,7 @@ def build_formal_cn_block(
+@@ -2725,7 +2793,7 @@ def build_formal_cn_block(
  # P5-D：多位点正式 CN（--absorber-site all）
  # ================================================================
  def _site_fractional(model: StructureModel) -> list[float]:
@@ -7731,7 +8019,7 @@ index a76862d..3ff7b92 100644
      label = str(model.absorber_site or "")
      m = re.match(r"frac:\(([^,]+),([^,]+),([^)]+)\)", label)
      if m:
-@@ -2733,6 +2799,13 @@ def _site_fractional(model: StructureModel) -> list[float]:
+@@ -2733,6 +2801,13 @@ def _site_fractional(model: StructureModel) -> list[float]:
      for site in (model.asym_sites or []):
          if str(site.get("label")) == label:
              return [float(site["x"]), float(site["y"]), float(site["z"])]
@@ -7745,7 +8033,7 @@ index a76862d..3ff7b92 100644
      raise CNError(
          "absorber_site_missing",
          f"{model.model_id}: 找不到吸收位 {label!r} 的分数坐标")
-@@ -2846,7 +2919,8 @@ def run_multi_site_formal_cn(
+@@ -2846,7 +2921,8 @@ def run_multi_site_formal_cn(
                  else structure_id.absorber_with_s02(absorber_symbol, s02))
      if absorber.s02 is None:
          raise XAFSConfigError(
@@ -8734,7 +9022,7 @@ index 0000000..93027b7
 +    lines.append(f"不适用: {summary.get('not_applicable') or []}")
 +    return "\n".join(lines)
 diff --git a/xafs_report.py b/xafs_report.py
-index 8451fd5..1748b22 100644
+index 8451fd5..ce79ad3 100644
 --- a/xafs_report.py
 +++ b/xafs_report.py
 @@ -12,15 +12,17 @@ xafs_report.py — 成果展示层：五联图 + CN 拟合表 + 全套数据导
@@ -8756,7 +9044,7 @@ index 8451fd5..1748b22 100644
      <stem>_wavelet.csv     (e) W(R,k) 矩阵（行=k，列=R；与 run_xafs 一致）
  
  依赖方向：core ← io ← athena ← {artemis, larch_wt} ← 本模块。
-@@ -65,6 +67,8 @@ import xafs_fit         # noqa: E402
+@@ -65,9 +67,11 @@ import xafs_fit         # noqa: E402
  import xafs_io          # noqa: E402
  import xafs_lcf         # noqa: E402
  import xafs_pipeline    # noqa: E402
@@ -8764,7 +9052,11 @@ index 8451fd5..1748b22 100644
 +import xafs_figure_pack  # noqa: E402
  import xafs_window_tuner  # noqa: E402
  import structure_id     # noqa: E402
- from absorber import get_absorber    # noqa: E402
+-from absorber import get_absorber    # noqa: E402
++from absorber import get_absorber, resolve_s02_spec    # noqa: E402
+ from xafs_core import XAFSConfigError, XAFSDataError  # noqa: E402
+ 
+ # 同 run_xafs：GBK 控制台无法编码 Å/σ²/S₀²/α，--help 会直接崩。
 @@ -92,6 +96,11 @@ SHELLS = [("Fe–O", 1.0, 1.8), ("Fe–Fe(1)", 2.2, 3.2), ("Fe–Fe(2)", 3.3, 3.
  
  def process_scans(files, absorber: str = "Fe", strict: bool = False,
@@ -8824,13 +9116,17 @@ index 8451fd5..1748b22 100644
      parser.add_argument("--strict", action=argparse.BooleanOptionalAction,
                          default=True,
                          help="边后平台门禁（默认中断；--no-strict 降级）")
-@@ -1424,6 +1441,38 @@ def main(argv=None):
+@@ -1424,6 +1441,42 @@ def main(argv=None):
      parser.add_argument("--s02", type=float, default=None,
                          help="B18-2 运行时覆盖 S₀²（0.4–1.3），解锁未标定元素；"
                               "不修改 absorber.py 静态标定表")
 +    parser.add_argument("--s02-from-t5", action="store_true",
 +                        help="P5 从 data/s02_calibration/<El>/calibration.json "
 +                             "加载通过冻结门禁的独立 S₀²（显式 --s02 优先）")
++    parser.add_argument("--chemical-state", default=None,
++                        help="化学态 S₀² 多态：'metal' 或 'Fe=metal'；"
++                             "当前仅 Fe 金属相有交叉标定 0.6566（默认生产值"
++                             "仍为 0.803）；显式 --s02 优先")
 +    parser.add_argument("--xanes-cross-check", action="store_true",
 +                        help="T8 XANES–EXAFS 联合软校验：白线/边步/归一化"
 +                             "异常时警告；不改变 cn_reliable/正式 CN")
@@ -8863,7 +9159,7 @@ index 8451fd5..1748b22 100644
      parser.add_argument("--hetero-cocupancy", action="store_true",
                          help="B13-2 异核共占位双分支精修（需含占据度 CIF motif）")
      parser.add_argument("--constraints", default=None,
-@@ -1458,6 +1507,13 @@ def main(argv=None):
+@@ -1458,6 +1511,13 @@ def main(argv=None):
                          help="不生成交互式 k 窗口 HTML（<stem>_window_tuner.html）")
      parser.add_argument("--no-html", action="store_true",
                          help="不生成单文件 HTML 报告（默认生成 <stem>_report.html）")
@@ -8877,7 +9173,7 @@ index 8451fd5..1748b22 100644
      parser.add_argument("--demo", action="store_true",
                          help="运行内置 lepidocrocite + Fe 箔演示")
      parser.add_argument("--config", default=None,
-@@ -1533,21 +1589,16 @@ def main(argv=None):
+@@ -1533,21 +1593,16 @@ def main(argv=None):
          deglitch = xafs_config.parse_deglitch(args.deglitch)
      except ValueError as exc:
          parser.error(str(exc))
@@ -8905,7 +9201,7 @@ index 8451fd5..1748b22 100644
          "self_absorption_formula": None,
          "self_absorption_thickness": None,
          "self_absorption_density": None,
-@@ -1594,6 +1645,19 @@ def main(argv=None):
+@@ -1594,6 +1649,19 @@ def main(argv=None):
          args.vary_c3 = config["vary_c3"]
      if args.vary_c4 is None and config.get("vary_c4") is not None:
          args.vary_c4 = config["vary_c4"]
@@ -8925,7 +9221,7 @@ index 8451fd5..1748b22 100644
      try:
          fit_kweights = (xafs_config.parse_kweights(args.fit_kweights)
                          if not isinstance(args.fit_kweights, (list, tuple))
-@@ -1716,10 +1780,45 @@ def main(argv=None):
+@@ -1716,10 +1784,45 @@ def main(argv=None):
              f"{abs_cfg.edge} 不一致；改边请先在 absorber.py 配好再跑，"
              f"避免只改标签不改 FEFF HOLE/边能")
  
@@ -8971,7 +9267,7 @@ index 8451fd5..1748b22 100644
          if len(args.files) < 3:
              parser.error("--operando 至少需要 3 个样品文件")
          op_root = (Path(args.outdir) if args.outdir
-@@ -1730,7 +1829,8 @@ def main(argv=None):
+@@ -1730,7 +1833,8 @@ def main(argv=None):
              print(f"[operando {i}/{len(args.files)}] {Path(fpath).name}")
              st = process_scans(
                  [fpath], absorber=args.absorber, strict=args.strict,
@@ -8981,7 +9277,7 @@ index 8451fd5..1748b22 100644
                  deglitch=deglitch, deadtime=args.deadtime,
                  reject_outlier_scans=args.reject_outlier_scans,
                  mback=args.mback, chi_std=chi_std, chi_std_k=chi_std_k,
-@@ -1748,9 +1848,19 @@ def main(argv=None):
+@@ -1748,9 +1852,19 @@ def main(argv=None):
                  std = xafs_pipeline.process_sample(
                      [p], absorber=args.absorber, strict=False, verbose=False)
                  std_scans[Path(p).stem] = std.norm
@@ -9002,7 +9298,7 @@ index 8451fd5..1748b22 100644
          indicator_rows = [
              ("n_spectra", len(args.files), "条", "原位时间序列"),
              ("n_components", op["n_components"], "个",
-@@ -1776,6 +1886,9 @@ def main(argv=None):
+@@ -1776,6 +1890,9 @@ def main(argv=None):
          for key, path in made.items():
              print(f"  → {path}")
          print(f"  → {html_path}")
@@ -9012,7 +9308,7 @@ index 8451fd5..1748b22 100644
          return
  
      stem = args.stem or Path(args.files[0]).stem
-@@ -1787,6 +1900,9 @@ def main(argv=None):
+@@ -1787,6 +1904,9 @@ def main(argv=None):
      print(f"== 数据处理：{sample}（{len(args.files)} 个文件）==")
      st = process_scans(args.files, absorber=args.absorber,
                         strict=args.strict, kmin=args.kmin, kmax=args.kmax,
@@ -9022,7 +9318,7 @@ index 8451fd5..1748b22 100644
                         despike=args.despike, deglitch=deglitch,
                         deadtime=args.deadtime,
                         reject_outlier_scans=args.reject_outlier_scans,
-@@ -1816,10 +1932,85 @@ def main(argv=None):
+@@ -1816,10 +1936,92 @@ def main(argv=None):
          print(f"  [B2-2] XANES LCF: {w}   Rf={lcf_res['r_factor']:.2e}"
                f"  → {out / f'{stem}_lcf.json'}")
  
@@ -9032,6 +9328,13 @@ index 8451fd5..1748b22 100644
 +        eff_absorber, _ = run_xafs.detect_absorber(args.files[0])
 +    s02_val = args.s02
 +    s02_source = "--s02 runtime override" if s02_val is not None else None
++    if s02_val is None and args.chemical_state:
++        if not eff_absorber:
++            raise XAFSConfigError(
++                "FIT", "启用 --chemical-state 但无法判定吸收元素；"
++                       "请显式给 --absorber")
++        s02_val, s02_source = resolve_s02_spec(eff_absorber,
++                                               args.chemical_state)
 +    if s02_val is None and args.s02_from_t5:
 +        import run_xafs
 +        if not eff_absorber:
@@ -9109,7 +9412,7 @@ index 8451fd5..1748b22 100644
          fit_rmin=args.fit_rmin, fit_rmax=args.fit_rmax,
          allow_ambiguous=args.allow_ambiguous,
          l1_ligand=args.l1_ligand, l1_geometry=args.l1_geometry,
-@@ -1831,9 +2022,24 @@ def main(argv=None):
+@@ -1831,9 +2033,24 @@ def main(argv=None):
          catalytic_model=args.catalytic_model,
          hetero_cocupancy=args.hetero_cocupancy,
          constraints=constraints,
@@ -9136,7 +9439,7 @@ index 8451fd5..1748b22 100644
      sid = out_fit["structure"]
      fout = out_fit.get("fit")
      xafs_io.write_json(out / f"{stem}_structure_id.json", sid)
-@@ -1848,9 +2054,11 @@ def main(argv=None):
+@@ -1848,9 +2065,11 @@ def main(argv=None):
      print(f"  → {out / f'{stem}_fit.json'}")
  
      s02 = (fout or {}).get(
@@ -9149,7 +9452,7 @@ index 8451fd5..1748b22 100644
          rows = list(formal.get("rows") or [])
          model = formal.get("model") or {}
          if not rows:
-@@ -1872,6 +2080,163 @@ def main(argv=None):
+@@ -1872,6 +2091,164 @@ def main(argv=None):
          cn_table.write_cn_table(out / "cn_table.csv", rows)
          print(f"  → {out / 'cn_table.csv'} "
                f"（formal CN status={formal.get('status', 'no_cif')}）")
@@ -9185,7 +9488,8 @@ index 8451fd5..1748b22 100644
 +        "rbkg": ("cli" if getattr(args, "rbkg", None) is not None
 +                 else "auto"),
 +    }
-+    if s02_source and "calibration" in str(s02_source).lower():
++    if s02_source and ("calibration" in str(s02_source).lower()
++                       or str(s02_source).startswith("chemical_state:")):
 +        source_overrides["s02"] = "calibrated"
 +    elif s02_source:
 +        source_overrides["s02"] = "runtime_override"
@@ -9313,7 +9617,7 @@ index 8451fd5..1748b22 100644
      edge_label = f"{args.absorber} {abs_cfg.edge}-edge"
      shells = (parse_shell_spec(args.shells)
                or shells_from_fit(fout, absorber_symbol=args.absorber))
-@@ -1988,6 +2353,16 @@ def main(argv=None):
+@@ -1988,6 +2365,16 @@ def main(argv=None):
              extra_images=extra_images, tuner_path=tuner_path)
          print(f"  → {html_path}")
  
