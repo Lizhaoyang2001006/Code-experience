@@ -731,7 +731,7 @@ index 0ba4152..0947754 100644
                      if d2 < best_d2:
                          best_d2 = d2
 diff --git a/docs/ACCEPTANCE_LOG.md b/docs/ACCEPTANCE_LOG.md
-index e0ea7a2..856ff8e 100644
+index e0ea7a2..cf6fe64 100644
 --- a/docs/ACCEPTANCE_LOG.md
 +++ b/docs/ACCEPTANCE_LOG.md
 @@ -1284,3 +1284,391 @@ crawler 入库后按同一三扫描命令重跑，上述 r_factor/N/R 与 fit_ta
@@ -1120,8 +1120,8 @@ index e0ea7a2..856ff8e 100644
 +    S₀²=0.6566、N=7.933±0.489、R=2.517 Å、Rf=0.0219。
 +- **补丁灾备**：`patches/` 仍在 `.gitignore`（普通 `git clean -fd`
 +  不会删，但 `-fdx` 会）。已将全部补丁推送到远端孤立分支
-+  `patch/P6-archive`（commit `05c402b`，含 P4+ ~ P6.6 与
-+  `patches/README.md`）；恢复命令
++  `patch/P6-archive`（含 P4+ ~ P6.6 与 `patches/README.md`，
++  快照随 main HEAD 刷新）；恢复命令
 +  `git checkout patch/P6-archive -- patches/`。主分支构建/回归
 +  不依赖该分支。
 +
