@@ -17,6 +17,7 @@ Artemis 的图形界面。
 | 论文出图 | `paper_figures.py` | 通用 XAFS 论文主图 + CN 拟合表 |
 | 报告检查 | `cn_disclosure.py` | 独立检查 fit JSON 的结构/CIF 披露与 CN 状态 |
 | 报告规范 | `docs/CN_REPORTING_STANDARD.md` | CN 报告、结构/CIF 披露、状态分级与交付清单 |
+| 出图清单 | `docs/FIGURE_OUTPUTS.md` | 各入口会生成哪些图、面板组成、文件名与触发条件 |
 | 构建期工具 | `tools/cif_crawler.py` | 固定 COD ID → 正式 phase pack（44 条真实 CIF） |
 | 构建期工具 | `tools/build_source_pool.py` | T5 谱源隔离池生成与校验 |
 | 结构库 | `_structure_lib/` | 诊断 motif + `_phase_pack/` 正式 CIF |
