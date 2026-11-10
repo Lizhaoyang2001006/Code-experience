@@ -1,0 +1,983 @@
+From 40231e3a257b1b880956a353dd48c084e9b69682 Mon Sep 17 00:00:00 2001
+From: Lizhaoyang2001006 <lizhaoyang24@mails.ucas.ac.cn>
+Date: Mon, 9 Nov 2026 20:45:23 +0800
+Subject: [PATCH 1/2] P6.2: fix edge entry alignments (frac site, config keys,
+ XDI absorber fallback, report error)
+
+---
+ README.md              |  4 +--
+ cif_gate.py            |  2 +-
+ docs/ACCEPTANCE_LOG.md |  9 +++---
+ phase_resolver.py      | 30 +++++++++++++------
+ regression_test.py     | 65 ++++++++++++++++++++++++++++++++++++++++++
+ run_xafs.py            | 25 ++++++++++++----
+ xafs_config.py         | 15 ++++++++++
+ xafs_report.py         | 24 ++++++++++++----
+ 8 files changed, 148 insertions(+), 26 deletions(-)
+
+diff --git a/README.md b/README.md
+index 9be43bd..a222d50 100644
+--- a/README.md
++++ b/README.md
+@@ -94,7 +94,7 @@ python xafs_report.py
+ | `calibrate_s02.py` | 标定 S₀²（金属箔/氧化物标样，生产等效协议；`--motif-file` 用标定专用结构） |
+ | `calibrate_t5.py` | T5 批量标定 12 元素，产物落 `data/s02_calibration/`（不改静态表） |
+ | `absorber.py` | 吸收元素配置表（边能量/S₀²/kmax），元素泛化唯一入口 |
+-| `regression_test.py` | 129 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝、P5-C 18 个常见相 COD 补齐/coverage 无缺口、P5-prep 标准谱源隔离池/5 元素门禁冻结、P5-D 多位点正式 CN、P6 phase pack 44/44 门禁、P6.1 单晶位正式 CN 与诊断库解耦） |
++| `regression_test.py` | 130 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝、P5-C 18 个常见相 COD 补齐/coverage 无缺口、P5-prep 标准谱源隔离池/5 元素门禁冻结、P5-D 多位点正式 CN、P6 phase pack 44/44 门禁、P6.1 单晶位正式 CN 与诊断库解耦） |
+ | `run_ci.py` | 跨平台 CI：编译 + 契约回归 + 可选压力测试，输出 ci_report.json/md |
+ | `stress_test_{co,ni,cu,nio}.py` | 元素泛化/护栏/CN 回收压力测试 |
+ | `xafs_config.py` | 配置文件支持（.yaml/.json）、批处理入口（--batch-dir） |
+@@ -274,7 +274,7 @@ FT 内核嵌进页面，浏览器里拖 kmin/kmax/kweight/dk，实时看 `|χ(R)
+ 
+ ### CI 自动化回归
+ ```powershell
+-python run_ci.py            # 编译 + 129 项契约回归
++python run_ci.py            # 编译 + 130 项契约回归
+ python run_ci.py --stress   # 额外跑 Co/Ni/Cu/NiO 压力测试
+ ```
+ 产物 `ci_report.json` / `ci_report.md`；任一步失败即非零退出。
+diff --git a/cif_gate.py b/cif_gate.py
+index 0ba4152..0947754 100644
+--- a/cif_gate.py
++++ b/cif_gate.py
+@@ -509,7 +509,7 @@ def gate_cif(
+                                   site.fract.y - site_frac[1],
+                                   site.fract.z - site_frac[2]])
+                     d -= np.round(d)
+-                    p = site.cell.orthogonalize(gemmi.Fractional(*d))
++                    p = st.cell.orthogonalize(gemmi.Fractional(*d))
+                     d2 = p.x ** 2 + p.y ** 2 + p.z ** 2
+                     if d2 < best_d2:
+                         best_d2 = d2
+diff --git a/docs/ACCEPTANCE_LOG.md b/docs/ACCEPTANCE_LOG.md
+index 3b75d92..42de5e0 100644
+--- a/docs/ACCEPTANCE_LOG.md
++++ b/docs/ACCEPTANCE_LOG.md
+@@ -1299,7 +1299,8 @@ crawler 入库后按同一三扫描命令重跑，上述 r_factor/N/R 与 fit_ta
+ - `xafs_report.py`：新增 `--s02-from-t5` 与 `--phase-*` /
+   `--absorber-site` / `--offline`，接入 T5 标定、相解析与 CIF 门禁；
+ - `xafs_fit.py` 三处 S₀² 报错补 `--s02-from-t5` 提示；
+-- 契约 `#129` 锁定 RuO2 单晶位端到端正式 CN。
++- 契约 `#129` 锁定 RuO2 单晶位端到端正式 CN；
++- 契约 `#130` 锁定 `frac:(x,y,z)` 分数坐标吸收位、`cif_gate` 晶胞正交化、P1b/P5 配置文件键镜像、XDI 文件头元素回退与 `xafs_report.py` 异常分支对齐。
+ 
+ ### 11.2 结果
+ 
+@@ -1314,9 +1315,9 @@ crawler 入库后按同一三扫描命令重跑，上述 r_factor/N/R 与 fit_ta
+ 
+ ### 11.3 测试
+ 
+-- `regression_test.py`：**129 项 OK**（127.3 s）；
+-- `run_ci.py --stress`：129 契约 + 4 压力 PASS（186.8 s）；
+-- 定向 `#75 / #76 / #127 / #128 / #129`：5/5 OK。
++- `regression_test.py`：**130 项 OK**；
++- `run_ci.py --stress`：130 契约 + 4 压力 PASS；
++- 定向 `#75 / #76 / #127 / #128 / #129 / #130`：6/6 OK。
+ 
+ ### 11.4 提交与补丁
+ 
+diff --git a/phase_resolver.py b/phase_resolver.py
+index 2ea2056..423695e 100644
+--- a/phase_resolver.py
++++ b/phase_resolver.py
+@@ -324,14 +324,28 @@ def _candidate_to_structure_model(
+     """
+     sites = list(candidate.absorber_sites or [])
+     if absorber_site:
+-        canonical = {s.lower(): s for s in sites}.get(
+-            str(absorber_site).strip().lower())
+-        if canonical is None:
+-            raise PhaseResolutionError(
+-                "absorber_site_missing",
+-                f"{candidate.source}:{candidate.id} 没有吸收位 "
+-                f"{absorber_site!r}；可用位点: {sites}")
+-        site = canonical
++        raw_site = str(absorber_site).strip()
++        m_frac = re.match(r"^frac:\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)$", raw_site)
++        if m_frac and sites:
++            try:
++                coords = [float(m_frac.group(i)) for i in (1, 2, 3)]
++            except ValueError as exc:
++                raise PhaseResolutionError(
++                    "absorber_site_missing",
++                    f"非法分数坐标 {absorber_site!r}") from exc
++            if not all(math.isfinite(c) for c in coords):
++                raise PhaseResolutionError(
++                    "absorber_site_missing",
++                    f"非法分数坐标 {absorber_site!r}")
++            site = raw_site
++        else:
++            canonical = {s.lower(): s for s in sites}.get(raw_site.lower())
++            if canonical is None:
++                raise PhaseResolutionError(
++                    "absorber_site_missing",
++                    f"{candidate.source}:{candidate.id} 没有吸收位 "
++                    f"{absorber_site!r}；可用位点: {sites}")
++            site = canonical
+     elif len(sites) == 1:
+         site = sites[0]
+     elif len(sites) > 1:
+diff --git a/regression_test.py b/regression_test.py
+index fa45516..f7abc4e 100644
+--- a/regression_test.py
++++ b/regression_test.py
+@@ -6066,6 +6066,71 @@ O1 O 0 0 0 0.5
+         self.assertAlmostEqual(float(rows[0]["n0"]), 6.0, places=3)
+         self.assertAlmostEqual(float(rows[0]["n_fit"]), 6.0, delta=0.35)
+ 
++    def test_p6_2_edge_entry_alignments(self):
++        """#130 P6.2：frac:(x,y,z) 吸收位、P1b/P5 配置键镜像、XDI 自动元素回退与 report 异常分支。"""
++        import json
++        import run_xafs
++        from xafs_core import XAFSConfigError
++
++        # 1) --absorber-site "frac:(x,y,z)" 在 phase_resolver -> cif_gate -> _site_motif_from_model 贯通
++        pr = phase_resolver.resolve_phase(
++            "Ru", phase_id="COD:9007541", absorber_site="frac:(0,0,0)",
++            offline=True)
++        self.assertEqual(pr.status, "resolved")
++        self.assertIsNotNone(pr.structure_model)
++        self.assertEqual(pr.structure_model.absorber_site, "frac:(0,0,0)")
++        gate = cif_gate.gate_cif(
++            pr.selected.cif_path, "Ru",
++            absorber_site=pr.absorber_site, kmin=3.0, kmax=12.0)
++        self.assertTrue(gate.ok, gate.reason)
++        motif = xafs_fit._site_motif_from_model(pr.structure_model)
++        self.assertGreaterEqual(len(motif.sites), 2)
++        self.assertGreaterEqual(len(motif.shell_expect), 1)
++
++        # 非法 frac:(...) 坐标仍被拒绝
++        pr_bad = phase_resolver.resolve_phase(
++            "Ru", phase_id="COD:9007541", absorber_site="frac:(a,b,c)",
++            offline=True)
++        self.assertIsNone(pr_bad.structure_model)
++        self.assertIn("非法分数坐标", pr_bad.reason)
++
++        # 2) xafs_config.DEFAULTS 与 apply_config_to_kwargs 覆盖 P1b/P5 开关
++        for k in ("s02_from_t5", "xanes_cross_check", "phase_cif",
++                  "phase_id", "phase", "phase_index", "phase_pack",
++                  "absorber_site", "offline"):
++            self.assertIn(k, xafs_config.DEFAULTS)
++        with tempfile.TemporaryDirectory() as tmp:
++            cfg_path = Path(tmp) / "p62.json"
++            cfg_path.write_text(json.dumps({
++                "s02_from_t5": True,
++                "xanes_cross_check": True,
++                "phase_cif": "a.cif,b.cif",
++                "phase_id": "COD:9007541",
++                "absorber_site": "all",
++                "offline": True,
++            }), encoding="utf-8")
++            loaded = xafs_config.load_config(cfg_path)
++            base_kw = {k: v for k, v in xafs_config.DEFAULTS.items()
++                       if k not in ("self_absorption", "batch")}
++            merged = xafs_config.apply_config_to_kwargs(loaded, base_kw)
++        self.assertTrue(merged["s02_from_t5"])
++        self.assertTrue(merged["xanes_cross_check"])
++        self.assertEqual(merged["phase_cif"], ["a.cif", "b.cif"])
++        self.assertEqual(merged["phase_id"], "COD:9007541")
++        self.assertEqual(merged["absorber_site"], "all")
++        self.assertTrue(merged["offline"])
++
++        # 3) process_sample 在 absorber=None（靠 XDI 文件头自动识别元素）时支持 --formal-cn + --phase-id
++        fe_xdi = ROOT / "data" / "bmm_standards" / "Data" / "Fe" / "Fe-Lepidocrocite.xdi"
++        with tempfile.TemporaryDirectory() as tmp:
++            res = run_xafs.process_sample(
++                [str(fe_xdi)], tmp, absorber=None, strict=False,
++                identify=True, fit=True, formal_cn=True,
++                phase_id="COD:1011240", offline=True, verbose=False)
++            self.assertEqual(res.absorber_symbol, "Fe")
++            self.assertIsNotNone(res.fit.get("formal_cn"))
++            self.assertNotEqual(res.fit["cn_status"], "no_cif")
++
+ 
+ if __name__ == "__main__":
+     # unittest 默认写 stderr；PowerShell 会把任何 stderr 记录当成
+diff --git a/run_xafs.py b/run_xafs.py
+index 77376ba..2c26251 100644
+--- a/run_xafs.py
++++ b/run_xafs.py
+@@ -517,16 +517,21 @@ def process_sample(paths, outdir, align: bool = False,
+             print(f"  [B2-2] XANES LCF: {w}   Rf={lcf_res['r_factor']:.2e}")
+ 
+     # P1b phase resolution: parse --phase-* into StructureModel (formal CN strict track)
++    eff_absorber = absorber or getattr(result, "absorber_symbol", None)
++    if not eff_absorber and paths:
++        eff_absorber, _ = detect_absorber(paths[0])
+     structure_model = None
+     structure_models: list = []
+     gate_result = None
+     gate_results: list = []
+     if formal_cn and (phase_cif or phase_id or phase_spec or phase_index_path):
+-        if not absorber:
++        if not eff_absorber:
+             raise XAFSConfigError(
+                 "FIT", "--formal-cn + --phase-* requires --absorber to specify absorber element")
++        absorber = eff_absorber
++        result.absorber_symbol = eff_absorber
+         resolution = phase_resolver.resolve_phase(
+-            absorber,
++            eff_absorber,
+             phase_cif=phase_cif,
+             phase_id=phase_id,
+             phase_spec=phase_spec,
+@@ -566,7 +571,7 @@ def process_sample(paths, outdir, align: bool = False,
+             # P5-D：每个不等价吸收位独立过门禁；任一位点失败即拒绝，
+             # 不做“部分位点成功即放行”。
+             gate_results = cif_gate.gate_cif_all_sites(
+-                resolution.selected.cif_path, absorber, **gate_kwargs)
++                resolution.selected.cif_path, eff_absorber, **gate_kwargs)
+             failed = [g for g in gate_results if not g.ok]
+             if failed:
+                 labels = ", ".join(
+@@ -581,7 +586,7 @@ def process_sample(paths, outdir, align: bool = False,
+                 m.warnings = list(g.warnings)
+         else:
+             gate_result = cif_gate.gate_cif(
+-                resolution.selected.cif_path, absorber,
++                resolution.selected.cif_path, eff_absorber,
+                 absorber_site=resolution.absorber_site,
+                 **gate_kwargs)
+             if not gate_result.ok:
+@@ -1022,12 +1027,20 @@ def main():
+     if args.constraints is None and config.get("constraints") is not None:
+         args.constraints = config["constraints"]
+ 
+-    # ---- Phase I–III 开关：CLI 显式 > 配置文件 > 默认 ----
++    # ---- Phase I–III + P1b/P5 开关：CLI 显式 > 配置文件 > 默认 ----
+     for _key in ("deadtime", "reject_outlier_scans", "include_ms",
+                  "isotropic_deltar", "mback", "hetero_cocupancy",
+-                 "phase_correct", "chi2_contour", "operando"):
++                 "phase_correct", "chi2_contour", "operando",
++                 "s02_from_t5", "xanes_cross_check", "offline"):
+         if not getattr(args, _key, False) and config.get(_key):
+             setattr(args, _key, True)
++    for _key in ("phase_id", "phase", "phase_index", "phase_pack",
++                 "absorber_site"):
++        if getattr(args, _key, None) is None and config.get(_key) is not None:
++            setattr(args, _key, config[_key])
++    if args.phase_cif is None and config.get("phase_cif") is not None:
++        args.phase_cif = xafs_config._coerce_config_value(
++            "phase_cif", config["phase_cif"])
+     if args.deglitch is None and config.get("deglitch") is not None:
+         args.deglitch = config["deglitch"]
+     if args.fit_kweights is None and config.get("fit_kweights") is not None:
+diff --git a/xafs_config.py b/xafs_config.py
+index 51fe108..18ad33a 100644
+--- a/xafs_config.py
++++ b/xafs_config.py
+@@ -94,6 +94,16 @@ DEFAULTS: dict[str, Any] = {
+     "s02": None,
+     # P0a：正式 CN 双轨开关；默认关闭，保持诊断输出零退化。
+     "formal_cn": False,
++    # ---- P1b / P5：独立 S₀²、联合校验与相来源 ----
++    "s02_from_t5": False,
++    "xanes_cross_check": False,
++    "phase_cif": None,
++    "phase_id": None,
++    "phase": None,
++    "phase_index": None,
++    "phase_pack": None,
++    "absorber_site": None,
++    "offline": False,
+     "self_absorption": {
+         "formula": None,
+         "thickness": None,
+@@ -183,6 +193,11 @@ def _coerce_config_value(key: str, value):
+         if low not in ("r", "q", "wt"):
+             raise ValueError(f"fit_space 只支持 r/q/wt，收到 {value!r}")
+         return low
++    if key == "phase_cif":
++        if isinstance(value, str):
++            return [s.strip() for s in value.split(",") if s.strip()]
++        if isinstance(value, (list, tuple)):
++            return [str(v) for v in value]
+     return value
+ 
+ 
+diff --git a/xafs_report.py b/xafs_report.py
+index ab17e20..1bab64d 100644
+--- a/xafs_report.py
++++ b/xafs_report.py
+@@ -1833,11 +1833,18 @@ def main(argv=None):
+         print(f"  [B2-2] XANES LCF: {w}   Rf={lcf_res['r_factor']:.2e}"
+               f"  → {out / f'{stem}_lcf.json'}")
+ 
++    eff_absorber = args.absorber or getattr(st["result"], "absorber_symbol", None)
++    if not eff_absorber and args.files:
++        import run_xafs
++        eff_absorber, _ = run_xafs.detect_absorber(args.files[0])
+     s02_val = args.s02
+     s02_source = "--s02 runtime override" if s02_val is not None else None
+     if s02_val is None and args.s02_from_t5:
+         import run_xafs
+-        s02_val, s02_source = run_xafs.load_t5_s02(args.absorber)
++        if not eff_absorber:
++            raise XAFSConfigError(
++                "T5", "启用 --s02-from-t5 但无法判定吸收元素；请显式给 --absorber")
++        s02_val, s02_source = run_xafs.load_t5_s02(eff_absorber)
+ 
+     structure_model = None
+     structure_models: list = []
+@@ -1845,10 +1852,13 @@ def main(argv=None):
+     gate_results: list = []
+     if args.formal_cn and (args.phase_cif or args.phase_id
+                            or args.phase or args.phase_index):
++        if not eff_absorber:
++            raise XAFSConfigError(
++                "FIT", "--formal-cn + --phase-* requires --absorber to specify absorber element")
+         import cif_gate
+         import phase_resolver
+         resolution = phase_resolver.resolve_phase(
+-            args.absorber,
++            eff_absorber,
+             phase_cif=args.phase_cif,
+             phase_id=args.phase_id,
+             phase_spec=args.phase,
+@@ -1858,9 +1868,13 @@ def main(argv=None):
+             offline=args.offline)
+         if resolution.status != "resolved":
+             raise XAFSConfigError(
+-                "FIT", f"--phase-* 解析失败 ({resolution.code}): "
++                "FIT", f"--phase-* 解析失败 ({resolution.status}): "
+                        f"{resolution.reason}")
+         structure_model = resolution.structure_model
++        if structure_model is None:
++            raise XAFSConfigError(
++                "FIT", f"Phase resolution did not produce a usable structure model: "
++                       f"{resolution.reason}")
+         structure_models = list(resolution.site_models)
+         multi_site = len(structure_models) > 1
+         gate_kwargs = dict(
+@@ -1869,7 +1883,7 @@ def main(argv=None):
+             is_computed=not resolution.selected.experimental)
+         if multi_site:
+             gate_results = cif_gate.gate_cif_all_sites(
+-                resolution.selected.cif_path, args.absorber, **gate_kwargs)
++                resolution.selected.cif_path, eff_absorber, **gate_kwargs)
+             failed = [g for g in gate_results if not g.ok]
+             if failed:
+                 raise XAFSConfigError(
+@@ -1881,7 +1895,7 @@ def main(argv=None):
+                 m.warnings = list(g.warnings)
+         else:
+             gate_result = cif_gate.gate_cif(
+-                resolution.selected.cif_path, args.absorber,
++                resolution.selected.cif_path, eff_absorber,
+                 absorber_site=resolution.absorber_site, **gate_kwargs)
+             if not gate_result.ok:
+                 raise XAFSConfigError(
+-- 
+2.56.0.windows.4
+
+
+From db6321a39caa80084e575d03c49697d5afccaf2e Mon Sep 17 00:00:00 2001
+From: Lizhaoyang2001006 <lizhaoyang24@mails.ucas.ac.cn>
+Date: Mon, 9 Nov 2026 21:01:55 +0800
+Subject: [PATCH 2/2] P6.3: align entry configs, guard operando flags, and wire
+ deferred config keys
+
+---
+ README.md                      |  6 +--
+ docs/ACCEPTANCE_LOG.md         | 44 ++++++++++++++++++
+ docs/P4_PLUS_EXECUTION_PLAN.md | 11 +++++
+ regression_test.py             | 85 ++++++++++++++++++++++++++++++++++
+ run_xafs.py                    | 80 +++++++++++++++++++++++++-------
+ xafs_config.py                 | 56 ++++++++++++++++++++++
+ xafs_pipeline.py               |  4 +-
+ xafs_report.py                 | 51 ++++++++++++++++++--
+ 8 files changed, 313 insertions(+), 24 deletions(-)
+
+diff --git a/README.md b/README.md
+index a222d50..8fd35f7 100644
+--- a/README.md
++++ b/README.md
+@@ -20,7 +20,7 @@ Artemis 的图形界面。
+ | 标定资产 | `data/s02_calibration/` | T5 标定产物、motifs、source_pool |
+ | 设计规范 | `docs/REVIEW_AND_REVISED_PLAN.md` | 正式 CN 物理门禁总纲（§1–§6） |
+ | 执行计划 | `docs/P4_PLUS_EXECUTION_PLAN.md` | P4+/P5/P6 催化能力扩展计划 |
+-| 验收账本 | `docs/ACCEPTANCE_LOG.md` | P0a–P6.1 完整验收记录 |
++| 验收账本 | `docs/ACCEPTANCE_LOG.md` | P0a–P6.3 完整验收记录 |
+ | 爬虫说明 | `docs/CIF_CRAWLER_INTEGRATION.md` | COD 目标表、P5-C 入库与 T5 谱源整合 |
+ | 执行记录 | `docs/P6_EXECUTION_INSTRUCTIONS.md` | P6 门禁修复与项目整合的权威执行指令 |
+ | 执行记录 | `docs/P6_1_EXECUTION_INSTRUCTIONS.md` | P6.1 单晶位/多晶位正式 CN 端到端闭环修复 |
+@@ -94,7 +94,7 @@ python xafs_report.py
+ | `calibrate_s02.py` | 标定 S₀²（金属箔/氧化物标样，生产等效协议；`--motif-file` 用标定专用结构） |
+ | `calibrate_t5.py` | T5 批量标定 12 元素，产物落 `data/s02_calibration/`（不改静态表） |
+ | `absorber.py` | 吸收元素配置表（边能量/S₀²/kmax），元素泛化唯一入口 |
+-| `regression_test.py` | 130 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝、P5-C 18 个常见相 COD 补齐/coverage 无缺口、P5-prep 标准谱源隔离池/5 元素门禁冻结、P5-D 多位点正式 CN、P6 phase pack 44/44 门禁、P6.1 单晶位正式 CN 与诊断库解耦） |
++| `regression_test.py` | 131 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝、P5-C 18 个常见相 COD 补齐/coverage 无缺口、P5-prep 标准谱源隔离池/5 元素门禁冻结、P5-D 多位点正式 CN、P6 phase pack 44/44 门禁、P6.1 单晶位正式 CN 与诊断库解耦、P6.2 边界入口对齐、P6.3 双入口配置/operando 守卫） |
+ | `run_ci.py` | 跨平台 CI：编译 + 契约回归 + 可选压力测试，输出 ci_report.json/md |
+ | `stress_test_{co,ni,cu,nio}.py` | 元素泛化/护栏/CN 回收压力测试 |
+ | `xafs_config.py` | 配置文件支持（.yaml/.json）、批处理入口（--batch-dir） |
+@@ -274,7 +274,7 @@ FT 内核嵌进页面，浏览器里拖 kmin/kmax/kweight/dk，实时看 `|χ(R)
+ 
+ ### CI 自动化回归
+ ```powershell
+-python run_ci.py            # 编译 + 130 项契约回归
++python run_ci.py            # 编译 + 131 项契约回归
+ python run_ci.py --stress   # 额外跑 Co/Ni/Cu/NiO 压力测试
+ ```
+ 产物 `ci_report.json` / `ci_report.md`；任一步失败即非零退出。
+diff --git a/docs/ACCEPTANCE_LOG.md b/docs/ACCEPTANCE_LOG.md
+index 42de5e0..9d85f0f 100644
+--- a/docs/ACCEPTANCE_LOG.md
++++ b/docs/ACCEPTANCE_LOG.md
+@@ -1331,3 +1331,47 @@ crawler 入库后按同一三扫描命令重跑，上述 r_factor/N/R 与 fit_ta
+ - 遗留问题：
+   - 稀释样品（如 Ru-K-RuO2.xdi）边后平台 0.106，仍须 `--no-strict`；
+   - 条件 CN 的物理拒绝（N/N₀ 越界、Rf 超限）保持硬拒绝，不放宽。
++
++
++## 12. P6.3：入口层执行障碍清理（2026-11-09）
++
++### 12.1 范围
++
++- `xafs_config.py`：新增 `apply_p1b_config()` 与
++  `operando_kwargs_from_config()`；P1b/P5 的 9 个键（`s02_from_t5` /
++  `xanes_cross_check` / `phase_cif` / `phase_id` / `phase` /
++  `phase_index` / `phase_pack` / `absorber_site` / `offline`）与
++  `post_window` 由两个 CLI 共用同一套合并逻辑；
++- `xafs_report.py`：配置文件正式支持上述键；新增
++  `--xanes-cross-check`、`--post-window`、
++  `--allow-unusual-coordination`；`xafs_fit.run` 改用自动识别的
++  `eff_absorber` 并透传 `xanes_cross_check`；
++- `run_xafs.py`：新增 `--post-window` 与
++  `--allow-unusual-coordination`；operando 模式对 `--fit` /
++  `--identify` / `--formal-cn` / `--xanes-cross-check` /
++  `--fit-motif` / `--fit-weights` / `--catalytic-model` /
++  `--legacy-auto-fit` / `--phase-*` 显式报错（不再静默忽略）；
++  operando 补传 `kweight` / `deglitch` / `diagnostics`；
++- `xafs_pipeline.py`：S3 strict 报错追加 `--no-strict` 提示；
++- B10 配置接线：`target_transform.spoil_good/spoil_poor` 与
++  `mcr_als.n_components/max_iter/closure` 正式传入
++  `run_operando_series`。
++
++### 12.2 结果
++
++- 仅凭配置文件（`s02_from_t5` + `phase_id=COD:9007541` + `offline` +
++  `formal_cn`）即可跑通 RuO2 报告并写出 `cn_table.csv`
++  （`s02=0.7002`，条件 CN 物理拒绝保留）；
++- `--operando --fit/--formal-cn` 等组合现在退出码 2 并列出不适用参数；
++- 契约 `#131` 锁定双入口配置对齐、operando 守卫、B10 接线与 S3 提示。
++
++### 12.3 测试
++
++- `regression_test.py`：**131 项 OK**；
++- `run_ci.py --stress`：131 契约 + 4 压力 PASS。
++
++### 12.4 结论
++
++- [x] 通过
++- 物理门禁、`absorber.py` 静态表、`calibrate_s02.py` 常量、
++  44 条 phase pack 均未改动。
+diff --git a/docs/P4_PLUS_EXECUTION_PLAN.md b/docs/P4_PLUS_EXECUTION_PLAN.md
+index bfc34f7..21c74c6 100644
+--- a/docs/P4_PLUS_EXECUTION_PLAN.md
++++ b/docs/P4_PLUS_EXECUTION_PLAN.md
+@@ -257,3 +257,14 @@
+   `n0_shells` / `warnings`；
+ - `xafs_report.py` 接入 `--s02-from-t5` 与 `--phase-*` 正式 CN 入口；
+ - 契约 `#129` 锁定 RuO2 单晶位端到端正式 CN。
++
++
++## P6.3：入口层执行障碍清理（已完成）
++
++- `xafs_config.apply_p1b_config` / `operando_kwargs_from_config`：
++  两个 CLI 共用 P1b/P5 配置合并，B10 配置键正式接线；
++- `xafs_report.py` 新增 `--xanes-cross-check` / `--post-window` /
++  `--allow-unusual-coordination`，配置文件与 `run_xafs` 对齐；
++- `run_xafs.py` operando 模式对 S6.5/S7 参数显式报错，不再静默忽略；
++- S3 strict 报错补 `--no-strict` 提示；
++- 契约 `#131` 锁定上述入口对齐。
+diff --git a/regression_test.py b/regression_test.py
+index f7abc4e..821170f 100644
+--- a/regression_test.py
++++ b/regression_test.py
+@@ -6066,6 +6066,91 @@ O1 O 0 0 0 0.5
+         self.assertAlmostEqual(float(rows[0]["n0"]), 6.0, places=3)
+         self.assertAlmostEqual(float(rows[0]["n_fit"]), 6.0, delta=0.35)
+ 
++    def test_p6_3_entry_parity_and_operando_guards(self):
++        """#131 P6.3：双入口配置键对齐、operando 冲突守卫、B10 配置接线与 S3 提示。"""
++        import argparse
++        import contextlib
++        import io
++        from unittest.mock import patch
++
++        # 1) P1b/P5 配置合并：9 键 + post_window；CLI 显式值优先
++        args = argparse.Namespace(
++            s02_from_t5=False, xanes_cross_check=False, offline=False,
++            phase_id=None, phase=None, phase_index=None, phase_pack=None,
++            absorber_site=None, phase_cif=None, post_window=None)
++        cfg = {
++            "s02_from_t5": True, "xanes_cross_check": True, "offline": True,
++            "phase_cif": "a.cif,b.cif", "phase_id": "COD:9007541",
++            "phase": "name=rutile", "phase_index": "idx.json",
++            "phase_pack": "pack", "absorber_site": "all",
++            "post_window": [180, 650],
++        }
++        xafs_config.apply_p1b_config(args, cfg)
++        self.assertTrue(args.s02_from_t5)
++        self.assertTrue(args.xanes_cross_check)
++        self.assertTrue(args.offline)
++        self.assertEqual(args.phase_cif, ["a.cif", "b.cif"])
++        self.assertEqual(args.phase_id, "COD:9007541")
++        self.assertEqual(args.phase, "name=rutile")
++        self.assertEqual(args.phase_index, "idx.json")
++        self.assertEqual(args.phase_pack, "pack")
++        self.assertEqual(args.absorber_site, "all")
++        self.assertEqual(args.post_window, (180.0, 650.0))
++
++        args2 = argparse.Namespace(
++            s02_from_t5=True, xanes_cross_check=False, offline=False,
++            phase_id="COD:1", phase=None, phase_index=None, phase_pack=None,
++            absorber_site="Fe1", phase_cif=["explicit.cif"],
++            post_window="140,620")
++        xafs_config.apply_p1b_config(args2, cfg)
++        self.assertEqual(args2.phase_id, "COD:1")
++        self.assertEqual(args2.absorber_site, "Fe1")
++        self.assertEqual(args2.phase_cif, ["explicit.cif"])
++        self.assertEqual(args2.post_window, "140,620")
++
++        # 2) B10 配置键接线：target_transform / mcr_als
++        kw = xafs_config.operando_kwargs_from_config({
++            "target_transform": {"spoil_good": 2.5, "spoil_poor": 5.0},
++            "mcr_als": {"n_components": 3, "max_iter": 500, "closure": False},
++        })
++        self.assertEqual(kw, {"spoil_good": 2.5, "spoil_poor": 5.0,
++                              "n_components": 3, "max_iter": 500,
++                              "closure": False})
++
++        # 3) --operando 与 S6.5/S7 参数显式冲突（不再静默忽略）
++        import run_xafs
++        for extra in (["--formal-cn", "--fit"], ["--fit"],
++                      ["--xanes-cross-check"]):
++            argv = (["run_xafs.py", str(FE_FOIL), str(FE_FOIL), str(FE_FOIL),
++                     "--operando", "--absorber", "Fe"] + extra)
++            with patch.object(sys, "argv", argv), \
++                    contextlib.redirect_stderr(io.StringIO()):
++                with self.assertRaises(SystemExit):
++                    run_xafs.main()
++
++        # 4) 新入口开关在后端可见（--help 即解析器全量）
++        for module, flag in (
++                (run_xafs, "--allow-unusual-coordination"),
++                (run_xafs, "--post-window"),
++                (xafs_report, "--xanes-cross-check"),
++                (xafs_report, "--allow-unusual-coordination"),
++                (xafs_report, "--post-window"),
++                (xafs_report, "--phase-id")):
++            buf = io.StringIO()
++            with patch.object(sys, "argv", ["prog", "--help"]), \
++                    contextlib.redirect_stdout(buf), \
++                    contextlib.redirect_stderr(io.StringIO()):
++                with self.assertRaises(SystemExit):
++                    module.main()
++            self.assertIn(flag, buf.getvalue(), f"{module.__name__} 缺少 {flag}")
++
++        # 5) S3 strict 报错给出 --no-strict 出口
++        with self.assertRaises(XAFSError) as ctx:
++            xafs_pipeline.process_sample([FE_FOIL], absorber="Fe",
++                                         strict=True, verbose=False)
++        self.assertIn("归一化失败", str(ctx.exception))
++        self.assertIn("--no-strict", str(ctx.exception))
++
+     def test_p6_2_edge_entry_alignments(self):
+         """#130 P6.2：frac:(x,y,z) 吸收位、P1b/P5 配置键镜像、XDI 自动元素回退与 report 异常分支。"""
+         import json
+diff --git a/run_xafs.py b/run_xafs.py
+index 2c26251..e8554ae 100644
+--- a/run_xafs.py
++++ b/run_xafs.py
+@@ -422,6 +422,7 @@ def process_sample(paths, outdir, align: bool = False,
+                    e0_method: str = "derivative", manual_e0: float | None = None,
+                    rbkg: float | None = None, kmin: float = 3.0, kmax: float = 12.0,
+                    kweight: int = 2, post_window=(150, 600),
++                   allow_unusual_coordination: bool = False,
+                    strict: bool = True,
+                    diagnostics: bool = False, identify: bool = False,
+                    fit: bool = False, fit_motif: str | None = None,
+@@ -565,7 +566,7 @@ def process_sample(paths, outdir, align: bool = False,
+         gate_kwargs = dict(
+             kmin=kmin, kmax=kmax, rmax=6.0,
+             allow_computed=False,
+-            allow_unusual_coordination=False,
++            allow_unusual_coordination=allow_unusual_coordination,
+             is_computed=not resolution.selected.experimental)
+         if multi_site:
+             # P5-D：每个不等价吸收位独立过门禁；任一位点失败即拒绝，
+@@ -879,6 +880,12 @@ def main():
+                         choices=["derivative", "half_height", "manual"])
+     parser.add_argument("--manual-e0", type=float, default=None)
+     parser.add_argument("--rbkg", type=float, default=None, help="指定 Rbkg，跳过寻优")
++    parser.add_argument("--post-window", default=None,
++                        help="S3 归一化边后窗口（E-E0, eV）：'150,600'；"
++                             "默认 150,600；也可用配置文件键 post_window")
++    parser.add_argument("--allow-unusual-coordination", action="store_true",
++                        help="CIF 门禁：允许键长超出 PAIR_BOND_REF±0.08 Å 的"
++                             "非常规配位；默认拒绝，需显式打开")
+     parser.add_argument("--self-absorption-formula", default=None,
+                         help="荧光自吸收校正的样品总化学式（如 Fe3O4）；"
+                              "仅荧光模式，且必须同时给厚度/密度")
+@@ -1030,17 +1037,11 @@ def main():
+     # ---- Phase I–III + P1b/P5 开关：CLI 显式 > 配置文件 > 默认 ----
+     for _key in ("deadtime", "reject_outlier_scans", "include_ms",
+                  "isotropic_deltar", "mback", "hetero_cocupancy",
+-                 "phase_correct", "chi2_contour", "operando",
+-                 "s02_from_t5", "xanes_cross_check", "offline"):
++                 "phase_correct", "chi2_contour", "operando"):
+         if not getattr(args, _key, False) and config.get(_key):
+             setattr(args, _key, True)
+-    for _key in ("phase_id", "phase", "phase_index", "phase_pack",
+-                 "absorber_site"):
+-        if getattr(args, _key, None) is None and config.get(_key) is not None:
+-            setattr(args, _key, config[_key])
+-    if args.phase_cif is None and config.get("phase_cif") is not None:
+-        args.phase_cif = xafs_config._coerce_config_value(
+-            "phase_cif", config["phase_cif"])
++    # P1b/P5（两个 CLI 共用同一套键，避免 report 端静默忽略）
++    xafs_config.apply_p1b_config(args, config)
+     if args.deglitch is None and config.get("deglitch") is not None:
+         args.deglitch = config["deglitch"]
+     if args.fit_kweights is None and config.get("fit_kweights") is not None:
+@@ -1092,6 +1093,19 @@ def main():
+     vary_c3 = xafs_config.normalize_cumulant_switch(args.vary_c3)
+     vary_c4 = xafs_config.normalize_cumulant_switch(args.vary_c4)
+ 
++    # ---- S3 归一化窗口：CLI > 配置文件 > 默认 (150, 600) ----
++    post_window = (150.0, 600.0)
++    if args.post_window is not None:
++        try:
++            _pw = xafs_config._coerce_config_value(
++                "post_window", args.post_window)
++        except (TypeError, ValueError):
++            parser.error(f"--post-window 需要两个数字，收到 {args.post_window!r}")
++        if len(_pw) != 2 or not (0 < _pw[0] < _pw[1]):
++            parser.error(
++                f"--post-window 必须满足 0 < lo < hi，收到 {args.post_window!r}")
++        post_window = (float(_pw[0]), float(_pw[1]))
++
+     # ---- B10-1 chi_std 先验谱：两列 k, chi(k) ----
+     chi_std = chi_std_k = None
+     if args.chi_std:
+@@ -1240,7 +1254,10 @@ def main():
+                 [fpath], sub_out, align=args.align, absorber=element,
+                 edge_energy=args.edge_energy, e0_method=args.e0_method,
+                 manual_e0=args.manual_e0, rbkg=args.rbkg, kmin=args.kmin,
+-                kmax=args.kmax, kweight=args.kweight, strict=args.strict,
++                kmax=args.kmax, kweight=args.kweight,
++                post_window=post_window,
++                allow_unusual_coordination=args.allow_unusual_coordination,
++                strict=args.strict,
+                 diagnostics=args.diagnostics, identify=args.identify,
+                 fit=args.fit, fit_motif=args.fit_motif,
+                 fit_rmin=args.fit_rmin, fit_rmax=args.fit_rmax,
+@@ -1293,6 +1310,25 @@ def main():
+             parser.error("--operando 与 --batch-dir 不能同时使用")
+         if len(files) < 3:
+             parser.error("--operando 至少需要 3 个样品文件")
++        _incompatible = [name for name, on in (
++            ("--fit", args.fit),
++            ("--identify", args.identify),
++            ("--formal-cn", args.formal_cn),
++            ("--xanes-cross-check", args.xanes_cross_check),
++            ("--fit-motif", args.fit_motif is not None),
++            ("--fit-weights", args.fit_weights),
++            ("--catalytic-model", args.catalytic_model is not None),
++            ("--legacy-auto-fit", args.legacy_auto_fit),
++            ("--phase-cif", args.phase_cif is not None),
++            ("--phase-id", args.phase_id is not None),
++            ("--phase", args.phase is not None),
++            ("--phase-index", args.phase_index is not None),
++            ("--absorber-site", args.absorber_site is not None),
++        ) if on]
++        if _incompatible:
++            parser.error(
++                "--operando 只执行 S1–S6 + PCA/MCR/LCF，不执行 S6.5/S7；"
++                "以下参数不适用: " + ", ".join(_incompatible))
+         op_s02, op_s02_src = _resolve_s02_for_paths(args, files, args.absorber)
+         results = []
+         for i, fpath in enumerate(files, 1):
+@@ -1302,8 +1338,12 @@ def main():
+                 align=args.align, absorber=args.absorber,
+                 edge_energy=args.edge_energy, e0_method=args.e0_method,
+                 manual_e0=args.manual_e0, rbkg=args.rbkg, kmin=args.kmin,
+-                kmax=args.kmax, kweight=args.kweight, strict=args.strict,
+-                despike=args.despike,
++                kmax=args.kmax, kweight=args.kweight,
++                post_window=post_window,
++                allow_unusual_coordination=args.allow_unusual_coordination,
++                strict=args.strict,
++                diagnostics=args.diagnostics,
++                despike=args.despike, deglitch=deglitch,
+                 deadtime=args.deadtime,
+                 reject_outlier_scans=args.reject_outlier_scans,
+                 mback=args.mback, chi_std=chi_std, chi_std_k=chi_std_k,
+@@ -1323,7 +1363,9 @@ def main():
+                 std = xafs_pipeline.process_sample(
+                     [p], absorber=args.absorber, strict=False, verbose=False)
+                 std_scans[Path(p).stem] = std.norm
+-        op = xafs_lcf.run_operando_series(results, standards=std_scans)
++        op = xafs_lcf.run_operando_series(
++            results, standards=std_scans,
++            **xafs_config.operando_kwargs_from_config(config))
+         op_dir = Path(args.outdir) / "operando"
+         made = xafs_diagnostics.write_operando_diagnostics(
+             op, op_dir, stem="operando")
+@@ -1359,7 +1401,10 @@ def main():
+                     [fpath], sub_out, align=args.align, absorber=args.absorber,
+                     edge_energy=args.edge_energy, e0_method=args.e0_method,
+                     manual_e0=args.manual_e0, rbkg=args.rbkg, kmin=args.kmin,
+-                    kmax=args.kmax, kweight=args.kweight, strict=args.strict,
++                    kmax=args.kmax, kweight=args.kweight,
++                    post_window=post_window,
++                    allow_unusual_coordination=args.allow_unusual_coordination,
++                    strict=args.strict,
+                     diagnostics=args.diagnostics, identify=args.identify,
+                     fit=args.fit, fit_motif=args.fit_motif,
+                     fit_rmin=args.fit_rmin, fit_rmax=args.fit_rmax,
+@@ -1418,7 +1463,10 @@ def main():
+         files, args.outdir, align=args.align, absorber=args.absorber,
+         edge_energy=args.edge_energy, e0_method=args.e0_method,
+         manual_e0=args.manual_e0, rbkg=args.rbkg, kmin=args.kmin,
+-        kmax=args.kmax, kweight=args.kweight, strict=args.strict,
++        kmax=args.kmax, kweight=args.kweight,
++        post_window=post_window,
++        allow_unusual_coordination=args.allow_unusual_coordination,
++        strict=args.strict,
+         diagnostics=args.diagnostics, identify=args.identify, fit=args.fit,
+         fit_motif=args.fit_motif, fit_rmin=args.fit_rmin,
+         fit_rmax=args.fit_rmax, allow_ambiguous=args.allow_ambiguous,
+diff --git a/xafs_config.py b/xafs_config.py
+index 18ad33a..87de266 100644
+--- a/xafs_config.py
++++ b/xafs_config.py
+@@ -33,6 +33,7 @@ xafs_config.py — 管线配置文件支持（YAML / JSON / INI）
+ from __future__ import annotations
+ 
+ import json
++import re
+ from pathlib import Path
+ from typing import Any
+ 
+@@ -183,6 +184,9 @@ def _coerce_config_value(key: str, value):
+             return json.loads(value)
+         return value
+     if key == "post_window":
++        if isinstance(value, str):
++            parts = [p for p in re.split(r"[,:;\s]+", value.strip()) if p]
++            return tuple(float(p) for p in parts)
+         return tuple(float(v) for v in value)
+     if key == "bvs_restraint":
+         if isinstance(value, str):
+@@ -292,6 +296,58 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
+     return out
+ 
+ 
++# P1b/P5 入口配置键：两个 CLI（run_xafs / xafs_report）必须完全一致，
++# 否则配置文件里的相来源、T5 与离线开关会被静默忽略。
++P1B_BOOL_KEYS = ("s02_from_t5", "xanes_cross_check", "offline")
++P1B_VALUE_KEYS = ("phase_id", "phase", "phase_index", "phase_pack",
++                  "absorber_site")
++
++
++def apply_p1b_config(args, config: dict[str, Any]):
++    """把 P1b/P5 配置键合并进 argparse.Namespace（CLI 显式值优先）。
++
++    ``args`` 里已有的非默认值（布尔 True / 非 None）不会被配置覆盖；
++    因此两个入口都可以在解析完 CLI 后无条件调用。
++    """
++    for key in P1B_BOOL_KEYS:
++        if not getattr(args, key, False) and config.get(key):
++            setattr(args, key, True)
++    for key in P1B_VALUE_KEYS:
++        if getattr(args, key, None) is None and config.get(key) is not None:
++            setattr(args, key, config[key])
++    if (getattr(args, "phase_cif", None) is None
++            and config.get("phase_cif") is not None):
++        args.phase_cif = _coerce_config_value("phase_cif", config["phase_cif"])
++    if (getattr(args, "post_window", None) is None
++            and config.get("post_window") is not None):
++        args.post_window = _coerce_config_value(
++            "post_window", config["post_window"])
++    return args
++
++
++def operando_kwargs_from_config(config: dict[str, Any]) -> dict[str, Any]:
++    """把 B10 的 target_transform / mcr_als 配置映射到 run_operando_series。
++
++    DEFAULTS 里的这两个键此前只是"声明"，从未被消费；这里接线后
++    ``target_transform.spoil_good/spoil_poor`` 与
++    ``mcr_als.n_components/max_iter/closure`` 才会真正生效。
++    """
++    kw: dict[str, Any] = {}
++    tt = config.get("target_transform") or {}
++    mcr = config.get("mcr_als") or {}
++    if tt.get("spoil_good") is not None:
++        kw["spoil_good"] = float(tt["spoil_good"])
++    if tt.get("spoil_poor") is not None:
++        kw["spoil_poor"] = float(tt["spoil_poor"])
++    if mcr.get("n_components") is not None:
++        kw["n_components"] = int(mcr["n_components"])
++    if mcr.get("max_iter") is not None:
++        kw["max_iter"] = int(mcr["max_iter"])
++    if mcr.get("closure") is not None:
++        kw["closure"] = bool(mcr["closure"])
++    return kw
++
++
+ def apply_config_to_kwargs(config: dict[str, Any], kwargs: dict[str, Any],
+                            explicit: set[str] | None = None) -> dict[str, Any]:
+     """把配置文件值填入 kwargs，但 CLI 显式给出的键永远优先。
+diff --git a/xafs_pipeline.py b/xafs_pipeline.py
+index d62d1e3..a561004 100644
+--- a/xafs_pipeline.py
++++ b/xafs_pipeline.py
+@@ -200,7 +200,9 @@ def process_sample(paths, align: bool = False, absorber: str | None = None,
+         # strict=True（run_xafs 默认）：未知样品宁可中断也不产出误导结果；
+         # strict=False（xafs_report）：已知标样（如厚 Fe 箔平台 0.79）降级为警告。
+         if strict:
+-            raise XAFSError("S3", f"归一化失败：{msg}")
++            raise XAFSError(
++                "S3", f"归一化失败：{msg}"
++                      "（如为已知厚样/稀释标样，可加 --no-strict 降级为警告）")
+         if verbose:
+             print(f"       ⚠ {msg}（strict=False，仅警告）")
+ 
+diff --git a/xafs_report.py b/xafs_report.py
+index 1bab64d..94b9fca 100644
+--- a/xafs_report.py
++++ b/xafs_report.py
+@@ -92,6 +92,7 @@ SHELLS = [("Fe–O", 1.0, 1.8), ("Fe–Fe(1)", 2.2, 3.2), ("Fe–Fe(2)", 3.3, 3.
+ 
+ def process_scans(files, absorber: str = "Fe", strict: bool = False,
+                   kmin: float = KMIN, kmax: float = KMAX,
++                  post_window=(150.0, 600.0),
+                   despike: bool = False,
+                   deglitch: list[tuple[float, float]] | None = None,
+                   deadtime: bool = False,
+@@ -111,6 +112,7 @@ def process_scans(files, absorber: str = "Fe", strict: bool = False,
+     """
+     res = xafs_pipeline.process_sample(
+         files, align=True, absorber=absorber, kmin=kmin, kmax=kmax, kweight=2,
++        post_window=post_window,
+         strict=strict, despike=despike, deglitch=deglitch,
+         deadtime=deadtime,
+         reject_outlier_scans=reject_outlier_scans,
+@@ -1427,6 +1429,15 @@ def main(argv=None):
+     parser.add_argument("--s02-from-t5", action="store_true",
+                         help="P5 从 data/s02_calibration/<El>/calibration.json "
+                              "加载通过冻结门禁的独立 S₀²（显式 --s02 优先）")
++    parser.add_argument("--xanes-cross-check", action="store_true",
++                        help="T8 XANES–EXAFS 联合软校验：白线/边步/归一化"
++                             "异常时警告；不改变 cn_reliable/正式 CN")
++    parser.add_argument("--post-window", default=None,
++                        help="S3 归一化边后窗口（E-E0, eV）：'150,600'；"
++                             "默认 150,600")
++    parser.add_argument("--allow-unusual-coordination", action="store_true",
++                        help="CIF 门禁：允许键长超出 PAIR_BOND_REF±0.08 Å；"
++                             "默认拒绝")
+     parser.add_argument("--phase-cif", action="append", default=None,
+                         help="P1b 用户真实 CIF 路径（可重复，最高优先级）")
+     parser.add_argument("--phase-id", default=None,
+@@ -1611,6 +1622,19 @@ def main(argv=None):
+         args.vary_c3 = config["vary_c3"]
+     if args.vary_c4 is None and config.get("vary_c4") is not None:
+         args.vary_c4 = config["vary_c4"]
++    # P1b/P5（与 run_xafs 共用同一套键）
++    xafs_config.apply_p1b_config(args, config)
++    post_window = (150.0, 600.0)
++    if args.post_window is not None:
++        try:
++            _pw = xafs_config._coerce_config_value(
++                "post_window", args.post_window)
++        except (TypeError, ValueError):
++            parser.error(f"--post-window 需要两个数字，收到 {args.post_window!r}")
++        if len(_pw) != 2 or not (0 < _pw[0] < _pw[1]):
++            parser.error(
++                f"--post-window 必须满足 0 < lo < hi，收到 {args.post_window!r}")
++        post_window = (float(_pw[0]), float(_pw[1]))
+     try:
+         fit_kweights = (xafs_config.parse_kweights(args.fit_kweights)
+                         if not isinstance(args.fit_kweights, (list, tuple))
+@@ -1737,6 +1761,19 @@ def main(argv=None):
+     if args.operando:
+         if args.no_fit:
+             parser.error("--operando 需要逐样品跑 S1–S6.5，不能与 --no-fit 同用")
++        _incompatible = [name for name, on in (
++            ("--formal-cn", args.formal_cn),
++            ("--xanes-cross-check", args.xanes_cross_check),
++            ("--fit-weights", args.fit_weights),
++            ("--phase-cif", args.phase_cif is not None),
++            ("--phase-id", args.phase_id is not None),
++            ("--phase", args.phase is not None),
++            ("--phase-index", args.phase_index is not None),
++        ) if on]
++        if _incompatible:
++            parser.error(
++                "--operando 只执行 S1–S6 + PCA/MCR/LCF，不执行 S6.5/S7；"
++                "以下参数不适用: " + ", ".join(_incompatible))
+         if len(args.files) < 3:
+             parser.error("--operando 至少需要 3 个样品文件")
+         op_root = (Path(args.outdir) if args.outdir
+@@ -1747,7 +1784,8 @@ def main(argv=None):
+             print(f"[operando {i}/{len(args.files)}] {Path(fpath).name}")
+             st = process_scans(
+                 [fpath], absorber=args.absorber, strict=args.strict,
+-                kmin=args.kmin, kmax=args.kmax, despike=args.despike,
++                kmin=args.kmin, kmax=args.kmax, post_window=post_window,
++                despike=args.despike,
+                 deglitch=deglitch, deadtime=args.deadtime,
+                 reject_outlier_scans=args.reject_outlier_scans,
+                 mback=args.mback, chi_std=chi_std, chi_std_k=chi_std_k,
+@@ -1765,7 +1803,9 @@ def main(argv=None):
+                 std = xafs_pipeline.process_sample(
+                     [p], absorber=args.absorber, strict=False, verbose=False)
+                 std_scans[Path(p).stem] = std.norm
+-        op = xafs_lcf.run_operando_series(results, standards=std_scans)
++        op = xafs_lcf.run_operando_series(
++            results, standards=std_scans,
++            **xafs_config.operando_kwargs_from_config(config))
+         made = xafs_diagnostics.write_operando_diagnostics(
+             op, op_root / "operando", stem="operando")
+         indicator_rows = [
+@@ -1804,6 +1844,7 @@ def main(argv=None):
+     print(f"== 数据处理：{sample}（{len(args.files)} 个文件）==")
+     st = process_scans(args.files, absorber=args.absorber,
+                        strict=args.strict, kmin=args.kmin, kmax=args.kmax,
++                       post_window=post_window,
+                        despike=args.despike, deglitch=deglitch,
+                        deadtime=args.deadtime,
+                        reject_outlier_scans=args.reject_outlier_scans,
+@@ -1879,7 +1920,8 @@ def main(argv=None):
+         multi_site = len(structure_models) > 1
+         gate_kwargs = dict(
+             kmin=args.kmin, kmax=args.kmax, rmax=6.0,
+-            allow_computed=False, allow_unusual_coordination=False,
++            allow_computed=False,
++            allow_unusual_coordination=args.allow_unusual_coordination,
+             is_computed=not resolution.selected.experimental)
+         if multi_site:
+             gate_results = cif_gate.gate_cif_all_sites(
+@@ -1910,7 +1952,7 @@ def main(argv=None):
+     print("== S6.5 结构识别 + S7 拟合 ==")
+     out_fit = xafs_fit.run(
+         st["result"], identify=True, fit=not args.no_fit,
+-        absorber_symbol=args.absorber, fit_motif=args.fit_motif,
++        absorber_symbol=eff_absorber, fit_motif=args.fit_motif,
+         fit_rmin=args.fit_rmin, fit_rmax=args.fit_rmax,
+         allow_ambiguous=args.allow_ambiguous,
+         l1_ligand=args.l1_ligand, l1_geometry=args.l1_geometry,
+@@ -1927,6 +1969,7 @@ def main(argv=None):
+         formal_cn=args.formal_cn and not multi_site_formal,
+         structure_model=structure_model,
+         gate_result=gate_result,
++        xanes_cross_check=args.xanes_cross_check,
+         verbose=True)
+     if multi_site_formal and out_fit.get("fit") is not None:
+         multi = xafs_fit.run_multi_site_formal_cn(
+-- 
+2.56.0.windows.4
+

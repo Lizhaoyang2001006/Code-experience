@@ -1,0 +1,1678 @@
+diff --git a/.trae/skills/xafs-pipeline-report/SKILL.md b/.trae/skills/xafs-pipeline-report/SKILL.md
+index a603cf7..66134c3 100644
+--- a/.trae/skills/xafs-pipeline-report/SKILL.md
++++ b/.trae/skills/xafs-pipeline-report/SKILL.md
+@@ -97,8 +97,9 @@ agent 从中提取处理参数（Rbkg/k 窗口…），不让用户翻译物理
+ 2. 金属箔标样 → `python calibrate_s02.py <箔数据> --absorber X --no-strict [--apply]`
+    （生产等效协议 + 3 窗口鲁棒性门禁，详见 references/pipeline-reference.md。
+    当前已标定：Fe=0.803 / Co=0.7308 / Ni=0.7795 / Cu=0.8670 / Pt=0.8075（L3）；
+-   **Fe 箔数据在现行协议下被门禁拒绝**（厚样谐波嫌疑），Fe 值由
+-   氧化物价态验收结果锚定保留）
++   Fe 于 2026-11-10 用 BMM Fe-K-IronFoil.xdi 单壳 half_height 重标定
++   0.6566（3 窗口极差 0.0205；IIT-Lytle 5 µm 箔交叉 0.6335）——
++   该值只用于金属 Fe 交叉检查，不替换氧化物价态锚定的生产值 0.803）
+ 3. 该元素结构假设（CIF / 文献坐标 / 构造团簇）
+    → 见 [references/structure-identification.md](references/structure-identification.md)
+ 
+@@ -120,12 +121,14 @@ res = xafs_pipeline.process_sample(files, align=True, absorber="Fe", strict=Fals
+ # strict=False：降级为警告（已知标样如厚 Fe 箔平台 0.79 用）。
+ ```
+ 
+-逐阶段诊断图（每阶段一张 PNG，只读 PipelineResult 不重算）：
++逐阶段诊断图（`--diagnostics`；每阶段一张 PNG，只读 PipelineResult 不重算）：
+ 
+ ```python
+ import xafs_diagnostics
+ xafs_diagnostics.write_diagnostics(res, outdir / "diagnostics")
+-# s1_raw_scans / s2_e0 / s3_normalization / s4_rbkg / s5_chik_chir / s6_wavelet
++# s1_raw_scans / s2_e0 / s3_normalization / s4_rbkg / s5_chik_chir /
++# s6_wavelet / s7_ft_wt_joint / s8_wt_sweep（+ wt_sweep.csv）
++# 入口层另加 s5b_backft.png（实验/模型 q 空间对比）
+ ```
+ 
+ 需要逐步调用时的底层签名与陷阱见
+@@ -192,10 +195,12 @@ fit    = artemis.fit_r_space(chi_k, ft, datfiles, rmin, rmax, kmin=3.0,
+ 7. 验收（γ-FeOOH, k=3–12, S₀²=0.803）：
+    Fe-O N=6.5±0.4 R=1.994；Fe-Fe(1) N=7.3±0.6 R=3.052（合并 6+2 边共享）；
+    Fe-Fe(2) N=1.0±0.6 R=3.979；R-factor 0.074（简化 3 壳层模型）。
+-   Fe 箔标定（2026-11 并列裁决后复核值）：Rbkg=0.80，N=6.8/7.6,
+-   R=2.446/2.821, R-factor 0.0036, ΔE0=+0.64 eV。
+-   （注：optimize_rbkg 的 5% 并列裁决将箔 Rbkg 从 0.90 改为 0.80，
+-   拟合 R/Rf 不变、N 在误差棒内移动，S₀²=0.803 标定仍成立。）
++   Fe 箔单壳重标定（2026-11-10，交叉检查）：BMM Fe-K-IronFoil.xdi,
++   half_height, S₀²=0.6566（极差 0.0205）；生产单壳 N=7.93±0.49,
++   R=2.517 Å, Rf=0.0219, ΔE₀=+9.66 eV。**该值只适用于金属 Fe**；
++   氧化物验收仍用 0.803（0.6566 会使 Fe-O N 高约 22%）。
++   （历史 0.803 口径的箔复核值：Rbkg=0.80，N=6.8/7.6, R=2.446/2.821,
++   R-factor 0.0036, ΔE0=+0.64 eV。）
+ 
+ ## 3. 绘图与导出层（xafs_report.py）
+ 
+@@ -204,18 +209,21 @@ fit    = artemis.fit_r_space(chi_k, ft, datfiles, rmin, rmax, kmin=3.0,
+ `export_indicators`（数据）。**优先复用该模块，不要从零写图。**
+ 逐面板规格见 [references/figure-spec.md](references/figure-spec.md)。
+ 
+-一次运行产出（`xafs_out\<sample>_report\`，共 11 个文件 + 诊断图 6 张）：
++一次运行产出（`xafs_out\<sample>_report\`；默认含 HTML 与调窗器，
++`--no-html` / `--no-window-tuner` 会相应减少文件）：
+ 
+ | 文件 | 内容 |
+ |------|------|
+ | `<stem>_xas.png` | 五联图；(a) 标注**吸收边 + E₀**（如 Fe K-edge）；(b) 标注**白线**；(d)(e) 标注**壳层归属**（Fe–O / Fe–Fe，未相位修正的 R） |
+ | `<stem>_fit_table.png` | CN 拟合参数表（Table S 风格） |
+-| `<stem>_fit_table.csv` / `.txt` | 同表：utf-8-sig CSV + 制表符 TSV（粘贴 Word/Excel 自动成表） |
++| `<stem>_fit_table.csv` | 同表：utf-8-sig CSV（P6.6 起不再生成重复的 `.txt`） |
++| `<stem>_chiq.csv` | 第一壳反 FT χ(q)：q、Re、Im、|χ(q)| |
++| `<stem>_meta.json` | 参数/门禁/决策/结构识别台账 |
+ | `<stem>_indicators.csv` | **关键物理指标汇总**（元素/边/E₀/边跳变/白线/Rbkg/k 窗口/相位修正状态/WT 壳层位置/S₀²/ΔE₀/R-factor/各壳层 N,R,σ²）——读图猜测的终结者 |
+ | `<stem>_mu.csv` `_xanes.csv` `_chik.csv` `_chir.csv` | (a)–(d) 面板逐点数据 |
+-| `<stem>_wavelet.csv` | (e) W(R,k) 矩阵（行=R，列=k） |
+-| `structure_id.json` | S6.5 结构识别：候选排序 score/ΔE0、并列候选、未解释峰清单 |
+-| `diagnostics/` | S1–S6 各阶段诊断图 6 张（只读 PipelineResult，不重算） |
++| `<stem>_wavelet.csv` | (e) W(R,k) 矩阵（行=k，列=R；与 run_xafs 一致） |
++| `<stem>_structure_id.json` | S6.5 结构识别：全量候选排序 score/ΔE0、并列候选、未解释峰清单 |
++| `diagnostics/` | `--diagnostics` 时输出 S1–S8 诊断图 9 张 + `wt_sweep.csv`（只读 PipelineResult，不重算） |
+ 
+ **导出三铁律**：①每张图必有对应 CSV；②WT 面板必标壳层线+峰标记
+ （`larch_wt.locate_shell` 定峰）；③indicators.csv 必含"元素+边"、
+diff --git a/.trae/skills/xafs-pipeline-report/references/figure-spec.md b/.trae/skills/xafs-pipeline-report/references/figure-spec.md
+index f34f7fd..79716a8 100644
+--- a/.trae/skills/xafs-pipeline-report/references/figure-spec.md
++++ b/.trae/skills/xafs-pipeline-report/references/figure-spec.md
+@@ -130,9 +130,9 @@ ax.set_title("Table S1. Fe K-edge EXAFS curve-fitting parameters for ...",
+ | `<stem>_xanes.csv` | 逐点 | energy_eV, mu, pre_edge_line, mu_norm |
+ | `<stem>_chik.csv` | 逐点 | k_inv_A, chi, k2chi |
+ | `<stem>_chir.csv` | 逐点 | R_A, chi_R_re, chi_R_im, magnitude |
++| `<stem>_chiq.csv` | 逐点 | q_inv_A, chiq_re, chiq_im, chiq_mag（第一壳反 FT） |
+ | `<stem>_wavelet.csv` | 矩阵 | 首行 `k\R` + R 值；每行 k 值 + 该 k 下各 R 的 W（4 位小数，与 `WaveletMap.magnitude` 同向） |
+-| `<stem>_fit_table.csv` | 表格 | 与 PNG 同构 7 列（粘贴友好） |
+-| `<stem>_fit_table.txt` | TSV | 同上，制表符分隔——粘贴 Word/Excel 自动成表 |
++| `<stem>_fit_table.csv` | 表格 | 与 PNG 同构 7 列（粘贴友好；P6.6 起不再另出重复的 TSV） |
+ | `<stem>_indicators.csv` | 汇总 | indicator, value, unit, 说明 |
+ 
+ **indicators.csv 必含行**（防读图猜测的最低集）：
+@@ -145,11 +145,12 @@ structure_status/coverage_ok（S6.5 判定与覆盖审计）、
+ 
+ ## 输出位置与命名
+ 
+-`xafs_out\<stem>\`（默认；`-o/--outdir` 可改），一次共 11 个文件
+-+ 可选诊断图 6 张（`diagnostics\`）：
+-`_xas.png`、`_fit_table.png/.csv/.txt`、`_indicators.csv`、
+-`_mu.csv`、`_xanes.csv`、`_chik.csv`、`_chir.csv`、`_wavelet.csv`、
+-`_structure_id.json`、`_fit.json`。
++`xafs_out\<stem>\`（默认；`-o/--outdir` 可改），默认含 HTML 与调窗器：
++`_xas.png`、`_fit_table.png`、`_fit_table.csv`、`_indicators.csv`、
++`_mu.csv`、`_xanes.csv`、`_chik.csv`、`_chir.csv`、`_chiq.csv`、
++`_wavelet.csv`、`_structure_id.json`、`_fit.json`、`_meta.json`、
++`_report.html`、`_window_tuner.html`。
++可选诊断图 9 张 + `wt_sweep.csv`（`--diagnostics`，`diagnostics\`）。
+ 入口：`python xafs_report.py <文件...> --absorber Fe`（通用）；
+ 无文件参数或 `--demo` 运行内置 lepidocrocite + Fe 箔示例。
+ FEFF 结果缓存在 `_feff_cache\`，重复运行不重算。
+diff --git a/.trae/skills/xafs-pipeline-report/references/pipeline-reference.md b/.trae/skills/xafs-pipeline-report/references/pipeline-reference.md
+index dee1d7e..f48b189 100644
+--- a/.trae/skills/xafs-pipeline-report/references/pipeline-reference.md
++++ b/.trae/skills/xafs-pipeline-report/references/pipeline-reference.md
+@@ -242,9 +242,14 @@ python calibrate_s02.py ... --force     # 覆盖已有标定值（重标定是
+   数值可靠性由拟合层门禁兜底。
+ - 已执行（2026-11）：Co=0.7308（极差 0.0005）、Ni=0.7795（0.0026）、
+   Cu=0.8670（0.0092）、Pt=0.8075（L3，0.0026，Rf=0.0004，ΔE₀=+8.25）。
+-- **Fe 箔负例**：fe.060（XDAC）与 Fe-K-IronFoil.xdi（XDI）在标定协议下
+-  均撞 ΔE₀=+15 eV（开 C₃ 也不解）→ 厚样谐波污染嫌疑，门禁正确拒绝；
+-  Fe=0.803 保留历史值——原始推导不可复原，由氧化物价态验收结果锚定。
++- **Fe 箔交叉标定（2026-11-10）**：BMM `Fe-K-IronFoil.xdi`，`fe_bcc`
++  单壳 N=8，`half_height` E0=7119.92 eV；3 窗口
++  s02=0.6471/0.6566/0.6676（极差 0.0205），Rf≤0.0422，ΔE₀≈+8.9 eV，
++  门禁 5/5；IIT-Lytle 5 µm Fe 箔交叉检查 0.6335（极差 0.02）。
++  0.6566 只对单壳 bcc 模型成立；默认双壳 fit 会把 N 抬到 11.5/13.4，
++  金属箔定量须 `--fit-rmax 2.60`。**该值只适用于金属 Fe**：生产值
++  0.803 保留为氧化物价态锚定；0.6566 会使 Fe 氧化物 CN 高约 22%，
++  需要金属口径时显式 `--s02 0.6566`。
+ - 标定结果存 `xafs_out/_cal_<elem>/calibration.json`（runs/kw 诊断/门禁全留档）。
+ - **describe_paths 返回的 file 是相对文件名**（feff0001.dat），拼路径
+   必须加 FEFF 工作目录，否则 feffpath() 抛 "not found"。
+@@ -381,7 +386,7 @@ for name, kmax, files, vn in configs:
+ | WT 第一壳 | k≈5.7, R≈1.46 Å | 同上 |
+ | Fe 箔拟合 | N=6.8±0.7/7.4±0.8, R=2.447/2.822, Rf=0.0037 | fe.060/150/300 |
+ | lepido 拟合 | N=6.5/7.3/1.0, R=1.994/3.052/3.979, Rf=0.0737 | 3 壳层, k=3–12 |
+-| S₀²（absorber.py 标定表） | Fe 0.803※ / Co 0.7308 / Ni 0.7795 / Cu 0.8670 / Pt 0.8075(L3) | 真实箔 calibrate_s02.py；窗口极差 ≤0.0092 |
++| S₀²（absorber.py 标定表） | Fe 0.803（生产，氧化物价态锚定；箔交叉 0.6566）/ Co 0.7308 / Ni 0.7795 / Cu 0.8670 / Pt 0.8075(L3) | 真实箔 calibrate_s02.py；Fe 箔极差 0.0205，其余 ≤0.0092 |
+ | Pt 箔 L3 拟合 | N=11.69±0.22, R=2.764 Å, Rf=0.0038, ΔE₀=+8.12 | Pt-L3-PlatinumFoil, pt_fcc |
+ | Pt–Cl L1（ligand=Cl） | N=3.98±0.14, R=2.302 Å, Rf=0.0228 | K₂PtCl₄（平方平面 CN=4） |
+ | LEPIDO 默认拟合（B4-1） | Rf=0.0273, N=6.35, R=2.002 Å；ε_R=0.009899, χ²_ν=314.2 | 3 扫描合并；F-test F=32.34, confidence=0.9991 |
+@@ -389,12 +394,13 @@ for name, kmax, files, vn in configs:
+ | LEPIDO WT 切片（B3-1） | Fe–O k_peak=5.5, Fe–Fe k_peak=6.4 Å⁻¹（kmin=2.5） | 2D WT R-factor=0.046 |
+ | LEPIDO C3（B4-2） | C3=+1.0315e-3 Å³, R=2.046 Å, CN=5.5 | `--vary-c3 first`；默认 R=2.002/N=6.35 |
+ 
+-※ Fe=0.803 为历史标定（原始推导不可复原）；fe.060 与
+-Fe-K-IronFoil.xdi 在现行协议下被门禁正确拒绝（厚样谐波嫌疑）。
+-另：Fe 箔拟合基准行是"每条路径各自放开 N"的旧模型数值（壳层合并
+-铁律落定前），两路径 N=6.8/7.4 对 hcp/bcc 均无物理意义，仅供对照
+-拟合链的历史行为；现行基准见 Co/Ni/Cu 箔生产拟合（第一壳
+-N≈11.6–11.9 vs 晶体学 12）。
++※ Fe=0.803 为氧化物价态验收锚定的跨材料生产值（原始流程不可复原）；
++2026-11-10 BMM Fe-K-IronFoil.xdi 单壳 bcc 交叉标定 0.6566
++（3 窗口极差 0.0205；IIT 5 µm 箔交叉 0.6335），只适用于金属 Fe，
++不替换 0.803（0.6566 会使 Fe 氧化物 CN 高约 22%）。Fe 箔拟合基准行
++是"每条路径各自放开 N"的旧模型数值（壳层合并铁律落定前），两路径
++N=6.8/7.4 对 hcp/bcc 均无物理意义，仅供对照拟合链的历史行为；
++现行基准见 Co/Ni/Cu 箔生产拟合（第一壳 N≈11.6–11.9 vs 晶体学 12）。
+ 
+ ## 工程化与诊断增强（P1，2026-11）
+ 
+@@ -428,8 +434,9 @@ python xafs_report.py <谱文件> --absorber Fe --config xafs.yaml --no-strict
+ S1.5–S3 之间插入中值滑窗（窗口=5）+ MAD 门禁（阈值=3×MAD），默认关闭。
+ 实测 lepidocrocite 替换 79 个离群点，E0/edge_step/Rbkg 结果与未去毛刺一致。
+ 
+-### FT–WT 联合诊断图（`s7_ft_wt_joint.png`）
+-`--diagnostics` 现输出 7 张阶段图（原 6 张 + 联合图）。左图 `|χ(R)|` 标注
++### FT–WT 联合诊断图（`diagnostics/s7_ft_wt_joint.png`）
++`--diagnostics`（默认关闭）输出 9 张阶段图：`s1`–`s8` 八个阶段
+++ `s5b_backft.png`，另附 `wt_sweep.csv`。左图 `|χ(R)|` 标注
+ FT 第一峰 r1；右图 WT contour 叠加水平线 R=r1 与垂直线 k=k_wt，交点标出，
+ 直接回答「这个 FT 峰主要来自哪个 k」。对标 Larch-WT 的交互诊断，避免
+ WT 在多壳分支间 argmax 跳壳（Fe3O4 实测：Booth 校正把低 k 抬高 7% 后
+diff --git a/EXECUTION_MASTER_PLAN.md b/EXECUTION_MASTER_PLAN.md
+index 8532b33..cf989ff 100644
+--- a/EXECUTION_MASTER_PLAN.md
++++ b/EXECUTION_MASTER_PLAN.md
+@@ -21,7 +21,8 @@
+    - 所有新增函数参数与 CLI 开关**默认关闭或取向后兼容默认值**；
+    - 不传新标志跑默认 `LEPIDO` 三扫描时，必须保持 `r_factor ≈ 0.0273`、第一壳 `N ≈ 6.35`、`R ≈ 2.002 Å` 逐位不变；默认拟合表仍为 7 列。
+ 4. **物理诚实铁律**：
+-   - **严禁**修改 `absorber.py` 中已标定的 $S_0^2$ 值（Fe=0.803, Co=0.7308, Ni=0.7795, Cu=0.8670, Pt=0.8075）；
++   - **严禁无标定地修改** `absorber.py` 中已标定的 $S_0^2$ 值（Fe=0.803, Co=0.7308, Ni=0.7795, Cu=0.8670, Pt=0.8075）；任何重标定必须通过 `calibrate_s02.py` 门禁并记录数据、命令与窗口极差；
++   - Fe=0.803 是氧化物价态验收锚定的跨材料生产值（原始流程不可复原）；2026-11-10 BMM Fe-K-IronFoil.xdi 单壳 bcc 交叉标定 0.6566（IIT-Lytle 5 µm 箔 0.6335）**只适用于金属 Fe**，不替换 0.803（替换会使 Fe 氧化物 CN 高约 22%，违反第 2 条零退化铁律）；金属 Fe 定量用 `--s02 0.6566 --fit-rmax 2.60`；
+    - **严禁**为了降低 R-factor 放宽 `cn_reliable` 门禁或插值伪造实验数据点。
+ 5. **Windows PowerShell 环境防坑铁律**：
+    - PowerShell 不支持 `&&`（必须用 `;` 或分行），不支持 `python -c` 多行含花括号脚本（一律写临时 `.py` 文件执行后删除）；
+diff --git a/README.md b/README.md
+index d6ca9d0..adf94b4 100644
+--- a/README.md
++++ b/README.md
+@@ -95,9 +95,9 @@ python xafs_report.py
+ | `calibrate_s02.py` | 标定 S₀²（金属箔/氧化物标样，生产等效协议；`--motif-file` 用标定专用结构） |
+ | `calibrate_t5.py` | T5 批量标定 12 元素，产物落 `data/s02_calibration/`（不改静态表） |
+ | `absorber.py` | 吸收元素配置表（边能量/S₀²/kmax），元素泛化唯一入口 |
+-| `regression_test.py` | 133 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝、P5-C 18 个常见相 COD 补齐/coverage 无缺口、P5-prep 标准谱源隔离池/5 元素门禁冻结、P5-D 多位点正式 CN、P6 phase pack 44/44 门禁、P6.1 单晶位正式 CN 与诊断库解耦、P6.2 边界入口对齐、P6.3 双入口配置/operando 守卫、P6.4 参数/门禁/决策/摘要台账与打印开关、P6.5 催化剂结构图包/逐面板 CSV/数据包） |
++| `regression_test.py` | 134 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝、P5-C 18 个常见相 COD 补齐/coverage 无缺口、P5-prep 标准谱源隔离池/5 元素门禁冻结、P5-D 多位点正式 CN、P6 phase pack 44/44 门禁、P6.1 单晶位正式 CN 与诊断库解耦、P6.2 边界入口对齐、P6.3 双入口配置/operando 守卫、P6.4 参数/门禁/决策/摘要台账与打印开关、P6.5 催化剂结构图包/逐面板 CSV/数据包、P6.6 双入口产物对齐/图包分层瘦身/q 空间与全量结构候选落盘） |
+ | `xafs_provenance.py` | P6.4 输出台账：参数来源、门禁命中、决策轨迹、结果摘要（只记录，不判定） |
+-| `xafs_figure_pack.py` | P6.5 图包后处理：Figure 1–4 总图、逐面板 CSV、表格图、自包含 `figures/data/`（只读已有输出，不重新拟合） |
++| `xafs_figure_pack.py` | P6.5/P6.6 图包后处理：Figure 1–4 总图、表格图、`figures/panels/` 逐面板 CSV、`figures/data/` 跨面板汇总；默认不重复渲染单面板（只读已有输出，不重新拟合） |
+ | `run_ci.py` | 跨平台 CI：编译 + 契约回归 + 可选压力测试，输出 ci_report.json/md |
+ | `stress_test_{co,ni,cu,nio}.py` | 元素泛化/护栏/CN 回收压力测试 |
+ | `xafs_config.py` | 配置文件支持（.yaml/.json）、批处理入口（--batch-dir） |
+@@ -108,16 +108,25 @@ python xafs_report.py
+ 
+ | 元素 | S₀² | 箔相假设 | 数据 | 窗口极差 |
+ |------|-------|----------|------|----------|
+-| Fe | 0.803 | bcc | 历史标定（原始流程不可复原） | —— |
++| Fe | 0.803 | 金属 bcc / 氧化物折中 | 生产值：氧化物价态锚定；BMM 箔交叉标定 0.6566（IIT 0.6335） | 0.0205（箔） |
+ | Co | 0.7308 | hcp | Co-K-CobaltFoil | 0.0005 |
+ | Ni | 0.7795 | fcc | Ni-K-NickelFoil | 0.0026 |
+ | Cu | 0.8670 | fcc | Cu-K-CopperFoil | 0.0092 |
+ | Pt | 0.8075 | fcc (L3) | Pt-L3-PlatinumFoil | 0.0026 |
+ 
+ 标定工具：`python calibrate_s02.py <箔数据> --absorber Co --no-strict [--apply]`
+-（协议与门禁详见 `calibrate_s02.py` 模块注释；**Fe 箔数据在当前协议下
+-门禁拒绝**——嫌疑是厚样谐波污染，Fe=0.803 由既有氧化物价态验收结果
+-锚定，不改。）
++（协议与门禁详见 `calibrate_s02.py` 模块注释）。
++
++**Fe 箔重标定（2026-11-10，交叉检查）**：BMM `Fe-K-IronFoil.xdi`，
++`fe_bcc` 第一壳 N=8 固定，E0=half_height，3 窗口
++S₀²=0.6471/0.6566/0.6676（极差 0.0205），Rf≤0.0422，ΔE₀≈+8.9 eV，
++门禁 5/5；IIT-Lytle 5 µm Fe 箔独立交叉检查 0.6335（极差 0.02）。
++生产单壳拟合（`--fit-rmax 2.60 --s02 0.6566`）回收 N=7.93±0.49
++（晶体学 8）、R=2.517 Å、Rf=0.0219。**该值只对单壳 bcc 模型成立**：
++默认双壳拟合会把 N 抬到 11.5/13.4。它不能直接替代生产值 0.803——
++0.803 是氧化物价态验收锚定的跨材料折中值（原始流程不可复原），改用
++0.6566 会使 Fe 氧化物/羟基氧化物 CN 高约 22%（lepidocrocite 第一壳
++N≈7.8）。金属 Fe 研究用 `--s02 0.6566`；氧化物 CN 保持默认 0.803。
+ 
+ **T5 独立标定产物（12 个未标定元素，2026-11-09）：**
+ 
+@@ -230,12 +239,29 @@ python run_xafs.py <谱文件> --absorber Fe --config xafs.yaml
+ S1.5–S3 之间插入中值滑窗（窗口=5）+ MAD 门禁（阈值=3×MAD），默认关闭。
+ 实测 lepidocrocite 替换 79 个离群点，E0/edge_step/Rbkg 结果与未去毛刺一致。
+ 
+-### FT–WT 联合诊断图（`s7_ft_wt_joint.png`）
+-`--diagnostics` 现输出 9 个阶段产物（原 6 张 + 联合图 + S8 WT 对比图/CSV）。
+-左图 `|χ(R)|` 标注 FT 第一峰 r1；右图 WT contour 叠加水平线 R=r1 与垂直线
+-k=k_wt，交点标出，直接回答「这个 FT 峰主要来自哪个 k」。对标 Larch-WT 的
+-交互诊断，避免 WT 在多壳分支间 argmax 跳壳（Fe3O4 实测：Booth 校正把低 k
+-抬高 7% 后 WT 峰从 2.60 跳到 1.42，FT 峰纹丝不动；联合图可肉眼核对）。
++### FT–WT 联合诊断图（`diagnostics/s7_ft_wt_joint.png`）
++该图属于**显式诊断产物**，默认不生成，`--figure-pack` 也不包含它。
++需要在命令中加 `--diagnostics`：
++
++```powershell
++# 报告入口
++python xafs_report.py sample.xdi --absorber Fe --fit-motif lepidocrocite --diagnostics -o xafs_out/demo
++
++# 通用入口
++python run_xafs.py sample.xdi --absorber Fe --identify --fit --diagnostics -o xafs_out/demo
++```
++
++输出目录为 `<outdir>/diagnostics/`。两个入口都生成 9 张 PNG：
++`s1_raw_scans.png`、`s2_e0.png`、`s3_normalization.png`、`s4_rbkg.png`、
++`s5_chik_chir.png`、`s5b_backft.png`、`s6_wavelet.png`、
++`s7_ft_wt_joint.png`、`s8_wt_sweep.png`，以及配套 `wt_sweep.csv`
++（9 行：σ × kweight 的峰位/幅度/相对 FT 偏移）。
++
++`s7_ft_wt_joint.png` 左图 `|χ(R)|` 标注 FT 第一峰 r1；右图 WT contour
++叠加水平线 R=r1 与垂直线 k=k_wt，交点标出，直接回答「这个 FT 峰主要
++来自哪个 k」。对标 Larch-WT 的交互诊断，避免 WT 在多壳分支间 argmax
++跳壳（Fe3O4 实测：Booth 校正把低 k 抬高 7% 后 WT 峰从 2.60 跳到 1.42，
++FT 峰纹丝不动；联合图可肉眼核对）。
+ 
+ ### 多 kweight / σ 的 WT 对比（S8，`--wt-sweep`）
+ `xafs_diagnostics.wt_sweep` 在 FT 第一峰 ±0.5 Å 锚定下扫描 σ∈{1.0,1.5,2.0}
+@@ -277,30 +303,42 @@ FT 内核嵌进页面，浏览器里拖 kmin/kmax/kweight/dk，实时看 `|χ(R)
+ 
+ ### CI 自动化回归
+ ```powershell
+-python run_ci.py            # 编译 + 133 项契约回归
++python run_ci.py            # 编译 + 134 项契约回归
+ python run_ci.py --stress   # 额外跑 Co/Ni/Cu/NiO 压力测试
+ ```
+ 产物 `ci_report.json` / `ci_report.md`；任一步失败即非零退出。
+ `.github/workflows/xafs-ci.yml` 在 push/PR 时自动执行。
+ 
+-### 催化剂结构图包（P6.5）
++### 催化剂结构图包（P6.5 / P6.6）
+ ```powershell
+-# 已有输出目录，独立补图包
++# 已有输出目录，独立补图包（默认只出总图 + 表格图）
+ python xafs_figure_pack.py xafs_out/RuO2 --formats png,pdf --dpi 300
+ 
++# 需要逐面板独立图片时显式打开（输出到 figures/panels/）
++python xafs_figure_pack.py xafs_out/RuO2 --standalone-panels
++
+ # 或在两个入口直接生成
+ python run_xafs.py sample.xdi --absorber Fe --identify --fit --figure-pack
+ python xafs_report.py sample.xdi --absorber Fe --fit --figure-pack
+ ```
+ 输出 `figures/`：Figure 1 结构总图（a–h）、Figure 2 置信/过程仪表盘
+ （a–f）、Figure 3 拟合与误差诊断（a–h）、Figure 4 数据特征与输入清单
+-（a–f）、Table S1/S2 表格图；每个面板同名 `.csv` 保存实际绘图数据。
+-`figures/data/` 另含源 JSON/CSV 副本、全路径表、全参数表、拟合变体、
+-相关矩阵、CIF 壳层、结构候选、门禁表、决策表、面板索引、
+-`summary.json` 与 `README.md`。`figure_manifest.json`
+-记录每个面板的图、CSV、源文件与图注，`figure_pack.md` 为人可读索引。
+-图包只读已有输出，不重新拟合、不改变任何判定；`--operando` 不支持
+-单结构总图。
++（a–f）、Table S1/S2 表格图。目录分层固定为：
++
++- `figures/` 根目录：4 张总图 + `Figure2g_cn_table.png` /
++  `Figure2h_fit_table.png` + `figure_manifest.json` / `figure_pack.md`；
++- `figures/panels/`：每个面板唯一的 `.csv` 实际绘图数据；加
++  `--standalone-panels` 时才额外生成 `panels/<id>.png`；
++- `figures/data/`：只放跨面板汇总（`summary.json`、`panel_index.csv`、
++  `all_fit_paths.csv`、`fit_variants.csv`、`all_parameters.csv`、
++  `gate_checks.csv`、`decisions.csv`、`README.md`），不再复制父目录
++  源 JSON/CSV，也不重复 `fit_correlation.csv` / `cif_shells.csv` /
++  `structure_candidates.csv`。
++
++`figure_manifest.json` 记录每个面板的图、CSV、源文件与图注；
++`figure_pack.md` 为人可读索引。图 1(f) 的 CSV 保留全部结构候选
++（图面只画前 6 个），并带 `nuclearity/score_mag` 列。图包只读已有
++输出，不重新拟合、不改变任何判定；`--operando` 不支持单结构总图。
+ 
+ ### 批处理输出目录
+ `--batch-dir` 的输出优先级：显式 `-o` > 配置文件 `batch.outdir` >
+@@ -321,7 +359,7 @@ python xafs_report.py sample.xdi --absorber Fe --fit --figure-pack
+ 
+ ### B1-2 Back-FT χ(q)
+ `athena.back_ft_to_q_space(r, chi_r, rmin, rmax, dr)` 对选定 R 窗做
+-反傅里叶变换，报告输出 `<stem>_chiq.csv`；用于检查第一壳在 q 空间
++反傅里叶变换，两个入口都输出 `<stem>_chiq.csv`；用于检查第一壳在 q 空间
+ 的相位/振幅，不引入新的拟合变量。
+ 
+ ### B1-3 受约束多散射（MS）
+@@ -875,7 +913,9 @@ Ni–O 6.67/2.0698 Å、Ni–Ni 7.64/3.1255 Å）；CuO top1=`cuo_tenorite`
+ - **S₀² 是本管线归一化约定下的相对值**。`absorber.py` 已有 Fe 0.803、
+   Co 0.7308、Ni 0.7795、Cu 0.8670、Pt 0.8075（真实箔标定，协议见
+   `calibrate_s02.py` 模块注释：N 固定晶体学、生产等效拟合、3 窗口鲁棒性
+-  门禁、kw 敏感性只记录不门禁）。S₀² 跨管线不可移植。
++  门禁、kw 敏感性只记录不门禁）。S₀² 跨管线不可移植；Fe 的 0.803 是
++  氧化物价态锚定的跨材料折中值，BMM 箔单壳重标定 0.6566 只适用于
++  金属 Fe（氧化物 CN 用 0.6566 会高约 22%）。
+ - **形式误差 ≠ 绝对精度**。`N_err` 只来自最小二乘协方差；S₀² 传递、
+   代表路径/壳层合并、N–σ²–ΔE₀ 相关和归一化偏差会带来约 ±20–40%
+   的系统误差。输出里的 `cn_reliable` 和 `cn_systematic_budget` 必须一起看。
+diff --git a/absorber.py b/absorber.py
+index fa3e44c..84c6f8b 100644
+--- a/absorber.py
++++ b/absorber.py
+@@ -44,6 +44,11 @@ class AbsorberConfig:
+ # K 边 kmax_ceiling 取 15（数据质量通常先于物理极限恶化）；
+ # L 边按下一吸收边估算后取保守值。
+ ABSORBERS = {
++    # 生产值 0.803：氧化物价态验收锚定的跨材料折中值（原始流程不可复原）。
++    # 金属 Fe 交叉标定（2026-11-10）: BMM Fe-K-IronFoil.xdi, fe_bcc 单壳
++    # N=8, E0=half_height → 0.6566（3 窗口 0.6471/0.6566/0.6676，极差
++    # 0.0205，Rf≤0.0422；IIT-Lytle 5 µm 箔交叉 0.6335）。该值只适用于
++    # 金属 Fe，不替换 0.803——否则 Fe 氧化物 CN 会高约 22%。
+     "Fe": AbsorberConfig("Fe", 26, "K", 7112.0, 0.803, 15.0),
+     "Co": AbsorberConfig("Co", 27, "K", 7709.0, 0.7308, 15.0),
+     # 标定: Co 箔 co_hcp N=12, Rf=0.0001, 2026-11-05
+diff --git a/docs/ACCEPTANCE_LOG.md b/docs/ACCEPTANCE_LOG.md
+index 9679711..cab43f1 100644
+--- a/docs/ACCEPTANCE_LOG.md
++++ b/docs/ACCEPTANCE_LOG.md
+@@ -1503,3 +1503,147 @@ crawler 入库后按同一三扫描命令重跑，上述 r_factor/N/R 与 fit_ta
+ - [x] 通过
+ - 物理门禁、`absorber.py` 静态表（12 元素 `s02=None, calibrated=False`）、
+   `calibrate_s02.py` 常量、44 条 phase pack 均未改动。
++
++
++## 15. P6.6：双入口产物对齐与图包分层瘦身（2026-11-10）
++
++### 15.1 范围
++
++修复“全项目功能运行阻碍”，只做入口/落盘一致性与输出取舍，不改物理：
++
++- **缺失产物补齐**
++  - `xafs_core.PipelineResult` 新增 `chi_q: BackFourierTransform` 与
++    `data_sha256`；
++  - `xafs_pipeline.process_sample` 在 S5 后按第一壳峰位 `r1±0.5 Å`
++    生成反 FT，并随结果返回；
++  - `run_xafs.py` 落盘 `<stem>_chiq.csv`（`q_inv_A, chiq_re, chiq_im,
++    chiq_mag`）；
++  - `run_xafs.py` 的 `<stem>_structure_id.json` 保留完整 `ranked`
++    （同时保留 `top3`），不再截断为 3 条。
++- **report 入口 meta 补齐**
++  - `rbkg.table`、`normalization.plateau_ok`、
++    `source.data_sha256/n_points/n_scans/merge_info`；
++  - L1 第一壳降级时 `fit.r_factor/delta_e0` 回退 `l1.rf/delta_e0`，
++    不再写 `None`；
++  - `source.mode` 保持 `"report"`（契约 `#132`），原合并模式存入
++    `report_mode`。
++- **report 入口参数对齐**
++  - 新增 `--kweight / --rbkg / --e0-method / --manual-e0`，并纳入
++    配置文件合并与 `_cli_defaults`。
++- **批处理入口漏参**
++  - `--batch-dir` 分支补传 `fit_space` 与 `bvs_restraint`，与单文件
++    路径一致。
++- **目录分层与去重**
++  - `figures/` 根目录只留 4 张总图、Table S1/S2、`figure_manifest.json`、
++    `figure_pack.md`；
++  - 逐面板 CSV 收口到 `figures/panels/`；
++  - `figures/data/` 仅保留跨面板汇总（`summary.json`、`panel_index.csv`、
++    `all_fit_paths.csv`、`fit_variants.csv`、`all_parameters.csv`、
++    `gate_checks.csv`、`decisions.csv`、`README.md`），不再复制父目录
++    源 JSON/CSV，不再重复 `fit_correlation.csv` / `cif_shells.csv` /
++    `structure_candidates.csv`；
++  - 默认 `standalone_panels=False`：不重复渲染 28 张单面板图；需要时
++    用 `--standalone-panels` 输出到 `panels/`；
++  - 移除 `xafs_report.py` 冗余的 `<stem>_fit_table.txt`。
++- **图面可读性**
++  - Figure 1(f) 图面只画前 6 个候选，CSV 保留全部并新增
++    `nuclearity/score_mag`；
++  - Figure 3(b) 标注 `ΔR` 与 `σ²`；
++  - Figure 2(f) 关键参数限 14 行、字号提升到 6.6。
++
++### 15.2 真实输出验证
++
++- Fe 箔 `xafs_report.py --fit-motif fe_bcc --figure-pack`：
++  - `fe_meta.json`：`rbkg.table` 10 行、`plateau_ok=False`、
++    `data_sha256` 存在、`n_points=511`、`n_scans=1`、
++    `fit.r_factor≈0.0234`、`fit.delta_e0≈0.591`；
++  - Figure 1(f) 13 行、Figure 3(d)/4(b) `ok`；无 `_fit_table.txt`；
++  - 根目录 13 个文件，`figures/` 顶层 9 项（2 目录 + 4 总图 +
++    Table S2 + manifest/index），`panels/` 28 个 CSV，`data/` 8 个文件。
++- Fe 箔 `run_xafs.py --identify --fit --figure-pack`：
++  - 生成 `fe_chiq.csv`、`fe_structure_id.json`（`ranked=13`、
++    `top3=3`）；`source.data_sha256` 存在；
++  - Figure 1(f) 13 行、Figure 4(b) 601 行，均 `ok`。
++
++### 15.3 测试
++
++- `regression_test.py`：**134 项 OK**（191.7 s，较 P6.5 的 207.6 s
++  更快）；`#133` 20.0 s、`#134` 37.7 s 单独复跑均 OK。
++- `run_ci.py --stress`：134 契约 + 4 压力 PASS（CI PASS，273.3 s），
++  产出 `ci_report.json` / `ci_report.md`。
++- `#134` 锁定：report meta 完整性、4 个 CLI 参数、`_chiq.csv`/
++  全量 `_structure_id.json`、`--batch-dir` 透传、`--standalone-panels`。
++
++### 15.4 提交与补丁
++
++- 提交：`P6.6: align entry outputs and streamline figure pack layouts`
++- 补丁：`patches/P6.6-*.patch`（`78af226..HEAD`）；
++  累计补丁 `patches/P6.1-single-site-formal-cn.patch` 刷新到 `HEAD`。
++- `_standards_lib/`、`data/standards_raw/`、`logs/`、`patches/` 未提交；
++  根目录 `lepidocrocite.cif` 保留。
++
++### 15.5 结论
++
++- [x] 通过
++- 物理门禁、`absorber.py` 静态表（12 元素 `s02=None, calibrated=False`）、
++  `calibrate_s02.py` 常量、44 条 phase pack 均未改动。
++
++## 16. Fe 箔 S₀² 可复现重标定与生产值决策（2026-11-10）
++
++### 16.1 背景
++
++- 审计问题：`absorber.py` 的 Fe=0.803 无原始标定流程可复现，仅由
++  氧化物（γ-FeOOH/lepidocrocite）价态验收结果锚定。
++- 目标：用真实箔数据 + `calibrate_s02.py` 既有门禁给出可复现值，
++  同时不破坏既有验收基线。
++
++### 16.2 主标定（BMM Fe-K-IronFoil.xdi）
++
++- 数据：`data/bmm_standards/Data/Fe/Fe-K-IronFoil.xdi`（393 点，
++  6912–7965 eV，已跟踪）。
++- 命令：
++  `python calibrate_s02.py "data\bmm_standards\Data\Fe\Fe-K-IronFoil.xdi" --absorber Fe --motif fe_bcc --fit-shells 1 --e0-method half_height --no-strict --force -o %TEMP%\fe_bmm_1sh_hh`
++- 结果：`E0=7119.9233 eV`，`fixed_CN=8`，`k=[3,12]`；
++  3 窗口 S₀²=0.6471/0.6566/0.6676（极差 0.0205），
++  `s02_err_max=0.0503`，`Rf_max=0.0422`，`ΔE₀≈+8.9 eV`，门禁 5/5 PASS。
++- 交叉检查：IIT-Lytle 5 µm Fe 箔（`fesol.009` 透射派生）同协议
++  → S₀²=0.6335（极差 0.02，`Rf_max=0.0419`），与 BMM 一致。
++- 失败候选（记录，不放宽门禁）：BMM 单壳 `derivative`（ΔE₀=+15）；
++  BMM 双壳 `half_height`/`derivative`；fe.060 双壳 `derivative`
++  （第二壳 σ² 撞下界）；fe.060 单壳 `half_height`。
++
++### 16.3 生产单壳验证（S₀²=0.6566）
++
++- 命令：
++  `python xafs_report.py "data\bmm_standards\Data\Fe\Fe-K-IronFoil.xdi" --absorber Fe --no-strict --fit-motif fe_bcc --fit-rmax 2.60 --e0-method half_height --no-html --no-window-tuner`
++- 结果：Fe-Fe@2.48 `N=7.933±0.489`（晶体学 8）、`R=2.517 Å`、
++  `σ²=0.0028`、`Rf=0.02187`、`ΔE₀=+9.66 eV`，`s02_source=absorber.py`。
++- 默认双壳（不传 `--fit-rmax`）在 0.6566 下给出 N=11.513/13.381，
++  说明该标定只对单壳 bcc 模型成立。
++
++### 16.4 决策：生产值保留 Fe=0.803
++
++- 零退化铁律要求默认 LEPIDO 第一壳 `N≈6.35`；若把静态值改为
++  0.6566，同模型 N≈7.845（×1.223），Fe 氧化物/羟基氧化物 CN 全体
++  偏高约 22%，验收基线退化。
++- 因此：`absorber.py` 生产值保持 **0.803**；0.6566 作为
++  **金属 Fe 专用交叉值**写入注释与文档，金属箔研究用
++  `--s02 0.6566 --fit-rmax 2.60`。
++- `calibrate_s02.py` 协议与门禁常量未改；`absorber.py` 其余 12 个
++  未标定元素仍 `s02=None, calibrated=False`。
++
++### 16.5 文档同步
++
++- `README.md`、`.trae/skills/xafs-pipeline-report/SKILL.md`、
++  `references/pipeline-reference.md`、`EXECUTION_MASTER_PLAN.md`
++  统一为“0.803 生产值 + 0.6566 金属交叉值”口径。
++
++### 16.6 测试与提交
++
++- `regression_test.py`：**134 项 OK**（341.1 s，exit 0），含默认
++  LEPIDO 第一壳 `N≈6.35` 零退化断言；标定契约断言 Fe=0.803。
++- 数值算法测试显式固定 `s02=0.803`，隔离静态标定值与拟合算法。
++- 提交仅含代码/文档；`_standards_lib/`、`data/standards_raw/`、
++  `logs/`、`patches/` 未提交，根目录 `lepidocrocite.cif` 保留。
++
++
+diff --git a/docs/CATALYSIS_CAPABILITY_AND_GATES.md b/docs/CATALYSIS_CAPABILITY_AND_GATES.md
+index 17edb96..913e478 100644
+--- a/docs/CATALYSIS_CAPABILITY_AND_GATES.md
++++ b/docs/CATALYSIS_CAPABILITY_AND_GATES.md
+@@ -1,6 +1,6 @@
+ # 催化剂 XAFS 分析：能力、结果、置信门禁与参数台账
+ 
+-> 适用版本：P6.5（HEAD `a7d37b8` 之后的图包提交）
++> 适用版本：P6.6（图包分层与双入口产物对齐）
+ > 代码依据：所有阈值均来自当前代码常量，不是文档口径。
+ > 配套契约：`regression_test.py` 第 `#132` 项。
+ 
+@@ -124,7 +124,7 @@
+ |---|---|---|---|
+ | `<stem>_chi.dat` / `_chik.csv` | k、χ、kⁿχ | **键长**：振荡频率；**配位数/无序**：振幅；**重散射体**：高 k 振荡；反应前后直接对比可看局域结构变化 | 振幅受 S₀²、自吸收、σ² 共同影响，不能单独把振幅当 N |
+ | `<stem>_ft.dat` / `_chir.csv` | R、Re、Im、\|χ(R)\| | **壳层结构**：第一壳 M–O/N、第二壳 M–M/M–C；峰位给出表观键长；峰高给出相对配位/无序；实部/虚部用于拟合对比 | FT 峰位未做相移校正，不等于真实键长；真实键长看拟合 R 或 `_phase_corrected` |
+-| `<stem>_chiq.csv` | q 空间反傅里叶 | 检查背景扣除/反变换质量；q 空间拟合可降低低 R 背景泄漏的影响 | 不是独立的结构信息，主要用于拟合质量与一致性 |
++| `<stem>_chiq.csv` | q 空间反傅里叶 | 检查背景扣除/反变换质量；q 空间拟合可降低低 R 背景泄漏的影响 | 两个入口都会落盘；不是独立的结构信息，主要用于拟合质量与一致性 |
+ | `<stem>_rdf.csv` | 非高斯 g(R)（放开 C3/C4 时） | **非谐性/静态无序**：纳米颗粒表面弛豫、缺陷、界面应力；判断 σ² 是否被高斯模型低估 | 只有显式放开 C3/C4 才有；不要用它替代常规 CN |
+ 
+ **催化解读示例：**
+@@ -145,10 +145,10 @@
+ 
+ | 输出 | 是什么 | 对催化剂分析的价值 | 注意事项 |
+ |---|---|---|---|
+-| `<stem>_structure_id.json` | 候选排名、score、margin、未解释峰、coverage | **物相判断**：最像哪个相、是否有并列/混合相/库缺条目；`partial` 提示模型不完整；`no_match` 提示库没有正确相，应改用用户 CIF 或 L1 | 这是诊断轨，不是正式晶体学证明；`confident` 也不等于结构确证 |
++| `<stem>_structure_id.json` | 候选排名（全量 `ranked` + `top3`）、score、margin、未解释峰、coverage | **物相判断**：最像哪个相、是否有并列/混合相/库缺条目；`partial` 提示模型不完整；`no_match` 提示库没有正确相，应改用用户 CIF 或 L1 | 这是诊断轨，不是正式晶体学证明；`confident` 也不等于结构确证 |
+ | `<stem>_fit.json` | 拟合参数、误差、相关性、flags、`cn_status` | **配位数 N**：活性位饱和度/欠配位；**键长 R**：氧化态/吸附物；**σ²**：静态无序/缺陷；**ΔE0**：电子结构/模型偏差；**Rf**：模型质量；**flags**：哪些壳不可信 | N 与 σ² 强相关；看 `N_err`、`sigma2_at_bound`、`r_factor_bad` |
+ | `<stem>_fit.csv` / `_fit_table.csv` | 壳层、N、N_err、R、R_err、σ²、Rf、N_idp、N_var | **论文 SI 表 S1**：直接给出每个壳的拟合参数与误差；跨样品比较活性位结构 | 表中 N 是简并度/有效简并度；`motif_weights` 模式下 N 不是 CN |
+-| `<stem>_fit_table.png/.txt` | 拟合表图/文本 | 组会/审稿人快速审阅；与 `_xas.png` 配套 | 图中标题会标注 CN unreliable / weights mode |
++| `<stem>_fit_table.png` | 拟合表图 | 组会/审稿人快速审阅；与 `_xas.png` 配套 | 只由报告入口生成；原 `_fit_table.txt` 与 CSV 重复，P6.6 起不再输出 |
+ | `<stem>_chi2_contour.*` | χ²(N, σ²) 置信椭圆 | **回应审稿人**：“N 和 σ² 是否强相关？” 直接展示 1σ/2σ/3σ 置信区；判断 CN 的不确定度是否被低估 | 只在有 S7 拟合时生成；椭圆形状依赖拟合窗口与模型 |
+ 
+ **催化解读示例：**
+@@ -212,27 +212,29 @@
+ | `_exafs_evolution.csv/.png` | FT 随时间的演化 | **键长/无序变化**：反应条件下活性位是否重构、是否有金属–金属键生成 | FT 峰位是表观值；关键时间点应做正式拟合 |
+ | `operando_meta.json` | 原位序列参数 + PCA/SPOIL/MCR 门禁 | 记录 `n_components`、接受/拒绝的标准谱、MCR Rf；保证原位分析可复现 | 与逐扫描的 `_meta.json` 分开 |
+ 
+-### 4.9 催化剂结构图包（P6.5）
++### 4.9 催化剂结构图包（P6.5 / P6.6）
+ 
+ `xafs_figure_pack.py` 只读已有输出，整理为可直接用于论文/组会/审稿回复
+ 的图包；不重新拟合、不改变 `cn_table.csv`、`fit.json`、`_meta.json` 或
+-任何拒签逻辑。
++任何拒签逻辑。P6.6 起默认**不再重复渲染 28 张单面板图**，并取消
++`figures/data/` 中与父目录/逐面板 CSV 重复的副本。
+ 
+ | 输出 | 是什么 | 对催化剂分析的价值 | 注意事项 |
+ |---|---|---|---|
+-| `figures/Figure1_master.png` | 8 面板结构总图：(a) XANES (b) χ(k) (c) FT (d) 小波 (e) 拟合壳层 (f) 结构识别 (g) 正式 CN 门禁 (h) 结构卡片 | 一张图解释“这个催化剂是什么结构、拟合到了什么、CN 是否过门禁” | 每个面板都有同名 CSV；缺失数据写 `skipped`，不伪造 |
+-| `figures/Figure2_confidence.png` | 6 面板置信/过程仪表盘：门禁状态板、决策轨迹、参数来源、门禁表、决策表、关键参数表 | 回答“结果为什么可信/为什么被拒”，把 P6.4 台账直接变成图 | 阈值与 `_meta.json:gates` 一致 |
+-| `figures/Figure3_diagnostics.png` | 8 面板拟合与误差诊断：参数相关矩阵、路径 N–R、CN 误差预算、Rbkg 寻优、归一化分解、拟合窗口、稳定性检查、扫描/数据质量 | 证明 N 的不确定度不是拍脑袋；定位 N–σ² 补偿、撞界、自吸收和过拟合 | 相关矩阵来自 `fit.json`；Rbkg 曲线需 `_meta.json:rbkg.table` |
+-| `figures/Figure4_features.png` | 6 面板数据特征与输入清单：dμ/dE、q 空间、FT 峰识别、CIF 配位壳层、特征总表、输入文件清单（行数/大小/SHA256） | 补齐“峰在哪、q 空间是否正常、CIF 有哪些壳层、结果基于哪些文件” | 未识别峰提示模型缺壳层或多位点 |
++| `figures/Figure1_master.png` | 8 面板结构总图：(a) XANES (b) χ(k) (c) FT (d) 小波 (e) 拟合壳层 (f) 结构识别 (g) 正式 CN 门禁 (h) 结构卡片 | 一张图解释“这个催化剂是什么结构、拟合到了什么、CN 是否过门禁” | 每个面板在 `panels/` 有 CSV；缺失数据写 `skipped`，不伪造 |
++| `figures/Figure2_confidence.png` | 6 面板置信/过程仪表盘：门禁状态板、决策轨迹、参数来源、门禁表、决策表、关键参数表 | 回答“结果为什么可信/为什么被拒”，把 P6.4 台账直接变成图 | 阈值与 `_meta.json:gates` 一致；关键参数表限 14 行，完整值查 `all_parameters.csv` |
++| `figures/Figure3_diagnostics.png` | 8 面板拟合与误差诊断：参数相关矩阵、路径 N–R（标注 ΔR/σ²）、CN 误差预算、Rbkg 寻优、归一化分解、拟合窗口、稳定性检查、扫描/数据质量 | 证明 N 的不确定度不是拍脑袋；定位 N–σ² 补偿、撞界、自吸收和过拟合 | 相关矩阵来自 `fit.json`；Rbkg 曲线需 `_meta.json:rbkg.table` |
++| `figures/Figure4_features.png` | 6 面板数据特征与输入清单：dμ/dE、q 空间、FT 峰识别、CIF 配位壳层、特征总表、输入文件清单（行数/大小/SHA256） | 补齐“峰在哪、q 空间是否正常、CIF 有哪些壳层、结果基于哪些文件” | q 空间面板需两侧入口输出的 `_chiq.csv`；未识别峰提示模型缺壳层或多位点 |
+ | `figures/Figure2g_cn_table.png` / `Figure2h_fit_table.png` | Table S1/S2 表格直接出图 | 论文补充材料；无需再用 Excel 排版 | CSV 保留完整列 |
+-| `figures/<panel>.csv` | 每个面板实际绘图数据 | 图与数据一一对应，可直接重绘/复查 | 面板 `status=skipped` 时无 CSV |
+-| `figures/data/` | 自包含数据包：源 JSON/CSV 副本、`all_fit_paths.csv`、`all_parameters.csv`、`fit_variants.csv`、`fit_correlation.csv`、`cif_shells.csv`、`structure_candidates.csv`、`gate_checks.csv`、`decisions.csv`、`panel_index.csv`、`summary.json`、`README.md` | 后续补图/补表不再回头挖输出目录；审稿回复可直接给长表 | 源副本不替代正式输出 |
+-| `figures/figure_manifest.json` | Figure 1(a) ↔ CSV ↔ 源文件 ↔ 图注映射 | 机器可读索引，便于批量排版与追溯 | 记录面板状态与 skip 原因 |
++| `figures/panels/<panel>.csv` | 每个面板唯一的实际绘图数据 | 图与数据一一对应，可直接重绘/复查 | 面板 `status=skipped` 时无 CSV |
++| `figures/panels/<panel>.png` | 可选的单面板独立图 | 单独插入 PPT/补充材料 | 仅 `--standalone-panels` 时生成；默认不重复渲染 |
++| `figures/data/` | 跨面板汇总：`all_fit_paths.csv`、`all_parameters.csv`、`fit_variants.csv`、`gate_checks.csv`、`decisions.csv`、`panel_index.csv`、`summary.json`、`README.md` | 审稿回复可直接给长表；补图不必回挖输出目录 | 不再复制父目录源 JSON/CSV，也不重复逐面板表；权威原件仍在输出根目录 |
++| `figures/figure_manifest.json` | Figure 1(a) ↔ 总图/独立图 ↔ CSV ↔ 源文件 ↔ 图注映射 | 机器可读索引，便于批量排版与追溯 | 默认 `image` 指向所属总图；`--standalone-panels` 后指向 `panels/<id>.png` |
+ | `figures/figure_pack.md` | 人可读索引 | 快速定位每个面板解释什么 | 与 manifest 同步生成 |
+ 
+ 两个入口均支持 `--figure-pack` / `--figure-formats` / `--figure-dpi`；
+-`--operando` 明确不支持单结构总图，需对 `scan_XX` 目录单独运行
+-`xafs_figure_pack.py`。
++独立 CLI 另有 `--standalone-panels`（默认关闭）。`--operando` 明确不支持
++单结构总图，需对 `scan_XX` 目录单独运行 `xafs_figure_pack.py`。
+ 
+ ### 4.10 诊断图
+ 
+@@ -603,7 +605,8 @@ gates.structure_id.action=library_miss_l1_fallback
+ 
+ - 参数/门禁/决策/摘要台账：`xafs_provenance.py`
+ - 催化剂结构图包：`xafs_figure_pack.py`
+-- 契约：`regression_test.py` 第 `#132` 项（台账）与 `#133` 项（图包）
+-- 当前契约基线：133 项（P6.5 收尾后）
++- 契约：`regression_test.py` 第 `#132` 项（台账）、`#133` 项（图包）
++  与 `#134` 项（双入口产物对齐/图包分层瘦身）
++- 当前契约基线：134 项（P6.6 收尾后）
+ - 软件版本：`xafs-cn-p4plus`
+ - 门禁常量冻结：`absorber.py` 静态 S₀² 表、`calibrate_s02.py` 门禁、44 条 phase pack 均未改动
+diff --git a/docs/P4_PLUS_EXECUTION_PLAN.md b/docs/P4_PLUS_EXECUTION_PLAN.md
+index 829aacd..6c41de4 100644
+--- a/docs/P4_PLUS_EXECUTION_PLAN.md
++++ b/docs/P4_PLUS_EXECUTION_PLAN.md
+@@ -309,3 +309,33 @@
+ - 两个入口新增 `--figure-pack` / `--figure-formats` / `--figure-dpi`；
+   `--operando` 明确不支持单结构总图；
+ - 契约 `#133` 锁定图包文件、逐面板 CSV、表格图、数据包与两个入口开关。
++
++
++## P6.6：双入口产物对齐与图包分层瘦身（已完成）
++
++- **缺字段补齐**：
++  - `PipelineResult` 新增 `chi_q`（第一壳反 FT）与 `data_sha256`；
++  - `run_xafs.py` 落盘 `<stem>_chiq.csv`（q/Re/Im/|χ(q)|），
++    `<stem>_structure_id.json` 保留全量 `ranked`（同时保留 `top3`）；
++  - `xafs_report.py` 的 `_meta.json` 补齐 `rbkg.table`、
++    `normalization.plateau_ok`、`source.data_sha256/n_points/n_scans/merge_info`；
++    L1 降级时 `fit.r_factor/delta_e0` 回退 `l1.rf/delta_e0`；
++  - `xafs_report.py` 新增 `--kweight / --rbkg / --e0-method / --manual-e0`，
++    并纳入配置文件合并；
++  - `--batch-dir` 分支补传 `fit_space` 与 `bvs_restraint`，消除入口漏参。
++- **目录分层**：
++  - `figures/` 根目录只保留 4 张总图、Table S1/S2、manifest 与索引；
++  - 逐面板 CSV 收口到 `figures/panels/`；
++  - `figures/data/` 只保留跨面板汇总（`summary.json`、`panel_index.csv`、
++    `all_fit_paths.csv`、`fit_variants.csv`、`all_parameters.csv`、
++    `gate_checks.csv`、`decisions.csv`、`README.md`），不再复制父目录
++    源 JSON/CSV，也不重复相关矩阵/CIF 壳层/结构候选表。
++- **默认免重绘**：`build_pack(standalone_panels=False)`；独立 CLI 新增
++  `--standalone-panels`，需要时才渲染 `panels/<id>.png`。
++- **图面增强**：Figure 1(f) 只画前 6 个候选但 CSV 保留全部；
++  Figure 3(b) 标注 ΔR 与 σ²；Figure 2(f) 关键参数限 14 行并提升字号。
++- **去重**：移除 `xafs_report.py` 冗余的 `<stem>_fit_table.txt`
++  （与 `_fit_table.csv` 内容重复）。
++- 契约 `#133` 对齐新目录结构并断言不再重复落盘；新增 `#134` 锁定
++  report meta 完整、4 个 CLI 参数、`_chiq.csv`/全量 `_structure_id.json`、
++  `--batch-dir` 透传与 `--standalone-panels`。
+diff --git a/regression_test.py b/regression_test.py
+index 77a93f1..0647e5c 100644
+--- a/regression_test.py
++++ b/regression_test.py
+@@ -850,6 +850,7 @@ class RegressionTest(unittest.TestCase):
+         fit1 = self.lep_fit["fit"]["fit"]
+         out3 = xafs_fit.fit_identified(
+             self.lep, absorber_symbol="Fe", kweights=(1, 2, 3),
++            s02=0.803,  # 固定历史口径，隔离多 k 权算法与静态标定值
+             verbose=False)
+         fit3 = out3["fit"]
+         self.assertEqual(tuple(fit3.kweights), (1, 2, 3))
+@@ -2013,7 +2014,8 @@ Ni1 Ni 0.5 0.5 0.5 0.4
+             structure=None, absorber_symbol="Fe", self_absorption=None)
+         out = xafs_fit.fit_identified(
+             res, motif_id="lepidocrocite", absorber_symbol="Fe",
+-            rmin=1.2, rmax=2.4, vary_c4=True, verbose=False)
++            rmin=1.2, rmax=2.4, vary_c4=True, s02=0.803,
++            verbose=False)
+         fit = out["fit"]
+         c4 = fit.paths[0].c4
+         self.assertIsNotNone(c4, "vary_c4=True 未产生 C4 变量")
+@@ -2809,7 +2811,7 @@ Ru1 Ru 0.5 0.5 0.5 0.3
+         out_sac = xafs_fit.fit_identified(
+             res_sac, absorber_symbol="Fe",
+             catalytic_model="dac:Co@2.50,N4@2.00",
+-            rmin=1.0, rmax=2.6, verbose=False)
++            rmin=1.0, rmax=2.6, s02=s02, verbose=False)
+         self.assertEqual(out_sac["mode"], "motif")
+         mm = out_sac["mm_bond_ftest"]
+         self.assertIsNotNone(mm)
+@@ -2823,7 +2825,7 @@ Ru1 Ru 0.5 0.5 0.5 0.3
+         out_dac = xafs_fit.fit_identified(
+             res_dac, absorber_symbol="Fe",
+             catalytic_model="dac:Co@2.50,N4@2.00",
+-            rmin=1.0, rmax=2.6, verbose=False)
++            rmin=1.0, rmax=2.6, s02=s02, verbose=False)
+         self.assertEqual(out_dac["mode"], "motif")
+         co = [p for p in out_dac["fit"].paths if "Co" in p.label]
+         self.assertEqual(len(co), 1)
+@@ -2854,7 +2856,8 @@ Ru1 Ru 0.5 0.5 0.5 0.3
+         out_ax = xafs_fit.fit_identified(
+             res_ax, absorber_symbol="Fe",
+             catalytic_model="sac:N4@2.00,axial=O@2.10,C=none",
+-            rmin=1.0, rmax=2.6, shared_sigma2="all", verbose=False)
++            rmin=1.0, rmax=2.6, shared_sigma2="all", s02=s02,
++            verbose=False)
+         by_el = {("O" if "O" in p.label else "N"): p
+                  for p in out_ax["fit"].paths}
+         self.assertLess(abs(by_el["N"].degeneracy - 4.0), 0.5,
+@@ -3735,7 +3738,7 @@ Ru1 Ru 0.5 0.5 0.5 0.3
+ 
+         out = xafs_fit.run_operando_exafs_series(
+             results, "Fe", catalytic_model="sac:O4@1.98,C=none",
+-            share_sigma2_across_series=True)
++            share_sigma2_across_series=True, s02=0.803)
+         self.assertEqual(out["motif"], motif.id)
+         self.assertEqual(len(out["names"]), 4)
+         label = out["shells"][0]
+@@ -6576,19 +6579,38 @@ O1 O 0 0 0 0.5
+                 out, stem="fe", formats=("png",), dpi=72, verbose=False)
+             figures = out / "figures"
+ 
++            # 顶层只放总图 / 表图 / 清单：不再被 28 张散装子图和 30 个 CSV 淹没。
+             for name in ("Figure1_master.png", "Figure2_confidence.png",
+                          "Figure3_diagnostics.png", "Figure4_features.png",
+-                         "Figure1a_xanes.csv", "Figure2d_gate_table.png",
+-                         "Figure2h_fit_table.png", "Figure3a_fitcorr.csv",
+-                         "Figure3d_rbkg.png", "Figure4a_derivative.csv",
+-                         "Figure4d_cif_shells.png", "figure_manifest.json",
+-                         "figure_pack.md", "data/summary.json",
+-                         "data/panel_index.csv", "data/all_fit_paths.csv",
+-                         "data/fit_variants.csv",
+-                         "data/fit_correlation.csv",
+-                         "data/cif_shells.csv"):
++                         "Figure2g_cn_table.png", "Figure2h_fit_table.png",
++                         "figure_manifest.json", "figure_pack.md"):
+                 self.assertTrue((figures / name).is_file(),
+                                 f"缺少图包文件 {name}")
++            # 逐面板 CSV 收口到 panels/
++            for name in ("panels/Figure1a_xanes.csv",
++                         "panels/Figure2d_gate_table.csv",
++                         "panels/Figure2h_fit_table.csv",
++                         "panels/Figure3a_fitcorr.csv",
++                         "panels/Figure3d_rbkg.csv",
++                         "panels/Figure4a_derivative.csv",
++                         "panels/Figure4c_ft_peaks.csv",
++                         "panels/Figure4d_cif_shells.csv"):
++                self.assertTrue((figures / name).is_file(),
++                                f"缺少面板 CSV {name}")
++            # data/ 只留跨面板汇总，不再重复复制源文件或逐面板表。
++            for name in ("data/summary.json", "data/panel_index.csv",
++                         "data/all_fit_paths.csv", "data/fit_variants.csv",
++                         "data/all_parameters.csv", "data/gate_checks.csv",
++                         "data/decisions.csv", "data/README.md"):
++                self.assertTrue((figures / name).is_file(),
++                                f"缺少数据包文件 {name}")
++            for name in ("data/meta.json", "data/fit.json",
++                         "data/structure_id.json", "data/cn_table.csv",
++                         "data/fit_table.csv", "data/fit_correlation.csv",
++                         "data/cif_shells.csv", "data/structure_candidates.csv",
++                         "Figure1a_xanes.png", "Figure3d_rbkg.png"):
++                self.assertFalse((figures / name).is_file(),
++                                 f"不应重复落盘 {name}")
+ 
+             on_disk = json.loads(
+                 (figures / "figure_manifest.json").read_text(
+@@ -6599,20 +6621,24 @@ O1 O 0 0 0 0.5
+                             on_disk["notes"])
+             by_label = {p["label"]: p for p in on_disk["panels"]}
+             self.assertEqual(by_label["Figure 1(a)"]["csv"],
+-                             "Figure1a_xanes.csv")
++                             "panels/Figure1a_xanes.csv")
+             self.assertEqual(by_label["Table S1"]["image"],
+                              "Figure2g_cn_table.png")
+             self.assertEqual(by_label["Figure 3(a)"]["csv"],
+-                             "Figure3a_fitcorr.csv")
++                             "panels/Figure3a_fitcorr.csv")
++            # 全量结构候选：图 1(f) 的 CSV 不截断到 Top-3/6
++            self.assertEqual(by_label["Figure 1(f)"]["n_rows"], 2)
+             for panel in on_disk["panels"]:
+                 self.assertIsNotNone(panel["image"], panel["label"])
+                 self.assertIsNotNone(panel["csv"], panel["label"])
++                self.assertTrue((figures / panel["image"]).is_file(),
++                                f"{panel['label']} 图片缺失: {panel['image']}")
+                 self.assertTrue((figures / panel["csv"]).is_file(),
+                                 f"{panel['label']} CSV 缺失")
+ 
+             for key in ("Figure1", "Figure2", "Figure3", "Figure4"):
+                 self.assertIn(key, on_disk["masters"])
+-            self.assertGreaterEqual(len(on_disk["data_files"]), 10)
++            self.assertGreaterEqual(len(on_disk["data_files"]), 8)
+ 
+             summary = json.loads(
+                 (figures / "data" / "summary.json").read_text(
+@@ -6622,19 +6648,30 @@ O1 O 0 0 0 0.5
+             self.assertGreaterEqual(summary["counts"]["fit_paths"], 2)
+             self.assertGreaterEqual(summary["counts"]["cif_shells"], 2)
+ 
+-            header = (figures / "Figure2h_fit_table.csv").read_text(
++            header = (figures / "panels" / "Figure2h_fit_table.csv").read_text(
+                 encoding="utf-8").splitlines()[0]
+             for col in ("shell", "n", "n_err", "n0", "r", "sigma2"):
+                 self.assertIn(col, header)
+-            header = (figures / "Figure4c_ft_peaks.csv").read_text(
++            header = (figures / "panels" / "Figure4c_ft_peaks.csv").read_text(
+                 encoding="utf-8").splitlines()[0]
+             for col in ("rank", "r_A", "amplitude", "assignment"):
+                 self.assertIn(col, header)
+ 
+-        # 两个入口都暴露 --figure-pack；独立 CLI 也暴露 --formats
++            # 需要单面板图时显式打开，落到 panels/ 而不是根目录。
++            xafs_figure_pack.build_pack(
++                out, stem="fe", formats=("png",), dpi=72,
++                standalone_panels=True, verbose=False)
++            for name in ("panels/Figure1a_xanes.png",
++                         "panels/Figure3d_rbkg.png",
++                         "panels/Figure4d_cif_shells.png"):
++                self.assertTrue((figures / name).is_file(),
++                                f"缺少独立面板图 {name}")
++
++        # 两个入口都暴露 --figure-pack；独立 CLI 也暴露 --formats/--standalone-panels
+         for module, flag in ((run_xafs, "--figure-pack"),
+                              (xafs_report, "--figure-pack"),
+-                             (xafs_figure_pack, "--formats")):
++                             (xafs_figure_pack, "--formats"),
++                             (xafs_figure_pack, "--standalone-panels")):
+             buf = io.StringIO()
+             with patch.object(sys, "argv", ["prog", "--help"]), \
+                     contextlib.redirect_stdout(buf), \
+@@ -6644,6 +6681,108 @@ O1 O 0 0 0 0.5
+             self.assertIn(flag, buf.getvalue(),
+                           f"{module.__name__} 缺少 {flag}")
+ 
++    def test_p6_6_entry_parity_and_streamlined_outputs(self):
++        """#134 P6.6：入口产物对齐与输出分层瘦身。
++
++        - report 的 meta 补齐 rbkg.table / plateau_ok / data_sha256 / L1 Rf；
++        - report CLI 暴露 --rbkg/--e0-method/--manual-e0/--kweight；
++        - run_xafs 落盘 _chiq.csv 与全量 _structure_id.json；
++        - figures/ 顶层只留总图/表图/清单，面板 CSV 在 panels/，data/ 无副本；
++        - --batch-dir 分支透传 fit_space/bvs_restraint。
++        """
++        import contextlib
++        import io
++        from unittest.mock import patch
++
++        import run_xafs
++        import xafs_figure_pack
++
++        # 1) report 入口：meta 完整 + 图包面板不再因缺字段跳过
++        with tempfile.TemporaryDirectory() as tmp:
++            xafs_report.main([
++                str(FE_FOIL), "--absorber", "Fe", "--no-strict",
++                "--fit-motif", "fe_bcc", "--no-html", "--no-window-tuner",
++                "--figure-pack", "--figure-dpi", "72", "-o", tmp])
++            out = Path(tmp)
++            meta = json.loads(
++                (out / "fe_meta.json").read_text(encoding="utf-8"))
++            self.assertTrue(meta["rbkg"].get("table"),
++                            "report 的 rbkg.table 未落盘")
++            self.assertIn("plateau_ok", meta["normalization"])
++            self.assertTrue(meta["source"].get("data_sha256"),
++                            "report 的 source.data_sha256 缺失")
++            self.assertIsNotNone(meta["fit"].get("r_factor"),
++                                 "fit.r_factor 不应为 None")
++            self.assertIsNotNone(meta["fit"].get("delta_e0"),
++                                 "fit.delta_e0 不应为 None")
++            self.assertFalse((out / "fe_fit_table.txt").exists(),
++                             "冗余 _fit_table.txt 不应再生成")
++            self.assertTrue((out / "fe_chiq.csv").is_file())
++            self.assertTrue((out / "fe_structure_id.json").is_file())
++
++            manifest = json.loads(
++                (out / "figures" / "figure_manifest.json").read_text(
++                    encoding="utf-8"))
++            by_label = {p["label"]: p for p in manifest["panels"]}
++            for label in ("Figure 1(f)", "Figure 3(d)", "Figure 4(b)"):
++                self.assertEqual(by_label[label]["status"], "ok",
++                                 f"{label} 不应跳过: {manifest['notes']}")
++            self.assertGreater(by_label["Figure 1(f)"]["n_rows"], 3,
++                               "结构候选仍被截断")
++            # 顶层无散装子图/CSV
++            top = {p.name for p in (out / "figures").iterdir()}
++            self.assertNotIn("Figure1a_xanes.png", top)
++            self.assertNotIn("Figure1a_xanes.csv", top)
++            self.assertTrue((out / "figures" / "panels"
++                             / "Figure1a_xanes.csv").is_file())
++            self.assertFalse((out / "figures" / "data" / "meta.json").exists())
++            self.assertFalse(
++                (out / "figures" / "data" / "fit_correlation.csv").exists())
++
++        # 2) run_xafs 入口：q 空间与全量结构候选落盘并进图包
++        with tempfile.TemporaryDirectory() as tmp:
++            run_xafs.process_sample(
++                [str(FE_FOIL)], Path(tmp), absorber="Fe", strict=False,
++                identify=True, fit=True, fit_motif="fe_bcc",
++                figure_pack=True, figure_dpi=72, verbose=False)
++            out = Path(tmp)
++            chiq = out / "fe_chiq.csv"
++            self.assertTrue(chiq.is_file(), "run_xafs 未落盘 _chiq.csv")
++            header = chiq.read_text(encoding="utf-8").splitlines()[0]
++            for col in ("q_inv_A", "chiq_re", "chiq_im", "chiq_mag"):
++                self.assertIn(col, header)
++            sid = json.loads(
++                (out / "fe_structure_id.json").read_text(encoding="utf-8"))
++            self.assertGreater(len(sid.get("ranked") or []), 3,
++                               "run_xafs 仍把结构候选截断到 <=3")
++            meta = json.loads(
++                (out / "fe_meta.json").read_text(encoding="utf-8"))
++            self.assertTrue(meta["source"].get("data_sha256"))
++            manifest = json.loads(
++                (out / "figures" / "figure_manifest.json").read_text(
++                    encoding="utf-8"))
++            by_label = {p["label"]: p for p in manifest["panels"]}
++            self.assertEqual(by_label["Figure 4(b)"]["status"], "ok",
++                             manifest["notes"])
++
++        # 3) report CLI 暴露 4 个参数；--batch-dir 不再漏传 fit_space/bvs
++        buf = io.StringIO()
++        with patch.object(sys, "argv", ["prog", "--help"]), \
++                contextlib.redirect_stdout(buf), \
++                contextlib.redirect_stderr(io.StringIO()):
++            with self.assertRaises(SystemExit):
++                xafs_report.main()
++        for flag in ("--rbkg", "--e0-method", "--manual-e0", "--kweight"):
++            self.assertIn(flag, buf.getvalue(), f"xafs_report 缺少 {flag}")
++
++        src = Path(run_xafs.__file__).read_text(encoding="utf-8")
++        self.assertGreaterEqual(src.count("fit_space=args.fit_space"), 2,
++                                "--batch-dir 分支漏传 fit_space")
++        self.assertGreaterEqual(src.count("bvs_restraint=bvs_restraint"), 2,
++                                "--batch-dir 分支漏传 bvs_restraint")
++        self.assertIn("_structure_id.json", src)
++        self.assertIn("_chiq.csv", src)
++
+     def test_p6_2_edge_entry_alignments(self):
+         """#130 P6.2：frac:(x,y,z) 吸收位、P1b/P5 配置键镜像、XDI 自动元素回退与 report 异常分支。"""
+         import json
+diff --git a/run_xafs.py b/run_xafs.py
+index 1aa7a45..34fdaad 100644
+--- a/run_xafs.py
++++ b/run_xafs.py
+@@ -679,14 +679,28 @@ def process_sample(paths, outdir, align: bool = False,
+         f"# R(A)  FT kmin={kmin} kmax={kmax}",
+         [ft.r, ft.real, ft.imag, ft.magnitude],
+         ["R(A)", "Re", "Im", "|chi(R)|"])
++    # S5b 反傅里叶滤波 χ(q)：供 q 空间诊断、图包 Figure 4(b) 与外部复算。
++    if getattr(result, "chi_q", None) is not None:
++        bft = result.chi_q
++        with open(outdir / f"{stem}_chiq.csv", "w", newline="",
++                  encoding="utf-8") as fh:
++            w = csv.writer(fh)
++            w.writerow(["q_inv_A", "chiq_re", "chiq_im", "chiq_mag"])
++            for qv, rev, imv, magv in zip(
++                    bft.q, bft.real, bft.imag, bft.magnitude):
++                w.writerow([f"{float(qv):.6g}", f"{float(rev):.6g}",
++                            f"{float(imv):.6g}", f"{float(magv):.6g}"])
+     with open(outdir / f"{stem}_wt.dat", "w", encoding="utf-8") as f:
+         f.write(f"# CWT sigma={wave_map.sigma}  row=k, col=R\n")
+         f.write("# k \\ R  " + "  ".join(f"{v:.2f}" for v in wave_map.r) + "\n")
+         for i, kc in enumerate(wave_map.k_centers):
+             f.write(f"{kc:.2f}  "
+                     + "  ".join(f"{v:.4f}" for v in wave_map.magnitude[i]) + "\n")
++    source_meta = dict(result.merged.meta or {})
++    if getattr(result, "data_sha256", None):
++        source_meta.setdefault("data_sha256", result.data_sha256)
+     meta = {
+-        "source": result.merged.meta,
++        "source": source_meta,
+         "absorber": result.absorber_symbol,
+         "e0": result.e0,
+         "normalization": {
+@@ -705,6 +719,8 @@ def process_sample(paths, outdir, align: bool = False,
+         meta["structure_id"] = {
+             "status": result.structure.get("status"),
+             "confidence": result.structure.get("confidence"),
++            # 完整排名不截断：图包 Figure 1(f) 与候选对比需要全部候选。
++            "ranked": result.structure["ranked"],
+             "top3": result.structure["ranked"][:3],
+             "indistinguishable": result.structure["indistinguishable"],
+             "uncovered_peaks": result.structure["uncovered_peaks"],
+@@ -717,6 +733,9 @@ def process_sample(paths, outdir, align: bool = False,
+                 result.structure["l1_first_shell"]
+         if result.structure.get("l1_error"):
+             meta["structure_id"]["l1_error"] = result.structure["l1_error"]
++        # 与 report 入口对齐：结构识别单文件落盘，便于下游/图包直接消费。
++        xafs_io.write_json(
++            outdir / f"{stem}_structure_id.json", meta["structure_id"])
+     if result.fit:
+         meta["fit"] = _fit_outputs(result.fit, outdir, stem)
+         if formal_cn:
+@@ -863,8 +882,13 @@ def process_sample(paths, outdir, align: bool = False,
+     if diagnostics:
+         made = xafs_diagnostics.write_diagnostics(result,
+                                                   outdir / "diagnostics")
++        # 与 xafs_report 入口一致：补反 FT 实验/模型 q 空间对比图。
++        bft_png, _, _ = xafs_diagnostics.write_back_ft_comparison(
++            result, result.fit, outdir / "diagnostics")
++        made.append(bft_png)
+         if verbose:
+-            print(f"  [诊断] {len(made)} 张阶段图 → {outdir / 'diagnostics'}")
++            print(f"  [诊断] {len(made)} 张阶段图 "
++                  f"+ wt_sweep.csv → {outdir / 'diagnostics'}")
+ 
+     # ---- B14-2 审稿级诊断：相移校正真键长 / 二维 χ² 等高线 ----
+     if phase_correct or chi2_contour:
+@@ -912,7 +936,8 @@ def main():
+                         help="边后平台不在 0.85–1.15 时是否中断（默认中断；"
+                              "--no-strict 降级为警告，供已知厚样/标样使用）")
+     parser.add_argument("--diagnostics", action="store_true",
+-                        help="输出 S1–S6 各阶段诊断图（<outdir>/diagnostics/）")
++                        help="输出 S1–S8 各阶段诊断图（含 FT–WT 联合与 WT "
++                             "扫描；<outdir>/diagnostics/）")
+     parser.add_argument("--figure-pack", action="store_true",
+                         help="P6.5 生成催化剂结构总图包：Figure1 结构总图 + "
+                              "Figure2 置信/过程仪表盘 + 逐面板 CSV")
+@@ -1128,16 +1153,10 @@ def main():
+         deglitch = xafs_config.parse_deglitch(args.deglitch)
+     except ValueError as exc:
+         parser.error(str(exc))
+-    lcf_standards = None
+-    if args.lcf_standards:
+-        lcf_standards = [s.strip() for s in args.lcf_standards.split(",")
+-                         if s.strip()]
+-        if not lcf_standards:
+-            parser.error("--lcf-standards 至少需要一个端元文件")
+-    vary_c3 = (None if args.vary_c3 is None
+-               else ([0] if args.vary_c3 == "first" else True))
+-    vary_c4 = (None if args.vary_c4 is None
+-               else ([0] if args.vary_c4 == "first" else True))
++    if isinstance(args.lcf_standards, str) and args.lcf_standards.strip() \
++            and not [s.strip() for s in args.lcf_standards.split(",")
++                     if s.strip()]:
++        parser.error("--lcf-standards 至少需要一个端元文件")
+ 
+     # ---- 配置文件加载与 CLI 合并（CLI 显式给出的优先；仅代码默认值时被覆盖）----
+     config = xafs_config.load_config(args.config)
+@@ -1595,6 +1614,8 @@ def main():
+                     vary_c4=vary_c4,
+                     isotropic_deltar=args.isotropic_deltar,
+                     shared_sigma2=shared_sigma2,
++                    fit_space=args.fit_space,
++                    bvs_restraint=bvs_restraint,
+                     mback=args.mback, chi_std=chi_std, chi_std_k=chi_std_k,
+                     clamp_lo=args.clamp_lo, clamp_hi=args.clamp_hi,
+                     catalytic_model=args.catalytic_model,
+diff --git a/xafs_core.py b/xafs_core.py
+index fc03a52..1f1ec97 100644
+--- a/xafs_core.py
++++ b/xafs_core.py
+@@ -300,3 +300,5 @@ class PipelineResult:
+     xanes_features: dict = field(default_factory=dict)  # B2-1 XANES 定量特征/颈部指纹
+     snr: Optional[dict] = None        # B9-2 高 k 信噪比诊断（high_k_snr 输出）
+     xanes_cross_check: Optional[dict] = None  # T8 XANES–EXAFS 软校验（只警告）
++    chi_q: Optional[BackFourierTransform] = None  # S5b 第一壳反 FT χ(q)
++    data_sha256: str = ""             # 原始输入文件 SHA256（审计/复现）
+diff --git a/xafs_diagnostics.py b/xafs_diagnostics.py
+index 9c507c7..fb946f5 100644
+--- a/xafs_diagnostics.py
++++ b/xafs_diagnostics.py
+@@ -437,7 +437,8 @@ def _s8_wt_sweep(res: PipelineResult, outdir, made):
+     made.append(png)
+     csv_path = Path(outdir) / "wt_sweep.csv"
+     _write_wt_sweep_csv(sweep["rows"], csv_path)
+-    made.append(csv_path)
++    # CSV 是配套数据，不计入 made（调用方按 PNG 张数打印，避免“9 张”实为
++    # 8 图 + 1 CSV 的误导）。
+ 
+ 
+ def write_wt_sweep(res: PipelineResult, outdir, stem: str | None = None):
+@@ -652,7 +653,7 @@ STAGES = (_s1, _s2, _s3, _s4, _s5, _s6, _s7_ft_wt_joint, _s8_wt_sweep)
+ 
+ 
+ def write_diagnostics(res: PipelineResult, outdir) -> list:
+-    """逐阶段画诊断图，返回生成的 PNG 路径列表。"""
++    """逐阶段画诊断图，返回生成的 PNG 路径列表（配套 CSV 另落盘）。"""
+     _style()
+     outdir = Path(outdir)
+     outdir.mkdir(parents=True, exist_ok=True)
+diff --git a/xafs_figure_pack.py b/xafs_figure_pack.py
+index 9986b6f..cc1320f 100644
+--- a/xafs_figure_pack.py
++++ b/xafs_figure_pack.py
+@@ -51,7 +51,6 @@ import csv
+ import hashlib
+ import json
+ import math
+-import shutil
+ import sys
+ from dataclasses import dataclass, field
+ from datetime import datetime
+@@ -1099,7 +1098,8 @@ def panel_structure(ax, ctx: dict) -> Panel:
+         return Panel("Figure1f_structure", "Figure 1(f)", "Structure ID",
+                      "结构识别候选排名。",
+                      status="skipped", reason="no structure identification")
+-    ranked = ranked[:6]
++    all_ranked = list(structure.get("ranked") or [])
++    ranked = all_ranked[:6]   # 图上只画前 6 个，避免标签重叠
+     labels = [str(x.get("id") or "?") for x in ranked]
+     scores = [_as_float(x.get("score")) or float("nan") for x in ranked]
+     ypos = np.arange(len(ranked))
+@@ -1123,12 +1123,14 @@ def panel_structure(ax, ctx: dict) -> Panel:
+                  loc="left", fontweight="bold")
+     ax.grid(axis="x", alpha=0.2)
+     rows = []
+-    for i, x in enumerate(ranked):
++    for i, x in enumerate(all_ranked):
+         rows.append({
+             "rank": i + 1,
+             "id": x.get("id"),
+             "kind": x.get("kind"),
++            "nuclearity": x.get("nuclearity"),
+             "score": _as_float(x.get("score")),
++            "score_mag": _as_float(x.get("score_mag")),
+             "sigma2": _as_float(x.get("sigma2")),
+             "de0": _as_float(x.get("de0")),
+             "status": status,
+@@ -1140,8 +1142,8 @@ def panel_structure(ax, ctx: dict) -> Panel:
+         "no_match 表示诊断库缺条目，不等于数据无效。",
+         source=_rel(ctx, ctx.get("structure_path")) if ctx.get("structure_path")
+         else "meta.json:structure_id",
+-        columns=["rank", "id", "kind", "score", "sigma2", "de0",
+-                 "status", "coverage_ok"], rows=rows)
++        columns=["rank", "id", "kind", "nuclearity", "score", "score_mag",
++                 "sigma2", "de0", "status", "coverage_ok"], rows=rows)
+ 
+ 
+ def panel_cn_gate(ax, ctx: dict) -> Panel:
+@@ -1513,7 +1515,7 @@ def _key_params(ctx: dict) -> list[dict]:
+     keys = [k for k in preferred if k in effective]
+     keys += [k for k in sorted(effective)
+              if k in formal and k not in keys]
+-    keys = keys[:18]
++    keys = keys[:14]
+     rows = []
+     for key in keys:
+         rows.append({
+@@ -1536,7 +1538,7 @@ def panel_param_table(ax, ctx: dict) -> Panel:
+     _render_table(
+         ax, ["Parameter", "Value", "Source", "Unit", "Stage"],
+         [[r["parameter"], r["value"], r["source"], r["unit"], r["stage"]]
+-         for r in rows], fontsize=6.2, title="(f) Key parameters")
++         for r in rows], fontsize=6.6, title="(f) Key parameters")
+     return Panel(
+         "Figure2f_param_table", "Figure 2(f)", "Key parameter table",
+         "关键参数表：影响正式 CN 的参数及其来源/单位/阶段，直接作为图片"
+@@ -1619,8 +1621,17 @@ def panel_fit_paths(ax, ctx: dict) -> Panel:
+                     fmt="o", ms=math.sqrt(size) / 2.2, color="#1565c0",
+                     ecolor="#546e7a", capsize=2.5, lw=0.9, zorder=3)
+         label = row.get("label") or "path"
++        dr = row.get("delta_r")
++        s2 = row.get("sigma2")
++        extra = []
++        if dr is not None:
++            extra.append(f"ΔR={float(dr):+.3f}Å")
++        if s2 is not None:
++            extra.append(f"σ²={float(s2) * 1e3:.2f}e-3")
++        if extra:
++            label += "\n" + "  ".join(extra)
+         ax.annotate(label, (r, n), textcoords="offset points", xytext=(6, 5),
+-                    fontsize=6.3, color="#263238")
++                    fontsize=6.0, color="#263238")
+         n0 = row.get("n0")
+         if n0 is not None:
+             ax.scatter([r], [n0], marker="D", s=26, facecolor="white",
+@@ -2564,25 +2575,39 @@ def _emit_figure(ctx: dict, fns: list[Callable], *, base: str, title: str,
+                  panels_manifest: list[dict],
+                  notes: list[str],
+                  hspace: float = 0.32,
+-                 wspace: float = 0.24) -> dict:
+-    """落盘一张总图、各独立面板图与逐面板 CSV。"""
++                 wspace: float = 0.24,
++                 standalone_panels: bool = False) -> dict:
++    """落盘一张总图、逐面板 CSV（归入 panels/）及可选的独立面板图。
++
++    总图已包含全部子面板；默认不再重复渲染散装单面板 PNG，
++    避免耗时翻倍与 figures/ 根目录被淹没。需要单面板图时显式打开
++    ``standalone_panels``，输出到 ``figures/panels/``。
++    """
+     fig, panels = _master_figure(
+         ctx, fns, title=title, figsize=figsize, nrow=nrow, ncol=ncol,
+         panel_ids=[], hspace=hspace, wspace=wspace)
+     paths = _save_master(fig, figures_dir / base, formats, dpi)
+     image_ext = formats[0]
++    panels_dir = figures_dir / "panels"
++    panels_dir.mkdir(parents=True, exist_ok=True)
+     for fn, panel in zip(fns, panels):
++        image_rel = None
+         if panel.status == "ok":
+-            _save_standalone(ctx, fn, figures_dir / panel.id, formats, dpi,
+-                             standalone_size, panel)
++            if standalone_panels:
++                _save_standalone(ctx, fn, panels_dir / panel.id, formats, dpi,
++                                 standalone_size, panel)
++                image_rel = f"panels/{panel.id}.{image_ext}"
++            else:
++                # 面板图即所属总图：不重复渲染，仍可被清单定位。
++                image_rel = f"{base}.{image_ext}"
+         csv_name = _panel_csv_name(panel)
++        csv_rel = None
+         if csv_name:
+-            _write_panel_csv(figures_dir / csv_name, panel)
++            _write_panel_csv(panels_dir / csv_name, panel)
++            csv_rel = f"panels/{csv_name}"
+         panels_manifest.append(_manifest_panel(
+             ctx, panel, figures_dir,
+-            image=(f"{panel.id}.{image_ext}"
+-                   if panel.status == "ok" else None),
+-            csv_name=csv_name))
++            image=image_rel, csv_name=csv_rel))
+         if panel.status != "ok":
+             notes.append(f"{panel.label} skipped: {panel.reason}")
+     return {"paths": paths, "panels": panels}
+@@ -2593,19 +2618,14 @@ def _emit_figure(ctx: dict, fns: list[Callable], *, base: str, title: str,
+ # ---------------------------------------------------------------
+ def _write_data_bundle(ctx: dict, figures_dir: Path,
+                        manifest: dict) -> list[str]:
+-    """把长表、源文件副本与汇总写入 ``figures/data/``。"""
++    """跨面板汇总写入 ``figures/data/``。
++
++    源 JSON/CSV 不在此复制：父目录已有唯一权威副本，逐面板 CSV 在
++    ``figures/panels/``。本目录只保留无法从单个面板还原的汇总表。
++    """
+     data_dir = figures_dir / "data"
+     data_dir.mkdir(parents=True, exist_ok=True)
+     written: list[str] = []
+-    for name, path in (
+-            ("meta.json", ctx.get("meta_path")),
+-            ("fit.json", ctx.get("fit_path")),
+-            ("structure_id.json", ctx.get("structure_path")),
+-            ("cn_table.csv", ctx.get("cn_path")),
+-            ("fit_table.csv", ctx.get("fit_table_path"))):
+-        if path is not None and Path(path).is_file():
+-            shutil.copyfile(path, data_dir / name)
+-            written.append(name)
+ 
+     fit = ctx.get("fit") or {}
+     meta = ctx.get("meta") or {}
+@@ -2688,54 +2708,7 @@ def _write_data_bundle(ctx: dict, figures_dir: Path,
+              "affects_formal_cn"], param_rows)
+         written.append("all_parameters.csv")
+ 
+-    # 4) 参数相关矩阵长表
+-    corr = obj.get("correlation")
+-    names = [str(x) for x in (obj.get("parameter_names") or [])]
+-    if corr and names:
+-        mat = np.asarray(corr, dtype=float)
+-        n = min(len(names), mat.shape[0], mat.shape[1])
+-        corr_rows = [{"param_i": names[i], "param_j": names[j],
+-                      "rho": float(mat[i, j])}
+-                     for i in range(n) for j in range(n)]
+-        _write_rows_csv(data_dir / "fit_correlation.csv",
+-                        ["param_i", "param_j", "rho"], corr_rows)
+-        written.append("fit_correlation.csv")
+-
+-    # 5) CIF 配位壳层全表
+-    cif_rows = _cif_shell_rows(ctx)
+-    if cif_rows:
+-        _write_rows_csv(
+-            data_dir / "cif_shells.csv",
+-            ["element", "r_A", "n0", "n_members", "sub_rayleigh_grouped",
+-             "source"], cif_rows)
+-        written.append("cif_shells.csv")
+-
+-    # 6) 结构识别候选全表
+-    structure = ctx.get("structure") or {}
+-    ranked = structure.get("ranked") or []
+-    if ranked:
+-        structure_rows = []
+-        for rank, item in enumerate(ranked, 1):
+-            if not isinstance(item, dict):
+-                continue
+-            structure_rows.append({
+-                "rank": rank,
+-                "id": item.get("id"),
+-                "kind": item.get("kind"),
+-                "nuclearity": item.get("nuclearity"),
+-                "score": _as_float(item.get("score")),
+-                "score_mag": _as_float(item.get("score_mag")),
+-                "sigma2": _as_float(item.get("sigma2")),
+-                "de0": _as_float(item.get("de0")),
+-            })
+-        if structure_rows:
+-            _write_rows_csv(
+-                data_dir / "structure_candidates.csv",
+-                ["rank", "id", "kind", "nuclearity", "score", "score_mag",
+-                 "sigma2", "de0"], structure_rows)
+-            written.append("structure_candidates.csv")
+-
+-    # 7) 门禁全表（保留完整 observed/threshold JSON）
++    # 4) 门禁全表（保留完整 observed/threshold JSON；面板表会截断）
+     gates = meta.get("gates") or {}
+     gate_rows = []
+     for name, payload in gates.items():
+@@ -2757,7 +2730,7 @@ def _write_data_bundle(ctx: dict, figures_dir: Path,
+              "reject_reason", "location"], gate_rows)
+         written.append("gate_checks.csv")
+ 
+-    # 8) 决策全表（不截断 detail）
++    # 5) 决策全表（不截断 detail；面板表只画前 12 条）
+     decision_rows = []
+     for item in (meta.get("decisions") or []):
+         if not isinstance(item, dict):
+@@ -2774,7 +2747,7 @@ def _write_data_bundle(ctx: dict, figures_dir: Path,
+             ["step", "decision", "status", "detail"], decision_rows)
+         written.append("decisions.csv")
+ 
+-    # 9) 面板索引
++    # 6) 面板索引
+     index_rows = [{
+         "label": p.get("label"),
+         "id": p.get("id"),
+@@ -2792,11 +2765,12 @@ def _write_data_bundle(ctx: dict, figures_dir: Path,
+          "source", "caption"], index_rows)
+     written.append("panel_index.csv")
+ 
+-    # 10) 汇总 JSON
++    # 7) 汇总 JSON
+     gates = meta.get("gates") or {}
+     summary_counts = _summary_counts(gates)
+     structure = ctx.get("structure") or {}
+     formal_block = _formal_block(ctx)
++    cif_rows = _cif_shell_rows(ctx)
+     summary = {
+         "schema": "xafs-figure-pack-data/v1",
+         "generated_at": manifest.get("generated_at"),
+@@ -2850,35 +2824,35 @@ def _write_data_bundle(ctx: dict, figures_dir: Path,
+ 本目录由 `xafs_figure_pack.py` 自动生成，对应 `figures/` 中的 Figure 1–4
+ 与 Table S1/S2。所有文件均为只读快照，不重新拟合、不改变正式输出。
+ 
+-## 源文件副本
++目录分工（不重复拷贝）：
+ 
+-| 文件 | 内容 |
+-|---|---|
+-| `meta.json` | `<stem>_meta.json` 原样副本：参数、门禁、决策、摘要台账 |
+-| `fit.json` | `<stem>_fit.json` 原样副本：拟合结果、路径、误差、相关矩阵 |
+-| `structure_id.json` | `<stem>_structure_id.json` 原样副本：结构识别候选与置信 |
+-| `cn_table.csv` | 正式 CN 表原样副本（存在时） |
+-| `fit_table.csv` | 拟合壳层表原样副本（存在时） |
++- `figures/` 根目录：4 张总图 + Table S1/S2 表图 + 清单/索引。
++- `figures/panels/`：每个子面板的唯一 CSV（需要时还含独立面板 PNG）。
++- `figures/data/`：本目录，只放无法从单个面板还原的跨面板汇总。
++- 父目录：`<stem>_meta.json` / `<stem>_fit.json` /
++  `<stem>_structure_id.json` / `<stem>_cn_table.csv` 等权威原件，
++  不在本目录重复复制。
+ 
+-## 长表
++## 跨面板汇总
+ 
+ | 文件 | 内容 |
+ |---|---|
+ | `all_fit_paths.csv` | 主拟合 + fixed/conditional/free N + L1 的全部路径参数 |
+ | `fit_variants.csv` | 主拟合与 fixed/conditional/free N 三套变体的 Rf、变量数、Hamilton F |
+ | `all_parameters.csv` | `meta.params.effective` 全参数：值、来源、单位、阶段、是否影响正式 CN |
+-| `fit_correlation.csv` | 参数相关矩阵长表（`param_i, param_j, rho`） |
+-| `cif_shells.csv` | CIF/拟合模型的全部配位壳层：元素、R、N₀、成员数、亚 Rayleigh 合并 |
+-| `structure_candidates.csv` | 结构识别候选排序：id、类型、score、σ²、ΔE₀ |
+-| `gate_checks.csv` | 全部门禁：状态、动作、阈值、观测值、拒绝原因、代码位置 |
++| `gate_checks.csv` | 全部门禁：状态、动作、完整阈值/观测值、拒绝原因、代码位置 |
+ | `decisions.csv` | S1 → S7 → 正式 CN 的完整决策轨迹（detail 不截断） |
+-| `panel_index.csv` | 30 个面板 ↔ 图 ↔ CSV ↔ 源文件 ↔ 图注 ↔ 状态 |
++| `panel_index.csv` | 全部面板 ↔ 图 ↔ 面板 CSV ↔ 源文件 ↔ 图注 ↔ 状态 |
+ | `summary.json` | 机器可读汇总：样品、拟合、正式 CN、结构识别与计数 |
+ 
++参数相关矩阵、CIF 壳层表、结构候选等逐面板数据只在
++`figures/panels/` 保留一份，避免同一张表多处落盘。
++
+ ## 使用建议
+ 
+-- 重绘某个面板：读 `panel_index.csv` 找到对应面板 CSV。
+-- 回复审稿：优先给 `summary.json` + `gate_checks.csv` + `fit_correlation.csv`。
++- 重绘某个面板：读 `panel_index.csv` 找到 `panels/` 下对应 CSV。
++- 回复审稿：优先给 `summary.json` + `gate_checks.csv` +
++  `panels/Figure3a_fitcorr.csv`。
+ - 复核拟合：`all_fit_paths.csv` 与 `fit_variants.csv` 提供路径级和变体级数据。
+ - 缺失数据不会伪造：对应面板在 `figure_manifest.json` 中标记
+   `status=skipped` 并写明原因。
+@@ -2943,8 +2917,9 @@ def _write_markdown(ctx: dict, figures_dir: Path, manifest: dict) -> Path:
+         lines.append(f"| {item['label']} | {image} | {csv_name} | {caption} |")
+     data_files = manifest.get("data_files") or []
+     if data_files:
+-        lines += ["", "## Self-contained data bundle", "",
+-                  "`data/` contains source copies plus long-form tables:",
++        lines += ["", "## Cross-panel data bundle", "",
++                  "`data/` holds cross-panel summary tables; the authoritative",
++                  "source JSON/CSV stay in the parent output directory:",
+                   ""]
+         for name in data_files:
+             lines.append(f"- `{name}`")
+@@ -2958,8 +2933,13 @@ def _write_markdown(ctx: dict, figures_dir: Path, manifest: dict) -> Path:
+ 
+ def build_pack(outdir: Path | str, *, stem: str | None = None,
+                formats: tuple[str, ...] = ("png",),
+-               dpi: int = 300, verbose: bool = True) -> dict:
+-    """生成完整图包；返回 manifest。"""
++               dpi: int = 300, standalone_panels: bool = False,
++               verbose: bool = True) -> dict:
++    """生成完整图包；返回 manifest。
++
++    ``standalone_panels=False``（默认）只画 4 张总图 + Table S1/S2，
++    子面板 CSV 收口到 ``figures/panels/``；打开时额外渲染单面板 PNG。
++    """
+     _style()
+     ctx = load_context(Path(outdir), stem)
+     figures_dir = ctx["outdir"] / "figures"
+@@ -2984,7 +2964,8 @@ def build_pack(outdir: Path | str, *, stem: str | None = None,
+         figsize=(13.5, 16.5), nrow=4, ncol=2,
+         formats=formats, dpi=dpi, figures_dir=figures_dir,
+         standalone_size=(6.4, 4.2),
+-        panels_manifest=panels_manifest, notes=notes)
++        panels_manifest=panels_manifest, notes=notes,
++        standalone_panels=standalone_panels)
+ 
+     # ---- Figure 2 ----
+     fig2 = _emit_figure(
+@@ -2996,7 +2977,8 @@ def build_pack(outdir: Path | str, *, stem: str | None = None,
+         figsize=(14.0, 15.0), nrow=3, ncol=2,
+         formats=formats, dpi=dpi, figures_dir=figures_dir,
+         standalone_size=(7.2, 4.8),
+-        panels_manifest=panels_manifest, notes=notes)
++        panels_manifest=panels_manifest, notes=notes,
++        standalone_panels=standalone_panels)
+ 
+     # ---- Figure 3 ----
+     fig3 = _emit_figure(
+@@ -3010,7 +2992,7 @@ def build_pack(outdir: Path | str, *, stem: str | None = None,
+         formats=formats, dpi=dpi, figures_dir=figures_dir,
+         standalone_size=(7.2, 4.8),
+         panels_manifest=panels_manifest, notes=notes,
+-        hspace=0.55)
++        hspace=0.55, standalone_panels=standalone_panels)
+ 
+     # ---- Figure 4 ----
+     fig4 = _emit_figure(
+@@ -3023,26 +3005,36 @@ def build_pack(outdir: Path | str, *, stem: str | None = None,
+         formats=formats, dpi=dpi, figures_dir=figures_dir,
+         standalone_size=(7.2, 4.8),
+         panels_manifest=panels_manifest, notes=notes,
+-        hspace=0.40)
++        hspace=0.40, standalone_panels=standalone_panels)
+ 
+-    # ---- 补充表格图 ----
++    # ---- 补充表格图（独立成图；逐面板 CSV 归入 panels/）----
+     image_ext = formats[0]
++    panels_dir = figures_dir / "panels"
++    panels_dir.mkdir(parents=True, exist_ok=True)
+     for fn, figsize in ((supplementary_cn_table, (12.0, 4.8)),
+                         (supplementary_fit_table, (10.0, 4.2))):
+-        probe = fn(plt.subplots(figsize=(1, 1))[1], ctx)
+-        plt.close("all")
+-        if probe.status != "ok":
++        fig, ax = plt.subplots(figsize=figsize)
++        try:
++            panel = fn(ax, ctx)
++            if panel.status == "ok":
++                fig.tight_layout()
++                for fmt in formats:
++                    fig.savefig(figures_dir / f"{panel.id}.{fmt}", dpi=dpi)
++        finally:
++            plt.close(fig)
++        if panel.status != "ok":
+             panels_manifest.append(_manifest_panel(
+-                ctx, probe, figures_dir, image=None, csv_name=None))
+-            notes.append(f"{probe.label} skipped: {probe.reason}")
++                ctx, panel, figures_dir, image=None, csv_name=None))
++            notes.append(f"{panel.label} skipped: {panel.reason}")
+             continue
+-        panel = _save_standalone(ctx, fn, figures_dir / probe.id, formats,
+-                                 dpi, figsize, probe)
+-        csv_name = f"{panel.id}.csv"
+-        _write_panel_csv(figures_dir / csv_name, panel)
++        csv_name = _panel_csv_name(panel)
++        csv_rel = None
++        if csv_name:
++            _write_panel_csv(panels_dir / csv_name, panel)
++            csv_rel = f"panels/{csv_name}"
+         panels_manifest.append(_manifest_panel(
+-            ctx, panel, figures_dir, image=f"{panel.id}.{image_ext}",
+-            csv_name=csv_name))
++            ctx, panel, figures_dir,
++            image=f"{panel.id}.{image_ext}", csv_name=csv_rel))
+ 
+     manifest = {
+         "schema": "xafs-figure-pack/v1",
+@@ -3092,7 +3084,7 @@ def build_pack(outdir: Path | str, *, stem: str | None = None,
+         print(f"  总图 2: {figures_dir / fig2['paths'][0]}")
+         print(f"  总图 3: {figures_dir / fig3['paths'][0]}")
+         print(f"  总图 4: {figures_dir / fig4['paths'][0]}")
+-        print(f"  面板 CSV: {len(manifest['csv_files'])} 个")
++        print(f"  面板 CSV: {figures_dir / 'panels'}（{len(manifest['csv_files'])} 个）")
+         print(f"  数据包: {figures_dir / 'data'}（{len(data_files)} 个文件）")
+         print(f"  清单: {manifest_path}")
+         print(f"  索引: {md_path}")
+@@ -3114,12 +3106,16 @@ def main(argv: list[str] | None = None) -> int:
+     parser.add_argument("--formats", default="png",
+                         help="输出格式，逗号分隔（默认 png；可 png,pdf）")
+     parser.add_argument("--dpi", type=int, default=300, help="图片 DPI（默认 300）")
++    parser.add_argument("--standalone-panels", action="store_true",
++                        help="额外把子面板单独渲染为 panels/<id>.png"
++                             "（默认关闭：只输出 4 张总图 + Table S1/S2）")
+     parser.add_argument("--quiet", action="store_true", help="只打印错误")
+     args = parser.parse_args(argv)
+     formats = tuple(x.strip() for x in args.formats.split(",") if x.strip())
+     try:
+         build_pack(args.outdir, stem=args.stem, formats=formats,
+-                   dpi=args.dpi, verbose=not args.quiet)
++                   dpi=args.dpi, standalone_panels=args.standalone_panels,
++                   verbose=not args.quiet)
+     except FigurePackError as exc:
+         print(f"图包生成失败: {exc}", file=sys.stderr)
+         return 2
+diff --git a/xafs_pipeline.py b/xafs_pipeline.py
+index a561004..e816a4a 100644
+--- a/xafs_pipeline.py
++++ b/xafs_pipeline.py
+@@ -298,6 +298,11 @@ def process_sample(paths, align: bool = False, absorber: str | None = None,
+     shell = (ft.r > 1.0) & (ft.r < 2.6)
+     r1 = float(ft.r[shell][np.argmax(ft.magnitude[shell])]) if shell.any() \
+         else np.nan
++    # S5b 第一壳反傅里叶滤波 χ(q)：窗口锚定 FT 第一峰，与 xafs_report
++    # 的窗口规则一致。入口层只负责落盘，数学仍留在 athena。
++    q_rmin = max(1.0, r1 - 0.5) if np.isfinite(r1) else 1.0
++    q_rmax = min(3.4, r1 + 0.5) if np.isfinite(r1) else 2.6
++    chi_q = athena.back_ft_to_q_space(ft.r, ft.chi_r, q_rmin, q_rmax)
+     if verbose:
+         print(f"  [S5] FT 第一峰 = {r1:.3f} Å   k_max = {chi_k.k.max():.1f} Å⁻¹")
+ 
+@@ -324,4 +329,5 @@ def process_sample(paths, align: bool = False, absorber: str | None = None,
+                           self_absorption=sa_info,
+                           xanes_features=xanes_features,
+                           snr=snr,
+-                          absorber_symbol=absorber)
++                          absorber_symbol=absorber,
++                          chi_q=chi_q)
+diff --git a/xafs_report.py b/xafs_report.py
+index 63f9ae7..1748b22 100644
+--- a/xafs_report.py
++++ b/xafs_report.py
+@@ -12,15 +12,17 @@ xafs_report.py — 成果展示层：五联图 + CN 拟合表 + 全套数据导
+ 
+   表（可粘贴）
+     <stem>_fit_table.csv   拟合表（utf-8-sig，Excel 直接打开）
+-    <stem>_fit_table.txt   拟合表（制表符分隔，粘贴 Word/Excel 自动成表）
+     <stem>_indicators.csv  关键物理指标汇总（指标/值/单位/说明）
+     <stem>_report.html     单文件 HTML 报告（图片内联、门禁结论置顶）
++    <stem>_meta.json       参数/门禁/决策/结构识别台账
++    <stem>_structure_id.json  结构识别候选（全量 ranked + top3）
+ 
+   逐面板数据（与图一一对应）
+     <stem>_mu.csv          (a) E, μ(scan1..3), μ(merged)
+     <stem>_xanes.csv       (b) E, μ, 边前基线, μ_norm
+     <stem>_chik.csv        (c) k, χ(k), k²χ(k)
+     <stem>_chir.csv        (d) R, Re χ(R), Im χ(R), |χ(R)|
++    <stem>_chiq.csv        第一壳反 FT χ(q)：q, Re, Im, |χ(q)|
+     <stem>_wavelet.csv     (e) W(R,k) 矩阵（行=k，列=R；与 run_xafs 一致）
+ 
+ 依赖方向：core ← io ← athena ← {artemis, larch_wt} ← 本模块。
+@@ -94,6 +96,10 @@ SHELLS = [("Fe–O", 1.0, 1.8), ("Fe–Fe(1)", 2.2, 3.2), ("Fe–Fe(2)", 3.3, 3.
+ 
+ def process_scans(files, absorber: str = "Fe", strict: bool = False,
+                   kmin: float = KMIN, kmax: float = KMAX,
++                  kweight: int = 2,
++                  e0_method: str = "derivative",
++                  manual_e0: float | None = None,
++                  rbkg: float | None = None,
+                   post_window=(150.0, 600.0),
+                   despike: bool = False,
+                   deglitch: list[tuple[float, float]] | None = None,
+@@ -113,7 +119,9 @@ def process_scans(files, absorber: str = "Fe", strict: bool = False,
+     这里只把 PipelineResult 展平成本模块画图用的 dict。
+     """
+     res = xafs_pipeline.process_sample(
+-        files, align=True, absorber=absorber, kmin=kmin, kmax=kmax, kweight=2,
++        files, align=True, absorber=absorber,
++        e0_method=e0_method, manual_e0=manual_e0, rbkg=rbkg,
++        kmin=kmin, kmax=kmax, kweight=kweight,
+         post_window=post_window,
+         strict=strict, despike=despike, deglitch=deglitch,
+         deadtime=deadtime,
+@@ -444,17 +452,13 @@ def plot_fit_table(rows: list, out: Path, stem: str, title: str,
+ 
+ 
+ def export_fit_table(rows: list, out: Path, stem: str):
+-    """CSV（utf-8-sig）+ TSV（粘贴 Word/Excel 自动成表）。"""
++    """导出拟合参数表 CSV（utf-8-sig，Excel/Origin 可直接打开）。"""
+     has_c3 = any(len(r) > 7 and str(r[7]).strip() for r in rows)
+     header = list(FIT_HEADER) + (["C3 (Å³)"] if has_c3 else [])
+     body = rows if has_c3 else [r[:7] for r in rows]
+     with open(out / f"{stem}_fit_table.csv", "w", newline="",
+               encoding="utf-8-sig") as fh:
+         csv.writer(fh).writerows([header] + body)
+-    with open(out / f"{stem}_fit_table.txt", "w", encoding="utf-8-sig") as fh:
+-        fh.write("\t".join(header) + "\n")
+-        for row in body:
+-            fh.write("\t".join(row) + "\n")
+ 
+ 
+ # ================================================================
+@@ -1405,6 +1409,15 @@ def main(argv=None):
+     parser.add_argument("--sample", default=None, help="图上显示的样品名")
+     parser.add_argument("--kmin", type=float, default=KMIN)
+     parser.add_argument("--kmax", type=float, default=KMAX)
++    parser.add_argument("--kweight", type=int, default=2,
++                        help="FT 与 Rbkg 的 k 权重（默认 2）")
++    parser.add_argument("--rbkg", type=float, default=None,
++                        help="显式指定 Rbkg (Å)，跳过自动寻优")
++    parser.add_argument("--e0-method", default="derivative",
++                        choices=["derivative", "half_height", "manual"],
++                        help="S2 E0 判定算法（默认 derivative）")
++    parser.add_argument("--manual-e0", type=float, default=None,
++                        help="手动指定 E0 (eV)，配合 --e0-method manual")
+     parser.add_argument("--strict", action=argparse.BooleanOptionalAction,
+                         default=True,
+                         help="边后平台门禁（默认中断；--no-strict 降级）")
+@@ -1576,21 +1589,16 @@ def main(argv=None):
+         deglitch = xafs_config.parse_deglitch(args.deglitch)
+     except ValueError as exc:
+         parser.error(str(exc))
+-    lcf_standards = None
+-    if args.lcf_standards:
+-        lcf_standards = [s.strip() for s in args.lcf_standards.split(",")
+-                         if s.strip()]
+-        if not lcf_standards:
+-            parser.error("--lcf-standards 至少需要一个端元文件")
+-    vary_c3 = (None if args.vary_c3 is None
+-               else ([0] if args.vary_c3 == "first" else True))
+-    vary_c4 = (None if args.vary_c4 is None
+-               else ([0] if args.vary_c4 == "first" else True))
++    if isinstance(args.lcf_standards, str) and args.lcf_standards.strip() \
++            and not [s.strip() for s in args.lcf_standards.split(",")
++                     if s.strip()]:
++        parser.error("--lcf-standards 至少需要一个端元文件")
+ 
+     # ---- 配置文件加载与 CLI 合并 ----（与 run_xafs 同一逻辑）
+     config = xafs_config.load_config(args.config)
+     _cli_defaults = {
+-        "kmin": KMIN, "kmax": KMAX, "strict": True,
++        "kmin": KMIN, "kmax": KMAX, "kweight": 2,
++        "rbkg": None, "strict": True,
+         "self_absorption_formula": None,
+         "self_absorption_thickness": None,
+         "self_absorption_density": None,
+@@ -1892,6 +1900,8 @@ def main(argv=None):
+     print(f"== 数据处理：{sample}（{len(args.files)} 个文件）==")
+     st = process_scans(args.files, absorber=args.absorber,
+                        strict=args.strict, kmin=args.kmin, kmax=args.kmax,
++                       kweight=args.kweight, e0_method=args.e0_method,
++                       manual_e0=args.manual_e0, rbkg=args.rbkg,
+                        post_window=post_window,
+                        despike=args.despike, deglitch=deglitch,
+                        deadtime=args.deadtime,
+@@ -2155,11 +2165,17 @@ def main(argv=None):
+                  or {}).get("warnings") or [])
+             if getattr(st["result"], "xanes_cross_check", None) else None),
+     }
++    merged_meta = dict(getattr(st["merged"], "meta", None) or {})
++    l1_block = (fout or {}).get("l1") or {}
++    fit_obj_meta = (fout or {}).get("fit")
+     report_meta = {
+         "source": {
++            **merged_meta,
+             "files": [str(f) for f in args.files],
+             "stem": stem,
+             "mode": "report",
++            "report_mode": merged_meta.get("mode"),
++            "data_sha256": getattr(st["result"], "data_sha256", ""),
+         },
+         "absorber": eff_absorber,
+         "edge": abs_cfg.edge,
+@@ -2167,11 +2183,13 @@ def main(argv=None):
+         "normalization": {
+             "edge_step": st["norm"].edge_step,
+             "plateau": st["norm"].plateau,
++            "plateau_ok": bool(0.85 <= st["norm"].plateau <= 1.15),
+             "strict": bool(args.strict),
+         },
+         "rbkg": {
+             "selected": st["rbkg"]["rbkg"],
+             "confidence": st["rbkg"].get("confidence"),
++            "table": getattr(st["result"], "rbkg_table", []) or [],
+         },
+         "ft": {
+             "kmin": args.kmin, "kmax": args.kmax,
+@@ -2191,10 +2209,13 @@ def main(argv=None):
+             "status": (fout or {}).get("status"),
+             "cn_reliable": (fout or {}).get("cn_reliable"),
+             "cn_status": (fout or {}).get("cn_status"),
+-            "r_factor": ((fout or {}).get("fit").r_factor
+-                         if (fout or {}).get("fit") is not None else None),
+-            "delta_e0": ((fout or {}).get("fit").delta_e0
+-                         if (fout or {}).get("fit") is not None else None),
++            # L1 第一壳降级时 fit=None，真实 Rf/ΔE0 在 l1 块里，不能写 None。
++            "r_factor": (fit_obj_meta.r_factor
++                         if fit_obj_meta is not None
++                         else l1_block.get("rf")),
++            "delta_e0": (fit_obj_meta.delta_e0
++                         if fit_obj_meta is not None
++                         else l1_block.get("delta_e0")),
+         },
+         "formal_cn": formal_block,
+     }

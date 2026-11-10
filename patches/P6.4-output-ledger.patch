@@ -1,0 +1,2289 @@
+diff --git a/README.md b/README.md
+index 8fd35f7..f625be8 100644
+--- a/README.md
++++ b/README.md
+@@ -20,7 +20,8 @@ Artemis 的图形界面。
+ | 标定资产 | `data/s02_calibration/` | T5 标定产物、motifs、source_pool |
+ | 设计规范 | `docs/REVIEW_AND_REVISED_PLAN.md` | 正式 CN 物理门禁总纲（§1–§6） |
+ | 执行计划 | `docs/P4_PLUS_EXECUTION_PLAN.md` | P4+/P5/P6 催化能力扩展计划 |
+-| 验收账本 | `docs/ACCEPTANCE_LOG.md` | P0a–P6.3 完整验收记录 |
++| 验收账本 | `docs/ACCEPTANCE_LOG.md` | P0a–P6.4 完整验收记录 |
++| 催化能力/门禁 | `docs/CATALYSIS_CAPABILITY_AND_GATES.md` | 催化剂体系能力、每个输出的分析价值、置信门禁卡、参数台账 |
+ | 爬虫说明 | `docs/CIF_CRAWLER_INTEGRATION.md` | COD 目标表、P5-C 入库与 T5 谱源整合 |
+ | 执行记录 | `docs/P6_EXECUTION_INSTRUCTIONS.md` | P6 门禁修复与项目整合的权威执行指令 |
+ | 执行记录 | `docs/P6_1_EXECUTION_INSTRUCTIONS.md` | P6.1 单晶位/多晶位正式 CN 端到端闭环修复 |
+@@ -94,7 +95,8 @@ python xafs_report.py
+ | `calibrate_s02.py` | 标定 S₀²（金属箔/氧化物标样，生产等效协议；`--motif-file` 用标定专用结构） |
+ | `calibrate_t5.py` | T5 批量标定 12 元素，产物落 `data/s02_calibration/`（不改静态表） |
+ | `absorber.py` | 吸收元素配置表（边能量/S₀²/kmax），元素泛化唯一入口 |
+-| `regression_test.py` | 131 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝、P5-C 18 个常见相 COD 补齐/coverage 无缺口、P5-prep 标准谱源隔离池/5 元素门禁冻结、P5-D 多位点正式 CN、P6 phase pack 44/44 门禁、P6.1 单晶位正式 CN 与诊断库解耦、P6.2 边界入口对齐、P6.3 双入口配置/operando 守卫） |
++| `regression_test.py` | 132 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝、P5-C 18 个常见相 COD 补齐/coverage 无缺口、P5-prep 标准谱源隔离池/5 元素门禁冻结、P5-D 多位点正式 CN、P6 phase pack 44/44 门禁、P6.1 单晶位正式 CN 与诊断库解耦、P6.2 边界入口对齐、P6.3 双入口配置/operando 守卫、P6.4 参数/门禁/决策/摘要台账与打印开关） |
++| `xafs_provenance.py` | P6.4 输出台账：参数来源、门禁命中、决策轨迹、结果摘要（只记录，不判定） |
+ | `run_ci.py` | 跨平台 CI：编译 + 契约回归 + 可选压力测试，输出 ci_report.json/md |
+ | `stress_test_{co,ni,cu,nio}.py` | 元素泛化/护栏/CN 回收压力测试 |
+ | `xafs_config.py` | 配置文件支持（.yaml/.json）、批处理入口（--batch-dir） |
+@@ -274,7 +276,7 @@ FT 内核嵌进页面，浏览器里拖 kmin/kmax/kweight/dk，实时看 `|χ(R)
+ 
+ ### CI 自动化回归
+ ```powershell
+-python run_ci.py            # 编译 + 131 项契约回归
++python run_ci.py            # 编译 + 132 项契约回归
+ python run_ci.py --stress   # 额外跑 Co/Ni/Cu/NiO 压力测试
+ ```
+ 产物 `ci_report.json` / `ci_report.md`；任一步失败即非零退出。
+diff --git a/docs/ACCEPTANCE_LOG.md b/docs/ACCEPTANCE_LOG.md
+index 9d85f0f..8a659bd 100644
+--- a/docs/ACCEPTANCE_LOG.md
++++ b/docs/ACCEPTANCE_LOG.md
+@@ -1375,3 +1375,64 @@ crawler 入库后按同一三扫描命令重跑，上述 r_factor/N/R 与 fit_ta
+ - [x] 通过
+ - 物理门禁、`absorber.py` 静态表、`calibrate_s02.py` 常量、
+   44 条 phase pack 均未改动。
++
++
++## 13. P6.4：输出台账与参数/门禁全暴露（2026-11-09）
++
++### 13.1 范围
++
++- 新增 `xafs_provenance.py`：只记录、不判定；向 `_meta.json` 追加
++  `params / gates / decisions / summary` 四个顶层块，现有字段保持原样。
++- `params`：`effective / sources / units / stages / affects_formal_cn /
++  cli_argv / inputs / config_file / config_keys_applied`；来源标记
++  `cli / config / default / auto / calibrated / runtime_override`。
++  配置文件来源只统计用户文件里真实出现的键，不把 `DEFAULTS` 误标为
++  `config`。
++- `gates`：`normalization / self_absorption / structure_id / cif / fit /
++  formal_cn / xanes_cross_check / summary`，每条记录
++  `status / threshold / observed / action`；状态统一为
++  `passed / warning / failed / not_applicable / not_available`。
++- `decisions`：按 S1 → S7 → 正式 CN 记录合并扫描、E0、归一化、Rbkg、
++  FT 窗口、小波、结构识别、相解析、拟合、CN 可靠性、正式 CN 与 T8。
++- `summary`：门禁通过/警告/失败清单，另含 `cn_reliable / cn_status /
++  formal_cn_status / formal_cn_reject_reason`。
++- `run_xafs.py` / `xafs_report.py` 均接入 provenance，并新增
++  `--print-gates` / `--print-params`（默认关闭）；报告入口也写
++  `<stem>_meta.json`；operando 写 `operando_meta.json`
++  （PCA 方差 / SPOIL / MCR-ALS 门禁）。
++- 新增文档 `docs/CATALYSIS_CAPABILITY_AND_GATES.md`：体系能力矩阵、
++  逐输出“对催化剂分析的价值”、指标解读、门禁卡、参数分组与工作流。
++- 契约 `#132` 锁定阈值镜像、参数来源、门禁状态、两个入口的台账与
++  打印开关。
++
++### 13.2 结果
++
++- Fe 箔（`fe.060`，`--no-strict`）：`_meta.json` 含四个台账块；
++  `params` 83 项生效参数，`kmin=default`、`absorber=cli`、`rbkg=auto`；
++  `gates.normalization=warning`（平台 0.7953）；`decisions` 覆盖 S1–S7。
++- 配置文件冒烟：`kmin/kmax/kweight/post_window/strict` 正确标记为
++  `config`，`config_keys_applied` 与用户文件一致。
++- RuO2（`COD:9007541`，`--s02-from-t5`）：`gates.fit=failed`
++  （L1 `rf=0.0826`、coverage=False），`structure_id=warning`
++  （`no_match` → `library_miss_l1_fallback`），`formal_cn=failed`
++  （`N/N₀=0.521 out_of_range`、条件 `Rf=0.1314`），属预期物理拒签。
++- 台账不改变任何物理判定、`cn_table.csv` 列或拒签逻辑。
++
++### 13.3 测试
++
++- `regression_test.py`：**132 项 OK**；
++- `run_ci.py --stress`：132 契约 + 4 压力 PASS。
++
++### 13.4 提交与补丁
++
++- 提交：`P6.4: expose params, gates, decisions and summary ledger`
++- 补丁：`patches/P6.4-output-ledger.patch`（`db6321a..HEAD`）；
++  累计补丁 `patches/P6.1-single-site-formal-cn.patch`（`eb01675..HEAD`）。
++- `_standards_lib/`、`data/standards_raw/`、`logs/` 未提交；
++  根目录 `lepidocrocite.cif` 保留。
++
++### 13.5 结论
++
++- [x] 通过
++- 物理门禁、`absorber.py` 静态表（12 元素 `s02=None, calibrated=False`）、
++  `calibrate_s02.py` 常量、44 条 phase pack 均未改动。
+diff --git a/docs/CATALYSIS_CAPABILITY_AND_GATES.md b/docs/CATALYSIS_CAPABILITY_AND_GATES.md
+new file mode 100644
+index 0000000..838470f
+--- /dev/null
++++ b/docs/CATALYSIS_CAPABILITY_AND_GATES.md
+@@ -0,0 +1,585 @@
++# 催化剂 XAFS 分析：能力、结果、置信门禁与参数台账
++
++> 适用版本：P6.4（HEAD `db6321a` 之后的收尾提交）
++> 代码依据：所有阈值均来自当前代码常量，不是文档口径。
++> 配套契约：`regression_test.py` 第 `#132` 项。
++
++---
++
++## 1. 这套代码的定位
++
++本工具把催化剂 XAFS 分析分成两条**互不冒充**的轨道：
++
++| 轨道 | 输入 | 产出 | 适用场景 |
++|---|---|---|---|
++| **诊断轨** | 任意 EXAFS 谱 + motif / 催化模型 / L1 第一壳 | `fit.json`、`fit_table.csv`、`fit.csv`、`rdf.csv` | 机制假设、模型筛选、论文 SI 的拟合表 |
++| **正式轨** | `verified_source_cif` + `crystal_cif/crystal_edited` + 显式吸收位 | `cn_table.csv` | 可辩护的配位数、位点占据、相分数 |
++
++两条轨道的结论**分开写、状态分开标**：
++
++- 诊断轨永远可以出数，但 `cn_status` 可能是 `diagnostic_only` / `hypothesis_model_only`；
++- 正式轨只在来源、CIF、键长、占据度、条件 CN 全部通过时签发 `gate_status=passed`；
++- 正式轨拒签**不会删除**诊断轨结果，`reject_reason` 会写明物理原因。
++
++一句话：**诊断轨回答“像什么”，正式轨回答“配位数能不能写进论文”。**
++
++---
++
++## 2. 执行逻辑（S1–S7 + 两条轨道）
++
++```text
++原始谱
++  → S1 读取 / 多扫描合并 / 去死时间 / 去毛刺 / 去 glitch / 能量对齐
++  → S2 元素判定 + E0 判定（导数 / 半高点 / 手动）
++  → S3 归一化（边前线 + 边后窗口 + 平台门禁 + 自吸收判断）
++  → S4 Rbkg 寻优（或手动指定）
++  → S5 背景扣除 + χ(k) + k 权重 + FT → R 空间
++  → S6 连续小波变换（CWT）
++  → S6.5 结构识别 / 相来源解析 / 吸收位解析
++  → S7 EXAFS 拟合
++       ├─ 诊断轨：motif / L1 / SAC-DAC / 多壳层自由拟合
++       └─ 正式轨：verified CIF → CIF 门禁 → N₀ 分壳 → 条件 CN
++  → 报告层：HTML / CSV / PNG / 参数与门禁台账
++```
++
++| 阶段 | 做什么 | 关键判定 | 输出 |
++|---|---|---|---|
++| **S1** | 读取扫描、合并多扫描、剔除离群、死时间、去毛刺、去 glitch、对齐 | 扫描质量、离群比例 | 合并 μ(E) |
++| **S2** | 元素与吸收边；E0 用导数、半高点或手动 | 元素必须在 17 元素表内 | `absorber`、`e0` |
++| **S3** | 边前线拟合、归一化、平台检查、自吸收风险 | 平台 0.85–1.15；荧光 Δμ ≥1.0 必须校正 | `mu_norm`、`edge_step`、`plateau` |
++| **S4** | Rbkg 自动寻优或手动 | 置信度、有效候选比例、崎岖度 | `rbkg` |
++| **S5** | 背景扣除、χ(k)、k 加权、FT | kmin / kmax / kweight | `chi.dat`、`ft.dat` |
++| **S6** | Cauchy 连续小波变换 | σ 默认 1.5；第一峰 R | `wt.dat`、`wavelet.csv` |
++| **S6.5** | 结构识别：motif 库 / phase pack / 用户 CIF / 显式催化模型 | score、margin、未解释峰、coverage | `structure_id.json` |
++| **S7** | 多壳层 EXAFS 拟合 | Rf、ΔE0、N_err、σ²/C3/C4 撞界、N_idp | `fit.json`、`fit.csv`、`fit_table.csv` |
++| **正式 CN** | CIF 门禁 → N₀ 分壳 → 固定 N → 条件 N → Hamilton F | N/N₀、条件 Rf、F-test | `cn_table.csv` |
++| **报告** | 汇总 HTML、XANES/EXAFS 图、拟合表、小波、LCF、置信椭圆 | — | `_report.html` 等 |
++
++### 2.1 四个入口
++
++| 入口 | 用途 | 关键限制 |
++|---|---|---|
++| `run_xafs.py` 单样品 | 常规单谱处理 + 可选识别/拟合/正式 CN | — |
++| `run_xafs.py --batch-dir` | 批量同元素多样品 | 不逐文件识别元素 |
++| `run_xafs.py --multi-element` | 多元素各自处理并汇总 | `--phase-id` 为单一值 |
++| `run_xafs.py --operando` | 时间序列逐点 S1–S6 + PCA/MCR-ALS/LCF | 不执行 S6.5/S7 |
++| `xafs_report.py` | 单样品完整报告 | 需要 `--absorber` |
++
++---
++
++## 3. 催化剂体系能力矩阵
++
++| 体系 | 能实现的部分 | 推荐用法 | 明确边界 |
++|---|---|---|---|
++| **Fe-N-C（SAC）** | N₄ 平面、轴向 O/N 配位、Fe–N 键长/配位数、Fe–C 远壳、小波判别金属团簇、Hamilton F-test、XANES 边前峰/白线/LCF | `--catalytic-model "sac:N4@2.00,C@2.90"`；轴向：`sac:N4@2.00,axial=O@2.10,C@2.90` | 无周期晶胞，正式 CN 标 `hypothesis_model_only`；诊断拟合表正常出数 |
++| **Fe-N-C（DAC）** | Fe–Co / Fe–Ni 双原子模型、异核路径、双金属距离 | `--catalytic-model "dac:Co@2.50,N4@2.00"` | 同上；DAC 几何是假设模型 |
++| **Fe-ZSM-5** | 第一壳 Fe–O、双核 Fe···Fe、低负载荧光谱自吸收校正、BVS 价态约束 | `--no-strict` + 自吸收参数 + `--bvs-target` | 第二壳 Fe–O–Si/Al 需用户提供含占据度的 CIF/DFT 团簇，再 `--phase-cif` + `--absorber-site` |
++| **金属氧化物（单晶位）** | 44 条实验 COD 相包，17 元素；CIF 门禁、N₀ 分壳、条件 CN、正式 CN 表 | `--formal-cn --phase-id COD:xxxx` | 高缺陷纳米样可能被正式轨拒签；诊断轨仍出数 |
++| **金属氧化物（多晶位/尖晶石）** | 不等价位点分别过门禁；`--absorber-site all` 按多重度×占据度加权；`--fit-weights` 放开相分数 | `--phase-id COD:xxxx --absorber-site all` | 多晶位不自动 Top-1；未显式给位点 → `absorber_site_ambiguous` |
++| **掺杂氧化物 / 异核共占位** | `--hetero-cocupancy` 拆分共占位为 M–Ni / M–Fe 分支，共享 ΔR/σ² | `--hetero-cocupancy` | 需要 CIF 中真实共占位信息 |
++| **双金属合金** | Cowley 短程有序参数 α_AB，判别随机固溶/有序/偏析 | 合金相 + `--fit` | 需要合金相 CIF 或 motif |
++| **Operando** | 逐时间点 S1–S6，PCA（99% 方差）、LCF、MCR-ALS、组分浓度演化 | `--operando` | 不执行 S6.5/S7；`--fit/--formal-cn/--phase-*` 会显式报错 |
++| **通用 XANES** | 边前峰质心/面积、白线面积、E0、导数谱、LCF 价态比例 | `--lcf-standards` | LCF 需要可靠标准谱 |
++| **通用 EXAFS** | FT/反 FT、q 空间拟合、小波、相移校正、χ² 置信椭圆 | `--fit-space q`、`--phase-correct`、`--chi2-contour` | — |
++| **标准谱 / T5 S₀²** | 12/12 元素独立标定产物；运行期 `--s02-from-t5` 加载 | `--s02-from-t5` | 12 元素静态表仍为 `None`，不写回 `absorber.py` |
++| **批量/多元素** | 批量同元素；多元素分别处理并汇总 | `--batch-dir`、`--multi-element` | `--batch-dir` 不逐文件识别元素；`--multi-element` 的 `--phase-id` 为单一值 |
++
++### 3.1 明确不会自动做的事
++
++- 不会自动选多晶位 Top-1；必须显式 `--absorber-site`。
++- 不会为缺占据度的无序 CIF 猜占据度；直接 `occupancy_missing`。
++- 不会在 N/N₀ 越界或条件 Rf 超限时“放宽”正式 CN；只拒签，不篡改。
++- 不会把 SAC/DAC 假设模型写成 `crystal_cif` 正式来源。
++- 不会自动为 17 元素之外的吸收元素生成完整相库。
++- 不会在 `--operando` 下静默忽略 S6.5/S7 参数；现在直接报错。
++- 不会把 `data/standards_raw/` 的原始标准谱打包进仓库（许可原因）；运行期 T5 标定产物已随仓库。
++
++---
++
++## 4. 结果清单：每个有效输出对催化剂分析的价值
++
++> 这一节是本文档的核心。每个输出都回答三个问题：
++> **它是什么 → 能说明催化剂的什么 → 使用时要注意什么。**
++
++### 4.1 归一化谱与 XANES
++
++| 输出 | 是什么 | 对催化剂分析的价值 | 注意事项 |
++|---|---|---|---|
++| `<stem>_mu.dat`（run_xafs） | E、μ、μ_norm、σ_μ | 看吸收边位置、白线、边前峰；判断活性金属氧化态、电子结构、配位对称性 | 边移也受配位/共价性影响，不能只看 E0 定价态 |
++| `<stem>_mu.csv` / `_xanes.csv`（report） | 归一化 μ(E) 与 XANES 区间 | 同一用途；可直接作为 XANES 图、LCF 输入、operando 时间序列 | 归一化平台必须可信；低负载荧光谱注意自吸收 |
++| `<stem>_indicators.csv` | 边前峰质心/面积、白线面积、E0、边步等 | **氧化态**：边移 + 白线面积；**位点对称性**：边前峰强度/质心（四面体 vs 八面体、Fe–N₄ vs Fe–N₅）；**负载/浓度**：边步相对比较；**Operando**：这些指标随时间的突变对应活性相变 | 白线受自吸收、归一化、样品厚度影响；跨样品比较必须同一边、同一处理 |
++| `<stem>_lcf.json` | XANES 线性组合拟合权重、Rf、权重误差 | **价态分布/相比例**：例如 Fe²⁺/Fe³⁺ 比例、金属/氧化物比例、反应过程中相分数；可直接画堆叠柱状图 | 标准谱必须与样品基体匹配、线性独立；看 Rf 与权重误差，不只看权重 |
++| `<stem>_xas.png` | 汇总 XANES/EXAFS 图 | 论文正文图、组会/合作者快速审阅 | 图内标注的窗口/参数要与 `_meta.json` 一致 |
++
++**催化解读示例：**
++
++- Fe-N-C 的边前峰在 ~7112–7114 eV 出现强 1s→3d 特征，通常支持 Fe–N₄ 平面（近似 D4h）；若边前峰明显增强、白线向高能移动，可能说明轴向配位/氧化或结构畸变。
++- Fe-ZSM-5 中 Fe²⁺ 与 Fe³⁺ 的边位置差约 2–3 eV；用 LCF 或边移跟踪还原/氧化处理后的价态变化。
++- CeO₂ 的 Ce L₃ 边白线双峰与 Ce³⁺/Ce⁴⁺ 比例相关；LCF 比单看边移更稳。
++
++### 4.2 χ(k)、FT、q 空间
++
++| 输出 | 是什么 | 对催化剂分析的价值 | 注意事项 |
++|---|---|---|---|
++| `<stem>_chi.dat` / `_chik.csv` | k、χ、kⁿχ | **键长**：振荡频率；**配位数/无序**：振幅；**重散射体**：高 k 振荡；反应前后直接对比可看局域结构变化 | 振幅受 S₀²、自吸收、σ² 共同影响，不能单独把振幅当 N |
++| `<stem>_ft.dat` / `_chir.csv` | R、Re、Im、\|χ(R)\| | **壳层结构**：第一壳 M–O/N、第二壳 M–M/M–C；峰位给出表观键长；峰高给出相对配位/无序；实部/虚部用于拟合对比 | FT 峰位未做相移校正，不等于真实键长；真实键长看拟合 R 或 `_phase_corrected` |
++| `<stem>_chiq.csv` | q 空间反傅里叶 | 检查背景扣除/反变换质量；q 空间拟合可降低低 R 背景泄漏的影响 | 不是独立的结构信息，主要用于拟合质量与一致性 |
++| `<stem>_rdf.csv` | 非高斯 g(R)（放开 C3/C4 时） | **非谐性/静态无序**：纳米颗粒表面弛豫、缺陷、界面应力；判断 σ² 是否被高斯模型低估 | 只有显式放开 C3/C4 才有；不要用它替代常规 CN |
++
++**催化解读示例：**
++
++- Fe-N-C 的第一壳 Fe–N 约 2.0 Å；若第二壳在 2.5–2.8 Å 出现明显 Fe–Fe，需高度怀疑金属团簇/纳米颗粒，而不是单原子。
++- Fe-ZSM-5 的双核 [Fe₂(μ-O)] 常见 Fe···Fe ~3.0 Å；这个峰与 Fe–O–Si/Al 第二壳重叠时，必须用 WT + 多壳层拟合 + 约束区分。
++- 金属氧化物中 M–O 第一壳缩短通常对应氧化态升高；M–M 第二壳缩短可能对应还原/氧空位。
++
++### 4.3 小波与相移校正
++
++| 输出 | 是什么 | 对催化剂分析的价值 | 注意事项 |
++|---|---|---|---|
++| `<stem>_wavelet.csv` / `_report` 内小波图 | k–R 二维强度 | **区分轻/重散射体**：N/O/C 在第一壳低 k 区，Fe/Co/Ni 在高 k 区；**单原子 vs 团簇**：金属–金属键在 2–3 Å、高 k 处出现强信号；**轴向配位**：不同 k 特征的壳层分离 | 小波峰位受 σ、k 权重影响；用 `--wt-sweep` 检查稳健性 |
++| `<stem>_wt_sweep/*` | 多 kweight / σ 的 WT 对比 | 选择最优 k 权重、确认重金属壳不是伪峰；审稿人问“为什么用这个 k 权重”时直接给图 | 色标按行归一，不能跨行直接比绝对强度 |
++| `<stem>_phase_corrected.*` | 相移校正后的 FT / 真实键长 | **精确 M–O/M–M 距离**：把表观峰位修到真实键长，便于和 CIF/DFT 对比；判断键长变化是否超出相移误差 | 需要第一壳路径；相移来自 FEFF，模型不对时校正也会偏 |
++
++### 4.4 结构识别与拟合
++
++| 输出 | 是什么 | 对催化剂分析的价值 | 注意事项 |
++|---|---|---|---|
++| `<stem>_structure_id.json` | 候选排名、score、margin、未解释峰、coverage | **物相判断**：最像哪个相、是否有并列/混合相/库缺条目；`partial` 提示模型不完整；`no_match` 提示库没有正确相，应改用用户 CIF 或 L1 | 这是诊断轨，不是正式晶体学证明；`confident` 也不等于结构确证 |
++| `<stem>_fit.json` | 拟合参数、误差、相关性、flags、`cn_status` | **配位数 N**：活性位饱和度/欠配位；**键长 R**：氧化态/吸附物；**σ²**：静态无序/缺陷；**ΔE0**：电子结构/模型偏差；**Rf**：模型质量；**flags**：哪些壳不可信 | N 与 σ² 强相关；看 `N_err`、`sigma2_at_bound`、`r_factor_bad` |
++| `<stem>_fit.csv` / `_fit_table.csv` | 壳层、N、N_err、R、R_err、σ²、Rf、N_idp、N_var | **论文 SI 表 S1**：直接给出每个壳的拟合参数与误差；跨样品比较活性位结构 | 表中 N 是简并度/有效简并度；`motif_weights` 模式下 N 不是 CN |
++| `<stem>_fit_table.png/.txt` | 拟合表图/文本 | 组会/审稿人快速审阅；与 `_xas.png` 配套 | 图中标题会标注 CN unreliable / weights mode |
++| `<stem>_chi2_contour.*` | χ²(N, σ²) 置信椭圆 | **回应审稿人**：“N 和 σ² 是否强相关？” 直接展示 1σ/2σ/3σ 置信区；判断 CN 的不确定度是否被低估 | 只在有 S7 拟合时生成；椭圆形状依赖拟合窗口与模型 |
++
++**催化解读示例：**
++
++- Fe-N-C：N≈4、R(Fe–N)≈2.0 Å、σ²≈0.003–0.006 Å²，且无 Fe–Fe 壳 → 支持 Fe–N₄ 单原子位点；若 N 明显低于 4，可能是表面欠配位或模型缺失轴向配体。
++- Fe-ZSM-5：N(Fe–O)≈4–6、R≈1.9–2.1 Å；若 N/N₀ 在 0.7–1.3 且无 Fe–Fe，支持孤立 Fe 位点；若出现 Fe–Fe，考虑双核/寡聚 FeOₓ。
++- Co₃O₄：`--absorber-site all` 可分别得到四面体 Co²⁺ 与八面体 Co³⁺ 的 CN/键长；加权汇总对应整体化学计量。
++
++### 4.5 正式 CN 表（论文级）
++
++| 输出 | 是什么 | 对催化剂分析的价值 | 注意事项 |
++|---|---|---|---|
++| `cn_table.csv` | 39 列正式 CN：相来源、CIF sha256、吸收位、壳层、N₀、N_fit、N/N₀、形式/系统误差、ΔR、σ²、ΔE0、Rf、S₀² 来源、窗口、N_idp/N_var、gate_status、reject_reason、flags、assumptions、数据 sha256、软件版本 | **可辩护的配位数**：每个壳的 N、N₀、N/N₀ 与系统误差；**位点占据/相分数**：多位点加权行；**可复核性**：CIF 哈希、数据哈希、软件版本；**审稿人问“为什么 N 是这个值”**：直接给 N/N₀ 与条件 CN 门禁 | 只有 `gate_status=passed` 才能当正式 CN；`warning` 要说明 N/N₀ 偏差；`consistency_failed` 只能作为拒签记录 |
++| `_meta.json` 的 `formal_cn` 块 | 正式 CN 完整状态、拒绝原因、模型来源 | 快速判断“为什么没签正式 CN”；区分 `no_cif` / `consistency_failed` / `hypothesis_model_only` | 与 `cn_table.csv` 的拒绝行一致 |
++
++**`cn_table.csv` 的关键列怎么读：**
++
++| 列 | 催化含义 |
++|---|---|
++| `phase_id` / `model_level` / `source_type` | 用的是哪个相、什么级别的模型（实验 CIF / 编辑 CIF） |
++| `source_cif_sha256` | 相来源可复核；审稿人可追溯到具体 CIF |
++| `absorber_site` | 哪个晶位（如 Fe1、Fe2、frac:(0,0,0)） |
++| `shell_group` / `shell_label` | 第一壳 / 远壳，具体配位壳 |
++| `n0` / `n0_members` | 晶体学 N₀ 与参与合并的路径数（Rayleigh 分壳） |
++| `n_fit` | 条件 CN 拟合得到的 N |
++| `n_status` | `fitted`（第一壳自由 N）/ `fixed`（远壳固定 N₀） |
++| `n_ratio` | N/N₀；0.7–1.3 正常，0.6–0.7 / 1.3–1.4 警告，越界拒签 |
++| `n_err_formal` | 形式误差（拟合协方差） |
++| `n_err_systematic` | 系统误差预算（自吸收、参数相关、截断、σ² 撞界等） |
++| `delta_r` | 相对晶体学键长的膨胀/收缩 |
++| `sigma2` | 无序；与 N 强相关 |
++| `delta_e0` | 条件拟合的 E0 偏移 |
++| `rf` | 条件拟合 Rf |
++| `s02` / `s02_source` / `s02_calibrated` | S₀² 值、来源（静态表 / T5 / 运行时覆盖）、是否标定 |
++| `kmin/kmax/kweight/rmin/rmax` | 拟合窗口；跨样品比较必须一致 |
++| `n_idp` / `n_variables` | 独立点数/变量数；判断过拟合 |
++| `gate_status` | `passed` / `warning` / `consistency_failed` |
++| `reject_reason` | 拒签的物理原因 |
++| `flags` | 可靠性标记（如 `n_ratio_warning`） |
++| `assumptions` | 条件 CN 的假设（首壳单一比例因子、远壳固定 N₀、Hamilton 不显著等） |
++| `data_sha256` | 输入数据哈希 |
++| `software_version` | 软件版本（`xafs-cn-p4plus`） |
++
++### 4.6 报告、批量与多元素
++
++| 输出 | 是什么 | 对催化剂分析的价值 | 注意事项 |
++|---|---|---|---|
++| `<stem>_report.html` | 单文件交互报告（图内联、门禁结论置顶） | 合作者/导师一键审阅；论文图与 SI 的草稿；把“数据质量、结构识别、拟合、门禁”放在同一页 | 不是正式发表文件；最终图仍需按期刊要求重绘 |
++| `<stem>_window_tuner.html` | 交互式 k/R 窗口调参 | 检查窗口选择是否稳健；避免“挑窗口挑出想要的 N” | 调参后要重新跑并记录最终窗口 |
++| `multi_element_summary.md/.json` | 多元素并列结果（不推荐 Top-1） | **主元素 vs 掺杂元素**：各自局域环境、配位、价态；判断掺杂是否进入晶格、是否形成分离相 | 不自动跨元素排序；科学问题由用户决定 |
++| `batch_errors.json` | 批处理失败文件与原因 | 快速定位坏扫描/格式问题；保证批量分析可复现 | 单个失败不中断整批 |
++| `_meta.json` 的 `params/gates/decisions/summary` | 本次运行的全部生效参数、来源、门禁命中、决策轨迹、总结 | **方法部分**：直接抄参数与窗口；**审稿人复核**：每个阈值/状态/拒绝原因都有记录；**失败诊断**：一眼看出是数据、CIF、拟合还是正式 CN 的问题 | 只增不改；现有字段保持原样 |
++
++### 4.7 Operando 输出
++
++| 输出 | 是什么 | 对催化剂分析的价值 | 注意事项 |
++|---|---|---|---|
++| `_operando_components.csv` | MCR-ALS 纯组分谱 | **反应中间体/活性相**：盲解谱得到随时间变化的纯组分；与标准谱/DFT 对比指认 | 组分顺序按特征能量排序；MCR 有旋转不确定性，需化学约束/标准谱验证 |
++| `_operando_concentrations.csv` | 组分浓度 vs 时间 | **动力学/诱导期/失活**：组分分数随时间的变化；与催化活性数据做结构–活性关联 | 浓度是相对分数；closure 假设要记录 |
++| `_operando_summary.png` | 四宫格：MCR 分数 / LCF 权重 / E0–白线描述符 / 纯组分谱 | 一张图讲清反应过程中结构与价态演变 | 图内标注的组分顺序要与 CSV 一致 |
++| `_exafs_evolution.csv/.png` | FT 随时间的演化 | **键长/无序变化**：反应条件下活性位是否重构、是否有金属–金属键生成 | FT 峰位是表观值；关键时间点应做正式拟合 |
++| `operando_meta.json` | 原位序列参数 + PCA/SPOIL/MCR 门禁 | 记录 `n_components`、接受/拒绝的标准谱、MCR Rf；保证原位分析可复现 | 与逐扫描的 `_meta.json` 分开 |
++
++### 4.8 诊断图
++
++| 输出 | 是什么 | 对催化剂分析的价值 |
++|---|---|---|
++| `diagnostics/*` | 各阶段诊断图、反 FT 对比、相移校正、χ² 等高线、WT 切片 | 区分“真实结构变化”与“数据/背景/自吸收伪迹”；审稿人补充材料 |
++| `diagnostics/*chi2_contour*` | N–σ² 置信椭圆 | 证明 CN 的不确定度不是拍脑袋 |
++| `diagnostics/*phase_corrected*` | 相移校正真键长 | 与 CIF/DFT 键长直接对比 |
++
++---
++
++## 5. 关键数值指标怎么解读
++
++| 指标 | 催化含义 | 可靠区间/门禁 | 常见误读 |
++|---|---|---|---|
++| **E0 边移** | 氧化态、电子结构 | 与同一边标准谱比较；ΔE0 拟合门禁 ±15 eV | 配位/共价性也会移动 E0；不能只看 E0 定价态 |
++| **白线面积/高度** | d 带空位、氧化态 | 同一边、同一归一化比较 | 自吸收会压低白线；厚样/荧光样必须先评估 |
++| **边前峰质心/面积** | 配位对称性、自旋态、共价性 | 与标准谱对比 | 双峰/多峰拟合方式会影响质心 |
++| **N（配位数）** | 活性位饱和度、欠配位、吸附 | 看 `N_err`；`N_err >1` 或 `>0.5×简并度` 不可靠 | N 与 σ² 强相关；不能只看 N |
++| **R（键长）** | 氧化态、吸附物、应力 | 与 CIF/DFT 比较；看 `R_err` | FT 峰位不是真实键长；用拟合 R 或相移校正 |
++| **σ²** | 静态/热无序、缺陷、界面 | 撞界 → 不可靠；系统误差 +10% | σ² 很小不一定是“好”，可能是模型形状失配 |
++| **ΔE0** | 电子结构/模型偏差 | `|ΔE0| ≥ 15 eV` 不可靠 | 大 ΔE0 往往说明模型缺壳层/相不对 |
++| **Rf** | 拟合质量 | `>0.08` 不可靠；`>0.12` 很差 | Rf 好不等于 N 可靠（N–σ² 补偿） |
++| **N_idp / N_var** | 过拟合 | `N_var ≥ N_idp` 过拟合 | 加路径/加变量会虚降 Rf |
++| **N/N₀** | 正式 CN 一致性 | 0.7–1.3 ok；0.6–0.7 / 1.3–1.4 warning；越界拒签 | N/N₀ 低不一定是缺陷，也可能是纳米/表面/模型不对 |
++| **S₀²** | 振幅因子 | T5 通过 0.4–1.15；运行时覆盖 0.4–1.3 | 未标定元素不能拿 S₀² 硬凑 N |
++| **小波 k–R** | 轻/重散射体、单原子/团簇 | 多 k 权重扫描稳健 | 小波峰不是定量配位数 |
++| **LCF 权重** | 价态/相比例 | 看 Rf 与权重误差 | 标准谱不独立/基体不匹配会伪拟合 |
++| **SPOIL** | 标准谱质量 | <3 good；3–6 fair；6–12 poor；>12 拒绝 | 只用于 LCF 标准筛选，不是样品质量 |
++| **MCR Rf** | 盲解谱重构质量 | 越低越好；与组分合理性一起看 | 低 Rf 不代表组分化学意义唯一 |
++
++---
++
++## 6. 置信门禁卡
++
++### A. 数据质量与归一化
++
++| 门禁 | 阈值 | 触发动作 | 代码位置 |
++|---|---|---|---|
++| 元素白名单 | 17 元素 | 未知元素拒绝 | `absorber.py` |
++| 边后归一化平台 | 0.85–1.15 | 超出 → strict 报错；`--no-strict` 降为警告 | `xafs_pipeline.py:196` |
++| 边后窗口 | `0 < lo < hi`，默认 150–600 eV | 非法 → 参数错误 | `run_xafs.py` / `xafs_report.py` |
++| 自吸收（边跃变） | ≥1.0 必须校正；0.3–1.0 警告 | 未校正且可能 → `cn_gate` → `cn_reliable=False` | `xafs_fit.py:56-57, 103-109` |
++| XANES 交叉校验 | 白线/边步/归一化异常 | 仅警告；不改变 `cn_reliable` | T8 模块 |
++| 结构覆盖 | `coverage_ok=False` | 拟合不可靠 | `xafs_fit.py:1511-1516` |
++
++### B. 正式来源门禁（P0b）
++
++| 门禁 | 要求 | 失败码 | 代码位置 |
++|---|---|---|---|
++| 来源状态 | `provenance_status == verified_source_cif` | `unverified_source` | `structure_model.py:202-208` |
++| 模型级别 | `crystal_cif` 或 `crystal_edited` | `unverified_source` | `structure_model.py:209-215` |
++| CIF 存在 | 路径存在 | `no_cif` / `source_cif_missing` | `structure_model.py:216-222` |
++| 非生成 CIF | 不在 `_structure_lib/*/_cif/`，无生成标记 | `generated_cif_not_formal` | `structure_model.py:223-229` |
++| SHA256 | 当前文件哈希 = 记录哈希 | `source_hash_missing` / `source_hash_mismatch` | `structure_model.py:230-244` |
++| 吸收位 | 必须显式 `absorber_site` | `absorber_site_missing` | `structure_model.py:245-247` |
++
++### C. CIF 晶体化学门禁（P2a）
++
++| 门禁 | 阈值 | 触发动作 | 代码位置 |
++|---|---|---|---|
++| 第一壳 CN | 2–12 正常；12–16 警告；<2 或 >16 拒绝 | 拒绝，除非 `--allow-unusual-coordination` | `cif_gate.py:64-65, 616-627` |
++| 键长 | `PAIR_BOND_REF` 区间 ±0.08 Å | `bond_length_implausible` | `cif_gate.py:90, 637-649` |
++| 共占位合并 | 0.08 Å | 无法合并 → `cocupancy_unresolved` | `cif_gate.py:67, 517-575` |
++| 占据度 | 缺 `_atom_site_occupancy` 且非有序化学计量 | `occupancy_missing` | `cif_gate.py:566-568` |
++| 多面体闭合 | 配位多面体必须闭合 | `polyhedron_not_closed` | `cif_gate.py:660` |
++| 吸收位解析 | 多晶位未指定 | `absorber_site_ambiguous` | `cif_gate.py:494-536` |
++
++### D. 结构识别门禁（S6.5）
++
++| 门禁 | 阈值 | 触发动作 | 代码位置 |
++|---|---|---|---|
++| 最优分数 | `score < 0.16` 才可能 confident | 超出 → `no_match` | `structure_id.py:66, 341-342` |
++| 并列容差 | `Δscore < 0.05` | 并列报告 | `structure_id.py:54` |
++| 最优-次优 margin | `< 0.03` | `ambiguous` | `structure_id.py:67, 344` |
++| 未解释显著峰 | 存在 | `partial` | `structure_id.py:339-346` |
++| 显著峰最小半高宽 | 0.08 Å | 窄于此视为噪声尖刺 | `structure_id.py:57` |
++| 最小 prominence | 0.02 | 去除骑在峰肩的假峰 | `structure_id.py:59` |
++| 指纹窗口 | R = 1.0–4.0 Å | — | `structure_id.py:63` |
++| 指纹 σ² 网格 | 0.003 / 0.006 / 0.009 Å² | — | `structure_id.py:65` |
++
++### E. 拟合可靠性门禁（S7）
++
++| 门禁 | 阈值 | 触发动作 | 代码位置 |
++|---|---|---|---|
++| Rf | `> 0.08` | `cn_reliable=False`，flags `r_factor_bad` | `xafs_fit.py:1512, 1540` |
++| ΔE0 | `|ΔE0| ≥ 15 eV` | 不可靠 | `xafs_fit.py:1513, 1541` |
++| N 形式误差 | `N_err > 1.0` 或 `> 0.5×简并度` | 不可靠 | `xafs_fit.py:1500-1503` |
++| σ² 撞界 | 任一壳撞界 | 不可靠；系统误差 +10% | `xafs_fit.py:1507, 1543` |
++| C3/C4 撞界 | 任一壳撞界 | 不可靠 | `xafs_fit.py:1508-1509` |
++| 过拟合 | `n_variables ≥ N_idp` | 不可靠 | `xafs_fit.py:1512` |
++| 参数相关 | `|ρ| ≥ 0.9` 加 10%；0.8–0.9 加 5% | 系统误差预算增大 | `xafs_fit.py:164-172` |
++| 远壳截断 | 因 N_idp 截断 | 系统误差 +5% | `xafs_fit.py:174-176` |
++| 自吸收未校正 | `risk=possible` | 系统误差 +15% | `xafs_fit.py:159-162` |
++| Booth 校正残留 | `corrected & reliable` | 系统误差 +10% | `xafs_fit.py:156-158` |
++
++### F. 条件 CN / 正式 CN 门禁（P3）
++
++| 门禁 | 阈值 | 触发动作 | 代码位置 |
++|---|---|---|---|
++| N/N₀ | 0.7–1.3 → `ok`；0.6–0.7 / 1.3–1.4 → `warning`；<0.6 或 >1.4 → `out_of_range` | 越界拒签 | `xafs_fit.py:2204-2205, 2347-2349` |
++| 条件拟合 Rf | `> 0.08` | 拒签 | `xafs_fit.py:2706-2707` |
++| Hamilton F-test | 显著改善自由 N | 拒签（固定 N 不一致） | `xafs_fit.py:2698-2703` |
++| 条件拟合过拟合 | `n_variables ≥ N_idp` | 拒签 | `xafs_fit.py:2704-2705` |
++| 一致性 | `consistency_passed=False` | `consistency_failed`，`rows=[]` | `xafs_fit.py:2708-2714` |
++
++### G. S₀² / T5 门禁
++
++| 门禁 | 阈值 | 触发动作 | 代码位置 |
++|---|---|---|---|
++| T5 通过区间 | 0.4–1.15 | 超出不通过 | `calibrate_s02.py:53` |
++| S₀² 误差 | ≤0.06 | 超出不通过 | `calibrate_s02.py:54` |
++| 标定 Rf | ≤0.12 | 超出不通过 | `calibrate_s02.py:55` |
++| ΔE0 | ≤10 eV | 超出不通过 | `calibrate_s02.py:56` |
++| 跨窗口极差 | ≤0.05 | 超出不稳定 | `calibrate_s02.py:59` |
++| ΔR 限 | −0.03–0.03 Å | 超出拒绝 | `calibrate_s02.py:60` |
++| 静态表锁定 | 12 元素保持 `s02=None` | `--apply` 禁用 | `calibrate_s02.py:71-73` |
++
++### H. 降级与拒绝行为
++
++- `strict=True`：S3 平台越界直接中断；报错提示 `--no-strict`。
++- `strict=False`：降级为警告，继续处理。
++- 正式轨拒签：`cn_table.csv` 写 `consistency_failed` + `reject_reason`，不删除诊断拟合结果。
++- 多晶位未指定：`absorber_site_ambiguous`，不自动 Top-1。
++- SAC/DAC：`hypothesis_model_only`，不冒充晶体正式 CN。
++
++---
++
++## 7. 参数如何完全显示表露
++
++### 7.1 三个入口、两套参数、一个台账
++
++| 项 | 数量/内容 |
++|---|---|
++| `run_xafs.py` CLI 参数 | 68 个 |
++| `xafs_report.py` CLI 参数 | 65 个 |
++| `xafs_config.DEFAULTS` 配置键 | 45 个 |
++| `_meta.json` 参数台账 | `params.effective` 记录全部生效值；`params.sources` 标记 `cli/config/default/auto/calibrated/runtime_override` |
++
++### 7.2 来源优先级
++
++```text
++CLI 显式值 > 配置文件 > 默认值
++自动推导值（E0 / Rbkg / S₀² / 相 ID / 吸收位）标记为 auto 或 calibrated
++```
++
++### 7.3 `_meta.json` 新增的四个块
++
++```json
++{
++  "params": {
++    "effective": { "kmin": 3.0, "kmax": 12.0, "...": "..." },
++    "sources": { "kmin": "cli", "kmax": "config", "kweight": "default" },
++    "units": { "kmin": "Å⁻¹", "rbkg": "Å" },
++    "stages": { "kmin": "S5", "rbkg": "S4" },
++    "affects_formal_cn": ["absorber", "phase_id", "..."],
++    "cli_argv": ["run_xafs.py", "sample.xdi", "..."],
++    "inputs": ["sample.xdi"],
++    "config_file": "cfg.json",
++    "config_keys_applied": ["phase_id", "s02_from_t5"]
++  },
++  "gates": {
++    "normalization": {
++      "status": "passed",
++      "threshold": [0.85, 1.15],
++      "observed": 0.978,
++      "action": "none"
++    },
++    "self_absorption": { "...": "..." },
++    "structure_id": { "...": "..." },
++    "cif": { "...": "..." },
++    "fit": { "...": "..." },
++    "formal_cn": { "...": "..." },
++    "xanes_cross_check": { "...": "..." },
++    "summary": {
++      "passed": ["normalization", "fit"],
++      "warned": [],
++      "failed": [],
++      "not_applicable": ["cif", "formal_cn"]
++    }
++  },
++  "decisions": [
++    { "step": "S2", "decision": "absorber_and_e0", "detail": { "...": "..." }, "status": "info" },
++    { "step": "S6.5", "decision": "phase_resolution", "detail": { "...": "..." }, "status": "info" },
++    { "step": "P3", "decision": "formal_cn", "detail": { "...": "..." }, "status": "warning" }
++  ],
++  "summary": {
++    "passed": ["normalization"],
++    "warned": ["structure_id"],
++    "failed": ["formal_cn"],
++    "not_applicable": ["cif"],
++    "cn_reliable": false,
++    "cn_status": "consistency_failed",
++    "formal_cn_status": "consistency_failed",
++    "formal_cn_reject_reason": "N/N₀=0.521 (out_of_range) ..."
++  }
++}
++```
++
++### 7.4 终端打印
++
++两个入口都支持：
++
++```bash
++python run_xafs.py sample.xdi --absorber Fe --print-gates --print-params
++python xafs_report.py sample.xdi --absorber Fe --print-gates --print-params
++```
++
++- `--print-gates`：打印门禁表（门禁 / 状态 / 动作 / 观测 / 阈值 / 拒绝原因）。
++- `--print-params`：打印全部生效参数（参数 / 生效值 / 来源 / 单位 / 阶段）。
++- 默认关闭；即使不打印，`_meta.json` 里也有完整台账。
++
++### 7.5 参数分组（按阶段）
++
++| 阶段 | 参数 |
++|---|---|
++| **S1** | `align`、`batch_dir`、`deadtime`、`deglitch`、`despike`、`reject_outlier_scans`、`multi_element`、`multi_element_s02`、`operando` |
++| **S2** | `absorber`、`edge_energy`、`e0_method`、`manual_e0`、`edge`（report） |
++| **S3** | `post_window`、`strict`、`self_absorption_formula`、`self_absorption_thickness`、`self_absorption_density`、`self_absorption_angles`、`self_absorption_line` |
++| **S4** | `rbkg` |
++| **S5** | `kmin`、`kmax`、`kweight`、`mback`、`chi_std`、`clamp_lo`、`clamp_hi` |
++| **S6** | `wt_sigma`（report） |
++| **S6.5** | `identify`、`allow_ambiguous`、`fit_motif`、`l1_ligand`、`l1_geometry`、`catalytic_model`、`phase_cif`、`phase_id`、`phase`、`phase_index`、`phase_pack`、`absorber_site`、`offline`、`s02_from_t5` |
++| **S7** | `fit`、`fit_rmin`、`fit_rmax`、`fit_weights`、`fit_kweights`、`fit_space`、`include_ms`、`vary_c3`、`vary_c4`、`isotropic_deltar`、`shared_sigma2`、`constraints`、`bvs_target`、`bvs_sigma`、`bvs_b`、`hetero_cocupancy`、`s02` |
++| **T8 / P2a / P3** | `xanes_cross_check`、`allow_unusual_coordination`、`formal_cn`、`legacy_auto_fit` |
++| **输出** | `diagnostics`、`phase_correct`、`chi2_contour`、`lcf_standards`、`demo`、`no_fit`、`no_html`、`no_window_tuner`、`sample`、`shells`、`stem`、`wt_sweep`、`print_gates`、`print_params` |
++
++---
++
++## 8. 典型工作流
++
++### 8.1 Fe-N-C 单原子
++
++```bash
++python xafs_report.py Fe-N-C.xdi --absorber Fe --no-strict \
++  --catalytic-model "sac:N4@2.00,C@2.90" --fit \
++  --self-absorption-formula booth --self-absorption-thickness 100 \
++  --self-absorption-density 0.8 --self-absorption-angles 45,45 \
++  --chi2-contour --wt-sweep --print-gates -o out/FeNC
++```
++
++看什么：
++
++1. `_wavelet.csv` / WT 图：有没有 Fe–Fe 高 k 信号；
++2. `_fit_table.csv`：N(Fe–N)、R、σ²、Rf；
++3. `_indicators.csv`：边前峰/白线；
++4. `_meta.json`：`gates.fit`、`summary`、`params`。
++
++### 8.2 Fe-ZSM-5
++
++```bash
++python xafs_report.py Fe-ZSM5.xdi --absorber Fe --no-strict \
++  --self-absorption-formula booth --self-absorption-thickness 80 \
++  --self-absorption-density 0.7 \
++  --bvs-target 3.0 --fit --print-gates -o out/FeZSM5
++```
++
++第二壳 Fe–O–Si/Al 需要用户 CIF：
++
++```bash
++python xafs_report.py Fe-ZSM5.xdi --absorber Fe --no-strict \
++  --phase-cif Fe_ZSM5_DFT.cif --absorber-site Fe1 \
++  --formal-cn --fit --print-gates -o out/FeZSM5_formal
++```
++
++### 8.3 单晶位金属氧化物（正式 CN）
++
++```bash
++python xafs_report.py RuO2.xdi --absorber Ru --no-strict \
++  --formal-cn --phase-id COD:9007541 --s02-from-t5 \
++  --fit --print-gates -o out/RuO2
++```
++
++看 `cn_table.csv` 的 `gate_status`：
++- `passed` → 可直接写论文；
++- `warning` → N/N₀ 在 0.6–0.7 / 1.3–1.4，讨论里说明；
++- `consistency_failed` → 只作为拒签记录，诊断轨仍可用。
++
++### 8.4 多晶位氧化物（尖晶石）
++
++```bash
++python xafs_report.py Co3O4.xdi --absorber Co --no-strict \
++  --formal-cn --phase-id COD:xxxx --absorber-site all \
++  --s02-from-t5 --fit --print-gates -o out/Co3O4
++```
++
++`cn_table.csv` 会给出每个不等价位的行，并追加 `ALL_WEIGHTED` 化学计量加权汇总行（全部位点通过才追加）。
++
++### 8.5 掺杂/双金属
++
++```bash
++python run_xafs.py Co-K.xdi Fe-K.xdi --multi-element \
++  --absorber Co --fit --print-gates -o out/doped
++```
++
++看 `multi_element_summary.md`：主元素与掺杂元素各自的 N/R/σ²，不自动排序。
++
++### 8.6 Operando
++
++```bash
++python xafs_report.py scan_*.xdi --operando --absorber Fe \
++  --lcf-standards FeO.xdi,Fe2O3.xdi,Fe3O4.xdi \
++  --print-gates -o out/operando
++```
++
++看 `_operando_concentrations.csv` 与 `_exafs_evolution.png`；关键时间点再单独跑正式拟合。
++
++---
++
++## 9. 结果解读示例
++
++### 9.1 正式 CN 通过
++
++```text
++gate_status=passed
++n_ratio=0.96
++conditional_rf=0.031
++hamilton_significant=false
++```
++
++解释：N 与晶体学 N₀ 一致，条件拟合质量好，自由 N 没有显著改善；可以写“EXAFS 给出 N=…±…，与体相 CIF 的 N₀ 一致”。
++
++### 9.2 正式 CN 拒签
++
++```text
++gate_status=consistency_failed
++reject_reason=N/N₀=0.521 (out_of_range) 超出范围，且未提供定量缺陷模型；条件 CN Rf=0.1314 > 0.08
++```
++
++解释：样品第一壳配位明显低于体相 CIF，且条件拟合质量差；不能把体相 N₀ 硬写成样品 CN。诊断轨的 L1/自由拟合仍给出 N；论文中应报告诊断 CN 并说明“体相 CIF 不适用于该缺陷/纳米样品”。
++
++### 9.3 SAC/DAC 假设模型
++
++```text
++cn_status=hypothesis_model_only
++formal_cn.status=hypothesis_model_only
++```
++
++解释：这是无实验 CIF 的催化位点假设模型；`fit_table.csv` 的 N/R/σ² 是“模型条件下的诊断值”，不是晶体学正式 CN。论文中应写成“EXAFS 拟合与 Fe–N₄ 模型一致”，而不是“正式 CN=4”。
++
++### 9.4 结构识别 no_match
++
++```text
++structure_id.status=no_match
++gates.structure_id.action=library_miss_l1_fallback
++```
++
++解释：诊断 motif 库没有匹配相；S7 退回 L1 第一壳。若要做正式 CN，请提供用户 CIF 或 `--phase-id`；不要因为 `no_match` 就认定数据无效。
++
++---
++
++## 10. 明确边界
++
++1. 17 元素白名单；`Ti/V/W/Nb/Sn/In` 等需按 `absorber.py` 三步流程接入。
++2. 12/17 元素静态 `s02=None`；须 `--s02-from-t5` 或显式 `--s02`。
++3. 5 条多晶位相必须显式 `--absorber-site`，不自动 Top-1。
++4. 用户 CIF 无 `_atom_site_occupancy` 且非有序化学计量 → `occupancy_missing`。
++5. 条件 CN 的 `N/N₀` 越界、`Rf > 0.08`、Hamilton 显著 → 硬拒绝。
++6. `data/standards_raw/` 因许可不入库；运行期 T5 标定产物已随仓库。
++7. B19 原位 EXAFS 联合精修仍为 Python API。
++8. `--batch-dir` 不做逐文件元素识别；混合元素用 `--multi-element`。
++9. `--multi-element` 的 `--phase-id` 是单一值，逐元素相需分次运行。
++10. `--operando` 不执行 S6.5/S7；相关参数会显式报错。
++
++---
++
++## 11. 版本与契约
++
++- 参数/门禁/决策/摘要台账：`xafs_provenance.py`
++- 契约：`regression_test.py` 第 `#132` 项
++- 当前契约基线：132 项（P6.4 收尾后）
++- 软件版本：`xafs-cn-p4plus`
++- 门禁常量冻结：`absorber.py` 静态 S₀² 表、`calibrate_s02.py` 门禁、44 条 phase pack 均未改动
+diff --git a/docs/P4_PLUS_EXECUTION_PLAN.md b/docs/P4_PLUS_EXECUTION_PLAN.md
+index 21c74c6..c40b11b 100644
+--- a/docs/P4_PLUS_EXECUTION_PLAN.md
++++ b/docs/P4_PLUS_EXECUTION_PLAN.md
+@@ -268,3 +268,19 @@
+ - `run_xafs.py` operando 模式对 S6.5/S7 参数显式报错，不再静默忽略；
+ - S3 strict 报错补 `--no-strict` 提示；
+ - 契约 `#131` 锁定上述入口对齐。
++
++
++## P6.4：输出台账与参数/门禁全暴露（已完成）
++
++- 新增 `xafs_provenance.py`：向 `_meta.json` 追加
++  `params / gates / decisions / summary`，只记录、不参与任何物理判定；
++- 参数来源区分 `cli / config / default / auto / calibrated /
++  runtime_override`，配置文件来源只统计用户文件真实出现的键；
++- 门禁统一记录 `threshold / observed / status / action`，覆盖归一化、
++  自吸收、结构识别、CIF、拟合、正式 CN 与 T8；
++- `run_xafs.py` / `xafs_report.py` 新增 `--print-gates` /
++  `--print-params`；报告入口写 `<stem>_meta.json`，operando 写
++  `operando_meta.json`；
++- 新增 `docs/CATALYSIS_CAPABILITY_AND_GATES.md`：体系能力矩阵、
++  逐输出“对催化剂分析的价值”、指标解读、门禁卡、参数分组与工作流；
++- 契约 `#132` 锁定台账、参数来源、门禁状态与打印开关。
+diff --git a/regression_test.py b/regression_test.py
+index 821170f..ef87351 100644
+--- a/regression_test.py
++++ b/regression_test.py
+@@ -101,6 +101,7 @@ import xafs_diagnostics               # noqa: E402
+ import xafs_fit                       # noqa: E402
+ import xafs_io                        # noqa: E402
+ import xafs_pipeline                  # noqa: E402
++import xafs_provenance                # noqa: E402
+ import xafs_report                    # noqa: E402
+ import xafs_window_tuner              # noqa: E402
+ from absorber import get_absorber      # noqa: E402
+@@ -6151,6 +6152,151 @@ O1 O 0 0 0 0.5
+         self.assertIn("归一化失败", str(ctx.exception))
+         self.assertIn("--no-strict", str(ctx.exception))
+ 
++    def test_p6_4_output_ledger_and_print_flags(self):
++        """#132 P6.4：参数/门禁/决策/摘要台账、打印开关与阈值不漂移。"""
++        import argparse
++        import contextlib
++        import io
++        from types import SimpleNamespace
++        from unittest.mock import patch
++
++        # 1) 阈值镜像必须与冻结常量一致（防止台账与物理门禁脱节）
++        self.assertEqual(xafs_provenance.PLATEAU_LO, 0.85)
++        self.assertEqual(xafs_provenance.PLATEAU_HI, 1.15)
++        self.assertEqual(xafs_provenance.RF_LIMIT, 0.08)
++        self.assertEqual(xafs_provenance.DELTA_E0_LIMIT, 15.0)
++        self.assertEqual(xafs_provenance.N_ERR_LIMIT, 1.0)
++        self.assertEqual(xafs_provenance.N_ERR_FRACTION_LIMIT, 0.5)
++        self.assertEqual(xafs_provenance.CIF_CN_NORMAL, (2, 12))
++        self.assertEqual(xafs_provenance.CIF_CN_WARN_HI, 16)
++        self.assertEqual(xafs_provenance.CN_RATIO_OK, (0.7, 1.3))
++        self.assertEqual(xafs_provenance.CN_RATIO_WARN, (0.6, 1.4))
++        self.assertEqual(xafs_provenance.SID_SCORE_LIMIT, 0.16)
++        self.assertEqual(xafs_provenance.SID_MARGIN, 0.03)
++
++        # 2) 参数来源：CLI / config / default / auto
++        parser = argparse.ArgumentParser()
++        parser.add_argument("--kmin", type=float, default=3.0)
++        parser.add_argument("--kmax", type=float, default=12.0)
++        parser.add_argument("--config", default=None)
++        parser.add_argument("--print-gates", action="store_true")
++        args = parser.parse_args(["--kmin", "3.5", "--print-gates"])
++        prov = xafs_provenance.Provenance.from_args(
++            args, {}, ["--kmin", "3.5", "--print-gates"],
++            parser=parser, inputs=["a.xdi"])
++        block = prov.param_block()
++        self.assertEqual(block["sources"]["kmin"], "cli")
++        self.assertEqual(block["sources"]["print_gates"], "cli")
++        self.assertEqual(block["sources"]["kmax"], "default")
++        self.assertEqual(block["effective"]["kmin"], 3.5)
++
++        with tempfile.TemporaryDirectory() as tmp:
++            cfg = Path(tmp) / "cfg.json"
++            cfg.write_text(json.dumps({"kmin": 3.2}), encoding="utf-8")
++            args2 = parser.parse_args(["--config", str(cfg)])
++            prov2 = xafs_provenance.Provenance.from_args(
++                args2, {"kmin": 3.2}, ["--config", str(cfg)], parser=parser)
++            block2 = prov2.param_block()
++            self.assertEqual(block2["sources"]["kmin"], "config")
++            self.assertEqual(block2["config_keys_applied"], ["kmin"])
++
++        # 3) 门禁台账：通过 / 失败 / 不适用
++        gates = xafs_provenance.build_gate_ledger(
++            norm=SimpleNamespace(plateau=0.98, edge_step=0.4),
++            strict=True,
++            self_absorption={"mode": "transmission", "risk": "none",
++                             "cn_gate": False, "corrected": False},
++            structure={"status": "confident",
++                       "confidence": {"best_score": 0.05, "margin": 0.1,
++                                      "second_score": 0.15},
++                       "coverage_ok": True, "ranked": [{"id": "fe_bcc"}]})
++        self.assertEqual(gates["normalization"]["status"], "passed")
++        self.assertEqual(gates["normalization"]["threshold"], [0.85, 1.15])
++        self.assertEqual(gates["self_absorption"]["status"], "passed")
++        self.assertEqual(gates["structure_id"]["status"], "passed")
++        self.assertEqual(gates["fit"]["status"], "not_applicable")
++        self.assertEqual(gates["summary"]["passed"],
++                         ["normalization", "self_absorption", "structure_id"])
++
++        fit_obj = SimpleNamespace(
++            r_factor=0.2, delta_e0=2.0, overfit=False, paths=[],
++            n_independent=10, n_variables=5)
++        fit_gate = xafs_provenance.build_gate_ledger(
++            fit_out={"fit": fit_obj, "flags": {}, "coverage_ok": True,
++                     "cn_reliable": False, "cn_status": "diagnostic_only"}
++        )["fit"]
++        self.assertEqual(fit_gate["status"], "failed")
++        self.assertIn("r_factor", fit_gate["failed_checks"])
++        self.assertEqual(fit_gate["action"], "cn_quantification_blocked")
++
++        l1_gate = xafs_provenance.build_gate_ledger(
++            fit_out={"mode": "l1_first_shell",
++                     "l1": {"rf": 0.05, "delta_e0": 1.0, "N": 4.0,
++                            "N_err": 0.2, "n_independent": 8,
++                            "n_variables": 4},
++                     "flags": {}, "coverage_ok": True,
++                     "cn_reliable": True, "cn_status": "ok"}
++        )["fit"]
++        self.assertEqual(l1_gate["status"], "passed")
++
++        formal_gate = xafs_provenance.build_gate_ledger(
++            fit_out={"conditional_cn": {
++                "n_ratio": 0.5, "n_status": "out_of_range",
++                "conditional_n_fit": {"r_factor": 0.10},
++                "hamilton_f_test": {"significant": False},
++                "consistency_passed": False}},
++            formal_block={"status": "consistency_failed",
++                          "reject_reason": "N/N0 out of range"}
++        )["formal_cn"]
++        self.assertEqual(formal_gate["status"], "failed")
++        self.assertEqual(formal_gate["action"], "formal_cn_refused")
++
++        # 4) run_xafs 单样品：_meta.json 必须包含四个台账块
++        import run_xafs
++        with tempfile.TemporaryDirectory() as tmp:
++            args3 = parser.parse_args(["--kmin", "3.0"])
++            prov3 = xafs_provenance.Provenance.from_args(
++                args3, {}, ["--kmin", "3.0"], parser=parser,
++                inputs=[str(FE_FOIL)])
++            run_xafs.process_sample(
++                [str(FE_FOIL)], tmp, absorber="Fe", strict=False,
++                provenance=prov3, verbose=False)
++            meta = json.loads(
++                (Path(tmp) / "fe_meta.json").read_text(encoding="utf-8"))
++            for key in ("params", "gates", "decisions", "summary"):
++                self.assertIn(key, meta)
++            self.assertEqual(meta["params"]["sources"]["kmin"], "cli")
++            self.assertEqual(meta["gates"]["normalization"]["status"],
++                             "warning")
++            self.assertGreaterEqual(len(meta["decisions"]), 3)
++
++        # 5) report 入口同样写 _meta.json，且 source.mode=report
++        with tempfile.TemporaryDirectory() as tmp:
++            xafs_report.main([
++                str(FE_FOIL), "--absorber", "Fe", "--no-strict",
++                "--no-fit", "--no-html", "--no-window-tuner",
++                "-o", tmp, "--print-gates", "--print-params"])
++            meta = json.loads(
++                (Path(tmp) / "fe_meta.json").read_text(encoding="utf-8"))
++            self.assertEqual(meta["source"]["mode"], "report")
++            for key in ("params", "gates", "decisions", "summary"):
++                self.assertIn(key, meta)
++
++        # 6) 两个入口都暴露 --print-gates / --print-params
++        for module, flag in (
++                (run_xafs, "--print-gates"),
++                (run_xafs, "--print-params"),
++                (xafs_report, "--print-gates"),
++                (xafs_report, "--print-params")):
++            buf = io.StringIO()
++            with patch.object(sys, "argv", ["prog", "--help"]), \
++                    contextlib.redirect_stdout(buf), \
++                    contextlib.redirect_stderr(io.StringIO()):
++                with self.assertRaises(SystemExit):
++                    module.main()
++            self.assertIn(flag, buf.getvalue(),
++                          f"{module.__name__} 缺少 {flag}")
++
+     def test_p6_2_edge_entry_alignments(self):
+         """#130 P6.2：frac:(x,y,z) 吸收位、P1b/P5 配置键镜像、XDI 自动元素回退与 report 异常分支。"""
+         import json
+diff --git a/run_xafs.py b/run_xafs.py
+index e8554ae..f46d4d7 100644
+--- a/run_xafs.py
++++ b/run_xafs.py
+@@ -49,6 +49,7 @@ import xafs_fit
+ import xafs_io
+ import xafs_lcf
+ import xafs_pipeline
++import xafs_provenance
+ from xafs_core import XAFSConfigError
+ 
+ PROJECT_ROOT = Path(__file__).resolve().parent
+@@ -470,7 +471,10 @@ def process_sample(paths, outdir, align: bool = False,
+           phase_index_path: str | Path | None = None,
+           phase_pack_path: str | Path | None = None,
+           absorber_site: str | None = None,
+-          offline: bool = False):
++          offline: bool = False,
++          provenance=None,
++          print_gates: bool = False,
++          print_params: bool = False):
+     """
+     跑完 S1–S6 并落盘。返回 PipelineResult。
+ 
+@@ -745,6 +749,111 @@ def process_sample(paths, outdir, align: bool = False,
+                 meta["rdf"] = rdf_tab["summary"]
+     if result.xanes_cross_check:
+         meta["xanes_cross_check"] = result.xanes_cross_check
++
++    # P6.4：参数 / 门禁 / 决策 / 摘要台账（只增不改）。
++    if provenance is not None:
++        formal_block = ((result.fit or {}).get("formal_cn")
++                        if formal_cn else None)
++        overrides = {
++            "absorber": eff_absorber or result.absorber_symbol,
++            "e0": getattr(norm, "e0", None),
++            "rbkg": best["rbkg"],
++            "rbkg_confidence": best.get("confidence"),
++            "rbkg_manual": bool(rbkg is not None),
++            "post_window": list(post_window),
++            "s02": (result.fit or {}).get("s02", s02),
++            "s02_source": (result.fit or {}).get("s02_source", s02_source),
++            "formal_cn": bool(formal_cn),
++            "identify": bool(identify),
++            "fit": bool(fit),
++            "resolved_phase_id": (structure_model.model_id
++                                  if structure_model is not None else None),
++            "resolved_phase_source": (structure_model.source_type
++                                      if structure_model is not None else None),
++            "resolved_absorber_site": (structure_model.absorber_site
++                                       if structure_model is not None else None),
++            "model_level": (structure_model.model_level
++                            if structure_model is not None else None),
++            "fit_mode": (result.fit or {}).get("mode"),
++            "cn_status": (result.fit or {}).get("cn_status"),
++            "cn_reliable": (result.fit or {}).get("cn_reliable"),
++        }
++        source_overrides = {
++            "e0": "cli" if manual_e0 is not None else "auto",
++            "rbkg": "cli" if rbkg is not None else "auto",
++        }
++        if s02_source and "calibration" in str(s02_source).lower():
++            source_overrides["s02"] = "calibrated"
++        elif s02_source:
++            source_overrides["s02"] = "runtime_override"
++        decision_context = {
++            "n_scans": len(result.scans) if result.scans else None,
++            "n_rejected_scans": 0,
++            "align": bool(align),
++            "absorber": eff_absorber or result.absorber_symbol,
++            "e0_method": e0_method,
++            "e0": getattr(norm, "e0", None),
++            "edge_energy": edge_energy,
++            "plateau": getattr(norm, "plateau", None),
++            "strict": bool(strict),
++            "post_window": list(post_window),
++            "rbkg": best["rbkg"],
++            "rbkg_confidence": best.get("confidence"),
++            "rbkg_manual": bool(rbkg is not None),
++            "kmin": kmin, "kmax": kmax, "kweight": kweight,
++            "r_first_peak": r1,
++            "wt_sigma": wave_map.sigma,
++            "r_wt_peak": r_wt,
++            "k_wt_peak": result.k_wt,
++            "structure_status": (result.structure or {}).get("status"),
++            "structure_top1": (((result.structure or {}).get("ranked")
++                                or [{}])[0].get("id")),
++            "structure_margin": (((result.structure or {}).get("confidence")
++                                  or {}).get("margin")),
++            "structure_coverage_ok": (result.structure or {}).get("coverage_ok"),
++            "phase_id": (structure_model.model_id
++                         if structure_model is not None else phase_id),
++            "phase_source": (structure_model.source_type
++                             if structure_model is not None else None),
++            "model_level": (structure_model.model_level
++                            if structure_model is not None else None),
++            "absorber_site": (structure_model.absorber_site
++                              if structure_model is not None else absorber_site),
++            "catalytic_model": catalytic_model,
++            "fit_mode": (result.fit or {}).get("mode"),
++            "fit_motif": fit_motif,
++            "fit_rmin": (result.fit or {}).get("rmin", fit_rmin),
++            "fit_rmax": (result.fit or {}).get("rmax", fit_rmax),
++            "s02": (result.fit or {}).get("s02", s02),
++            "s02_source": (result.fit or {}).get("s02_source", s02_source),
++            "cn_reliable": (result.fit or {}).get("cn_reliable"),
++            "cn_status": (result.fit or {}).get("cn_status"),
++            "fit_flags": (result.fit or {}).get("flags"),
++            "formal_status": (formal_block or {}).get("status"),
++            "formal_reject_reason": (formal_block or {}).get("reject_reason"),
++            "n_ratio": (((result.fit or {}).get("conditional_cn")
++                         or {}).get("n_ratio")),
++            "xanes_cross_check_warnings": (
++                len((result.xanes_cross_check or {}).get("warnings") or [])
++                if result.xanes_cross_check else None),
++        }
++        block = xafs_provenance.build_output_meta(
++            provenance,
++            norm=norm, strict=strict,
++            self_absorption=((result.fit or {}).get("self_absorption")
++                             or result.self_absorption),
++            structure=result.structure,
++            gate_result=gate_result, gate_results=gate_results,
++            fit_out=result.fit, formal_block=formal_block,
++            xanes_cross_check=result.xanes_cross_check,
++            overrides=overrides, source_overrides=source_overrides,
++            decision_context=decision_context)
++        meta.update(block)
++        if print_params and verbose:
++            print(xafs_provenance.format_params(block["params"]))
++        if print_gates and verbose:
++            print(xafs_provenance.format_gates(block["gates"]))
++
+     xafs_io.write_json(outdir / f"{stem}_meta.json", meta)
+ 
+     if diagnostics:
+@@ -886,6 +995,12 @@ def main():
+     parser.add_argument("--allow-unusual-coordination", action="store_true",
+                         help="CIF 门禁：允许键长超出 PAIR_BOND_REF±0.08 Å 的"
+                              "非常规配位；默认拒绝，需显式打开")
++    parser.add_argument("--print-gates", action="store_true",
++                        help="P6.4 处理完成后在终端打印置信门禁表"
++                             "（门禁/阈值/观测/状态/动作）；默认只写 _meta.json")
++    parser.add_argument("--print-params", action="store_true",
++                        help="P6.4 处理完成后在终端打印生效参数与来源"
++                             "（cli/config/default/auto）；默认只写 _meta.json")
+     parser.add_argument("--self-absorption-formula", default=None,
+                         help="荧光自吸收校正的样品总化学式（如 Fe3O4）；"
+                              "仅荧光模式，且必须同时给厚度/密度")
+@@ -1210,6 +1325,27 @@ def main():
+                      "02_Fe_standards" / "Fe_lepidocrocite.000")]
+         args.absorber = args.absorber or "Fe"
+ 
++    # P6.4：参数台账快照（只记录，不参与判定）。
++    prov = xafs_provenance.Provenance.from_args(
++        args, config, sys.argv[1:], parser=parser, inputs=files,
++        overrides={
++            "post_window": list(post_window),
++            "vary_c3": xafs_provenance._jsonable(vary_c3),
++            "vary_c4": xafs_provenance._jsonable(vary_c4),
++            "fit_kweights": xafs_provenance._jsonable(fit_kweights),
++            "deglitch": xafs_provenance._jsonable(deglitch),
++            "lcf_standards": xafs_provenance._jsonable(lcf_standards),
++            "shared_sigma2": xafs_provenance._jsonable(shared_sigma2),
++            "constraints": xafs_provenance._jsonable(constraints),
++            "self_absorption_angles": list(sa_angles),
++            "bvs_restraint": xafs_provenance._jsonable(bvs_restraint),
++        },
++        source_overrides={
++            "bvs_restraint": ("config" if config.get("bvs_restraint")
++                              else "cli" if args.bvs_target is not None
++                              else "default"),
++        })
++
+     # ---- T7 多元素布局：逐元素 s02 覆盖表 ----
+     multi_s02 = {}
+     if args.multi_element_s02:
+@@ -1297,7 +1433,8 @@ def main():
+                 phase_index_path=args.phase_index,
+                 phase_pack_path=args.phase_pack,
+                 absorber_site=args.absorber_site,
+-                offline=args.offline)
++                offline=args.offline,
++                provenance=prov)
+ 
+         run_multi_element(
+             files, args.outdir, fallback_absorber=args.absorber,
+@@ -1355,6 +1492,7 @@ def main():
+                 self_absorption_line=args.self_absorption_line,
+                 s02=op_s02,
+                 s02_source=op_s02_src,
++                provenance=prov,
+                 verbose=False))
+         std_scans = None
+         if lcf_standards:
+@@ -1369,6 +1507,14 @@ def main():
+         op_dir = Path(args.outdir) / "operando"
+         made = xafs_diagnostics.write_operando_diagnostics(
+             op, op_dir, stem="operando")
++        op_meta = xafs_provenance.build_operando_meta(
++            prov, op, overrides={"operando": True})
++        xafs_io.write_json(Path(args.outdir) / "operando_meta.json", op_meta)
++        print(f"  → {Path(args.outdir) / 'operando_meta.json'}")
++        if args.print_params:
++            print(xafs_provenance.format_params(op_meta["params"]))
++        if args.print_gates:
++            print(xafs_provenance.format_gates(op_meta["gates"]))
+         print(f"原位序列：{len(results)} 条谱，n_components="
+               f"{op['n_components']}，accepted="
+               f"{op['accepted_standards']}，rejected="
+@@ -1444,7 +1590,8 @@ def main():
+                     phase_index_path=args.phase_index,
+                     phase_pack_path=args.phase_pack,
+                     absorber_site=args.absorber_site,
+-                    offline=args.offline)
++                    offline=args.offline,
++                    provenance=prov)
+             except Exception as exc:  # 批处理：单个失败不中断整批
+                 errors.append({"file": fpath, "error": str(exc)})
+                 print(f"  ❌ 失败: {exc}")
+@@ -1494,15 +1641,18 @@ def main():
+         self_absorption_angles=sa_angles,
+         self_absorption_line=args.self_absorption_line,
+         formal_cn=args.formal_cn,
+-                    legacy_auto_fit=args.legacy_auto_fit,
+-                    xanes_cross_check=args.xanes_cross_check,
+-                    phase_cif=args.phase_cif,
+-                    phase_id=args.phase_id,
+-                    phase_spec=args.phase,
+-                    phase_index_path=args.phase_index,
+-                    phase_pack_path=args.phase_pack,
+-                    absorber_site=args.absorber_site,
+-                    offline=args.offline)
++        legacy_auto_fit=args.legacy_auto_fit,
++        xanes_cross_check=args.xanes_cross_check,
++        phase_cif=args.phase_cif,
++        phase_id=args.phase_id,
++        phase_spec=args.phase,
++        phase_index_path=args.phase_index,
++        phase_pack_path=args.phase_pack,
++        absorber_site=args.absorber_site,
++        offline=args.offline,
++        provenance=prov,
++        print_gates=args.print_gates,
++        print_params=args.print_params)
+ 
+     print("-" * 66)
+     for f in sorted(result.outdir.glob(f"{result.stem}*")):
+diff --git a/xafs_provenance.py b/xafs_provenance.py
+new file mode 100644
+index 0000000..d2b5345
+--- /dev/null
++++ b/xafs_provenance.py
+@@ -0,0 +1,921 @@
++"""P6.4：输出台账 —— 参数、门禁、决策轨迹与摘要。
++
++本模块**只记录**，不参与任何物理判定，也不改变 ``cn_table.csv``、
++``fit.json`` 或任何门禁行为。核心阈值仍由各物理模块决定；这里只把
++“本次运行实际用了什么、命中了哪条门禁、为什么得出这个结论”写成
++可复核的 JSON 块。
++
++设计原则：
++- 只增不改：现有 ``_meta.json`` 字段保持原样，新块追加在顶层；
++- 来源可追溯：每个参数标记 ``cli / config / default / auto``；
++- 门禁可复核：统一记录 ``threshold / observed / status / action``；
++- 决策可解释：按 S1 → S7 → 正式 CN 的顺序记录关键分支；
++- 结果可汇总：``summary`` 给出通过/警告/失败的门禁清单。
++
++与 ``regression_test.py`` 的契约 #132 对应。
++"""
++
++from __future__ import annotations
++
++import json
++import math
++from dataclasses import dataclass, field, replace
++from pathlib import Path
++from typing import Any
++
++import cif_gate
++import structure_id
++import xafs_config
++import xafs_fit
++
++# ---------------------------------------------------------------
++# 阈值镜像
++# ---------------------------------------------------------------
++# 这些阈值在核心模块里是硬编码的；台账只做镜像，不改变判定。
++# 契约 #132 会锁定本文件与核心行为一致。
++PLATEAU_LO, PLATEAU_HI = 0.85, 1.15
++RF_LIMIT = 0.08
++DELTA_E0_LIMIT = 15.0
++N_ERR_LIMIT = 1.0
++N_ERR_FRACTION_LIMIT = 0.5
++SELF_ABS_HIGH = xafs_fit.SELF_ABSORPTION_HIGH_EDGE_STEP
++SELF_ABS_WARN = xafs_fit.SELF_ABSORPTION_WARN_EDGE_STEP
++CIF_CN_NORMAL = (cif_gate.CN_NORMAL_LO, cif_gate.CN_NORMAL_HI)
++CIF_CN_WARN_HI = cif_gate.CN_WARN_HI
++CIF_BOND_SLACK = cif_gate.PAIR_BOND_SLACK
++CIF_OCC_TOL = cif_gate.OCCUPANCY_TOL
++SID_SCORE_LIMIT = structure_id.CONFIDENT_SCORE
++SID_INDIST = structure_id.INDIST_TOL
++SID_MARGIN = structure_id.CONFIDENT_MARGIN
++CN_RATIO_OK = (xafs_fit.CN_RATIO_OK_LO, xafs_fit.CN_RATIO_OK_HI)
++CN_RATIO_WARN = (xafs_fit.CN_RATIO_WARN_LO, xafs_fit.CN_RATIO_WARN_HI)
++
++# ---------------------------------------------------------------
++# 参数元数据：单位、所在阶段、是否影响正式 CN
++# ---------------------------------------------------------------
++# 未列出的参数在台账里 unit/stage 为空，不影响“全部参数已记录”。
++PARAM_META: dict[str, dict[str, Any]] = {
++    # S1 读取与预处理
++    "align": {"unit": "", "stage": "S1", "formal": False},
++    "batch_dir": {"unit": "", "stage": "S1", "formal": False},
++    "deadtime": {"unit": "", "stage": "S1", "formal": False},
++    "deglitch": {"unit": "eV", "stage": "S1", "formal": False},
++    "despike": {"unit": "", "stage": "S1", "formal": False},
++    "reject_outlier_scans": {"unit": "", "stage": "S1", "formal": False},
++    "multi_element": {"unit": "", "stage": "S1", "formal": False},
++    "multi_element_s02": {"unit": "", "stage": "S1", "formal": True},
++    "operando": {"unit": "", "stage": "S1–S6", "formal": False},
++    # S2 元素与 E0
++    "absorber": {"unit": "", "stage": "S2", "formal": True},
++    "edge_energy": {"unit": "eV", "stage": "S2", "formal": True},
++    "e0_method": {"unit": "", "stage": "S2", "formal": True},
++    "manual_e0": {"unit": "eV", "stage": "S2", "formal": True},
++    # S3 归一化与自吸收
++    "post_window": {"unit": "eV", "stage": "S3", "formal": True},
++    "strict": {"unit": "", "stage": "S3", "formal": True},
++    "self_absorption_formula": {"unit": "", "stage": "S3", "formal": True},
++    "self_absorption_thickness": {"unit": "μm", "stage": "S3", "formal": True},
++    "self_absorption_density": {"unit": "g/cm³", "stage": "S3", "formal": True},
++    "self_absorption_angles": {"unit": "deg", "stage": "S3", "formal": True},
++    "self_absorption_line": {"unit": "", "stage": "S3", "formal": True},
++    # S4/S5 背景与 FT
++    "rbkg": {"unit": "Å", "stage": "S4", "formal": True},
++    "kmin": {"unit": "Å⁻¹", "stage": "S5", "formal": True},
++    "kmax": {"unit": "Å⁻¹", "stage": "S5", "formal": True},
++    "kweight": {"unit": "", "stage": "S5", "formal": True},
++    "mback": {"unit": "", "stage": "S5", "formal": False},
++    "chi_std": {"unit": "", "stage": "S5", "formal": False},
++    "clamp_lo": {"unit": "", "stage": "S5", "formal": False},
++    "clamp_hi": {"unit": "", "stage": "S5", "formal": False},
++    # S6 小波
++    "wt_sigma": {"unit": "Å", "stage": "S6", "formal": False},
++    # S6.5 结构识别/相解析
++    "identify": {"unit": "", "stage": "S6.5", "formal": False},
++    "allow_ambiguous": {"unit": "", "stage": "S6.5", "formal": False},
++    "fit_motif": {"unit": "", "stage": "S6.5", "formal": True},
++    "l1_ligand": {"unit": "", "stage": "S6.5", "formal": False},
++    "l1_geometry": {"unit": "", "stage": "S6.5", "formal": False},
++    "catalytic_model": {"unit": "", "stage": "S6.5", "formal": False},
++    "phase_cif": {"unit": "", "stage": "S6.5", "formal": True},
++    "phase_id": {"unit": "", "stage": "S6.5", "formal": True},
++    "phase": {"unit": "", "stage": "S6.5", "formal": True},
++    "phase_index": {"unit": "", "stage": "S6.5", "formal": True},
++    "phase_pack": {"unit": "", "stage": "S6.5", "formal": True},
++    "absorber_site": {"unit": "", "stage": "S6.5", "formal": True},
++    "offline": {"unit": "", "stage": "S6.5", "formal": True},
++    "s02_from_t5": {"unit": "", "stage": "S6.5", "formal": True},
++    # S7 拟合
++    "fit": {"unit": "", "stage": "S7", "formal": True},
++    "fit_rmin": {"unit": "Å", "stage": "S7", "formal": True},
++    "fit_rmax": {"unit": "Å", "stage": "S7", "formal": True},
++    "fit_weights": {"unit": "", "stage": "S7", "formal": True},
++    "fit_kweights": {"unit": "", "stage": "S7", "formal": True},
++    "fit_space": {"unit": "", "stage": "S7", "formal": True},
++    "include_ms": {"unit": "", "stage": "S7", "formal": True},
++    "vary_c3": {"unit": "", "stage": "S7", "formal": True},
++    "vary_c4": {"unit": "", "stage": "S7", "formal": True},
++    "isotropic_deltar": {"unit": "", "stage": "S7", "formal": True},
++    "shared_sigma2": {"unit": "", "stage": "S7", "formal": True},
++    "constraints": {"unit": "", "stage": "S7", "formal": True},
++    "bvs_target": {"unit": "", "stage": "S7", "formal": True},
++    "bvs_sigma": {"unit": "", "stage": "S7", "formal": True},
++    "bvs_b": {"unit": "Å", "stage": "S7", "formal": True},
++    "hetero_cocupancy": {"unit": "", "stage": "S7", "formal": True},
++    "s02": {"unit": "", "stage": "S7", "formal": True},
++    # T8 与输出
++    "xanes_cross_check": {"unit": "", "stage": "T8", "formal": False},
++    "formal_cn": {"unit": "", "stage": "P3", "formal": True},
++    "legacy_auto_fit": {"unit": "", "stage": "P3", "formal": True},
++    "allow_unusual_coordination": {"unit": "", "stage": "P2a", "formal": True},
++    "diagnostics": {"unit": "", "stage": "output", "formal": False},
++    "phase_correct": {"unit": "", "stage": "output", "formal": False},
++    "chi2_contour": {"unit": "", "stage": "output", "formal": False},
++    "lcf_standards": {"unit": "", "stage": "XANES", "formal": False},
++    # report 入口
++    "demo": {"unit": "", "stage": "output", "formal": False},
++    "edge": {"unit": "", "stage": "S2", "formal": False},
++    "no_fit": {"unit": "", "stage": "S7", "formal": False},
++    "no_html": {"unit": "", "stage": "output", "formal": False},
++    "no_window_tuner": {"unit": "", "stage": "output", "formal": False},
++    "sample": {"unit": "", "stage": "output", "formal": False},
++    "shells": {"unit": "", "stage": "output", "formal": False},
++    "stem": {"unit": "", "stage": "output", "formal": False},
++    "wt_sweep": {"unit": "", "stage": "output", "formal": False},
++    "print_gates": {"unit": "", "stage": "output", "formal": False},
++    "print_params": {"unit": "", "stage": "output", "formal": False},
++}
++
++_EXCLUDE_FROM_PARAMS = {"files"}
++
++
++def _jsonable(value: Any) -> Any:
++    """把 argparse / numpy / Path 值转成 JSON 可写对象。"""
++    if value is None or isinstance(value, (str, int, float, bool)):
++        return value
++    if isinstance(value, Path):
++        return str(value)
++    if isinstance(value, dict):
++        return {str(k): _jsonable(v) for k, v in value.items()}
++    if isinstance(value, (list, tuple, set)):
++        return [_jsonable(v) for v in value]
++    # numpy 标量
++    if hasattr(value, "item"):
++        try:
++            return _jsonable(value.item())
++        except Exception:  # noqa: BLE001
++            pass
++    return str(value)
++
++
++def _get(obj: Any, name: str, default: Any = None) -> Any:
++    if obj is None:
++        return default
++    if isinstance(obj, dict):
++        return obj.get(name, default)
++    return getattr(obj, name, default)
++
++
++def _status_from_bool(ok: bool, *, strict: bool = False) -> str:
++    if ok:
++        return "passed"
++    return "failed" if strict else "warning"
++
++
++def _action_from_status(status: str, *, strict: bool = False) -> str:
++    if status == "passed":
++        return "none"
++    if status == "warning":
++        return "downgraded_to_warning" if strict else "warning_only"
++    if status == "failed":
++        return "abort" if strict else "block_quantification"
++    return "none"
++
++
++def _cli_dests(parser, argv: list[str]) -> set[str]:
++    """从 argv 反推哪些 dest 是 CLI 显式给出的（支持 --x=y 与 -x）。"""
++    if parser is None:
++        return set()
++    mapping: dict[str, str] = {}
++    for action in getattr(parser, "_actions", []):
++        for opt in getattr(action, "option_strings", []):
++            mapping[opt] = action.dest
++    dests: set[str] = set()
++    for token in argv:
++        if not token.startswith("-") or token == "-":
++            continue
++        opt = token.split("=", 1)[0]
++        if opt in mapping:
++            dests.add(mapping[opt])
++    return dests
++
++
++@dataclass
++class Provenance:
++    """一次运行的有效参数与来源快照。"""
++
++    effective: dict[str, Any] = field(default_factory=dict)
++    sources: dict[str, str] = field(default_factory=dict)
++    argv: list[str] = field(default_factory=list)
++    config_path: str | None = None
++    config_keys: list[str] = field(default_factory=list)
++    inputs: list[str] = field(default_factory=list)
++
++    @classmethod
++    def from_args(cls, args, config: dict | None, argv: list[str],
++                  parser=None, inputs=None,
++                  overrides: dict | None = None,
++                  source_overrides: dict | None = None) -> "Provenance":
++        effective: dict[str, Any] = {}
++        for key, value in vars(args).items():
++            if key in _EXCLUDE_FROM_PARAMS:
++                continue
++            effective[key] = _jsonable(value)
++
++        cli_dests = _cli_dests(parser, argv)
++        cfg_path = getattr(args, "config", None)
++        # 只把**用户配置文件里真实出现的键**标成 config；load_config(None)
++        # 返回的是 DEFAULTS 副本，不能把默认值误标成配置来源。
++        config_keys: list[str] = []
++        if cfg_path:
++            try:
++                raw_cfg = xafs_config._load_text(Path(str(cfg_path)))
++                if isinstance(raw_cfg, dict):
++                    config_keys = sorted(set(raw_cfg) & set(xafs_config.DEFAULTS))
++            except Exception:  # noqa: BLE001 - 台账不应因配置读取失败而中断
++                config_keys = []
++        sources: dict[str, str] = {}
++        for key in effective:
++            if key in cli_dests:
++                sources[key] = "cli"
++            elif key in config_keys:
++                sources[key] = "config"
++            else:
++                sources[key] = "default"
++
++        for key, value in (overrides or {}).items():
++            effective[key] = _jsonable(value)
++            sources.setdefault(key, "auto")
++        for key, value in (source_overrides or {}).items():
++            sources[key] = str(value)
++
++        if inputs is None:
++            inputs = getattr(args, "files", None) or []
++        return cls(
++            effective=effective,
++            sources=sources,
++            argv=[str(x) for x in argv],
++            config_path=(str(cfg_path) if cfg_path else None),
++            config_keys=config_keys,
++            inputs=[str(x) for x in inputs],
++        )
++
++    def with_overrides(self, values: dict | None = None,
++                       sources: dict | None = None) -> "Provenance":
++        eff = dict(self.effective)
++        src = dict(self.sources)
++        for key, value in (values or {}).items():
++            eff[key] = _jsonable(value)
++            src.setdefault(key, "auto")
++        for key, value in (sources or {}).items():
++            src[key] = str(value)
++        return replace(self, effective=eff, sources=src)
++
++    def param_block(self, values: dict | None = None,
++                    sources: dict | None = None) -> dict:
++        prov = self.with_overrides(values, sources)
++        return {
++            "effective": prov.effective,
++            "sources": prov.sources,
++            "units": {k: PARAM_META.get(k, {}).get("unit", "")
++                      for k in prov.effective},
++            "stages": {k: PARAM_META.get(k, {}).get("stage", "")
++                       for k in prov.effective},
++            "affects_formal_cn": sorted(
++                k for k in prov.effective
++                if PARAM_META.get(k, {}).get("formal")),
++            "cli_argv": prov.argv,
++            "inputs": prov.inputs,
++            "config_file": prov.config_path,
++            "config_keys_applied": prov.config_keys,
++        }
++
++
++# ---------------------------------------------------------------
++# 门禁台账
++# ---------------------------------------------------------------
++def _gate(status: str, *, threshold: Any = None, observed: Any = None,
++          action: str = "none", **extra: Any) -> dict:
++    payload = {
++        "status": status,
++        "threshold": threshold,
++        "observed": observed,
++        "action": action,
++    }
++    payload.update(extra)
++    return payload
++
++
++def _normalization_gate(norm, strict: bool) -> dict:
++    plateau = _get(norm, "plateau")
++    if plateau is None or not math.isfinite(float(plateau)):
++        return _gate("not_available", threshold=[PLATEAU_LO, PLATEAU_HI],
++                     observed=None, action="not_evaluated")
++    plateau = float(plateau)
++    ok = PLATEAU_LO <= plateau <= PLATEAU_HI
++    status = _status_from_bool(ok, strict=strict)
++    return _gate(
++        status,
++        threshold=[PLATEAU_LO, PLATEAU_HI],
++        observed=round(plateau, 6),
++        action=_action_from_status(status, strict=strict),
++        strict=bool(strict),
++        location="xafs_pipeline.py:196",
++    )
++
++
++def _self_absorption_gate(self_absorption) -> dict:
++    sa = self_absorption or {}
++    if not sa:
++        return _gate("not_available", observed=None, action="not_evaluated")
++    risk = str(sa.get("risk") or "unknown")
++    cn_gate = bool(sa.get("cn_gate"))
++    if risk in ("none", "low", "corrected"):
++        status = "passed"
++    elif risk == "possible":
++        status = "warning"
++    elif risk in ("high", "corrected_unreliable", "unknown"):
++        status = "failed" if cn_gate else "warning"
++    else:
++        status = "warning"
++    action = "cn_quantification_blocked" if cn_gate else (
++        "warning_only" if status == "warning" else "none")
++    return _gate(
++        status,
++        threshold={"high": SELF_ABS_HIGH, "warn": SELF_ABS_WARN},
++        observed={
++            "mode": sa.get("mode"),
++            "edge_step": sa.get("edge_step"),
++            "corrected": bool(sa.get("corrected")),
++            "reliable": bool(sa.get("reliable")),
++            "risk": risk,
++            "correction_factor_median": sa.get("correction_factor_median"),
++        },
++        action=action,
++        cn_gate=cn_gate,
++        note=sa.get("note"),
++        location="xafs_fit.py:60-116",
++    )
++
++
++def _structure_id_gate(structure) -> dict:
++    if not structure:
++        return _gate("not_applicable", observed=None, action="not_run")
++    conf = structure.get("confidence") or {}
++    sid_status = str(structure.get("status") or "unknown")
++    if sid_status == "confident":
++        status = "passed"
++        action = "none"
++    elif sid_status == "ambiguous":
++        status = "warning"
++        action = "require_user_disambiguation"
++    elif sid_status == "partial":
++        status = "warning"
++        action = "model_incomplete"
++    elif sid_status == "no_match":
++        # 库未命中不是数据失败：S7 会退回 L1 第一壳，正式 CN 仍可走
++        # 用户 CIF。这里只警告，避免把“诊断库缺条目”误读成“数据无效”。
++        status = "warning"
++        action = "library_miss_l1_fallback"
++    else:
++        status = "warning"
++        action = "review_required"
++    ranked = structure.get("ranked") or []
++    return _gate(
++        status,
++        threshold={
++            "score_limit": SID_SCORE_LIMIT,
++            "indist_tol": SID_INDIST,
++            "margin_limit": SID_MARGIN,
++            "peak_width_min": structure_id.PEAK_WIDTH_MIN,
++            "peak_prominence_min": structure_id.PEAK_PROM,
++        },
++        observed={
++            "status": sid_status,
++            "best_id": ranked[0].get("id") if ranked else None,
++            "best_score": conf.get("best_score"),
++            "second_score": conf.get("second_score"),
++            "margin": conf.get("margin"),
++            "coverage_ok": structure.get("coverage_ok"),
++            "uncovered_peaks": structure.get("uncovered_peaks"),
++            "indistinguishable": structure.get("indistinguishable"),
++        },
++        action=action,
++        warning=structure.get("warning"),
++        location="structure_id.py:338-356",
++    )
++
++
++def _cif_gate(gate_result, gate_results) -> dict:
++    results = list(gate_results or [])
++    if not results and gate_result is not None:
++        results = [gate_result]
++    if not results:
++        return _gate("not_applicable", observed=None, action="not_run")
++    ok = all(bool(_get(g, "ok", False)) for g in results)
++    status = "passed" if ok else "failed"
++    sites = []
++    for g in results:
++        sites.append({
++            "absorber_site": _get(g, "absorber_site"),
++            "ok": bool(_get(g, "ok", False)),
++            "code": _get(g, "code"),
++            "first_shell_cn": _get(g, "first_shell_cn"),
++            "occupancy_source": _get(g, "occupancy_source"),
++            "n0_shells": len(_get(g, "n0_shells", []) or []),
++            "site_weight": _get(g, "site_weight"),
++            "warnings": list(_get(g, "warnings", []) or []),
++        })
++    return _gate(
++        status,
++        threshold={
++            "cn_normal": list(CIF_CN_NORMAL),
++            "cn_warn_hi": CIF_CN_WARN_HI,
++            "pair_bond_slack_A": CIF_BOND_SLACK,
++            "occupancy_tol_A": CIF_OCC_TOL,
++        },
++        observed={"ok": ok, "sites": sites},
++        action="none" if ok else "reject_formal_cn",
++        location="cif_gate.py:616-660",
++    )
++
++
++def _fit_gate(fit_out) -> dict:
++    if not fit_out or (fit_out.get("fit") is None and not fit_out.get("l1")):
++        return _gate("not_applicable", observed=None,
++                     action="not_run", location="xafs_fit.py:1500-1564")
++    flags = fit_out.get("flags") or {}
++    fit = fit_out.get("fit")
++    l1 = fit_out.get("l1") or {}
++    if fit is not None:
++        paths = list(getattr(fit, "paths", []) or [])
++        n_err_bad = any(
++            p.n_err is not None and (p.n_err > N_ERR_LIMIT
++                                     or p.n_err > N_ERR_FRACTION_LIMIT * p.degeneracy)
++            for p in paths)
++        sigma2_bad = any(bool(getattr(p, "sigma2_at_bound", False))
++                         for p in paths)
++        c3_bad = any(bool(getattr(p, "c3_at_bound", False)) for p in paths)
++        c4_bad = any(bool(getattr(p, "c4_at_bound", False)) for p in paths)
++        r_factor = getattr(fit, "r_factor", None)
++        delta_e0 = getattr(fit, "delta_e0", None)
++        overfit = bool(getattr(fit, "overfit", False))
++        n_independent = getattr(fit, "n_independent", None)
++        n_variables = getattr(fit, "n_variables", None)
++    else:
++        # L1 第一壳降级：没有 motif fit 对象，但仍有 rf / N_err 等
++        # 可复核指标；不能因为“没有 fit 对象”就整段标成不适用。
++        paths = []
++        n_val = l1.get("N")
++        n_err = l1.get("N_err")
++        n_err_bad = bool(
++            n_err is not None and (float(n_err) > N_ERR_LIMIT
++                                   or (n_val is not None
++                                       and float(n_err) > N_ERR_FRACTION_LIMIT
++                                       * float(n_val))))
++        sigma2_bad = False
++        c3_bad = bool(l1.get("c3_at_bound", False))
++        c4_bad = False
++        r_factor = l1.get("rf")
++        delta_e0 = l1.get("delta_e0")
++        overfit = False
++        n_independent = l1.get("n_independent")
++        n_variables = l1.get("n_variables")
++    coverage_ok = bool(fit_out.get("coverage_ok", True))
++    sa_gate = bool(flags.get("self_absorption_gate"))
++
++    failed: list[str] = []
++    if r_factor is not None and float(r_factor) > RF_LIMIT:
++        failed.append("r_factor")
++    if delta_e0 is not None and abs(float(delta_e0)) >= DELTA_E0_LIMIT:
++        failed.append("delta_e0")
++    if n_err_bad:
++        failed.append("n_err")
++    if sigma2_bad:
++        failed.append("sigma2_at_bound")
++    if c3_bad:
++        failed.append("c3_at_bound")
++    if c4_bad:
++        failed.append("c4_at_bound")
++    if overfit:
++        failed.append("overfit")
++    if not coverage_ok:
++        failed.append("coverage")
++    if sa_gate:
++        failed.append("self_absorption")
++
++    cn_reliable = fit_out.get("cn_reliable")
++    if failed:
++        status = "failed"
++    elif cn_reliable is None:
++        status = "warning"
++    elif bool(cn_reliable):
++        status = "passed"
++    else:
++        status = "warning"
++    action = ("cn_quantification_blocked"
++              if (not bool(cn_reliable) or failed) else "none")
++    return _gate(
++        status,
++        threshold={
++            "r_factor": RF_LIMIT,
++            "abs_delta_e0_eV": DELTA_E0_LIMIT,
++            "n_err": N_ERR_LIMIT,
++            "n_err_fraction_of_degeneracy": N_ERR_FRACTION_LIMIT,
++        },
++        observed={
++            "mode": fit_out.get("mode"),
++            "r_factor": r_factor,
++            "delta_e0": delta_e0,
++            "n_err_bad": n_err_bad,
++            "sigma2_at_bound": sigma2_bad,
++            "c3_at_bound": c3_bad,
++            "c4_at_bound": c4_bad,
++            "overfit": overfit,
++            "coverage_ok": coverage_ok,
++            "self_absorption_gate": sa_gate,
++            "cn_reliable": cn_reliable,
++            "cn_status": fit_out.get("cn_status"),
++            "n_independent": n_independent,
++            "n_variables": n_variables,
++            "l1": (l1 if l1 else None),
++        },
++        action=action,
++        failed_checks=failed,
++        flags=flags,
++        location="xafs_fit.py:1500-1564",
++    )
++
++
++def _formal_cn_gate(fit_out, formal_block) -> dict:
++    if formal_block is None:
++        return _gate("not_applicable", observed=None,
++                     action="not_run", location="xafs_fit.py:2675-2714")
++    status_in = str(formal_block.get("status") or "")
++    cond = (fit_out or {}).get("conditional_cn") or {}
++    cond_fit = cond.get("conditional_n_fit") or {}
++    ftest = cond.get("hamilton_f_test") or {}
++    n_status = cond.get("n_status")
++    if status_in == "ok":
++        if n_status == "ok":
++            status = "passed"
++            action = "none"
++        elif n_status == "warning":
++            status = "warning"
++            action = "warning_emitted"
++        else:
++            status = "failed"
++            action = "formal_cn_refused"
++    elif status_in == "hypothesis_model_only":
++        status = "not_applicable"
++        action = "diagnostic_only"
++    elif status_in == "no_cif":
++        status = "failed"
++        action = "formal_cn_refused"
++    elif status_in in ("legacy_unverified", "multi_site_failed"):
++        status = "failed"
++        action = "formal_cn_refused"
++    else:
++        status = "failed"
++        action = "formal_cn_refused"
++    return _gate(
++        status,
++        threshold={
++            "n_ratio_ok": list(CN_RATIO_OK),
++            "n_ratio_warn": list(CN_RATIO_WARN),
++            "conditional_rf": RF_LIMIT,
++            "hamilton_significant": False,
++        },
++        observed={
++            "formal_status": status_in,
++            "n_ratio": cond.get("n_ratio"),
++            "n_status": n_status,
++            "conditional_rf": cond_fit.get("r_factor"),
++            "hamilton_significant": ftest.get("significant"),
++            "hamilton_p_value": ftest.get("p_value"),
++            "consistency_passed": cond.get("consistency_passed"),
++        },
++        action=action,
++        reject_reason=formal_block.get("reject_reason"),
++        location="xafs_fit.py:2694-2714",
++    )
++
++
++def _xanes_cross_check_gate(cross_check) -> dict:
++    if not cross_check:
++        return _gate("not_applicable", observed=None, action="not_run")
++    warnings = list(cross_check.get("warnings") or [])
++    return _gate(
++        "warning" if warnings else "passed",
++        threshold={"warnings": 0},
++        observed={"n_warnings": len(warnings),
++                  "codes": [w.get("code") for w in warnings]},
++        action="warning_only" if warnings else "none",
++        warnings=warnings,
++        location="xafs_fit.py:1912-1920",
++    )
++
++
++def build_gate_ledger(*, norm=None, strict: bool = True,
++                      self_absorption=None, structure=None,
++                      gate_result=None, gate_results=None,
++                      fit_out=None, formal_block=None,
++                      xanes_cross_check=None) -> dict:
++    """汇总本次运行命中的全部门禁。"""
++    gates = {
++        "normalization": _normalization_gate(norm, strict),
++        "self_absorption": _self_absorption_gate(self_absorption),
++        "structure_id": _structure_id_gate(structure),
++        "cif": _cif_gate(gate_result, gate_results),
++        "fit": _fit_gate(fit_out),
++        "formal_cn": _formal_cn_gate(fit_out, formal_block),
++        "xanes_cross_check": _xanes_cross_check_gate(xanes_cross_check),
++    }
++    gates["summary"] = _summarize_gates(gates)
++    return gates
++
++
++def _summarize_gates(gates: dict) -> dict:
++    passed, warned, failed, not_applicable = [], [], [], []
++    for name, payload in gates.items():
++        if name == "summary" or not isinstance(payload, dict):
++            continue
++        status = payload.get("status")
++        if status == "passed":
++            passed.append(name)
++        elif status == "warning":
++            warned.append(name)
++        elif status == "failed":
++            failed.append(name)
++        else:
++            not_applicable.append(name)
++    return {
++        "passed": passed,
++        "warned": warned,
++        "failed": failed,
++        "not_applicable": not_applicable,
++    }
++
++
++# ---------------------------------------------------------------
++# 决策轨迹
++# ---------------------------------------------------------------
++def build_decision_trace(context: dict | None = None) -> list[dict]:
++    """按 S1 → S7 → 正式 CN 记录关键分支。
++
++    ``context`` 只接受原始值（数字/字符串/布尔），避免把大对象写进 JSON。
++    """
++    c = dict(context or {})
++    rows: list[dict] = []
++
++    def add(step: str, decision: str, detail: Any = None,
++            status: str = "info") -> None:
++        if detail is None:
++            return
++        rows.append({"step": step, "decision": decision,
++                     "detail": _jsonable(detail), "status": status})
++
++    n_scans = c.get("n_scans")
++    if n_scans is not None:
++        add("S1", "merged_scans",
++            {"n_scans": n_scans,
++             "n_rejected": c.get("n_rejected_scans", 0),
++             "align": c.get("align")})
++    if c.get("absorber") is not None or c.get("e0") is not None:
++        add("S2", "absorber_and_e0",
++            {"absorber": c.get("absorber"),
++             "e0_method": c.get("e0_method"),
++             "e0_eV": c.get("e0"),
++             "edge_energy_eV": c.get("edge_energy")})
++    if c.get("plateau") is not None:
++        add("S3", "normalization",
++            {"plateau": c.get("plateau"),
++             "strict": c.get("strict"),
++             "post_window_eV": c.get("post_window")},
++            status=("passed" if PLATEAU_LO <= float(c["plateau"]) <= PLATEAU_HI
++                    else ("failed" if c.get("strict") else "warning")))
++    if c.get("rbkg") is not None:
++        add("S4", "rbkg",
++            {"rbkg_A": c.get("rbkg"),
++             "confidence": c.get("rbkg_confidence"),
++             "manual": c.get("rbkg_manual")})
++    if c.get("kmin") is not None:
++        add("S5", "ft_window",
++            {"kmin": c.get("kmin"), "kmax": c.get("kmax"),
++             "kweight": c.get("kweight"),
++             "r_first_peak_A": c.get("r_first_peak")})
++    if c.get("wt_sigma") is not None:
++        add("S6", "wavelet",
++            {"sigma": c.get("wt_sigma"),
++             "r_peak_A": c.get("r_wt_peak"),
++             "k_peak": c.get("k_wt_peak")})
++    if c.get("structure_status") is not None:
++        add("S6.5", "structure_identification",
++            {"status": c.get("structure_status"),
++             "top1": c.get("structure_top1"),
++             "margin": c.get("structure_margin"),
++             "coverage_ok": c.get("structure_coverage_ok")})
++    if c.get("phase_id") is not None or c.get("phase_source") is not None:
++        add("S6.5", "phase_resolution",
++            {"phase_id": c.get("phase_id"),
++             "source": c.get("phase_source"),
++             "model_level": c.get("model_level"),
++             "absorber_site": c.get("absorber_site")})
++    if c.get("catalytic_model") is not None:
++        add("S6.5", "catalytic_model",
++            {"model": c.get("catalytic_model")})
++    if c.get("fit_mode") is not None:
++        add("S7", "fit",
++            {"mode": c.get("fit_mode"),
++             "motif": c.get("fit_motif"),
++             "rmin_A": c.get("fit_rmin"),
++             "rmax_A": c.get("fit_rmax"),
++             "s02": c.get("s02"),
++             "s02_source": c.get("s02_source")})
++    if c.get("cn_reliable") is not None:
++        add("S7", "cn_reliability",
++            {"cn_reliable": c.get("cn_reliable"),
++             "cn_status": c.get("cn_status"),
++             "flags": c.get("fit_flags")},
++            status=("passed" if c.get("cn_reliable") else "warning"))
++    if c.get("formal_status") is not None:
++        add("P3", "formal_cn",
++            {"status": c.get("formal_status"),
++             "reject_reason": c.get("formal_reject_reason"),
++             "n_ratio": c.get("n_ratio")},
++            status=("passed" if c.get("formal_status") == "ok"
++                    else "warning" if c.get("formal_status") == "hypothesis_model_only"
++                    else "failed"))
++    if c.get("xanes_cross_check_warnings") is not None:
++        add("T8", "xanes_cross_check",
++            {"n_warnings": c.get("xanes_cross_check_warnings")},
++            status=("warning" if c.get("xanes_cross_check_warnings") else "passed"))
++    return rows
++
++
++def build_operando_meta(prov: Provenance, op: dict, *,
++                        overrides: dict | None = None) -> dict:
++    """原位序列的参数/门禁台账（PCA / SPOIL / MCR-ALS）。"""
++    pca = op.get("pca") or {}
++    mcr = op.get("mcr_als") or {}
++    cum = list(pca.get("cumulative_variance") or [])
++    rejected = list(op.get("rejected_standards") or [])
++    pca_gate = {
++        "status": "passed" if int(op.get("n_components") or 0) >= 2 else "warning",
++        "threshold": {"cumulative_variance": 0.99, "min_components": 2},
++        "observed": {
++            "n_components": op.get("n_components"),
++            "cumulative_variance": (cum[-1] if cum else None),
++        },
++        "action": ("none" if int(op.get("n_components") or 0) >= 2
++                   else "review_component_count"),
++        "location": "xafs_lcf.py:244-274",
++    }
++    spoil_gate = {
++        "status": "warning" if rejected else "passed",
++        "threshold": {"spoil_good": 3.0, "spoil_poor": 6.0,
++                      "reject_above": "2 × spoil_poor"},
++        "observed": {"accepted": list(op.get("accepted_standards") or []),
++                     "rejected": rejected},
++        "action": "warning_only" if rejected else "none",
++        "location": "xafs_lcf.py:295-344",
++    }
++    mcr_rf = mcr.get("r_factor")
++    mcr_gate = {
++        "status": ("passed" if (mcr_rf is not None and float(mcr_rf) <= RF_LIMIT)
++                   else "warning" if mcr_rf is not None else "not_available"),
++        "threshold": {"r_factor": RF_LIMIT},
++        "observed": {"r_factor": mcr_rf,
++                     "n_components": mcr.get("n_components")},
++        "action": ("none" if (mcr_rf is not None and float(mcr_rf) <= RF_LIMIT)
++                   else "review_mcr_fit"),
++        "location": "xafs_lcf.py:348-458",
++    }
++    gates = {
++        "pca_variance": pca_gate,
++        "standards_spoil": spoil_gate,
++        "mcr_als": mcr_gate,
++    }
++    gates["summary"] = _summarize_gates(gates)
++    return {
++        "params": prov.param_block(overrides),
++        "gates": gates,
++        "decisions": [
++            {"step": "S1–S6", "decision": "operando_series",
++             "detail": {"n_spectra": len(op.get("names") or []),
++                        "mode": op.get("mode"),
++                        "x_range": op.get("x_range")},
++             "status": "info"},
++            {"step": "PCA/MCR", "decision": "blind_decomposition",
++             "detail": {"n_components": op.get("n_components"),
++                        "accepted_standards": op.get("accepted_standards"),
++                        "rejected_standards": rejected},
++             "status": "info"},
++        ],
++        "summary": build_summary(gates, fit_out=None, formal_block=None),
++    }
++
++
++def build_summary(gates: dict, fit_out=None, formal_block=None) -> dict:
++    summary = dict(gates.get("summary") or _summarize_gates(gates))
++    summary.update({
++        "cn_reliable": (fit_out or {}).get("cn_reliable"),
++        "cn_status": (fit_out or {}).get("cn_status"),
++        "formal_cn_status": (formal_block or {}).get("status"),
++        "formal_cn_reject_reason": (formal_block or {}).get("reject_reason"),
++    })
++    return summary
++
++
++def build_output_meta(prov: Provenance, *, norm=None, strict: bool = True,
++                      self_absorption=None, structure=None,
++                      gate_result=None, gate_results=None,
++                      fit_out=None, formal_block=None,
++                      xanes_cross_check=None,
++                      overrides: dict | None = None,
++                      source_overrides: dict | None = None,
++                      decision_context: dict | None = None) -> dict:
++    """生成可直接合并进 ``_meta.json`` 的四个顶层块。"""
++    params = prov.param_block(overrides, source_overrides)
++    gates = build_gate_ledger(
++        norm=norm, strict=strict, self_absorption=self_absorption,
++        structure=structure, gate_result=gate_result,
++        gate_results=gate_results, fit_out=fit_out,
++        formal_block=formal_block, xanes_cross_check=xanes_cross_check)
++    return {
++        "params": params,
++        "gates": gates,
++        "decisions": build_decision_trace(decision_context),
++        "summary": build_summary(gates, fit_out, formal_block),
++    }
++
++
++# ---------------------------------------------------------------
++# 终端格式化
++# ---------------------------------------------------------------
++def _short(value: Any, limit: int = 52) -> str:
++    try:
++        text = json.dumps(_jsonable(value), ensure_ascii=False, default=str)
++    except Exception:  # noqa: BLE001
++        text = str(value)
++    return text if len(text) <= limit else text[:limit - 3] + "..."
++
++
++def format_params(params: dict) -> str:
++    eff = params.get("effective") or {}
++    src = params.get("sources") or {}
++    units = params.get("units") or {}
++    stages = params.get("stages") or {}
++    lines = [
++        "生效参数（全部 CLI / 配置 / 默认 / 自动）",
++        f"{'参数':<30} {'生效值':<30} {'来源':<8} {'单位':<8} 阶段",
++        "-" * 96,
++    ]
++    for key in sorted(eff):
++        lines.append(
++            f"{key:<30} {_short(eff[key], 28):<30} "
++            f"{src.get(key, ''):<8} {units.get(key, ''):<8} "
++            f"{stages.get(key, '')}")
++    lines.append("-" * 96)
++    lines.append(f"输入文件: {params.get('inputs') or []}")
++    lines.append(f"配置文件: {params.get('config_file') or '（无）'}")
++    lines.append(f"配置键: {params.get('config_keys_applied') or []}")
++    lines.append(f"命令行: {' '.join(params.get('cli_argv') or [])}")
++    return "\n".join(lines)
++
++
++def format_gates(gates: dict) -> str:
++    lines = [
++        "置信门禁台账（阈值 / 观测 / 状态 / 动作）",
++        f"{'门禁':<22} {'状态':<14} {'动作':<28} 观测 / 阈值",
++        "-" * 120,
++    ]
++    for name in ("normalization", "self_absorption", "structure_id", "cif",
++                 "fit", "formal_cn", "xanes_cross_check"):
++        payload = gates.get(name) or {}
++        lines.append(
++            f"{name:<22} {str(payload.get('status', '')):<14} "
++            f"{str(payload.get('action', '')):<28} "
++            f"{_short(payload.get('observed'), 40)}")
++        if payload.get("threshold") is not None:
++            lines.append(f"{'':<22} {'':<14} {'':<28} "
++                         f"阈值 {_short(payload.get('threshold'), 52)}")
++        if payload.get("reject_reason"):
++            lines.append(f"{'':<22} {'':<14} {'':<28} "
++                         f"拒绝原因 {_short(payload.get('reject_reason'), 52)}")
++    summary = gates.get("summary") or {}
++    lines.append("-" * 120)
++    lines.append(f"通过: {summary.get('passed') or []}")
++    lines.append(f"警告: {summary.get('warned') or []}")
++    lines.append(f"失败: {summary.get('failed') or []}")
++    lines.append(f"不适用: {summary.get('not_applicable') or []}")
++    return "\n".join(lines)
+diff --git a/xafs_report.py b/xafs_report.py
+index 94b9fca..049dcfe 100644
+--- a/xafs_report.py
++++ b/xafs_report.py
+@@ -65,6 +65,7 @@ import xafs_fit         # noqa: E402
+ import xafs_io          # noqa: E402
+ import xafs_lcf         # noqa: E402
+ import xafs_pipeline    # noqa: E402
++import xafs_provenance  # noqa: E402
+ import xafs_window_tuner  # noqa: E402
+ import structure_id     # noqa: E402
+ from absorber import get_absorber    # noqa: E402
+@@ -1438,6 +1439,12 @@ def main(argv=None):
+     parser.add_argument("--allow-unusual-coordination", action="store_true",
+                         help="CIF 门禁：允许键长超出 PAIR_BOND_REF±0.08 Å；"
+                              "默认拒绝")
++    parser.add_argument("--print-gates", action="store_true",
++                        help="P6.4 报告完成后在终端打印置信门禁表"
++                             "（门禁/阈值/观测/状态/动作）")
++    parser.add_argument("--print-params", action="store_true",
++                        help="P6.4 报告完成后在终端打印生效参数与来源"
++                             "（cli/config/default/auto）")
+     parser.add_argument("--phase-cif", action="append", default=None,
+                         help="P1b 用户真实 CIF 路径（可重复，最高优先级）")
+     parser.add_argument("--phase-id", default=None,
+@@ -1757,6 +1764,28 @@ def main(argv=None):
+             f"{abs_cfg.edge} 不一致；改边请先在 absorber.py 配好再跑，"
+             f"避免只改标签不改 FEFF HOLE/边能")
+ 
++    # P6.4：参数台账快照（只记录，不参与判定）。
++    _argv = list(argv) if argv is not None else sys.argv[1:]
++    prov = xafs_provenance.Provenance.from_args(
++        args, config, _argv, parser=parser, inputs=args.files,
++        overrides={
++            "post_window": list(post_window),
++            "vary_c3": xafs_provenance._jsonable(vary_c3),
++            "vary_c4": xafs_provenance._jsonable(vary_c4),
++            "fit_kweights": xafs_provenance._jsonable(fit_kweights),
++            "deglitch": xafs_provenance._jsonable(deglitch),
++            "lcf_standards": xafs_provenance._jsonable(lcf_standards),
++            "shared_sigma2": xafs_provenance._jsonable(shared_sigma2),
++            "constraints": xafs_provenance._jsonable(constraints),
++            "self_absorption_angles": list(sa_angles),
++            "bvs_restraint": xafs_provenance._jsonable(bvs_restraint),
++        },
++        source_overrides={
++            "bvs_restraint": ("config" if config.get("bvs_restraint")
++                              else "cli" if args.bvs_target is not None
++                              else "default"),
++        })
++
+     # ---- B15-1 原位序列汇总报告：每个文件=一个时间点，不合并 ----
+     if args.operando:
+         if args.no_fit:
+@@ -1808,6 +1837,14 @@ def main(argv=None):
+             **xafs_config.operando_kwargs_from_config(config))
+         made = xafs_diagnostics.write_operando_diagnostics(
+             op, op_root / "operando", stem="operando")
++        op_meta = xafs_provenance.build_operando_meta(
++            prov, op, overrides={"operando": True})
++        xafs_io.write_json(op_root / "operando_meta.json", op_meta)
++        print(f"  → {op_root / 'operando_meta.json'}")
++        if args.print_params:
++            print(xafs_provenance.format_params(op_meta["params"]))
++        if args.print_gates:
++            print(xafs_provenance.format_gates(op_meta["gates"]))
+         indicator_rows = [
+             ("n_spectra", len(args.files), "条", "原位时间序列"),
+             ("n_components", op["n_components"], "个",
+@@ -1997,8 +2034,10 @@ def main(argv=None):
+ 
+     s02 = (fout or {}).get(
+         "s02", s02_val if s02_val is not None else abs_cfg.s02)
++    formal_block = None
+     if args.formal_cn:
+         formal = (fout or {}).get("formal_cn") or {}
++        formal_block = formal
+         rows = list(formal.get("rows") or [])
+         model = formal.get("model") or {}
+         if not rows:
+@@ -2020,6 +2059,152 @@ def main(argv=None):
+         cn_table.write_cn_table(out / "cn_table.csv", rows)
+         print(f"  → {out / 'cn_table.csv'} "
+               f"（formal CN status={formal.get('status', 'no_cif')}）")
++
++    # P6.4：报告入口也写同一套参数/门禁/决策/摘要台账。
++    resolved_model = structure_model
++    overrides = {
++        "absorber": eff_absorber,
++        "e0": st["e0"],
++        "rbkg": st["rbkg"]["rbkg"],
++        "rbkg_confidence": st["rbkg"].get("confidence"),
++        "rbkg_manual": bool(getattr(args, "rbkg", None) is not None),
++        "post_window": list(post_window),
++        "s02": (fout or {}).get("s02", s02_val),
++        "s02_source": (fout or {}).get("s02_source", s02_source),
++        "formal_cn": bool(args.formal_cn),
++        "identify": True,
++        "fit": not bool(args.no_fit),
++        "resolved_phase_id": (resolved_model.model_id
++                              if resolved_model is not None else None),
++        "resolved_phase_source": (resolved_model.source_type
++                                  if resolved_model is not None else None),
++        "resolved_absorber_site": (resolved_model.absorber_site
++                                   if resolved_model is not None else None),
++        "model_level": (resolved_model.model_level
++                        if resolved_model is not None else None),
++        "fit_mode": (fout or {}).get("mode"),
++        "cn_status": (fout or {}).get("cn_status"),
++        "cn_reliable": (fout or {}).get("cn_reliable"),
++    }
++    source_overrides = {
++        "e0": "auto",
++        "rbkg": ("cli" if getattr(args, "rbkg", None) is not None
++                 else "auto"),
++    }
++    if s02_source and "calibration" in str(s02_source).lower():
++        source_overrides["s02"] = "calibrated"
++    elif s02_source:
++        source_overrides["s02"] = "runtime_override"
++    decision_context = {
++        "n_scans": len(st["scans"]) if st.get("scans") else None,
++        "absorber": eff_absorber,
++        "e0_method": "auto",
++        "e0": st["e0"],
++        "plateau": st["norm"].plateau,
++        "strict": bool(args.strict),
++        "post_window": list(post_window),
++        "rbkg": st["rbkg"]["rbkg"],
++        "rbkg_confidence": st["rbkg"].get("confidence"),
++        "rbkg_manual": bool(getattr(args, "rbkg", None) is not None),
++        "kmin": args.kmin, "kmax": args.kmax,
++        "kweight": int(st["result"].ft.kweight),
++        "r_first_peak": st["r1"],
++        "wt_sigma": st["wt"].sigma,
++        "r_wt_peak": getattr(st["result"], "r_wt", None),
++        "k_wt_peak": getattr(st["result"], "k_wt", None),
++        "structure_status": (sid or {}).get("status"),
++        "structure_top1": (((sid or {}).get("ranked") or [{}])[0].get("id")),
++        "structure_margin": (((sid or {}).get("confidence")
++                              or {}).get("margin")),
++        "structure_coverage_ok": (sid or {}).get("coverage_ok"),
++        "phase_id": (resolved_model.model_id
++                     if resolved_model is not None else args.phase_id),
++        "phase_source": (resolved_model.source_type
++                         if resolved_model is not None else None),
++        "model_level": (resolved_model.model_level
++                        if resolved_model is not None else None),
++        "absorber_site": (resolved_model.absorber_site
++                          if resolved_model is not None else args.absorber_site),
++        "catalytic_model": args.catalytic_model,
++        "fit_mode": (fout or {}).get("mode"),
++        "fit_motif": args.fit_motif,
++        "fit_rmin": (fout or {}).get("rmin", args.fit_rmin),
++        "fit_rmax": (fout or {}).get("rmax", args.fit_rmax),
++        "s02": (fout or {}).get("s02", s02_val),
++        "s02_source": (fout or {}).get("s02_source", s02_source),
++        "cn_reliable": (fout or {}).get("cn_reliable"),
++        "cn_status": (fout or {}).get("cn_status"),
++        "fit_flags": (fout or {}).get("flags"),
++        "formal_status": (formal_block or {}).get("status"),
++        "formal_reject_reason": (formal_block or {}).get("reject_reason"),
++        "n_ratio": (((fout or {}).get("conditional_cn")
++                     or {}).get("n_ratio")),
++        "xanes_cross_check_warnings": (
++            len((getattr(st["result"], "xanes_cross_check", None)
++                 or {}).get("warnings") or [])
++            if getattr(st["result"], "xanes_cross_check", None) else None),
++    }
++    report_meta = {
++        "source": {
++            "files": [str(f) for f in args.files],
++            "stem": stem,
++            "mode": "report",
++        },
++        "absorber": eff_absorber,
++        "edge": abs_cfg.edge,
++        "e0": st["e0"],
++        "normalization": {
++            "edge_step": st["norm"].edge_step,
++            "plateau": st["norm"].plateau,
++            "strict": bool(args.strict),
++        },
++        "rbkg": {
++            "selected": st["rbkg"]["rbkg"],
++            "confidence": st["rbkg"].get("confidence"),
++        },
++        "ft": {
++            "kmin": args.kmin, "kmax": args.kmax,
++            "kweight": int(st["result"].ft.kweight),
++            "r_first_peak": st["r1"],
++        },
++        "wt": {
++            "sigma": st["wt"].sigma,
++            "r_peak": getattr(st["result"], "r_wt", None),
++            "k_peak": getattr(st["result"], "k_wt", None),
++        },
++        "self_absorption": ((fout or {}).get("self_absorption")
++                            or st["result"].self_absorption),
++        "structure_id": sid,
++        "fit": {
++            "mode": (fout or {}).get("mode"),
++            "status": (fout or {}).get("status"),
++            "cn_reliable": (fout or {}).get("cn_reliable"),
++            "cn_status": (fout or {}).get("cn_status"),
++            "r_factor": ((fout or {}).get("fit").r_factor
++                         if (fout or {}).get("fit") is not None else None),
++            "delta_e0": ((fout or {}).get("fit").delta_e0
++                         if (fout or {}).get("fit") is not None else None),
++        },
++        "formal_cn": formal_block,
++    }
++    report_meta.update(xafs_provenance.build_output_meta(
++        prov,
++        norm=st["norm"], strict=args.strict,
++        self_absorption=((fout or {}).get("self_absorption")
++                         or st["result"].self_absorption),
++        structure=sid,
++        gate_result=gate_result, gate_results=gate_results,
++        fit_out=fout, formal_block=formal_block,
++        xanes_cross_check=getattr(st["result"], "xanes_cross_check", None),
++        overrides=overrides, source_overrides=source_overrides,
++        decision_context=decision_context))
++    xafs_io.write_json(out / f"{stem}_meta.json", report_meta)
++    print(f"  → {out / f'{stem}_meta.json'} "
++          f"（params/gates/decisions/summary）")
++    if args.print_params:
++        print(xafs_provenance.format_params(report_meta["params"]))
++    if args.print_gates:
++        print(xafs_provenance.format_gates(report_meta["gates"]))
+     edge_label = f"{args.absorber} {abs_cfg.edge}-edge"
+     shells = (parse_shell_spec(args.shells)
+               or shells_from_fit(fout, absorber_symbol=args.absorber))

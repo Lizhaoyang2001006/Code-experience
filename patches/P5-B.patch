@@ -1,0 +1,3753 @@
+diff --git a/CIF_CRAWLER_INTEGRATION.md b/CIF_CRAWLER_INTEGRATION.md
+index 64bd564..f65ddf1 100644
+--- a/CIF_CRAWLER_INTEGRATION.md
++++ b/CIF_CRAWLER_INTEGRATION.md
+@@ -14,7 +14,7 @@
+ - 17 个 COD motif 入库，结构库共 **43 个 motif**，覆盖 **17/17** 吸收元素；
+ - T5 12 条 IIT-Lytle 真实谱全部落盘，**0 个 placeholder**；
+ - 旧 ID 迁移完成：`LEGACY_MOTIFS_LEFT 0`、`QUARANTINE_FILES 0`；
+-- `regression_test.py` **123 项** + 4 个压力测试全部通过（`run_ci.py --stress` PASS）。
++- `regression_test.py` **124 项** + 4 个压力测试全部通过（`run_ci.py --stress` PASS）。
+ 
+ 运行期仍然完全离线：`run_xafs.py` 不导入根爬虫，不读取 `data/cif_crawler_index.json` 取几何，只通过
+ `structure_lib.load_library(absorber)` 读取 `_structure_lib`。
+@@ -112,9 +112,15 @@ python cif_crawler.py --t5
+ - 运行时通过 `run_xafs.py --s02 <值>` 显式覆盖，或对已通过元素用
+   `run_xafs.py --s02-from-t5 --identify/--fit` 从独立产物读取（只接受
+   `status="calibrated"` 且 `static_absorber_py_unchanged=True`；未通过
+-  元素明确拒绝）；通过 6/12（Cr/Mn/Zn/Ru/Ag/Au），Mo/Rh/Pd/Ir/Ce/U
++  元素明确拒绝）；通过 7/12（Cr/Mn/Zn/Mo/Ru/Ag/Au），Rh/Pd/Ir/Ce/U
+   记录未通过原因、不强行给值；`s02_source` 溯源串写入 L1/motif 输出与
+   `<stem>_meta.json.fit`；
++- Mo 于 P5-B 通过：BMM Mo 箔用 `half_height` E₀（20012.86 eV，平台
++  0.863）+ 双壳 bcc（8×2.725 + 6×3.147 Å，共享 S₀²/ΔE₀、各壳独立
++  ΔR/σ²），S₀²=0.8322±0.0334、Rf=0.0040、窗口极差 0.0017、ΔE₀=−0.73 eV；
++  门禁含新增 `sigma2_not_at_bound`（σ² 压到 1e-4 下界即失败）。
++  Ce 仍不通过：自由 σ² 压界、固定 σ² 无唯一解、加第二壳 Rf=0.127；
++  备选透射谱平台 2.27 属归一化伪迹，严格门禁拒绝；
+ - `_standards_lib/` 与 `data/standards_raw/` 因许可未明确不提交；Ag 标定依赖本地 IIT-Lytle 谱，产物记录源文件 SHA256，但不保证无本地标准时可复现。
+ 
+ ## 5. 验收
+@@ -122,8 +128,8 @@ python cif_crawler.py --t5
+ ### 5.1 回归与压力
+ 
+ ```text
+-regression_test.py: 123 tests OK
+-run_ci.py --stress: PASS (183.1s)
++regression_test.py: 124 tests OK
++run_ci.py --stress: PASS (202.5s)
+   stress_test_co.py   PASS
+   stress_test_ni.py   PASS
+   stress_test_cu.py   PASS
+@@ -179,11 +185,11 @@ python cif_crawler.py --t5
+ 
+ ## 7. 仍然存在的缺口
+ 
+-1. **T5 S₀² 部分标定**：已产出独立标定产物并通过 6/12；Mo/Rh/Pd/Ir/Ce/U 仍缺高质量宽能区标准，未标定元素仍需运行时 `--s02` 才能做正式 CN（已通过元素可用 `--s02-from-t5`）；
++1. **T5 S₀² 部分标定**：已产出独立标定产物并通过 7/12；Rh/Pd/Ir 缺足够宽能区标准、Ce 的 CeO₂ 标准 σ² 与 S₀² 强相关（无唯一解）、U 撞界；未标定元素仍需运行时 `--s02` 才能做正式 CN（已通过元素可用 `--s02-from-t5`）；
+ 2. **常见相仍缺**：FeO、FeOOH、PtO2、Cr2O3、MnO/MnO2/Mn3O4、ZnO、MoO2/MoO3、RuO2、Rh2O3、PdO、Ag2O、IrO2、Au2O3、UO2/U3O8；
+ 3. **多位点联合模型未自动构建**：当前需显式 `--absorber-site` 或 `absorber_fract`；
+ 4. **T7/T8 已实现**：`--multi-element` 逐元素并列报告、不推荐 Top-1；`--xanes-cross-check` 只报警告、不改 `cn_reliable`（#120/#121）。
+ 
+ ## 8. 一句话状态
+ 
+-**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 123+4 CI 全部通过；T5 已产出 6/12 独立标定产物（静态表未改），运行期可用 `--s02-from-t5` 溯源，T7 多元素与 T8 联合校验已实现。**
++**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 124+4 CI 全部通过；T5 已产出 7/12 独立标定产物（静态表未改），运行期可用 `--s02-from-t5` 溯源，T7 多元素与 T8 联合校验已实现。**
+diff --git a/README.md b/README.md
+index 7f46551..72392bc 100644
+--- a/README.md
++++ b/README.md
+@@ -76,7 +76,7 @@ python xafs_report.py
+ | `calibrate_s02.py` | 标定 S₀²（金属箔/氧化物标样，生产等效协议；`--motif-file` 用标定专用结构） |
+ | `calibrate_t5.py` | T5 批量标定 12 元素，产物落 `data/s02_calibration/`（不改静态表） |
+ | `absorber.py` | 吸收元素配置表（边能量/S₀²/kmax），元素泛化唯一入口 |
+-| `regression_test.py` | 123 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源） |
++| `regression_test.py` | 124 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝） |
+ | `run_ci.py` | 跨平台 CI：编译 + 契约回归 + 可选压力测试，输出 ci_report.json/md |
+ | `stress_test_{co,ni,cu,nio}.py` | 元素泛化/护栏/CN 回收压力测试 |
+ | `xafs_config.py` | 配置文件支持（.yaml/.json）、批处理入口（--batch-dir） |
+@@ -105,21 +105,24 @@ python xafs_report.py
+ `calibration.json`、`REPORT.md`）。**不写 `absorber.py`**——#60 要求
+ 静态表中这 12 个元素保持 `s02=None`/`calibrated=False`；运行时用
+ `run_xafs.py --s02 <值>` 显式覆盖，或对已通过元素用
+-`run_xafs.py --s02-from-t5 --fit` 读取独立产物（见下文 P5-A）。
++`run_xafs.py --s02-from-t5 --fit` 读取独立产物（见下文 P5-A/P5-B）。
+ 
+ | 元素 | S₀² | 标样 / motif | Rf | 窗口极差 |
+ |------|------|--------------|----|----------|
+ | Cr | 0.6482 | BMM Cr₂O₃ / `cr2o3_corundum` | 0.0074 | 0.0053 |
+ | Mn | 0.4311 | BMM Pyrolusite / `mno2_rutile` | 0.0402 | 0.0213 |
+ | Zn | 0.6071 | BMM Zincite / `zno_wurtzite` | 0.0090 | 0.0070 |
++| Mo | 0.8322 | BMM Mo foil / `mo_bcc`（双壳 + `half_height` E₀） | 0.0040 | 0.0017 |
+ | Ru | 0.7002 | BMM RuO₂（`-xmu` 派生）/ `ruo2_rutile` | 0.0154 | 0.0123 |
+ | Ag | 0.7513 | IIT-Lytle Ag foil / `ag_fcc_cod_9008459` | 0.0030 | 0.0141 |
+ | Au | 0.8602 | BMM Au foil / `au_fcc` | 0.0003 | 0.0073 |
+ 
+-未通过 6/12（不强行给值）：Mo（四面体标准 s02≈0.38 低于下界、
+-Tugarinovite s02_err>0.06、MoS₂ 单窗口、Mo 箔撞上界）、Rh/Pd/Ir
+-（IIT-Lytle 谱仅约 170–195 eV above E0，k_max 不足）、Ce
+-（rmin=1.6 下前两窗口 ΔE₀>10 eV）、U（α-U 撞下界、Rf 差）。
++未通过 5/12（不强行给值）：Rh/Pd/Ir（IIT-Lytle 谱仅约 170–195 eV
++above E0，k_max 不足）、Ce（自由 σ² 塌到 1e-4 下界；固定 σ² 时
++S₀² 随假设值从 0.54 漂到 0.80；加 Ce–Ce 第二壳 Rf=0.127；备选透射谱
++平台 2.27、属归一化伪迹）、U（α-U 撞下界、Rf 差）。Mo 已在 P5-B
++通过：双壳 bcc（8×2.725 + 6×3.147 Å）+ `half_height` E₀，
++S₀²=0.8322，门禁 5/5；详见下文 P5-B。
+ `_standards_lib/` 与 `data/standards_raw/` 因 IIT-Lytle 许可未明确
+ **不提交**；Ag 的标定依赖本地标准，产物记录源文件 SHA256，但不保证
+ 在无本地标准的机器上可复现。
+@@ -716,6 +719,41 @@ Cr₂O₃ 真实谱冒烟：`fit.s02=0.6482`，`s02_source` 以
+ 契约 #122 锁定产物完整性与 `--only` 增量合并，#123 锁定加载器与
+ 来源优先级。
+ 
++### P5-B Mo 双壳 bcc 与 Ce 物理排查（2026-11-09）
++**Mo：已通过。** BMM Mo 箔的导数峰 20018.8 eV 落在近边肩峰上，
++归一化平台 0.842（低于 0.85）；改用半高点 E₀=20012.86 eV 后平台
++0.863。bcc Mo 第一壳 8×2.725 Å 与第二壳 6×3.147 Å 同属 Mo–Mo，
++单壳模型把第二壳尾巴折进第一壳振幅（S₀² 撞 1.3 上界）；双壳模型
++共享 S₀²/ΔE₀、各壳独立 ΔR/σ²，得到：
++
++| 指标 | 值 |
++|------|-----|
++| S₀² | 0.8322 ± 0.0334 |
++| Rf | 0.0040 |
++| 窗口极差 | 0.0017 |
++| ΔE₀ | −0.73 eV |
++| n_variables / N_idp | 6 / 6.88 |
++
++三个窗口全部 `interior`，门禁 5/5（含新增 `sigma2_not_at_bound`）。
++`python calibrate_t5.py --only Mo` 重跑，产物 `data/s02_calibration/Mo/calibration.json`；
++运行期需同时指定 E₀ 方法：
++`run_xafs.py <Mo 谱> --absorber Mo --e0-method half_height --s02-from-t5 --fit`
++（不带 `--e0-method half_height` 时导数 E₀ 会让平台落回 0.842，被严格归一化
++门禁拒绝——这是物理门禁，不是缺陷）。
++
++**Ce：仍未通过，不放宽门禁。** 唯一可用的 CeO₂ 荧光谱在导数 E₀ 下
++ΔE₀=9.8–10.2 eV，贴 `E0_MAX=10`；`half_height` 把 ΔE₀ 推到
++12.9–13.5 eV。自由 σ² 在窄窗内塌到 1e-4 下界（`sigma2_at_bound`），
++S₀²=0.46 与这个非物理 σ² 绑定；固定 σ² 时 S₀² 随假设值从 0.54
++单调漂到 0.80，无唯一解；加入 Ce–Ce 3.82 Å 第二壳后 Rf=0.127
++（超 0.12）、ΔR 撞界。备选 `Ce-L3-CeriumDioxide.xdi` 是透射谱，
++边步被背景淹没（归一化平台 2.27），数值上虽可通过宽松拟合，但属于
++归一化伪迹，严格门禁必须拒绝。以上均记录在 `Ce/calibration.json`
++的 `attempts` 中，静态表仍 `s02=None`。
++
++新增门禁 `sigma2_not_at_bound`：任一窗口 σ² 压到 1e-4 下界即判失败。
++这是更严格的物理约束，不放松任何原有阈值；契约 #124 锁定。
++
+ ### B19-1 原位序列 EXAFS 联合精修
+ `xafs_fit.run_operando_exafs_series(results, absorber_symbol, motif=None,
+ catalytic_model=None, ..., share_sigma2_across_series=False)` 对 ≥3 个
+diff --git a/calibrate_s02.py b/calibrate_s02.py
+index 3c8b562..5369525 100644
+--- a/calibrate_s02.py
++++ b/calibrate_s02.py
+@@ -139,13 +139,24 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
+                   s02_start: float = 0.85, strict: bool = True,
+                   verbose: bool = True,
+                   allow_recalibrate: bool = False,
+-                  motif_file=None, rmin: float | None = None) -> dict:
++                  motif_file=None, rmin: float | None = None,
++                  e0_method: str = "derivative",
++                  manual_e0: float | None = None,
++                  fit_shells: int = 1) -> dict:
+     """标样箔 → 标定 S₀²。返回 dict；不改 absorber.py（写入见 apply_s02）。
+ 
+     ``motif_file``：标定专用 motif JSON（必须带展开 sites），用于
+     氧化物/化合物标样——不写生产 _structure_lib，不影响 #119 覆盖率。
+     ``rmin``：显式 R 窗下限，用于第一壳很近（如 CeO₂ Ce–O 2.34 Å +
+     N_idp 不足）时扩大窗口、让 4 变量拟合有足够独立点数。
++    ``e0_method`` / ``manual_e0``：E₀ 判定方法，透传 S2。bcc 金属箔的
++    导数峰可能落在近边肩峰上（Mo 箔导数峰 20018.8 eV、半高点
++    20012.9 eV），导致归一化平台偏低或 ΔE₀ 偏大；改用 half_height
++    是数据物理判定，不是放宽门禁。
++    ``fit_shells``：一起拟合的壳层数（默认 1）。bcc 金属第一壳
++    （8×2.73 Å）与第二壳（6×3.15 Å）同属 Mo–Mo，单壳模型会把
++    第二壳尾巴折进第一壳振幅，S₀² 撞上界；双壳模型让两壳各自
++    拥有 ΔR/σ²、共享 S₀²/ΔE₀，才能得到稳定的 S₀²。
+     """
+     cfg = absorber_mod.get_absorber(absorber_symbol)
+     if cfg.s02 is not None and not allow_recalibrate:
+@@ -153,7 +164,9 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
+             "CAL", f"{cfg.symbol} 已有标定值 {cfg.s02}——重标定是显式决定，"
+                    f"调用方需要 --force 或改 absorber.py 后再跑")
+     res = xafs_pipeline.process_sample(list(files), absorber=cfg.symbol,
+-                                       strict=strict, verbose=verbose)
++                                       strict=strict, verbose=verbose,
++                                       e0_method=e0_method,
++                                       manual_e0=manual_e0)
+     kmin = res.ft.kmin if kmin is None else kmin
+     kmax = min(res.ft.kmax, cfg.kmax_ceiling if kmax is None else kmax)
+ 
+@@ -163,7 +176,16 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
+         motif, edge=cfg.edge, kmin=kmin, kmax=kmax, rmin=rmin)
+     if len(plan["shells"]) < 1:
+         raise XAFSDataError("CAL", f"{motif.id}: 无第一壳路径")
++    n_shells = max(1, int(fit_shells))
++    if n_shells > len(plan["files"]):
++        raise XAFSDataError(
++            "CAL", f"{motif.id}: 请求 {n_shells} 壳，但信息量/路径只允许 "
++                   f"{len(plan['files'])} 壳")
+     first = plan["shells"][0]
++    fit_files = plan["files"][:n_shells]
++    fit_degens = plan["degens"][:n_shells]
++    fit_labels = plan["labels"][:n_shells]
++    upper_reff = plan["shells"][n_shells - 1]["reff"]
+ 
+     # ---- 生产等效拟合（窗口鲁棒性 × 3）----
+     # 数学上 "定 N 变 S₀²" ≡ "定 S₀²=1 变 N"（振幅都是 s02·N 乘积），
+@@ -172,15 +194,17 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
+     # 晶体学简并度上，管线的幅度-形状失配都被 S₀² 相对值吸收。
+     runs = []
+     for frac in WINDOW_FRACS:
+-        r_fit = (plan["rmin"], first["reff"] + frac)
++        r_fit = (plan["rmin"], upper_reff + frac)
+         fit = artemis.fit_r_space(
+-            res.chi_k, res.ft, [plan["files"][0]],
++            res.chi_k, res.ft, fit_files,
+             rmin=r_fit[0], rmax=r_fit[1], kmin=kmin, kmax=kmax,
+             kweight=res.ft.kweight,
+             s02=s02_start, vary_delta_e0=True, vary_n=False, vary_s02=True,
+             deltar_lim=DELTAR_LIM_CAL,
+-            path_degen=[first["degen"]], path_labels=[first["label"]])
++            path_degen=fit_degens, path_labels=fit_labels)
+         p0 = fit.paths[0]
++        s2_at_bound = any(bool(getattr(p, "sigma2_at_bound", False))
++                          for p in fit.paths)
+         run = {"r_window": [round(r_fit[0], 3), round(r_fit[1], 3)],
+                "s02": round(float(fit.s02), 4),
+                "s02_err": round(float(fit.s02_err), 4),
+@@ -188,11 +212,20 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
+                "delta_e0": round(float(fit.delta_e0), 2),
+                "sigma2": round(float(p0.sigma2), 4),
+                "delta_r": round(float(p0.delta_r), 4),
++               "sigma2_at_bound": s2_at_bound,
++               "paths": [{"label": p.label,
++                          "degen": round(float(p.degeneracy), 1),
++                          "sigma2": round(float(p.sigma2), 4),
++                          "delta_r": round(float(p.delta_r), 4),
++                          "sigma2_at_bound": bool(
++                              getattr(p, "sigma2_at_bound", False))}
++                         for p in fit.paths],
+                "interior": (fit.s02_err is not None and
+                             S02_PASS[0] < float(fit.s02) < S02_PASS[1] and
+                             float(fit.s02_err) < S02_ERR_MAX and
+                             float(fit.r_factor) <= RF_MAX and
+                             abs(float(fit.delta_e0)) < E0_MAX and
++                            not s2_at_bound and
+                             fit.n_variables < fit.n_independent)}
+         runs.append(run)
+ 
+@@ -209,14 +242,14 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
+     kw_diag = {}
+     for kw_probe in (1, 3):
+         try:
+-            r_fit = (plan["rmin"], first["reff"] + 0.18)
++            r_fit = (plan["rmin"], upper_reff + 0.18)
+             f_kw = artemis.fit_r_space(
+-                res.chi_k, res.ft, [plan["files"][0]],
++                res.chi_k, res.ft, fit_files,
+                 rmin=r_fit[0], rmax=r_fit[1], kmin=kmin, kmax=kmax,
+                 kweight=kw_probe, s02=s02_start,
+                 vary_delta_e0=True, vary_n=False, vary_s02=True,
+                 deltar_lim=DELTAR_LIM_CAL,
+-                path_degen=[first["degen"]], path_labels=[first["label"]])
++                path_degen=fit_degens, path_labels=fit_labels)
+             kw_diag[str(kw_probe)] = {
+                 "s02": round(float(f_kw.s02), 4),
+                 "rf": round(float(f_kw.r_factor), 4),
+@@ -228,9 +261,16 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
+         "absorber": cfg.symbol, "edge": cfg.edge, "motif": motif.id,
+         "motif_file": (str(motif_file) if motif_file is not None else None),
+         "fixed_CN": first["degen"], "R_first": first["reff"],
++        "n_shells": n_shells,
++        "shell_paths": [{"label": s["label"], "scatterer": s["scatterer"],
++                         "reff": s["reff"], "degen": s["degen"]}
++                        for s in plan["shells"][:n_shells]],
++        "e0_method": res.e0.get("e0_method"),
++        "e0": round(float(res.e0.get("e0_sample")), 4),
+         "k_window": [round(kmin, 3), round(kmax, 3)],
+-        "protocol": ("production_equivalent: N fixed, vary s02 + "
+-                     "(dR, sigma2) per path + dE0; kw=2; robustness x3"),
++        "protocol": (f"production_equivalent: {n_shells}-shell, N fixed to "
++                     f"crystallographic degeneracy, vary s02 + "
++                     f"(dR, sigma2) per path + dE0; kw=2; robustness x3"),
+         "runs": runs,
+         "s02": (round(s02_final, 4) if s02_final is not None else None),
+         "s02_err": (round(s02_err_final, 4) if s02_err_final is not None
+@@ -239,9 +279,9 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
+         "spread": round(spread, 4) if spread == spread else None,
+         "delta_e0": good[-1]["delta_e0"] if good else None,
+         "sigma2": good[-1]["sigma2"] if good else None,
+-        "n_variables": 4, "n_independent": round(
++        "n_variables": 2 + 2 * n_shells, "n_independent": round(
+             artemis.independent_points(kmin, kmax, plan["rmin"],
+-                                       first["reff"] + 0.18), 2),
++                                       upper_reff + 0.18), 2),
+         "plateau": round(float(res.norm.plateau), 4),
+         "rbkg_choice": res.rbkg.get("rbkg"),
+         "kw_sensitivity": kw_diag,
+@@ -254,6 +294,7 @@ def calibrate_s02(files, absorber_symbol: str, motif_id: str | None = None,
+                       and out["s02_err"] < S02_ERR_MAX,
+         "window_spread_ok": (out["spread"] is not None
+                              and out["spread"] <= WINDOW_SPREAD_MAX),
++        "sigma2_not_at_bound": not any(r["sigma2_at_bound"] for r in runs),
+     }
+     out["checks"] = checks
+     out["pass"] = all(checks.values())
+@@ -348,6 +389,15 @@ def main(argv=None):
+     ap.add_argument("--rmin", type=float, default=None,
+                     help="拟合 R 窗下限（默认按第一壳自动；"
+                          "第一壳很近时显式放宽以增加 N_idp）")
++    ap.add_argument("--e0-method", default="derivative",
++                    choices=("derivative", "half_height", "manual"),
++                    help="E₀ 判定方法；厚样/近边肩峰导致平台偏低时可用 "
++                         "half_height（默认 derivative）")
++    ap.add_argument("--manual-e0", type=float, default=None,
++                    help="--e0-method manual 时的 E₀ (eV)")
++    ap.add_argument("--fit-shells", type=int, default=1,
++                    help="一起拟合的壳层数（默认 1；bcc 金属可用 2 让"
++                         "第一/第二壳同属 Mo–Mo 并共享 S₀²/ΔE₀）")
+     ap.add_argument("--s02-start", type=float, default=0.85)
+     ap.add_argument("--strict", dest="strict", action="store_true", default=True)
+     ap.add_argument("--no-strict", dest="strict", action="store_false")
+@@ -362,7 +412,10 @@ def main(argv=None):
+                         kmin=args.kmin, kmax=args.kmax,
+                         s02_start=args.s02_start, strict=args.strict,
+                         allow_recalibrate=args.force,
+-                        motif_file=args.motif_file, rmin=args.rmin)
++                        motif_file=args.motif_file, rmin=args.rmin,
++                        e0_method=args.e0_method,
++                        manual_e0=args.manual_e0,
++                        fit_shells=args.fit_shells)
+     if args.outdir:
+         xafs_io.write_json(Path(args.outdir) / "calibration.json", res)
+         print(f"  → {Path(args.outdir) / 'calibration.json'}")
+@@ -375,7 +428,8 @@ def main(argv=None):
+                 f"  --apply 拒绝：{cap} 属于 #60 锁定的 12 个元素，"
+                 f"静态 s02 必须保持 None。\n"
+                 f"  标定结果已写入独立产物；运行时用 "
+-                f"run_xafs.py --s02 {res['s02']} 显式覆盖。")
++                f"run_xafs.py --s02 {res['s02']} 或 --s02-from-t5 "
++                f"显式覆盖。")
+         note = (f"{args.absorber} 标样 {res['motif']} N={res['fixed_CN']:.0f}, "
+                 f"Rf={res['rf']}, {_dt.date.today().isoformat()}")
+         p = apply_s02(args.absorber, res["s02"], note=note,
+diff --git a/calibrate_t5.py b/calibrate_t5.py
+index de65f37..5e322a0 100644
+--- a/calibrate_t5.py
++++ b/calibrate_t5.py
+@@ -70,7 +70,13 @@ CASES = {
+          "motif_file": MOTIFS / "mos2_2h.json",
+          "strict": True, "kmin": 2.5, "kmax": 11.0},
+         {"standard": BMM / "Mo" / "Mo-K-MolybdenumFoil.xdi",
+-         "motif": "mo_bcc", "strict": True},
++         "motif": "mo_bcc", "strict": True,
++         "e0_method": "half_height", "fit_shells": 2,
++         "note": "bcc Mo 第一壳 8×2.73 Å + 第二壳 6×3.15 Å 同属 Mo–Mo；"
++                 "单壳会把第二壳尾巴折进第一壳振幅（S₀² 撞上界），"
++                 "双壳共享 S₀²/ΔE₀、各壳独立 ΔR/σ²。导数峰落在近边"
++                 "肩峰（20018.8 eV）导致平台 0.842，改用半高点 E₀"
++                 "（20012.9 eV）后平台 0.863，属数据物理判定"},
+     ],
+     "Ru": [
+         {"standard": BMM / "Ru" / "Ru-K-RuO2.xdi",
+@@ -106,7 +112,18 @@ CASES = {
+          "motif": "ceo2_fluorite_cod_1562989", "strict": False,
+          "kmin": 3.5, "kmax": 12.0, "rmin": 1.6,
+          "note": "CeO2 荧光计数 xmu，larch 归一化 plateau≈1.20；"
+-                 "rmin=1.6 覆盖第一壳并增加 N_idp"},
++                 "rmin=1.6 覆盖第一壳并增加 N_idp。P5-B 复核："
++                 "导数 E0 下 ΔE0≈9.8–10.2 eV 贴 E0_MAX；"
++                 "half_height 使 ΔE0 升到 12.9–13.5 eV；"
++                 "自由 σ² 塌到 1e-4 下界，固定 σ² 时 S₀² 随假设值"
++                 "从 0.54 漂到 0.80（无唯一解）；加 Ce–Ce 第二壳"
++                 "Rf=0.127、ΔR 撞界。不能作为可靠标定"},
++        {"standard": BMM / "Ce" / "Ce-L3-CeriumDioxide.xdi",
++         "motif": "ceo2_fluorite_cod_1562989", "strict": True,
++         "kmin": 3.5, "kmax": 12.0, "rmin": 1.6,
++         "note": "同相透射谱，但边步被背景淹没（归一化平台≈2.27）；"
++                 "数值上虽可通过宽松拟合，属于归一化伪迹，"
++                 "严格归一化门禁必须拒绝，不得用于标定"},
+     ],
+     "U": [
+         {"standard": STD / "U" / "U_metal_foil.dat",
+@@ -203,6 +220,9 @@ def _run_case(element, case, outdir: Path) -> dict:
+         "kmin": case.get("kmin"),
+         "kmax": case.get("kmax"),
+         "rmin": case.get("rmin"),
++        "e0_method": case.get("e0_method", "derivative"),
++        "manual_e0": case.get("manual_e0"),
++        "fit_shells": case.get("fit_shells", 1),
+         "note": case.get("note", ""),
+     }
+     if not src.is_file():
+@@ -218,7 +238,8 @@ def _run_case(element, case, outdir: Path) -> dict:
+         used, prov = _prepare_standard(case, element, outdir)
+         attempt["provenance"] = prov
+         kw = {}
+-        for key in ("kmin", "kmax", "rmin"):
++        for key in ("kmin", "kmax", "rmin", "e0_method", "manual_e0",
++                    "fit_shells"):
+             if case.get(key) is not None:
+                 kw[key] = case[key]
+         result = calibrate_s02.calibrate_s02(
+@@ -258,6 +279,8 @@ def _compact_attempt(attempt: dict) -> dict:
+         "strict": attempt.get("strict"),
+         "kmin": attempt.get("kmin"), "kmax": attempt.get("kmax"),
+         "rmin": attempt.get("rmin"),
++        "e0_method": attempt.get("e0_method"),
++        "fit_shells": attempt.get("fit_shells"),
+         "status": attempt.get("status"),
+         "s02": result.get("s02"),
+         "s02_err": result.get("s02_err"),
+@@ -300,6 +323,7 @@ def _run_element(element, outdir: Path) -> dict:
+             "s02", "s02_err", "rf", "spread", "delta_e0", "sigma2",
+             "plateau", "k_window", "fixed_CN", "R_first", "runs",
+             "checks", "kw_sensitivity", "n_variables", "n_independent",
++            "n_shells", "shell_paths", "e0", "e0_method",
+             "motif", "edge", "provenance", "standard", "standard_sha256",
+             "motif_file", "motif_file_sha256")})
+         payload["result"] = result
+diff --git a/data/s02_calibration/Ag/calibration.json b/data/s02_calibration/Ag/calibration.json
+index cdc85d3..58c4f13 100644
+--- a/data/s02_calibration/Ag/calibration.json
++++ b/data/s02_calibration/Ag/calibration.json
+@@ -1,7 +1,7 @@
+ {
+  "absorber": "Ag",
+  "status": "calibrated",
+- "generated_at": "2026-11-09T12:18:55",
++ "generated_at": "2026-11-09T15:07:02",
+  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+  "static_absorber_py_unchanged": true,
+  "apply_to_absorber_py": false,
+@@ -16,6 +16,9 @@
+    "kmin": null,
+    "kmax": null,
+    "rmin": null,
++   "e0_method": "derivative",
++   "manual_e0": null,
++   "fit_shells": 1,
+    "note": "",
+    "provenance": {
+     "source_path": "_standards_lib\\Ag\\Ag_metal_foil.dat",
+@@ -32,11 +35,22 @@
+     "motif_file": null,
+     "fixed_CN": 12.0,
+     "R_first": 2.8894,
++    "n_shells": 1,
++    "shell_paths": [
++     {
++      "label": "Ag-Ag@2.89",
++      "scatterer": "Ag",
++      "reff": 2.8894,
++      "degen": 12.0
++     }
++    ],
++    "e0_method": "derivative",
++    "e0": 25545.8,
+     "k_window": [
+      3.0,
+      12.0
+     ],
+-    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+     "runs": [
+      {
+       "r_window": [
+@@ -49,6 +63,16 @@
+       "delta_e0": 0.99,
+       "sigma2": 0.0092,
+       "delta_r": -0.03,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Ag-Ag@2.89",
++        "degen": 12.0,
++        "sigma2": 0.0092,
++        "delta_r": -0.03,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": true
+      },
+      {
+@@ -62,6 +86,16 @@
+       "delta_e0": 0.99,
+       "sigma2": 0.0091,
+       "delta_r": -0.03,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Ag-Ag@2.89",
++        "degen": 12.0,
++        "sigma2": 0.0091,
++        "delta_r": -0.03,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": true
+      },
+      {
+@@ -75,6 +109,16 @@
+       "delta_e0": 0.97,
+       "sigma2": 0.009,
+       "delta_r": -0.03,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Ag-Ag@2.89",
++        "degen": 12.0,
++        "sigma2": 0.009,
++        "delta_r": -0.03,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": true
+      }
+     ],
+@@ -104,7 +148,8 @@
+      "window_runs_interior": true,
+      "s02_in_range": true,
+      "s02_err_ok": true,
+-     "window_spread_ok": true
++     "window_spread_ok": true,
++     "sigma2_not_at_bound": true
+     },
+     "pass": true
+    },
+@@ -136,6 +181,16 @@
+    "delta_e0": 0.99,
+    "sigma2": 0.0092,
+    "delta_r": -0.03,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Ag-Ag@2.89",
++     "degen": 12.0,
++     "sigma2": 0.0092,
++     "delta_r": -0.03,
++     "sigma2_at_bound": false
++    }
++   ],
+    "interior": true
+   },
+   {
+@@ -149,6 +204,16 @@
+    "delta_e0": 0.99,
+    "sigma2": 0.0091,
+    "delta_r": -0.03,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Ag-Ag@2.89",
++     "degen": 12.0,
++     "sigma2": 0.0091,
++     "delta_r": -0.03,
++     "sigma2_at_bound": false
++    }
++   ],
+    "interior": true
+   },
+   {
+@@ -162,6 +227,16 @@
+    "delta_e0": 0.97,
+    "sigma2": 0.009,
+    "delta_r": -0.03,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Ag-Ag@2.89",
++     "degen": 12.0,
++     "sigma2": 0.009,
++     "delta_r": -0.03,
++     "sigma2_at_bound": false
++    }
++   ],
+    "interior": true
+   }
+  ],
+@@ -169,7 +244,8 @@
+   "window_runs_interior": true,
+   "s02_in_range": true,
+   "s02_err_ok": true,
+-  "window_spread_ok": true
++  "window_spread_ok": true,
++  "sigma2_not_at_bound": true
+  },
+  "kw_sensitivity": {
+   "1": {
+@@ -185,6 +261,17 @@
+  },
+  "n_variables": 4,
+  "n_independent": 4.47,
++ "n_shells": 1,
++ "shell_paths": [
++  {
++   "label": "Ag-Ag@2.89",
++   "scatterer": "Ag",
++   "reff": 2.8894,
++   "degen": 12.0
++  }
++ ],
++ "e0": 25545.8,
++ "e0_method": "derivative",
+  "motif": "ag_fcc_cod_9008459",
+  "edge": "K",
+  "provenance": {
+@@ -206,11 +293,22 @@
+   "motif_file": null,
+   "fixed_CN": 12.0,
+   "R_first": 2.8894,
++  "n_shells": 1,
++  "shell_paths": [
++   {
++    "label": "Ag-Ag@2.89",
++    "scatterer": "Ag",
++    "reff": 2.8894,
++    "degen": 12.0
++   }
++  ],
++  "e0_method": "derivative",
++  "e0": 25545.8,
+   "k_window": [
+    3.0,
+    12.0
+   ],
+-  "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++  "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+   "runs": [
+    {
+     "r_window": [
+@@ -223,6 +321,16 @@
+     "delta_e0": 0.99,
+     "sigma2": 0.0092,
+     "delta_r": -0.03,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Ag-Ag@2.89",
++      "degen": 12.0,
++      "sigma2": 0.0092,
++      "delta_r": -0.03,
++      "sigma2_at_bound": false
++     }
++    ],
+     "interior": true
+    },
+    {
+@@ -236,6 +344,16 @@
+     "delta_e0": 0.99,
+     "sigma2": 0.0091,
+     "delta_r": -0.03,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Ag-Ag@2.89",
++      "degen": 12.0,
++      "sigma2": 0.0091,
++      "delta_r": -0.03,
++      "sigma2_at_bound": false
++     }
++    ],
+     "interior": true
+    },
+    {
+@@ -249,6 +367,16 @@
+     "delta_e0": 0.97,
+     "sigma2": 0.009,
+     "delta_r": -0.03,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Ag-Ag@2.89",
++      "degen": 12.0,
++      "sigma2": 0.009,
++      "delta_r": -0.03,
++      "sigma2_at_bound": false
++     }
++    ],
+     "interior": true
+    }
+   ],
+@@ -278,7 +406,8 @@
+    "window_runs_interior": true,
+    "s02_in_range": true,
+    "s02_err_ok": true,
+-   "window_spread_ok": true
++   "window_spread_ok": true,
++   "sigma2_not_at_bound": true
+   },
+   "pass": true,
+   "provenance": {
+diff --git a/data/s02_calibration/Au/calibration.json b/data/s02_calibration/Au/calibration.json
+index 11bb8a1..9cd473d 100644
+--- a/data/s02_calibration/Au/calibration.json
++++ b/data/s02_calibration/Au/calibration.json
+@@ -1,7 +1,7 @@
+ {
+  "absorber": "Au",
+  "status": "calibrated",
+- "generated_at": "2026-11-09T12:18:55",
++ "generated_at": "2026-11-09T15:07:03",
+  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+  "static_absorber_py_unchanged": true,
+  "apply_to_absorber_py": false,
+@@ -16,6 +16,9 @@
+    "kmin": null,
+    "kmax": null,
+    "rmin": null,
++   "e0_method": "derivative",
++   "manual_e0": null,
++   "fit_shells": 1,
+    "note": "",
+    "provenance": {
+     "source_path": "data\\bmm_standards\\Data\\Au\\Au-L3-GoldFoil.xdi",
+@@ -32,11 +35,22 @@
+     "motif_file": null,
+     "fixed_CN": 12.0,
+     "R_first": 2.8837,
++    "n_shells": 1,
++    "shell_paths": [
++     {
++      "label": "Au-Au@2.88",
++      "scatterer": "Au",
++      "reff": 2.8837,
++      "degen": 12.0
++     }
++    ],
++    "e0_method": "derivative",
++    "e0": 11921.3,
+     "k_window": [
+      3.0,
+      12.0
+     ],
+-    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+     "runs": [
+      {
+       "r_window": [
+@@ -49,6 +63,16 @@
+       "delta_e0": 4.73,
+       "sigma2": 0.0082,
+       "delta_r": -0.0233,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Au-Au@2.88",
++        "degen": 12.0,
++        "sigma2": 0.0082,
++        "delta_r": -0.0233,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": true
+      },
+      {
+@@ -62,6 +86,16 @@
+       "delta_e0": 4.72,
+       "sigma2": 0.0082,
+       "delta_r": -0.0234,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Au-Au@2.88",
++        "degen": 12.0,
++        "sigma2": 0.0082,
++        "delta_r": -0.0234,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": true
+      },
+      {
+@@ -75,6 +109,16 @@
+       "delta_e0": 4.66,
+       "sigma2": 0.0082,
+       "delta_r": -0.0238,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Au-Au@2.88",
++        "degen": 12.0,
++        "sigma2": 0.0082,
++        "delta_r": -0.0238,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": true
+      }
+     ],
+@@ -104,7 +148,8 @@
+      "window_runs_interior": true,
+      "s02_in_range": true,
+      "s02_err_ok": true,
+-     "window_spread_ok": true
++     "window_spread_ok": true,
++     "sigma2_not_at_bound": true
+     },
+     "pass": true
+    },
+@@ -136,6 +181,16 @@
+    "delta_e0": 4.73,
+    "sigma2": 0.0082,
+    "delta_r": -0.0233,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Au-Au@2.88",
++     "degen": 12.0,
++     "sigma2": 0.0082,
++     "delta_r": -0.0233,
++     "sigma2_at_bound": false
++    }
++   ],
+    "interior": true
+   },
+   {
+@@ -149,6 +204,16 @@
+    "delta_e0": 4.72,
+    "sigma2": 0.0082,
+    "delta_r": -0.0234,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Au-Au@2.88",
++     "degen": 12.0,
++     "sigma2": 0.0082,
++     "delta_r": -0.0234,
++     "sigma2_at_bound": false
++    }
++   ],
+    "interior": true
+   },
+   {
+@@ -162,6 +227,16 @@
+    "delta_e0": 4.66,
+    "sigma2": 0.0082,
+    "delta_r": -0.0238,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Au-Au@2.88",
++     "degen": 12.0,
++     "sigma2": 0.0082,
++     "delta_r": -0.0238,
++     "sigma2_at_bound": false
++    }
++   ],
+    "interior": true
+   }
+  ],
+@@ -169,7 +244,8 @@
+   "window_runs_interior": true,
+   "s02_in_range": true,
+   "s02_err_ok": true,
+-  "window_spread_ok": true
++  "window_spread_ok": true,
++  "sigma2_not_at_bound": true
+  },
+  "kw_sensitivity": {
+   "1": {
+@@ -185,6 +261,17 @@
+  },
+  "n_variables": 4,
+  "n_independent": 4.47,
++ "n_shells": 1,
++ "shell_paths": [
++  {
++   "label": "Au-Au@2.88",
++   "scatterer": "Au",
++   "reff": 2.8837,
++   "degen": 12.0
++  }
++ ],
++ "e0": 11921.3,
++ "e0_method": "derivative",
+  "motif": "au_fcc",
+  "edge": "L3",
+  "provenance": {
+@@ -206,11 +293,22 @@
+   "motif_file": null,
+   "fixed_CN": 12.0,
+   "R_first": 2.8837,
++  "n_shells": 1,
++  "shell_paths": [
++   {
++    "label": "Au-Au@2.88",
++    "scatterer": "Au",
++    "reff": 2.8837,
++    "degen": 12.0
++   }
++  ],
++  "e0_method": "derivative",
++  "e0": 11921.3,
+   "k_window": [
+    3.0,
+    12.0
+   ],
+-  "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++  "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+   "runs": [
+    {
+     "r_window": [
+@@ -223,6 +321,16 @@
+     "delta_e0": 4.73,
+     "sigma2": 0.0082,
+     "delta_r": -0.0233,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Au-Au@2.88",
++      "degen": 12.0,
++      "sigma2": 0.0082,
++      "delta_r": -0.0233,
++      "sigma2_at_bound": false
++     }
++    ],
+     "interior": true
+    },
+    {
+@@ -236,6 +344,16 @@
+     "delta_e0": 4.72,
+     "sigma2": 0.0082,
+     "delta_r": -0.0234,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Au-Au@2.88",
++      "degen": 12.0,
++      "sigma2": 0.0082,
++      "delta_r": -0.0234,
++      "sigma2_at_bound": false
++     }
++    ],
+     "interior": true
+    },
+    {
+@@ -249,6 +367,16 @@
+     "delta_e0": 4.66,
+     "sigma2": 0.0082,
+     "delta_r": -0.0238,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Au-Au@2.88",
++      "degen": 12.0,
++      "sigma2": 0.0082,
++      "delta_r": -0.0238,
++      "sigma2_at_bound": false
++     }
++    ],
+     "interior": true
+    }
+   ],
+@@ -278,7 +406,8 @@
+    "window_runs_interior": true,
+    "s02_in_range": true,
+    "s02_err_ok": true,
+-   "window_spread_ok": true
++   "window_spread_ok": true,
++   "sigma2_not_at_bound": true
+   },
+   "pass": true,
+   "provenance": {
+diff --git a/data/s02_calibration/Ce/calibration.json b/data/s02_calibration/Ce/calibration.json
+index 8af31eb..c44a578 100644
+--- a/data/s02_calibration/Ce/calibration.json
++++ b/data/s02_calibration/Ce/calibration.json
+@@ -1,7 +1,7 @@
+ {
+  "absorber": "Ce",
+  "status": "not_calibrated",
+- "generated_at": "2026-11-09T12:18:55",
++ "generated_at": "2026-11-09T15:07:03",
+  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+  "static_absorber_py_unchanged": true,
+  "apply_to_absorber_py": false,
+@@ -16,7 +16,10 @@
+    "kmin": 3.5,
+    "kmax": 12.0,
+    "rmin": 1.6,
+-   "note": "CeO2 荧光计数 xmu，larch 归一化 plateau≈1.20；rmin=1.6 覆盖第一壳并增加 N_idp",
++   "e0_method": "derivative",
++   "manual_e0": null,
++   "fit_shells": 1,
++   "note": "CeO2 荧光计数 xmu，larch 归一化 plateau≈1.20；rmin=1.6 覆盖第一壳并增加 N_idp。P5-B 复核：导数 E0 下 ΔE0≈9.8–10.2 eV 贴 E0_MAX；half_height 使 ΔE0 升到 12.9–13.5 eV；自由 σ² 塌到 1e-4 下界，固定 σ² 时 S₀² 随假设值从 0.54 漂到 0.80（无唯一解）；加 Ce–Ce 第二壳Rf=0.127、ΔR 撞界。不能作为可靠标定",
+    "provenance": {
+     "source_path": "data\\bmm_standards\\Data\\Ce\\Ce-L3-CeO2.xdi",
+     "source_sha256": "1f679ebd0fb31ed37bca9e8ba125ad06fc0b08554052f8329a2ce7386b8c1e7e",
+@@ -32,11 +35,22 @@
+     "motif_file": null,
+     "fixed_CN": 8.0,
+     "R_first": 2.3414,
++    "n_shells": 1,
++    "shell_paths": [
++     {
++      "label": "Ce-O@2.34",
++      "scatterer": "O",
++      "reff": 2.3414,
++      "degen": 8.0
++     }
++    ],
++    "e0_method": "derivative",
++    "e0": 5726.0,
+     "k_window": [
+      3.5,
+      12.0
+     ],
+-    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+     "runs": [
+      {
+       "r_window": [
+@@ -49,6 +63,16 @@
+       "delta_e0": 10.2,
+       "sigma2": 0.0001,
+       "delta_r": 0.0164,
++      "sigma2_at_bound": true,
++      "paths": [
++       {
++        "label": "Ce-O@2.34",
++        "degen": 8.0,
++        "sigma2": 0.0001,
++        "delta_r": 0.0164,
++        "sigma2_at_bound": true
++       }
++      ],
+       "interior": false
+      },
+      {
+@@ -62,6 +86,16 @@
+       "delta_e0": 10.04,
+       "sigma2": 0.0001,
+       "delta_r": 0.016,
++      "sigma2_at_bound": true,
++      "paths": [
++       {
++        "label": "Ce-O@2.34",
++        "degen": 8.0,
++        "sigma2": 0.0001,
++        "delta_r": 0.016,
++        "sigma2_at_bound": true
++       }
++      ],
+       "interior": false
+      },
+      {
+@@ -75,15 +109,25 @@
+       "delta_e0": 9.78,
+       "sigma2": 0.0001,
+       "delta_r": 0.0154,
+-      "interior": true
++      "sigma2_at_bound": true,
++      "paths": [
++       {
++        "label": "Ce-O@2.34",
++        "degen": 8.0,
++        "sigma2": 0.0001,
++        "delta_r": 0.0154,
++        "sigma2_at_bound": true
++       }
++      ],
++      "interior": false
+      }
+     ],
+-    "s02": 0.4627,
+-    "s02_err": 0.0343,
+-    "rf": 0.0617,
++    "s02": null,
++    "s02_err": null,
++    "rf": null,
+     "spread": null,
+-    "delta_e0": 9.78,
+-    "sigma2": 0.0001,
++    "delta_e0": null,
++    "sigma2": null,
+     "n_variables": 4,
+     "n_independent": 4.99,
+     "plateau": 1.203,
+@@ -102,18 +146,43 @@
+     },
+     "checks": {
+      "window_runs_interior": false,
+-     "s02_in_range": true,
+-     "s02_err_ok": true,
+-     "window_spread_ok": false
++     "s02_in_range": false,
++     "s02_err_ok": false,
++     "window_spread_ok": false,
++     "sigma2_not_at_bound": false
+     },
+     "pass": false
+    },
+    "status": "gated_out",
+-   "reason": "门禁未通过: window_runs_interior, window_spread_ok"
++   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound"
++  },
++  {
++   "standard": "data\\bmm_standards\\Data\\Ce\\Ce-L3-CeriumDioxide.xdi",
++   "standard_exists": true,
++   "motif": "ceo2_fluorite_cod_1562989",
++   "motif_file": null,
++   "strict": true,
++   "kmin": 3.5,
++   "kmax": 12.0,
++   "rmin": 1.6,
++   "e0_method": "derivative",
++   "manual_e0": null,
++   "fit_shells": 1,
++   "note": "同相透射谱，但边步被背景淹没（归一化平台≈2.27）；数值上虽可通过宽松拟合，属于归一化伪迹，严格归一化门禁必须拒绝，不得用于标定",
++   "provenance": {
++    "source_path": "data\\bmm_standards\\Data\\Ce\\Ce-L3-CeriumDioxide.xdi",
++    "source_sha256": "e4d10395c858d41f56a1cddb173745fe71ca45405d532bd8e9cf603894db6603",
++    "committed": true,
++    "transform": null,
++    "used_path": "data\\bmm_standards\\Data\\Ce\\Ce-L3-CeriumDioxide.xdi",
++    "used_sha256": "e4d10395c858d41f56a1cddb173745fe71ca45405d532bd8e9cf603894db6603"
++   },
++   "status": "error",
++   "error": "XAFSError: [S3] 归一化失败：边后平台 = 2.271（阈值 0.85–1.15）。稀释样品的低 Z 基体呈 E^-3 衰减，直线外推扣不掉，此时 FT 峰位与幅度均不可引用"
+   }
+  ],
+  "s02": null,
+- "reason": "门禁未通过: window_runs_interior, window_spread_ok",
++ "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
+  "attempts_compact": [
+   {
+    "standard": "data\\bmm_standards\\Data\\Ce\\Ce-L3-CeO2.xdi",
+@@ -122,13 +191,32 @@
+    "kmin": 3.5,
+    "kmax": 12.0,
+    "rmin": 1.6,
++   "e0_method": "derivative",
++   "fit_shells": 1,
+    "status": "gated_out",
+-   "s02": 0.4627,
+-   "s02_err": 0.0343,
+-   "rf": 0.0617,
++   "s02": null,
++   "s02_err": null,
++   "rf": null,
+    "spread": null,
+    "plateau": 1.203,
+-   "reason": "门禁未通过: window_runs_interior, window_spread_ok"
++   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound"
++  },
++  {
++   "standard": "data\\bmm_standards\\Data\\Ce\\Ce-L3-CeriumDioxide.xdi",
++   "motif": "ceo2_fluorite_cod_1562989",
++   "strict": true,
++   "kmin": 3.5,
++   "kmax": 12.0,
++   "rmin": 1.6,
++   "e0_method": "derivative",
++   "fit_shells": 1,
++   "status": "error",
++   "s02": null,
++   "s02_err": null,
++   "rf": null,
++   "spread": null,
++   "plateau": null,
++   "reason": "XAFSError: [S3] 归一化失败：边后平台 = 2.271（阈值 0.85–1.15）。稀释样品的低 Z 基体呈 E^-3 衰减，直线外推扣不掉，此时 FT 峰位与幅度均不可引用"
+   }
+  ]
+ }
+diff --git a/data/s02_calibration/Cr/calibration.json b/data/s02_calibration/Cr/calibration.json
+index 84da297..1d2ced2 100644
+--- a/data/s02_calibration/Cr/calibration.json
++++ b/data/s02_calibration/Cr/calibration.json
+@@ -1,7 +1,7 @@
+ {
+  "absorber": "Cr",
+  "status": "calibrated",
+- "generated_at": "2026-11-09T12:18:51",
++ "generated_at": "2026-11-09T15:06:58",
+  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+  "static_absorber_py_unchanged": true,
+  "apply_to_absorber_py": false,
+@@ -16,6 +16,9 @@
+    "kmin": null,
+    "kmax": null,
+    "rmin": null,
++   "e0_method": "derivative",
++   "manual_e0": null,
++   "fit_shells": 1,
+    "note": "",
+    "provenance": {
+     "source_path": "data\\bmm_standards\\Data\\Cr\\Cr-K-Cr2O3.xdi",
+@@ -32,11 +35,22 @@
+     "motif_file": "data\\s02_calibration\\motifs\\cr2o3_corundum.json",
+     "fixed_CN": 6.0,
+     "R_first": 1.9665,
++    "n_shells": 1,
++    "shell_paths": [
++     {
++      "label": "Cr-O@1.99",
++      "scatterer": "O",
++      "reff": 1.9665,
++      "degen": 6.0
++     }
++    ],
++    "e0_method": "derivative",
++    "e0": 6005.9,
+     "k_window": [
+      3.0,
+      12.0
+     ],
+-    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+     "runs": [
+      {
+       "r_window": [
+@@ -49,6 +63,16 @@
+       "delta_e0": -4.7,
+       "sigma2": 0.002,
+       "delta_r": 0.0179,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Cr-O@1.99",
++        "degen": 6.0,
++        "sigma2": 0.002,
++        "delta_r": 0.0179,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": true
+      },
+      {
+@@ -62,6 +86,16 @@
+       "delta_e0": -4.72,
+       "sigma2": 0.002,
+       "delta_r": 0.0179,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Cr-O@1.99",
++        "degen": 6.0,
++        "sigma2": 0.002,
++        "delta_r": 0.0179,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": true
+      },
+      {
+@@ -75,6 +109,16 @@
+       "delta_e0": -5.08,
+       "sigma2": 0.002,
+       "delta_r": 0.0162,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Cr-O@1.99",
++        "degen": 6.0,
++        "sigma2": 0.002,
++        "delta_r": 0.0162,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": true
+      }
+     ],
+@@ -104,7 +148,8 @@
+      "window_runs_interior": true,
+      "s02_in_range": true,
+      "s02_err_ok": true,
+-     "window_spread_ok": true
++     "window_spread_ok": true,
++     "sigma2_not_at_bound": true
+     },
+     "pass": true
+    },
+@@ -136,6 +181,16 @@
+    "delta_e0": -4.7,
+    "sigma2": 0.002,
+    "delta_r": 0.0179,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Cr-O@1.99",
++     "degen": 6.0,
++     "sigma2": 0.002,
++     "delta_r": 0.0179,
++     "sigma2_at_bound": false
++    }
++   ],
+    "interior": true
+   },
+   {
+@@ -149,6 +204,16 @@
+    "delta_e0": -4.72,
+    "sigma2": 0.002,
+    "delta_r": 0.0179,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Cr-O@1.99",
++     "degen": 6.0,
++     "sigma2": 0.002,
++     "delta_r": 0.0179,
++     "sigma2_at_bound": false
++    }
++   ],
+    "interior": true
+   },
+   {
+@@ -162,6 +227,16 @@
+    "delta_e0": -5.08,
+    "sigma2": 0.002,
+    "delta_r": 0.0162,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Cr-O@1.99",
++     "degen": 6.0,
++     "sigma2": 0.002,
++     "delta_r": 0.0162,
++     "sigma2_at_bound": false
++    }
++   ],
+    "interior": true
+   }
+  ],
+@@ -169,7 +244,8 @@
+   "window_runs_interior": true,
+   "s02_in_range": true,
+   "s02_err_ok": true,
+-  "window_spread_ok": true
++  "window_spread_ok": true,
++  "sigma2_not_at_bound": true
+  },
+  "kw_sensitivity": {
+   "1": {
+@@ -185,6 +261,17 @@
+  },
+  "n_variables": 4,
+  "n_independent": 4.47,
++ "n_shells": 1,
++ "shell_paths": [
++  {
++   "label": "Cr-O@1.99",
++   "scatterer": "O",
++   "reff": 1.9665,
++   "degen": 6.0
++  }
++ ],
++ "e0": 6005.9,
++ "e0_method": "derivative",
+  "motif": "cr2o3_corundum",
+  "edge": "K",
+  "provenance": {
+@@ -206,11 +293,22 @@
+   "motif_file": "data\\s02_calibration\\motifs\\cr2o3_corundum.json",
+   "fixed_CN": 6.0,
+   "R_first": 1.9665,
++  "n_shells": 1,
++  "shell_paths": [
++   {
++    "label": "Cr-O@1.99",
++    "scatterer": "O",
++    "reff": 1.9665,
++    "degen": 6.0
++   }
++  ],
++  "e0_method": "derivative",
++  "e0": 6005.9,
+   "k_window": [
+    3.0,
+    12.0
+   ],
+-  "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++  "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+   "runs": [
+    {
+     "r_window": [
+@@ -223,6 +321,16 @@
+     "delta_e0": -4.7,
+     "sigma2": 0.002,
+     "delta_r": 0.0179,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Cr-O@1.99",
++      "degen": 6.0,
++      "sigma2": 0.002,
++      "delta_r": 0.0179,
++      "sigma2_at_bound": false
++     }
++    ],
+     "interior": true
+    },
+    {
+@@ -236,6 +344,16 @@
+     "delta_e0": -4.72,
+     "sigma2": 0.002,
+     "delta_r": 0.0179,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Cr-O@1.99",
++      "degen": 6.0,
++      "sigma2": 0.002,
++      "delta_r": 0.0179,
++      "sigma2_at_bound": false
++     }
++    ],
+     "interior": true
+    },
+    {
+@@ -249,6 +367,16 @@
+     "delta_e0": -5.08,
+     "sigma2": 0.002,
+     "delta_r": 0.0162,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Cr-O@1.99",
++      "degen": 6.0,
++      "sigma2": 0.002,
++      "delta_r": 0.0162,
++      "sigma2_at_bound": false
++     }
++    ],
+     "interior": true
+    }
+   ],
+@@ -278,7 +406,8 @@
+    "window_runs_interior": true,
+    "s02_in_range": true,
+    "s02_err_ok": true,
+-   "window_spread_ok": true
++   "window_spread_ok": true,
++   "sigma2_not_at_bound": true
+   },
+   "pass": true,
+   "provenance": {
+diff --git a/data/s02_calibration/Ir/calibration.json b/data/s02_calibration/Ir/calibration.json
+index 8005cc5..6b747a7 100644
+--- a/data/s02_calibration/Ir/calibration.json
++++ b/data/s02_calibration/Ir/calibration.json
+@@ -1,7 +1,7 @@
+ {
+  "absorber": "Ir",
+  "status": "not_calibrated",
+- "generated_at": "2026-11-09T12:18:55",
++ "generated_at": "2026-11-09T15:05:56",
+  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+  "static_absorber_py_unchanged": true,
+  "apply_to_absorber_py": false,
+@@ -16,6 +16,9 @@
+    "kmin": null,
+    "kmax": null,
+    "rmin": null,
++   "e0_method": "derivative",
++   "manual_e0": null,
++   "fit_shells": 1,
+    "note": "",
+    "provenance": {
+     "source_path": "_standards_lib\\Ir\\Ir_metal_foil.dat",
+@@ -40,6 +43,8 @@
+    "kmin": null,
+    "kmax": null,
+    "rmin": null,
++   "e0_method": "derivative",
++   "fit_shells": 1,
+    "status": "gated_out",
+    "s02": null,
+    "s02_err": null,
+diff --git a/data/s02_calibration/Mn/calibration.json b/data/s02_calibration/Mn/calibration.json
+index bb91065..a7c659d 100644
+--- a/data/s02_calibration/Mn/calibration.json
++++ b/data/s02_calibration/Mn/calibration.json
+@@ -1,7 +1,7 @@
+ {
+  "absorber": "Mn",
+  "status": "calibrated",
+- "generated_at": "2026-11-09T12:18:52",
++ "generated_at": "2026-11-09T15:06:59",
+  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+  "static_absorber_py_unchanged": true,
+  "apply_to_absorber_py": false,
+@@ -16,6 +16,9 @@
+    "kmin": null,
+    "kmax": null,
+    "rmin": null,
++   "e0_method": "derivative",
++   "manual_e0": null,
++   "fit_shells": 1,
+    "note": "",
+    "provenance": {
+     "source_path": "data\\bmm_standards\\Data\\Mn\\Mn-Pyrolucite.xdi",
+@@ -32,11 +35,22 @@
+     "motif_file": "data\\s02_calibration\\motifs\\mno2_rutile.json",
+     "fixed_CN": 6.0,
+     "R_first": 1.8822,
++    "n_shells": 1,
++    "shell_paths": [
++     {
++      "label": "Mn-O@1.89",
++      "scatterer": "O",
++      "reff": 1.8822,
++      "degen": 6.0
++     }
++    ],
++    "e0_method": "derivative",
++    "e0": 6548.7,
+     "k_window": [
+      3.0,
+      12.0
+     ],
+-    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+     "runs": [
+      {
+       "r_window": [
+@@ -49,6 +63,16 @@
+       "delta_e0": -2.23,
+       "sigma2": 0.0033,
+       "delta_r": 0.0122,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Mn-O@1.89",
++        "degen": 6.0,
++        "sigma2": 0.0033,
++        "delta_r": 0.0122,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": true
+      },
+      {
+@@ -62,6 +86,16 @@
+       "delta_e0": -2.79,
+       "sigma2": 0.0035,
+       "delta_r": 0.0099,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Mn-O@1.89",
++        "degen": 6.0,
++        "sigma2": 0.0035,
++        "delta_r": 0.0099,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": true
+      },
+      {
+@@ -75,6 +109,16 @@
+       "delta_e0": -3.49,
+       "sigma2": 0.0037,
+       "delta_r": 0.0068,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Mn-O@1.89",
++        "degen": 6.0,
++        "sigma2": 0.0037,
++        "delta_r": 0.0068,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": true
+      }
+     ],
+@@ -104,7 +148,8 @@
+      "window_runs_interior": true,
+      "s02_in_range": true,
+      "s02_err_ok": true,
+-     "window_spread_ok": true
++     "window_spread_ok": true,
++     "sigma2_not_at_bound": true
+     },
+     "pass": true
+    },
+@@ -136,6 +181,16 @@
+    "delta_e0": -2.23,
+    "sigma2": 0.0033,
+    "delta_r": 0.0122,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Mn-O@1.89",
++     "degen": 6.0,
++     "sigma2": 0.0033,
++     "delta_r": 0.0122,
++     "sigma2_at_bound": false
++    }
++   ],
+    "interior": true
+   },
+   {
+@@ -149,6 +204,16 @@
+    "delta_e0": -2.79,
+    "sigma2": 0.0035,
+    "delta_r": 0.0099,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Mn-O@1.89",
++     "degen": 6.0,
++     "sigma2": 0.0035,
++     "delta_r": 0.0099,
++     "sigma2_at_bound": false
++    }
++   ],
+    "interior": true
+   },
+   {
+@@ -162,6 +227,16 @@
+    "delta_e0": -3.49,
+    "sigma2": 0.0037,
+    "delta_r": 0.0068,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Mn-O@1.89",
++     "degen": 6.0,
++     "sigma2": 0.0037,
++     "delta_r": 0.0068,
++     "sigma2_at_bound": false
++    }
++   ],
+    "interior": true
+   }
+  ],
+@@ -169,7 +244,8 @@
+   "window_runs_interior": true,
+   "s02_in_range": true,
+   "s02_err_ok": true,
+-  "window_spread_ok": true
++  "window_spread_ok": true,
++  "sigma2_not_at_bound": true
+  },
+  "kw_sensitivity": {
+   "1": {
+@@ -185,6 +261,17 @@
+  },
+  "n_variables": 4,
+  "n_independent": 4.47,
++ "n_shells": 1,
++ "shell_paths": [
++  {
++   "label": "Mn-O@1.89",
++   "scatterer": "O",
++   "reff": 1.8822,
++   "degen": 6.0
++  }
++ ],
++ "e0": 6548.7,
++ "e0_method": "derivative",
+  "motif": "mno2_rutile",
+  "edge": "K",
+  "provenance": {
+@@ -206,11 +293,22 @@
+   "motif_file": "data\\s02_calibration\\motifs\\mno2_rutile.json",
+   "fixed_CN": 6.0,
+   "R_first": 1.8822,
++  "n_shells": 1,
++  "shell_paths": [
++   {
++    "label": "Mn-O@1.89",
++    "scatterer": "O",
++    "reff": 1.8822,
++    "degen": 6.0
++   }
++  ],
++  "e0_method": "derivative",
++  "e0": 6548.7,
+   "k_window": [
+    3.0,
+    12.0
+   ],
+-  "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++  "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+   "runs": [
+    {
+     "r_window": [
+@@ -223,6 +321,16 @@
+     "delta_e0": -2.23,
+     "sigma2": 0.0033,
+     "delta_r": 0.0122,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Mn-O@1.89",
++      "degen": 6.0,
++      "sigma2": 0.0033,
++      "delta_r": 0.0122,
++      "sigma2_at_bound": false
++     }
++    ],
+     "interior": true
+    },
+    {
+@@ -236,6 +344,16 @@
+     "delta_e0": -2.79,
+     "sigma2": 0.0035,
+     "delta_r": 0.0099,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Mn-O@1.89",
++      "degen": 6.0,
++      "sigma2": 0.0035,
++      "delta_r": 0.0099,
++      "sigma2_at_bound": false
++     }
++    ],
+     "interior": true
+    },
+    {
+@@ -249,6 +367,16 @@
+     "delta_e0": -3.49,
+     "sigma2": 0.0037,
+     "delta_r": 0.0068,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Mn-O@1.89",
++      "degen": 6.0,
++      "sigma2": 0.0037,
++      "delta_r": 0.0068,
++      "sigma2_at_bound": false
++     }
++    ],
+     "interior": true
+    }
+   ],
+@@ -278,7 +406,8 @@
+    "window_runs_interior": true,
+    "s02_in_range": true,
+    "s02_err_ok": true,
+-   "window_spread_ok": true
++   "window_spread_ok": true,
++   "sigma2_not_at_bound": true
+   },
+   "pass": true,
+   "provenance": {
+diff --git a/data/s02_calibration/Mo/calibration.json b/data/s02_calibration/Mo/calibration.json
+index bed08d7..fa9b1b1 100644
+--- a/data/s02_calibration/Mo/calibration.json
++++ b/data/s02_calibration/Mo/calibration.json
+@@ -1,7 +1,7 @@
+ {
+  "absorber": "Mo",
+- "status": "not_calibrated",
+- "generated_at": "2026-11-09T12:18:53",
++ "status": "calibrated",
++ "generated_at": "2026-11-09T15:07:01",
+  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+  "static_absorber_py_unchanged": true,
+  "apply_to_absorber_py": false,
+@@ -16,6 +16,9 @@
+    "kmin": null,
+    "kmax": null,
+    "rmin": null,
++   "e0_method": "derivative",
++   "manual_e0": null,
++   "fit_shells": 1,
+    "note": "",
+    "provenance": {
+     "source_path": "data\\bmm_standards\\Data\\Mo\\Mo-K-Na2MoO4.xdi",
+@@ -32,11 +35,22 @@
+     "motif_file": "data\\s02_calibration\\motifs\\moo4_tetra.json",
+     "fixed_CN": 4.0,
+     "R_first": 1.76,
++    "n_shells": 1,
++    "shell_paths": [
++     {
++      "label": "Mo-O@1.76",
++      "scatterer": "O",
++      "reff": 1.76,
++      "degen": 4.0
++     }
++    ],
++    "e0_method": "derivative",
++    "e0": 20006.0,
+     "k_window": [
+      3.0,
+      12.0
+     ],
+-    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+     "runs": [
+      {
+       "r_window": [
+@@ -49,6 +63,16 @@
+       "delta_e0": 4.97,
+       "sigma2": 0.0001,
+       "delta_r": -0.0028,
++      "sigma2_at_bound": true,
++      "paths": [
++       {
++        "label": "Mo-O@1.76",
++        "degen": 4.0,
++        "sigma2": 0.0001,
++        "delta_r": -0.0028,
++        "sigma2_at_bound": true
++       }
++      ],
+       "interior": false
+      },
+      {
+@@ -62,6 +86,16 @@
+       "delta_e0": 4.93,
+       "sigma2": 0.0001,
+       "delta_r": -0.003,
++      "sigma2_at_bound": true,
++      "paths": [
++       {
++        "label": "Mo-O@1.76",
++        "degen": 4.0,
++        "sigma2": 0.0001,
++        "delta_r": -0.003,
++        "sigma2_at_bound": true
++       }
++      ],
+       "interior": false
+      },
+      {
+@@ -75,6 +109,16 @@
+       "delta_e0": 5.02,
+       "sigma2": 0.0001,
+       "delta_r": -0.0028,
++      "sigma2_at_bound": true,
++      "paths": [
++       {
++        "label": "Mo-O@1.76",
++        "degen": 4.0,
++        "sigma2": 0.0001,
++        "delta_r": -0.0028,
++        "sigma2_at_bound": true
++       }
++      ],
+       "interior": false
+      }
+     ],
+@@ -104,12 +148,13 @@
+      "window_runs_interior": false,
+      "s02_in_range": false,
+      "s02_err_ok": false,
+-     "window_spread_ok": false
++     "window_spread_ok": false,
++     "sigma2_not_at_bound": false
+     },
+     "pass": false
+    },
+    "status": "gated_out",
+-   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok"
++   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound"
+   },
+   {
+    "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-Tugarinovite.xdi",
+@@ -120,6 +165,9 @@
+    "kmin": null,
+    "kmax": null,
+    "rmin": null,
++   "e0_method": "derivative",
++   "manual_e0": null,
++   "fit_shells": 1,
+    "note": "",
+    "provenance": {
+     "source_path": "data\\bmm_standards\\Data\\Mo\\Mo-K-Tugarinovite.xdi",
+@@ -136,11 +184,22 @@
+     "motif_file": "data\\s02_calibration\\motifs\\moo2_rutile.json",
+     "fixed_CN": 6.0,
+     "R_first": 1.9519,
++    "n_shells": 1,
++    "shell_paths": [
++     {
++      "label": "Mo-O@1.99",
++      "scatterer": "O",
++      "reff": 1.9519,
++      "degen": 6.0
++     }
++    ],
++    "e0_method": "derivative",
++    "e0": 20021.4,
+     "k_window": [
+      3.0,
+      12.0
+     ],
+-    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+     "runs": [
+      {
+       "r_window": [
+@@ -153,6 +212,16 @@
+       "delta_e0": -2.29,
+       "sigma2": 0.0012,
+       "delta_r": 0.03,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Mo-O@1.99",
++        "degen": 6.0,
++        "sigma2": 0.0012,
++        "delta_r": 0.03,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": false
+      },
+      {
+@@ -166,6 +235,16 @@
+       "delta_e0": -2.2,
+       "sigma2": 0.0012,
+       "delta_r": 0.03,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Mo-O@1.99",
++        "degen": 6.0,
++        "sigma2": 0.0012,
++        "delta_r": 0.03,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": false
+      },
+      {
+@@ -179,6 +258,16 @@
+       "delta_e0": -1.88,
+       "sigma2": 0.0015,
+       "delta_r": 0.03,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Mo-O@1.99",
++        "degen": 6.0,
++        "sigma2": 0.0015,
++        "delta_r": 0.03,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": false
+      }
+     ],
+@@ -208,7 +297,8 @@
+      "window_runs_interior": false,
+      "s02_in_range": false,
+      "s02_err_ok": false,
+-     "window_spread_ok": false
++     "window_spread_ok": false,
++     "sigma2_not_at_bound": true
+     },
+     "pass": false
+    },
+@@ -224,6 +314,9 @@
+    "kmin": 2.5,
+    "kmax": 11.0,
+    "rmin": null,
++   "e0_method": "derivative",
++   "manual_e0": null,
++   "fit_shells": 1,
+    "note": "",
+    "provenance": {
+     "source_path": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumDisulfide.xdi",
+@@ -240,11 +333,22 @@
+     "motif_file": "data\\s02_calibration\\motifs\\mos2_2h.json",
+     "fixed_CN": 6.0,
+     "R_first": 2.4182,
++    "n_shells": 1,
++    "shell_paths": [
++     {
++      "label": "Mo-S@2.42",
++      "scatterer": "S",
++      "reff": 2.4182,
++      "degen": 6.0
++     }
++    ],
++    "e0_method": "derivative",
++    "e0": 20013.7,
+     "k_window": [
+      2.5,
+      11.0
+     ],
+-    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+     "runs": [
+      {
+       "r_window": [
+@@ -257,6 +361,16 @@
+       "delta_e0": 4.58,
+       "sigma2": 0.0001,
+       "delta_r": -0.0061,
++      "sigma2_at_bound": true,
++      "paths": [
++       {
++        "label": "Mo-S@2.42",
++        "degen": 6.0,
++        "sigma2": 0.0001,
++        "delta_r": -0.0061,
++        "sigma2_at_bound": true
++       }
++      ],
+       "interior": false
+      },
+      {
+@@ -270,7 +384,17 @@
+       "delta_e0": 4.99,
+       "sigma2": 0.0001,
+       "delta_r": -0.0036,
+-      "interior": true
++      "sigma2_at_bound": true,
++      "paths": [
++       {
++        "label": "Mo-S@2.42",
++        "degen": 6.0,
++        "sigma2": 0.0001,
++        "delta_r": -0.0036,
++        "sigma2_at_bound": true
++       }
++      ],
++      "interior": false
+      },
+      {
+       "r_window": [
+@@ -283,15 +407,25 @@
+       "delta_e0": 6.26,
+       "sigma2": 0.0001,
+       "delta_r": 0.0036,
++      "sigma2_at_bound": true,
++      "paths": [
++       {
++        "label": "Mo-S@2.42",
++        "degen": 6.0,
++        "sigma2": 0.0001,
++        "delta_r": 0.0036,
++        "sigma2_at_bound": true
++       }
++      ],
+       "interior": false
+      }
+     ],
+-    "s02": 0.6787,
+-    "s02_err": 0.055,
+-    "rf": 0.0309,
++    "s02": null,
++    "s02_err": null,
++    "rf": null,
+     "spread": null,
+-    "delta_e0": 4.99,
+-    "sigma2": 0.0001,
++    "delta_e0": null,
++    "sigma2": null,
+     "n_variables": 4,
+     "n_independent": 4.22,
+     "plateau": 0.8668,
+@@ -310,14 +444,15 @@
+     },
+     "checks": {
+      "window_runs_interior": false,
+-     "s02_in_range": true,
+-     "s02_err_ok": true,
+-     "window_spread_ok": false
++     "s02_in_range": false,
++     "s02_err_ok": false,
++     "window_spread_ok": false,
++     "sigma2_not_at_bound": false
+     },
+     "pass": false
+    },
+    "status": "gated_out",
+-   "reason": "门禁未通过: window_runs_interior, window_spread_ok"
++   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound"
+   },
+   {
+    "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumFoil.xdi",
+@@ -328,7 +463,10 @@
+    "kmin": null,
+    "kmax": null,
+    "rmin": null,
+-   "note": "",
++   "e0_method": "half_height",
++   "manual_e0": null,
++   "fit_shells": 2,
++   "note": "bcc Mo 第一壳 8×2.73 Å + 第二壳 6×3.15 Å 同属 Mo–Mo；单壳会把第二壳尾巴折进第一壳振幅（S₀² 撞上界），双壳共享 S₀²/ΔE₀、各壳独立 ΔR/σ²。导数峰落在近边肩峰（20018.8 eV）导致平台 0.842，改用半高点 E₀（20012.9 eV）后平台 0.863，属数据物理判定",
+    "provenance": {
+     "source_path": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumFoil.xdi",
+     "source_sha256": "bfd033f231987908c039d72ee1ec63d8fb873329e385b1fd60168a3551360f44",
+@@ -337,72 +475,480 @@
+     "used_path": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumFoil.xdi",
+     "used_sha256": "bfd033f231987908c039d72ee1ec63d8fb873329e385b1fd60168a3551360f44"
+    },
+-   "status": "error",
+-   "error": "XAFSError: [S3] 归一化失败：边后平台 = 0.842（阈值 0.85–1.15）。稀释样品的低 Z 基体呈 E^-3 衰减，直线外推扣不掉，此时 FT 峰位与幅度均不可引用"
++   "result": {
++    "absorber": "Mo",
++    "edge": "K",
++    "motif": "mo_bcc",
++    "motif_file": null,
++    "fixed_CN": 8.0,
++    "R_first": 2.7254,
++    "n_shells": 2,
++    "shell_paths": [
++     {
++      "label": "Mo-Mo@2.73",
++      "scatterer": "Mo",
++      "reff": 2.7254,
++      "degen": 8.0
++     },
++     {
++      "label": "Mo-Mo@3.15",
++      "scatterer": "Mo",
++      "reff": 3.147,
++      "degen": 6.0
++     }
++    ],
++    "e0_method": "half_height",
++    "e0": 20012.8624,
++    "k_window": [
++     3.0,
++     12.0
++    ],
++    "protocol": "production_equivalent: 2-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++    "runs": [
++     {
++      "r_window": [
++       2.125,
++       3.267
++      ],
++      "s02": 0.8324,
++      "s02_err": 0.0276,
++      "rf": 0.0021,
++      "delta_e0": -1.12,
++      "sigma2": 0.0028,
++      "delta_r": -0.0094,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Mo-Mo@2.73",
++        "degen": 8.0,
++        "sigma2": 0.0028,
++        "delta_r": -0.0094,
++        "sigma2_at_bound": false
++       },
++       {
++        "label": "Mo-Mo@3.15",
++        "degen": 6.0,
++        "sigma2": 0.0022,
++        "delta_r": -0.016,
++        "sigma2_at_bound": false
++       }
++      ],
++      "interior": true
++     },
++     {
++      "r_window": [
++       2.125,
++       3.327
++      ],
++      "s02": 0.8322,
++      "s02_err": 0.0294,
++      "rf": 0.0027,
++      "delta_e0": -0.95,
++      "sigma2": 0.0028,
++      "delta_r": -0.0085,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Mo-Mo@2.73",
++        "degen": 8.0,
++        "sigma2": 0.0028,
++        "delta_r": -0.0085,
++        "sigma2_at_bound": false
++       },
++       {
++        "label": "Mo-Mo@3.15",
++        "degen": 6.0,
++        "sigma2": 0.0022,
++        "delta_r": -0.0147,
++        "sigma2_at_bound": false
++       }
++      ],
++      "interior": true
++     },
++     {
++      "r_window": [
++       2.125,
++       3.407
++      ],
++      "s02": 0.8307,
++      "s02_err": 0.0334,
++      "rf": 0.004,
++      "delta_e0": -0.73,
++      "sigma2": 0.0028,
++      "delta_r": -0.0074,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Mo-Mo@2.73",
++        "degen": 8.0,
++        "sigma2": 0.0028,
++        "delta_r": -0.0074,
++        "sigma2_at_bound": false
++       },
++       {
++        "label": "Mo-Mo@3.15",
++        "degen": 6.0,
++        "sigma2": 0.0022,
++        "delta_r": -0.0129,
++        "sigma2_at_bound": false
++       }
++      ],
++      "interior": true
++     }
++    ],
++    "s02": 0.8322,
++    "s02_err": 0.0334,
++    "rf": 0.004,
++    "spread": 0.0017,
++    "delta_e0": -0.73,
++    "sigma2": 0.0028,
++    "n_variables": 6,
++    "n_independent": 6.88,
++    "plateau": 0.8631,
++    "rbkg_choice": 0.9,
++    "kw_sensitivity": {
++     "1": {
++      "s02": 0.8731,
++      "rf": 0.004,
++      "delta_e0": -2.16
++     },
++     "3": {
++      "s02": 0.8932,
++      "rf": 0.0022,
++      "delta_e0": 0.24
++     }
++    },
++    "checks": {
++     "window_runs_interior": true,
++     "s02_in_range": true,
++     "s02_err_ok": true,
++     "window_spread_ok": true,
++     "sigma2_not_at_bound": true
++    },
++    "pass": true
++   },
++   "status": "passed"
+   }
+  ],
+- "s02": null,
+- "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok",
+- "attempts_compact": [
++ "s02": 0.8322,
++ "s02_err": 0.0334,
++ "rf": 0.004,
++ "spread": 0.0017,
++ "delta_e0": -0.73,
++ "sigma2": 0.0028,
++ "plateau": 0.8631,
++ "k_window": [
++  3.0,
++  12.0
++ ],
++ "fixed_CN": 8.0,
++ "R_first": 2.7254,
++ "runs": [
+   {
+-   "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-Na2MoO4.xdi",
+-   "motif": "moo4_tetra",
+-   "strict": true,
+-   "kmin": null,
+-   "kmax": null,
+-   "rmin": null,
+-   "status": "gated_out",
+-   "s02": null,
+-   "s02_err": null,
+-   "rf": null,
+-   "spread": null,
+-   "plateau": 0.9482,
+-   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok"
++   "r_window": [
++    2.125,
++    3.267
++   ],
++   "s02": 0.8324,
++   "s02_err": 0.0276,
++   "rf": 0.0021,
++   "delta_e0": -1.12,
++   "sigma2": 0.0028,
++   "delta_r": -0.0094,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Mo-Mo@2.73",
++     "degen": 8.0,
++     "sigma2": 0.0028,
++     "delta_r": -0.0094,
++     "sigma2_at_bound": false
++    },
++    {
++     "label": "Mo-Mo@3.15",
++     "degen": 6.0,
++     "sigma2": 0.0022,
++     "delta_r": -0.016,
++     "sigma2_at_bound": false
++    }
++   ],
++   "interior": true
+   },
+   {
+-   "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-Tugarinovite.xdi",
+-   "motif": "moo2_rutile",
+-   "strict": false,
+-   "kmin": null,
+-   "kmax": null,
+-   "rmin": null,
+-   "status": "gated_out",
+-   "s02": null,
+-   "s02_err": null,
+-   "rf": null,
+-   "spread": null,
+-   "plateau": 0.8297,
+-   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok"
++   "r_window": [
++    2.125,
++    3.327
++   ],
++   "s02": 0.8322,
++   "s02_err": 0.0294,
++   "rf": 0.0027,
++   "delta_e0": -0.95,
++   "sigma2": 0.0028,
++   "delta_r": -0.0085,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Mo-Mo@2.73",
++     "degen": 8.0,
++     "sigma2": 0.0028,
++     "delta_r": -0.0085,
++     "sigma2_at_bound": false
++    },
++    {
++     "label": "Mo-Mo@3.15",
++     "degen": 6.0,
++     "sigma2": 0.0022,
++     "delta_r": -0.0147,
++     "sigma2_at_bound": false
++    }
++   ],
++   "interior": true
+   },
+   {
+-   "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumDisulfide.xdi",
+-   "motif": "mos2_2h",
+-   "strict": true,
+-   "kmin": 2.5,
+-   "kmax": 11.0,
+-   "rmin": null,
+-   "status": "gated_out",
+-   "s02": 0.6787,
+-   "s02_err": 0.055,
+-   "rf": 0.0309,
+-   "spread": null,
+-   "plateau": 0.8668,
+-   "reason": "门禁未通过: window_runs_interior, window_spread_ok"
++   "r_window": [
++    2.125,
++    3.407
++   ],
++   "s02": 0.8307,
++   "s02_err": 0.0334,
++   "rf": 0.004,
++   "delta_e0": -0.73,
++   "sigma2": 0.0028,
++   "delta_r": -0.0074,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Mo-Mo@2.73",
++     "degen": 8.0,
++     "sigma2": 0.0028,
++     "delta_r": -0.0074,
++     "sigma2_at_bound": false
++    },
++    {
++     "label": "Mo-Mo@3.15",
++     "degen": 6.0,
++     "sigma2": 0.0022,
++     "delta_r": -0.0129,
++     "sigma2_at_bound": false
++    }
++   ],
++   "interior": true
++  }
++ ],
++ "checks": {
++  "window_runs_interior": true,
++  "s02_in_range": true,
++  "s02_err_ok": true,
++  "window_spread_ok": true,
++  "sigma2_not_at_bound": true
++ },
++ "kw_sensitivity": {
++  "1": {
++   "s02": 0.8731,
++   "rf": 0.004,
++   "delta_e0": -2.16
+   },
++  "3": {
++   "s02": 0.8932,
++   "rf": 0.0022,
++   "delta_e0": 0.24
++  }
++ },
++ "n_variables": 6,
++ "n_independent": 6.88,
++ "n_shells": 2,
++ "shell_paths": [
+   {
+-   "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumFoil.xdi",
+-   "motif": "mo_bcc",
+-   "strict": true,
+-   "kmin": null,
+-   "kmax": null,
+-   "rmin": null,
+-   "status": "error",
+-   "s02": null,
+-   "s02_err": null,
+-   "rf": null,
+-   "spread": null,
+-   "plateau": null,
+-   "reason": "XAFSError: [S3] 归一化失败：边后平台 = 0.842（阈值 0.85–1.15）。稀释样品的低 Z 基体呈 E^-3 衰减，直线外推扣不掉，此时 FT 峰位与幅度均不可引用"
++   "label": "Mo-Mo@2.73",
++   "scatterer": "Mo",
++   "reff": 2.7254,
++   "degen": 8.0
++  },
++  {
++   "label": "Mo-Mo@3.15",
++   "scatterer": "Mo",
++   "reff": 3.147,
++   "degen": 6.0
+   }
+- ]
++ ],
++ "e0": 20012.8624,
++ "e0_method": "half_height",
++ "motif": "mo_bcc",
++ "edge": "K",
++ "provenance": {
++  "source_path": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumFoil.xdi",
++  "source_sha256": "bfd033f231987908c039d72ee1ec63d8fb873329e385b1fd60168a3551360f44",
++  "committed": true,
++  "transform": null,
++  "used_path": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumFoil.xdi",
++  "used_sha256": "bfd033f231987908c039d72ee1ec63d8fb873329e385b1fd60168a3551360f44"
++ },
++ "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumFoil.xdi",
++ "standard_sha256": "bfd033f231987908c039d72ee1ec63d8fb873329e385b1fd60168a3551360f44",
++ "motif_file": null,
++ "motif_file_sha256": null,
++ "result": {
++  "absorber": "Mo",
++  "edge": "K",
++  "motif": "mo_bcc",
++  "motif_file": null,
++  "fixed_CN": 8.0,
++  "R_first": 2.7254,
++  "n_shells": 2,
++  "shell_paths": [
++   {
++    "label": "Mo-Mo@2.73",
++    "scatterer": "Mo",
++    "reff": 2.7254,
++    "degen": 8.0
++   },
++   {
++    "label": "Mo-Mo@3.15",
++    "scatterer": "Mo",
++    "reff": 3.147,
++    "degen": 6.0
++   }
++  ],
++  "e0_method": "half_height",
++  "e0": 20012.8624,
++  "k_window": [
++   3.0,
++   12.0
++  ],
++  "protocol": "production_equivalent: 2-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++  "runs": [
++   {
++    "r_window": [
++     2.125,
++     3.267
++    ],
++    "s02": 0.8324,
++    "s02_err": 0.0276,
++    "rf": 0.0021,
++    "delta_e0": -1.12,
++    "sigma2": 0.0028,
++    "delta_r": -0.0094,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Mo-Mo@2.73",
++      "degen": 8.0,
++      "sigma2": 0.0028,
++      "delta_r": -0.0094,
++      "sigma2_at_bound": false
++     },
++     {
++      "label": "Mo-Mo@3.15",
++      "degen": 6.0,
++      "sigma2": 0.0022,
++      "delta_r": -0.016,
++      "sigma2_at_bound": false
++     }
++    ],
++    "interior": true
++   },
++   {
++    "r_window": [
++     2.125,
++     3.327
++    ],
++    "s02": 0.8322,
++    "s02_err": 0.0294,
++    "rf": 0.0027,
++    "delta_e0": -0.95,
++    "sigma2": 0.0028,
++    "delta_r": -0.0085,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Mo-Mo@2.73",
++      "degen": 8.0,
++      "sigma2": 0.0028,
++      "delta_r": -0.0085,
++      "sigma2_at_bound": false
++     },
++     {
++      "label": "Mo-Mo@3.15",
++      "degen": 6.0,
++      "sigma2": 0.0022,
++      "delta_r": -0.0147,
++      "sigma2_at_bound": false
++     }
++    ],
++    "interior": true
++   },
++   {
++    "r_window": [
++     2.125,
++     3.407
++    ],
++    "s02": 0.8307,
++    "s02_err": 0.0334,
++    "rf": 0.004,
++    "delta_e0": -0.73,
++    "sigma2": 0.0028,
++    "delta_r": -0.0074,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Mo-Mo@2.73",
++      "degen": 8.0,
++      "sigma2": 0.0028,
++      "delta_r": -0.0074,
++      "sigma2_at_bound": false
++     },
++     {
++      "label": "Mo-Mo@3.15",
++      "degen": 6.0,
++      "sigma2": 0.0022,
++      "delta_r": -0.0129,
++      "sigma2_at_bound": false
++     }
++    ],
++    "interior": true
++   }
++  ],
++  "s02": 0.8322,
++  "s02_err": 0.0334,
++  "rf": 0.004,
++  "spread": 0.0017,
++  "delta_e0": -0.73,
++  "sigma2": 0.0028,
++  "n_variables": 6,
++  "n_independent": 6.88,
++  "plateau": 0.8631,
++  "rbkg_choice": 0.9,
++  "kw_sensitivity": {
++   "1": {
++    "s02": 0.8731,
++    "rf": 0.004,
++    "delta_e0": -2.16
++   },
++   "3": {
++    "s02": 0.8932,
++    "rf": 0.0022,
++    "delta_e0": 0.24
++   }
++  },
++  "checks": {
++   "window_runs_interior": true,
++   "s02_in_range": true,
++   "s02_err_ok": true,
++   "window_spread_ok": true,
++   "sigma2_not_at_bound": true
++  },
++  "pass": true,
++  "provenance": {
++   "source_path": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumFoil.xdi",
++   "source_sha256": "bfd033f231987908c039d72ee1ec63d8fb873329e385b1fd60168a3551360f44",
++   "committed": true,
++   "transform": null,
++   "used_path": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumFoil.xdi",
++   "used_sha256": "bfd033f231987908c039d72ee1ec63d8fb873329e385b1fd60168a3551360f44"
++  },
++  "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumFoil.xdi",
++  "standard_sha256": "bfd033f231987908c039d72ee1ec63d8fb873329e385b1fd60168a3551360f44",
++  "motif_file_sha256": null,
++  "static_absorber_py_unchanged": true
++ }
+ }
+diff --git a/data/s02_calibration/Pd/calibration.json b/data/s02_calibration/Pd/calibration.json
+index 0c95d81..54c893d 100644
+--- a/data/s02_calibration/Pd/calibration.json
++++ b/data/s02_calibration/Pd/calibration.json
+@@ -1,7 +1,7 @@
+ {
+  "absorber": "Pd",
+  "status": "not_calibrated",
+- "generated_at": "2026-11-09T12:18:54",
++ "generated_at": "2026-11-09T15:05:56",
+  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+  "static_absorber_py_unchanged": true,
+  "apply_to_absorber_py": false,
+@@ -16,6 +16,9 @@
+    "kmin": null,
+    "kmax": null,
+    "rmin": null,
++   "e0_method": "derivative",
++   "manual_e0": null,
++   "fit_shells": 1,
+    "note": "",
+    "provenance": {
+     "source_path": "_standards_lib\\Pd\\Pd_metal_foil.dat",
+@@ -40,6 +43,8 @@
+    "kmin": null,
+    "kmax": null,
+    "rmin": null,
++   "e0_method": "derivative",
++   "fit_shells": 1,
+    "status": "gated_out",
+    "s02": null,
+    "s02_err": null,
+diff --git a/data/s02_calibration/REPORT.md b/data/s02_calibration/REPORT.md
+index 25e2d21..7fc071e 100644
+--- a/data/s02_calibration/REPORT.md
++++ b/data/s02_calibration/REPORT.md
+@@ -1,26 +1,26 @@
+ # T5 S₀² 标定报告（独立产物）
+ 
+-- 生成时间：2026-11-09T12:18:56
++- 生成时间：2026-11-09T15:07:03
+ - 静态表：`absorber.py` **未改动**（#60：12 元素 s02=None）
+ - 运行时使用：`run_xafs.py --s02 <值>`
+ - 协议：larch 归一化 + 生产等效拟合（N 固定、S₀²/ΔR/σ²/ΔE₀，kw=2，3 窗口鲁棒性）
+ 
+-通过 6 / 12，未通过 6。
++通过 7 / 12，未通过 5。
+ 
+ | 元素 | 状态 | S₀² | err | Rf | spread | motif | 标准谱 | 未通过原因 |
+ |------|------|-----|-----|----|--------|-------|--------|------------|
+ | Cr | calibrated | 0.6482 | 0.0198 | 0.0074 | 0.0053 | cr2o3_corundum | data\bmm_standards\Data\Cr\Cr-K-Cr2O3.xdi | — |
+ | Mn | calibrated | 0.4311 | 0.0313 | 0.0402 | 0.0213 | mno2_rutile | data\bmm_standards\Data\Mn\Mn-Pyrolucite.xdi | — |
+ | Zn | calibrated | 0.6071 | 0.0213 | 0.0090 | 0.0070 | zno_wurtzite | data\bmm_standards\Data\Zn\Zn-Zincite.xdi | — |
+-| Mo | not_calibrated | — | — | — | — | — | — | 门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok |
++| Mo | calibrated | 0.8322 | 0.0334 | 0.0040 | 0.0017 | mo_bcc | data\bmm_standards\Data\Mo\Mo-K-MolybdenumFoil.xdi | — |
+ | Ru | calibrated | 0.7002 | 0.0275 | 0.0154 | 0.0123 | ruo2_rutile | data\bmm_standards\Data\Ru\Ru-K-RuO2.xdi | — |
+ | Rh | not_calibrated | — | — | — | — | — | — | 标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格 |
+ | Pd | not_calibrated | — | — | — | — | — | — | 标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格 |
+ | Ag | calibrated | 0.7513 | 0.0115 | 0.0030 | 0.0141 | ag_fcc_cod_9008459 | _standards_lib\Ag\Ag_metal_foil.dat | — |
+ | Ir | not_calibrated | — | — | — | — | — | — | 标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格 |
+ | Au | calibrated | 0.8602 | 0.0060 | 0.0003 | 0.0073 | au_fcc | data\bmm_standards\Data\Au\Au-L3-GoldFoil.xdi | — |
+-| Ce | not_calibrated | — | — | — | — | — | — | 门禁未通过: window_runs_interior, window_spread_ok |
+-| U | not_calibrated | — | — | — | — | — | — | 门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok |
++| Ce | not_calibrated | — | — | — | — | — | — | 门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound |
++| U | not_calibrated | — | — | — | — | — | — | 门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound |
+ 
+ ## 诚实边界
+ 
+diff --git a/data/s02_calibration/Rh/calibration.json b/data/s02_calibration/Rh/calibration.json
+index e2e398a..78dafc4 100644
+--- a/data/s02_calibration/Rh/calibration.json
++++ b/data/s02_calibration/Rh/calibration.json
+@@ -1,7 +1,7 @@
+ {
+  "absorber": "Rh",
+  "status": "not_calibrated",
+- "generated_at": "2026-11-09T12:18:54",
++ "generated_at": "2026-11-09T15:05:56",
+  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+  "static_absorber_py_unchanged": true,
+  "apply_to_absorber_py": false,
+@@ -16,6 +16,9 @@
+    "kmin": null,
+    "kmax": null,
+    "rmin": null,
++   "e0_method": "derivative",
++   "manual_e0": null,
++   "fit_shells": 1,
+    "note": "",
+    "provenance": {
+     "source_path": "_standards_lib\\Rh\\Rh_metal_foil.dat",
+@@ -40,6 +43,8 @@
+    "kmin": null,
+    "kmax": null,
+    "rmin": null,
++   "e0_method": "derivative",
++   "fit_shells": 1,
+    "status": "gated_out",
+    "s02": null,
+    "s02_err": null,
+diff --git a/data/s02_calibration/Ru/calibration.json b/data/s02_calibration/Ru/calibration.json
+index 1d01f7d..6a9a587 100644
+--- a/data/s02_calibration/Ru/calibration.json
++++ b/data/s02_calibration/Ru/calibration.json
+@@ -1,7 +1,7 @@
+ {
+  "absorber": "Ru",
+  "status": "calibrated",
+- "generated_at": "2026-11-09T12:18:54",
++ "generated_at": "2026-11-09T15:07:02",
+  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+  "static_absorber_py_unchanged": true,
+  "apply_to_absorber_py": false,
+@@ -16,6 +16,9 @@
+    "kmin": null,
+    "kmax": null,
+    "rmin": null,
++   "e0_method": "derivative",
++   "manual_e0": null,
++   "fit_shells": 1,
+    "note": "BMM RuO2 的 xmu 列符号为负（xmu=-ln(It/Ir)）；用 -xmu 作为吸收谱，provenance 记录变换",
+    "provenance": {
+     "source_path": "data\\bmm_standards\\Data\\Ru\\Ru-K-RuO2.xdi",
+@@ -33,11 +36,22 @@
+     "motif_file": "data\\s02_calibration\\motifs\\ruo2_rutile.json",
+     "fixed_CN": 6.0,
+     "R_first": 1.9856,
++    "n_shells": 1,
++    "shell_paths": [
++     {
++      "label": "Ru-O@1.97",
++      "scatterer": "O",
++      "reff": 1.9856,
++      "degen": 6.0
++     }
++    ],
++    "e0_method": "derivative",
++    "e0": 22133.3,
+     "k_window": [
+      3.0,
+      12.0
+     ],
+-    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+     "runs": [
+      {
+       "r_window": [
+@@ -50,6 +64,16 @@
+       "delta_e0": 2.1,
+       "sigma2": 0.0034,
+       "delta_r": 0.0088,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Ru-O@1.97",
++        "degen": 6.0,
++        "sigma2": 0.0034,
++        "delta_r": 0.0088,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": true
+      },
+      {
+@@ -63,6 +87,16 @@
+       "delta_e0": 1.99,
+       "sigma2": 0.0033,
+       "delta_r": 0.008,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Ru-O@1.97",
++        "degen": 6.0,
++        "sigma2": 0.0033,
++        "delta_r": 0.008,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": true
+      },
+      {
+@@ -76,6 +110,16 @@
+       "delta_e0": 1.82,
+       "sigma2": 0.0032,
+       "delta_r": 0.0071,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Ru-O@1.97",
++        "degen": 6.0,
++        "sigma2": 0.0032,
++        "delta_r": 0.0071,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": true
+      }
+     ],
+@@ -105,7 +149,8 @@
+      "window_runs_interior": true,
+      "s02_in_range": true,
+      "s02_err_ok": true,
+-     "window_spread_ok": true
++     "window_spread_ok": true,
++     "sigma2_not_at_bound": true
+     },
+     "pass": true
+    },
+@@ -137,6 +182,16 @@
+    "delta_e0": 2.1,
+    "sigma2": 0.0034,
+    "delta_r": 0.0088,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Ru-O@1.97",
++     "degen": 6.0,
++     "sigma2": 0.0034,
++     "delta_r": 0.0088,
++     "sigma2_at_bound": false
++    }
++   ],
+    "interior": true
+   },
+   {
+@@ -150,6 +205,16 @@
+    "delta_e0": 1.99,
+    "sigma2": 0.0033,
+    "delta_r": 0.008,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Ru-O@1.97",
++     "degen": 6.0,
++     "sigma2": 0.0033,
++     "delta_r": 0.008,
++     "sigma2_at_bound": false
++    }
++   ],
+    "interior": true
+   },
+   {
+@@ -163,6 +228,16 @@
+    "delta_e0": 1.82,
+    "sigma2": 0.0032,
+    "delta_r": 0.0071,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Ru-O@1.97",
++     "degen": 6.0,
++     "sigma2": 0.0032,
++     "delta_r": 0.0071,
++     "sigma2_at_bound": false
++    }
++   ],
+    "interior": true
+   }
+  ],
+@@ -170,7 +245,8 @@
+   "window_runs_interior": true,
+   "s02_in_range": true,
+   "s02_err_ok": true,
+-  "window_spread_ok": true
++  "window_spread_ok": true,
++  "sigma2_not_at_bound": true
+  },
+  "kw_sensitivity": {
+   "1": {
+@@ -186,6 +262,17 @@
+  },
+  "n_variables": 4,
+  "n_independent": 4.73,
++ "n_shells": 1,
++ "shell_paths": [
++  {
++   "label": "Ru-O@1.97",
++   "scatterer": "O",
++   "reff": 1.9856,
++   "degen": 6.0
++  }
++ ],
++ "e0": 22133.3,
++ "e0_method": "derivative",
+  "motif": "ruo2_rutile",
+  "edge": "K",
+  "provenance": {
+@@ -208,11 +295,22 @@
+   "motif_file": "data\\s02_calibration\\motifs\\ruo2_rutile.json",
+   "fixed_CN": 6.0,
+   "R_first": 1.9856,
++  "n_shells": 1,
++  "shell_paths": [
++   {
++    "label": "Ru-O@1.97",
++    "scatterer": "O",
++    "reff": 1.9856,
++    "degen": 6.0
++   }
++  ],
++  "e0_method": "derivative",
++  "e0": 22133.3,
+   "k_window": [
+    3.0,
+    12.0
+   ],
+-  "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++  "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+   "runs": [
+    {
+     "r_window": [
+@@ -225,6 +323,16 @@
+     "delta_e0": 2.1,
+     "sigma2": 0.0034,
+     "delta_r": 0.0088,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Ru-O@1.97",
++      "degen": 6.0,
++      "sigma2": 0.0034,
++      "delta_r": 0.0088,
++      "sigma2_at_bound": false
++     }
++    ],
+     "interior": true
+    },
+    {
+@@ -238,6 +346,16 @@
+     "delta_e0": 1.99,
+     "sigma2": 0.0033,
+     "delta_r": 0.008,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Ru-O@1.97",
++      "degen": 6.0,
++      "sigma2": 0.0033,
++      "delta_r": 0.008,
++      "sigma2_at_bound": false
++     }
++    ],
+     "interior": true
+    },
+    {
+@@ -251,6 +369,16 @@
+     "delta_e0": 1.82,
+     "sigma2": 0.0032,
+     "delta_r": 0.0071,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Ru-O@1.97",
++      "degen": 6.0,
++      "sigma2": 0.0032,
++      "delta_r": 0.0071,
++      "sigma2_at_bound": false
++     }
++    ],
+     "interior": true
+    }
+   ],
+@@ -280,7 +408,8 @@
+    "window_runs_interior": true,
+    "s02_in_range": true,
+    "s02_err_ok": true,
+-   "window_spread_ok": true
++   "window_spread_ok": true,
++   "sigma2_not_at_bound": true
+   },
+   "pass": true,
+   "provenance": {
+diff --git a/data/s02_calibration/U/calibration.json b/data/s02_calibration/U/calibration.json
+index 313a4ca..c2a05dc 100644
+--- a/data/s02_calibration/U/calibration.json
++++ b/data/s02_calibration/U/calibration.json
+@@ -1,7 +1,7 @@
+ {
+  "absorber": "U",
+  "status": "not_calibrated",
+- "generated_at": "2026-11-09T12:18:56",
++ "generated_at": "2026-11-09T15:05:58",
+  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+  "static_absorber_py_unchanged": true,
+  "apply_to_absorber_py": false,
+@@ -16,6 +16,9 @@
+    "kmin": 2.5,
+    "kmax": 7.5,
+    "rmin": null,
++   "e0_method": "derivative",
++   "manual_e0": null,
++   "fit_shells": 1,
+    "note": "",
+    "provenance": {
+     "source_path": "_standards_lib\\U\\U_metal_foil.dat",
+@@ -32,11 +35,22 @@
+     "motif_file": null,
+     "fixed_CN": 4.0,
+     "R_first": 2.7425,
++    "n_shells": 1,
++    "shell_paths": [
++     {
++      "label": "U-U@2.79",
++      "scatterer": "U",
++      "reff": 2.7425,
++      "degen": 4.0
++     }
++    ],
++    "e0_method": "derivative",
++    "e0": 17163.1,
+     "k_window": [
+      2.5,
+      7.5
+     ],
+-    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+     "runs": [
+      {
+       "r_window": [
+@@ -49,6 +63,7 @@
+       "delta_e0": 10.94,
+       "sigma2": 0.0001,
+       "delta_r": 0.03,
++      "sigma2_at_bound": true,
+       "interior": false
+      },
+      {
+@@ -62,6 +77,7 @@
+       "delta_e0": 10.29,
+       "sigma2": 0.001,
+       "delta_r": 0.03,
++      "sigma2_at_bound": false,
+       "interior": false
+      },
+      {
+@@ -75,6 +91,7 @@
+       "delta_e0": 9.41,
+       "sigma2": 0.0015,
+       "delta_r": 0.03,
++      "sigma2_at_bound": false,
+       "interior": false
+      }
+     ],
+@@ -104,16 +121,17 @@
+      "window_runs_interior": false,
+      "s02_in_range": false,
+      "s02_err_ok": false,
+-     "window_spread_ok": false
++     "window_spread_ok": false,
++     "sigma2_not_at_bound": false
+     },
+     "pass": false
+    },
+    "status": "gated_out",
+-   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok"
++   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound"
+   }
+  ],
+  "s02": null,
+- "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok",
++ "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
+  "attempts_compact": [
+   {
+    "standard": "_standards_lib\\U\\U_metal_foil.dat",
+@@ -122,13 +140,15 @@
+    "kmin": 2.5,
+    "kmax": 7.5,
+    "rmin": null,
++   "e0_method": "derivative",
++   "fit_shells": 1,
+    "status": "gated_out",
+    "s02": null,
+    "s02_err": null,
+    "rf": null,
+    "spread": null,
+    "plateau": 0.9319,
+-   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok"
++   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound"
+   }
+  ]
+ }
+diff --git a/data/s02_calibration/Zn/calibration.json b/data/s02_calibration/Zn/calibration.json
+index 9b4199d..afc46ab 100644
+--- a/data/s02_calibration/Zn/calibration.json
++++ b/data/s02_calibration/Zn/calibration.json
+@@ -1,7 +1,7 @@
+ {
+  "absorber": "Zn",
+  "status": "calibrated",
+- "generated_at": "2026-11-09T12:18:52",
++ "generated_at": "2026-11-09T15:06:59",
+  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+  "static_absorber_py_unchanged": true,
+  "apply_to_absorber_py": false,
+@@ -16,6 +16,9 @@
+    "kmin": null,
+    "kmax": null,
+    "rmin": null,
++   "e0_method": "derivative",
++   "manual_e0": null,
++   "fit_shells": 1,
+    "note": "",
+    "provenance": {
+     "source_path": "data\\bmm_standards\\Data\\Zn\\Zn-Zincite.xdi",
+@@ -32,11 +35,22 @@
+     "motif_file": "data\\s02_calibration\\motifs\\zno_wurtzite.json",
+     "fixed_CN": 4.0,
+     "R_first": 1.9741,
++    "n_shells": 1,
++    "shell_paths": [
++     {
++      "label": "Zn-O@1.98",
++      "scatterer": "O",
++      "reff": 1.9741,
++      "degen": 4.0
++     }
++    ],
++    "e0_method": "derivative",
++    "e0": 9663.8,
+     "k_window": [
+      3.0,
+      12.0
+     ],
+-    "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+     "runs": [
+      {
+       "r_window": [
+@@ -49,6 +63,16 @@
+       "delta_e0": 0.84,
+       "sigma2": 0.0039,
+       "delta_r": -0.0182,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Zn-O@1.98",
++        "degen": 4.0,
++        "sigma2": 0.0039,
++        "delta_r": -0.0182,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": true
+      },
+      {
+@@ -62,6 +86,16 @@
+       "delta_e0": 0.86,
+       "sigma2": 0.0039,
+       "delta_r": -0.0181,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Zn-O@1.98",
++        "degen": 4.0,
++        "sigma2": 0.0039,
++        "delta_r": -0.0181,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": true
+      },
+      {
+@@ -75,6 +109,16 @@
+       "delta_e0": 1.06,
+       "sigma2": 0.0038,
+       "delta_r": -0.0171,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Zn-O@1.98",
++        "degen": 4.0,
++        "sigma2": 0.0038,
++        "delta_r": -0.0171,
++        "sigma2_at_bound": false
++       }
++      ],
+       "interior": true
+      }
+     ],
+@@ -104,7 +148,8 @@
+      "window_runs_interior": true,
+      "s02_in_range": true,
+      "s02_err_ok": true,
+-     "window_spread_ok": true
++     "window_spread_ok": true,
++     "sigma2_not_at_bound": true
+     },
+     "pass": true
+    },
+@@ -136,6 +181,16 @@
+    "delta_e0": 0.84,
+    "sigma2": 0.0039,
+    "delta_r": -0.0182,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Zn-O@1.98",
++     "degen": 4.0,
++     "sigma2": 0.0039,
++     "delta_r": -0.0182,
++     "sigma2_at_bound": false
++    }
++   ],
+    "interior": true
+   },
+   {
+@@ -149,6 +204,16 @@
+    "delta_e0": 0.86,
+    "sigma2": 0.0039,
+    "delta_r": -0.0181,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Zn-O@1.98",
++     "degen": 4.0,
++     "sigma2": 0.0039,
++     "delta_r": -0.0181,
++     "sigma2_at_bound": false
++    }
++   ],
+    "interior": true
+   },
+   {
+@@ -162,6 +227,16 @@
+    "delta_e0": 1.06,
+    "sigma2": 0.0038,
+    "delta_r": -0.0171,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Zn-O@1.98",
++     "degen": 4.0,
++     "sigma2": 0.0038,
++     "delta_r": -0.0171,
++     "sigma2_at_bound": false
++    }
++   ],
+    "interior": true
+   }
+  ],
+@@ -169,7 +244,8 @@
+   "window_runs_interior": true,
+   "s02_in_range": true,
+   "s02_err_ok": true,
+-  "window_spread_ok": true
++  "window_spread_ok": true,
++  "sigma2_not_at_bound": true
+  },
+  "kw_sensitivity": {
+   "1": {
+@@ -185,6 +261,17 @@
+  },
+  "n_variables": 4,
+  "n_independent": 4.47,
++ "n_shells": 1,
++ "shell_paths": [
++  {
++   "label": "Zn-O@1.98",
++   "scatterer": "O",
++   "reff": 1.9741,
++   "degen": 4.0
++  }
++ ],
++ "e0": 9663.8,
++ "e0_method": "derivative",
+  "motif": "zno_wurtzite",
+  "edge": "K",
+  "provenance": {
+@@ -206,11 +293,22 @@
+   "motif_file": "data\\s02_calibration\\motifs\\zno_wurtzite.json",
+   "fixed_CN": 4.0,
+   "R_first": 1.9741,
++  "n_shells": 1,
++  "shell_paths": [
++   {
++    "label": "Zn-O@1.98",
++    "scatterer": "O",
++    "reff": 1.9741,
++    "degen": 4.0
++   }
++  ],
++  "e0_method": "derivative",
++  "e0": 9663.8,
+   "k_window": [
+    3.0,
+    12.0
+   ],
+-  "protocol": "production_equivalent: N fixed, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++  "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+   "runs": [
+    {
+     "r_window": [
+@@ -223,6 +321,16 @@
+     "delta_e0": 0.84,
+     "sigma2": 0.0039,
+     "delta_r": -0.0182,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Zn-O@1.98",
++      "degen": 4.0,
++      "sigma2": 0.0039,
++      "delta_r": -0.0182,
++      "sigma2_at_bound": false
++     }
++    ],
+     "interior": true
+    },
+    {
+@@ -236,6 +344,16 @@
+     "delta_e0": 0.86,
+     "sigma2": 0.0039,
+     "delta_r": -0.0181,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Zn-O@1.98",
++      "degen": 4.0,
++      "sigma2": 0.0039,
++      "delta_r": -0.0181,
++      "sigma2_at_bound": false
++     }
++    ],
+     "interior": true
+    },
+    {
+@@ -249,6 +367,16 @@
+     "delta_e0": 1.06,
+     "sigma2": 0.0038,
+     "delta_r": -0.0171,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Zn-O@1.98",
++      "degen": 4.0,
++      "sigma2": 0.0038,
++      "delta_r": -0.0171,
++      "sigma2_at_bound": false
++     }
++    ],
+     "interior": true
+    }
+   ],
+@@ -278,7 +406,8 @@
+    "window_runs_interior": true,
+    "s02_in_range": true,
+    "s02_err_ok": true,
+-   "window_spread_ok": true
++   "window_spread_ok": true,
++   "sigma2_not_at_bound": true
+   },
+   "pass": true,
+   "provenance": {
+diff --git a/data/s02_calibration/index.json b/data/s02_calibration/index.json
+index bd77042..069191e 100644
+--- a/data/s02_calibration/index.json
++++ b/data/s02_calibration/index.json
+@@ -1,11 +1,11 @@
+ {
+- "generated_at": "2026-11-09T12:18:56",
++ "generated_at": "2026-11-09T15:07:03",
+  "protocol": "T5 larch production-equivalent calibration; independent artifacts, static absorber.py unchanged",
+  "static_absorber_py_unchanged": true,
+  "apply_to_absorber_py": false,
+  "runtime_override": "--s02",
+- "pass_count": 6,
+- "fail_count": 6,
++ "pass_count": 7,
++ "fail_count": 5,
+  "elements": [
+   {
+    "absorber": "Cr",
+@@ -26,6 +26,8 @@
+      "kmin": null,
+      "kmax": null,
+      "rmin": null,
++     "e0_method": "derivative",
++     "fit_shells": 1,
+      "status": "passed",
+      "s02": 0.6482,
+      "s02_err": 0.0198,
+@@ -55,6 +57,8 @@
+      "kmin": null,
+      "kmax": null,
+      "rmin": null,
++     "e0_method": "derivative",
++     "fit_shells": 1,
+      "status": "passed",
+      "s02": 0.4311,
+      "s02_err": 0.0313,
+@@ -84,6 +88,8 @@
+      "kmin": null,
+      "kmax": null,
+      "rmin": null,
++     "e0_method": "derivative",
++     "fit_shells": 1,
+      "status": "passed",
+      "s02": 0.6071,
+      "s02_err": 0.0213,
+@@ -96,15 +102,15 @@
+   },
+   {
+    "absorber": "Mo",
+-   "status": "not_calibrated",
+-   "s02": null,
+-   "s02_err": null,
+-   "rf": null,
+-   "spread": null,
+-   "motif": null,
+-   "standard": null,
+-   "standard_sha256": null,
+-   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok",
++   "status": "calibrated",
++   "s02": 0.8322,
++   "s02_err": 0.0334,
++   "rf": 0.004,
++   "spread": 0.0017,
++   "motif": "mo_bcc",
++   "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumFoil.xdi",
++   "standard_sha256": "bfd033f231987908c039d72ee1ec63d8fb873329e385b1fd60168a3551360f44",
++   "reason": null,
+    "attempts": [
+     {
+      "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-Na2MoO4.xdi",
+@@ -113,13 +119,15 @@
+      "kmin": null,
+      "kmax": null,
+      "rmin": null,
++     "e0_method": "derivative",
++     "fit_shells": 1,
+      "status": "gated_out",
+      "s02": null,
+      "s02_err": null,
+      "rf": null,
+      "spread": null,
+      "plateau": 0.9482,
+-     "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok"
++     "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound"
+     },
+     {
+      "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-Tugarinovite.xdi",
+@@ -128,6 +136,8 @@
+      "kmin": null,
+      "kmax": null,
+      "rmin": null,
++     "e0_method": "derivative",
++     "fit_shells": 1,
+      "status": "gated_out",
+      "s02": null,
+      "s02_err": null,
+@@ -143,13 +153,15 @@
+      "kmin": 2.5,
+      "kmax": 11.0,
+      "rmin": null,
++     "e0_method": "derivative",
++     "fit_shells": 1,
+      "status": "gated_out",
+-     "s02": 0.6787,
+-     "s02_err": 0.055,
+-     "rf": 0.0309,
++     "s02": null,
++     "s02_err": null,
++     "rf": null,
+      "spread": null,
+      "plateau": 0.8668,
+-     "reason": "门禁未通过: window_runs_interior, window_spread_ok"
++     "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound"
+     },
+     {
+      "standard": "data\\bmm_standards\\Data\\Mo\\Mo-K-MolybdenumFoil.xdi",
+@@ -158,13 +170,15 @@
+      "kmin": null,
+      "kmax": null,
+      "rmin": null,
+-     "status": "error",
+-     "s02": null,
+-     "s02_err": null,
+-     "rf": null,
+-     "spread": null,
+-     "plateau": null,
+-     "reason": "XAFSError: [S3] 归一化失败：边后平台 = 0.842（阈值 0.85–1.15）。稀释样品的低 Z 基体呈 E^-3 衰减，直线外推扣不掉，此时 FT 峰位与幅度均不可引用"
++     "e0_method": "half_height",
++     "fit_shells": 2,
++     "status": "passed",
++     "s02": 0.8322,
++     "s02_err": 0.0334,
++     "rf": 0.004,
++     "spread": 0.0017,
++     "plateau": 0.8631,
++     "reason": null
+     }
+    ]
+   },
+@@ -187,6 +201,8 @@
+      "kmin": null,
+      "kmax": null,
+      "rmin": null,
++     "e0_method": "derivative",
++     "fit_shells": 1,
+      "status": "passed",
+      "s02": 0.7002,
+      "s02_err": 0.0275,
+@@ -216,6 +232,8 @@
+      "kmin": null,
+      "kmax": null,
+      "rmin": null,
++     "e0_method": "derivative",
++     "fit_shells": 1,
+      "status": "gated_out",
+      "s02": null,
+      "s02_err": null,
+@@ -245,6 +263,8 @@
+      "kmin": null,
+      "kmax": null,
+      "rmin": null,
++     "e0_method": "derivative",
++     "fit_shells": 1,
+      "status": "gated_out",
+      "s02": null,
+      "s02_err": null,
+@@ -274,6 +294,8 @@
+      "kmin": null,
+      "kmax": null,
+      "rmin": null,
++     "e0_method": "derivative",
++     "fit_shells": 1,
+      "status": "passed",
+      "s02": 0.7513,
+      "s02_err": 0.0115,
+@@ -303,6 +325,8 @@
+      "kmin": null,
+      "kmax": null,
+      "rmin": null,
++     "e0_method": "derivative",
++     "fit_shells": 1,
+      "status": "gated_out",
+      "s02": null,
+      "s02_err": null,
+@@ -332,6 +356,8 @@
+      "kmin": null,
+      "kmax": null,
+      "rmin": null,
++     "e0_method": "derivative",
++     "fit_shells": 1,
+      "status": "passed",
+      "s02": 0.8602,
+      "s02_err": 0.006,
+@@ -352,7 +378,7 @@
+    "motif": null,
+    "standard": null,
+    "standard_sha256": null,
+-   "reason": "门禁未通过: window_runs_interior, window_spread_ok",
++   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
+    "attempts": [
+     {
+      "standard": "data\\bmm_standards\\Data\\Ce\\Ce-L3-CeO2.xdi",
+@@ -361,13 +387,32 @@
+      "kmin": 3.5,
+      "kmax": 12.0,
+      "rmin": 1.6,
++     "e0_method": "derivative",
++     "fit_shells": 1,
+      "status": "gated_out",
+-     "s02": 0.4627,
+-     "s02_err": 0.0343,
+-     "rf": 0.0617,
++     "s02": null,
++     "s02_err": null,
++     "rf": null,
+      "spread": null,
+      "plateau": 1.203,
+-     "reason": "门禁未通过: window_runs_interior, window_spread_ok"
++     "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound"
++    },
++    {
++     "standard": "data\\bmm_standards\\Data\\Ce\\Ce-L3-CeriumDioxide.xdi",
++     "motif": "ceo2_fluorite_cod_1562989",
++     "strict": true,
++     "kmin": 3.5,
++     "kmax": 12.0,
++     "rmin": 1.6,
++     "e0_method": "derivative",
++     "fit_shells": 1,
++     "status": "error",
++     "s02": null,
++     "s02_err": null,
++     "rf": null,
++     "spread": null,
++     "plateau": null,
++     "reason": "XAFSError: [S3] 归一化失败：边后平台 = 2.271（阈值 0.85–1.15）。稀释样品的低 Z 基体呈 E^-3 衰减，直线外推扣不掉，此时 FT 峰位与幅度均不可引用"
+     }
+    ]
+   },
+@@ -381,7 +426,7 @@
+    "motif": null,
+    "standard": null,
+    "standard_sha256": null,
+-   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok",
++   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
+    "attempts": [
+     {
+      "standard": "_standards_lib\\U\\U_metal_foil.dat",
+@@ -390,13 +435,15 @@
+      "kmin": 2.5,
+      "kmax": 7.5,
+      "rmin": null,
++     "e0_method": "derivative",
++     "fit_shells": 1,
+      "status": "gated_out",
+      "s02": null,
+      "s02_err": null,
+      "rf": null,
+      "spread": null,
+      "plateau": 0.9319,
+-     "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok"
++     "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound"
+     }
+    ]
+   }
+diff --git a/regression_test.py b/regression_test.py
+index e0e948c..cbc1e88 100644
+--- a/regression_test.py
++++ b/regression_test.py
+@@ -61,9 +61,10 @@ P4+ 新增：
+     - T7 多元素综合报告：自动分元素、并列结果、不推荐 Top-1
+     - T8 XANES–EXAFS 软校验：只产生警告，不改变 cn_reliable
+     - P5-A T5 标定产物完整性 / --only 增量合并 / --s02-from-t5 溯源
++    - P5-B Mo 双壳 bcc 标定 / Ce σ² 压界与归一化伪迹拒绝
+ 
+-当前共 123 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+
+-CIF 抓取/条件 CN/T7/T8/P5-A 契约）。
++当前共 124 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+
++CIF 抓取/条件 CN/T7/T8/P5-A/P5-B 契约）。
+ 
+ 运行:
+     python regression_test.py
+@@ -5446,12 +5447,12 @@ O1 O 0 0 0 0.5
+         rows = {r["absorber"]: r for r in index["elements"]}
+         self.assertEqual(set(rows), set(calibrate_t5.ELEMENTS))
+         self.assertEqual(index["pass_count"] + index["fail_count"], 12)
+-        self.assertGreaterEqual(index["pass_count"], 6)
++        self.assertGreaterEqual(index["pass_count"], 7)
+         self.assertNotIn("C:\\\\", index_path.read_text(encoding="utf-8"))
+-        for el in ("Cr", "Mn", "Zn", "Ru", "Ag", "Au"):
++        for el in ("Cr", "Mn", "Zn", "Mo", "Ru", "Ag", "Au"):
+             self.assertEqual(rows[el]["status"], "calibrated", el)
+             self.assertIsNotNone(rows[el]["s02"], el)
+-        for el in ("Mo", "Rh", "Pd", "Ir", "Ce", "U"):
++        for el in ("Rh", "Pd", "Ir", "Ce", "U"):
+             self.assertEqual(rows[el]["status"], "not_calibrated", el)
+             self.assertIsNone(rows[el]["s02"], el)
+             self.assertTrue(rows[el].get("reason"), el)
+@@ -5519,7 +5520,7 @@ O1 O 0 0 0 0.5
+         self.assertIn("standard_sha256:", source)
+ 
+         with self.assertRaises(XAFSConfigError) as cm:
+-            run_xafs.load_t5_s02("Mo")
++            run_xafs.load_t5_s02("Ce")
+         self.assertIn("未通过", str(cm.exception))
+         with self.assertRaises(XAFSConfigError):
+             run_xafs.load_t5_s02("Xx")
+@@ -5543,6 +5544,77 @@ O1 O 0 0 0 0.5
+         self.assertFalse(xafs_fit._s02_calibrated_flag(
+             get_absorber("Cr"), "--s02 runtime override"))
+ 
++    def test_p5b_mo_double_shell_and_ce_rejection(self):
++        """#124 P5-B：Mo 双壳 bcc 标定；Ce σ² 压界/伪迹明确拒绝。"""
++        import inspect
++        import calibrate_s02
++        import calibrate_t5
++        import run_xafs
++
++        sig = inspect.signature(calibrate_s02.calibrate_s02)
++        for name in ("e0_method", "manual_e0", "fit_shells"):
++            self.assertIn(name, sig.parameters)
++
++        mo_cases = calibrate_t5.CASES["Mo"]
++        mo_foil = next(c for c in mo_cases
++                       if Path(c["standard"]).name ==
++                       "Mo-K-MolybdenumFoil.xdi")
++        self.assertEqual(mo_foil.get("e0_method"), "half_height")
++        self.assertEqual(mo_foil.get("fit_shells"), 2)
++        self.assertTrue(mo_foil.get("strict"))
++        ce_cases = calibrate_t5.CASES["Ce"]
++        self.assertEqual(len(ce_cases), 2)
++        self.assertTrue(ce_cases[1].get("strict"))
++
++        mo = json.loads((ROOT / "data" / "s02_calibration" / "Mo" /
++                         "calibration.json").read_text(encoding="utf-8"))
++        self.assertEqual(mo["status"], "calibrated")
++        self.assertAlmostEqual(mo["s02"], 0.8322, places=4)
++        self.assertEqual(mo["n_shells"], 2)
++        self.assertEqual([s["degen"] for s in mo["shell_paths"]],
++                         [8.0, 6.0])
++        self.assertAlmostEqual(mo["shell_paths"][0]["reff"], 2.7254,
++                               places=4)
++        self.assertAlmostEqual(mo["shell_paths"][1]["reff"], 3.147,
++                               places=3)
++        self.assertEqual(mo["e0_method"], "half_height")
++        self.assertAlmostEqual(mo["e0"], 20012.8624, places=3)
++        self.assertIn("sigma2_not_at_bound", mo["checks"])
++        self.assertTrue(all(mo["checks"].values()))
++        self.assertEqual(mo["n_variables"], 6)
++        self.assertGreater(mo["n_independent"], mo["n_variables"])
++        for run in mo["runs"]:
++            self.assertTrue(run["interior"])
++            self.assertEqual(len(run["paths"]), 2)
++            self.assertFalse(run["sigma2_at_bound"])
++            self.assertFalse(any(p["sigma2_at_bound"]
++                                 for p in run["paths"]))
++
++        ce = json.loads((ROOT / "data" / "s02_calibration" / "Ce" /
++                         "calibration.json").read_text(encoding="utf-8"))
++        self.assertEqual(ce["status"], "not_calibrated")
++        self.assertIsNone(ce["s02"])
++        first = next(a for a in ce["attempts"]
++                     if a["standard"].endswith("Ce-L3-CeO2.xdi"))
++        self.assertEqual(first["status"], "gated_out")
++        self.assertFalse(first["result"]["checks"]["sigma2_not_at_bound"])
++        self.assertTrue(all(r["sigma2_at_bound"]
++                            for r in first["result"]["runs"]))
++        second = next(a for a in ce["attempts"]
++                      if a["standard"].endswith(
++                          "Ce-L3-CeriumDioxide.xdi"))
++        self.assertEqual(second["status"], "error")
++        self.assertIn("归一化失败", second["error"])
++        self.assertIn("2.271", second["error"])
++
++        s02, source = run_xafs.load_t5_s02("Mo")
++        self.assertAlmostEqual(s02, 0.8322, places=4)
++        self.assertIn("Mo", source)
++        self.assertIn("sha256:", source)
++        with self.assertRaises(XAFSConfigError) as cm:
++            run_xafs.load_t5_s02("Ce")
++        self.assertIn("未通过", str(cm.exception))
++
+ 
+ if __name__ == "__main__":
+     # unittest 默认写 stderr；PowerShell 会把任何 stderr 记录当成

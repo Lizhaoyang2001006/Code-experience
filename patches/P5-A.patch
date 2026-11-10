@@ -1,0 +1,714 @@
+diff --git a/CIF_CRAWLER_INTEGRATION.md b/CIF_CRAWLER_INTEGRATION.md
+index 19843f2..64bd564 100644
+--- a/CIF_CRAWLER_INTEGRATION.md
++++ b/CIF_CRAWLER_INTEGRATION.md
+@@ -14,7 +14,7 @@
+ - 17 个 COD motif 入库，结构库共 **43 个 motif**，覆盖 **17/17** 吸收元素；
+ - T5 12 条 IIT-Lytle 真实谱全部落盘，**0 个 placeholder**；
+ - 旧 ID 迁移完成：`LEGACY_MOTIFS_LEFT 0`、`QUARANTINE_FILES 0`；
+-- `regression_test.py` **121 项** + 4 个压力测试全部通过（`run_ci.py --stress` PASS）。
++- `regression_test.py` **123 项** + 4 个压力测试全部通过（`run_ci.py --stress` PASS）。
+ 
+ 运行期仍然完全离线：`run_xafs.py` 不导入根爬虫，不读取 `data/cif_crawler_index.json` 取几何，只通过
+ `structure_lib.load_library(absorber)` 读取 `_structure_lib`。
+@@ -109,7 +109,12 @@ python cif_crawler.py --t5
+ - `T5_PLACEHOLDERS 0`；
+ - 文件头保留 IIT-Lytle 来源、源文件名、E0、能量范围与点数；
+ - T5 标定由 `calibrate_t5.py` 批量执行，产物落 `data/s02_calibration/`（`index.json`、逐元素 `calibration.json`、`REPORT.md`），**不改 `absorber.py`**；#60 静态表仍为 Fe/Co/Ni/Cu/Pt 已标定，其余 12 元素 `s02=None`、`calibrated=False`；
+-- 运行时通过 `run_xafs.py --s02 <值>` 显式覆盖；通过 6/12（Cr/Mn/Zn/Ru/Ag/Au），Mo/Rh/Pd/Ir/Ce/U 记录未通过原因、不强行给值；
++- 运行时通过 `run_xafs.py --s02 <值>` 显式覆盖，或对已通过元素用
++  `run_xafs.py --s02-from-t5 --identify/--fit` 从独立产物读取（只接受
++  `status="calibrated"` 且 `static_absorber_py_unchanged=True`；未通过
++  元素明确拒绝）；通过 6/12（Cr/Mn/Zn/Ru/Ag/Au），Mo/Rh/Pd/Ir/Ce/U
++  记录未通过原因、不强行给值；`s02_source` 溯源串写入 L1/motif 输出与
++  `<stem>_meta.json.fit`；
+ - `_standards_lib/` 与 `data/standards_raw/` 因许可未明确不提交；Ag 标定依赖本地 IIT-Lytle 谱，产物记录源文件 SHA256，但不保证无本地标准时可复现。
+ 
+ ## 5. 验收
+@@ -117,8 +122,8 @@ python cif_crawler.py --t5
+ ### 5.1 回归与压力
+ 
+ ```text
+-regression_test.py: 121 tests OK
+-run_ci.py --stress: PASS (154.7s)
++regression_test.py: 123 tests OK
++run_ci.py --stress: PASS (183.1s)
+   stress_test_co.py   PASS
+   stress_test_ni.py   PASS
+   stress_test_cu.py   PASS
+@@ -174,11 +179,11 @@ python cif_crawler.py --t5
+ 
+ ## 7. 仍然存在的缺口
+ 
+-1. **T5 S₀² 部分标定**：已产出独立标定产物并通过 6/12；Mo/Rh/Pd/Ir/Ce/U 仍缺高质量宽能区标准，未标定元素仍需运行时 `--s02` 才能做正式 CN；
++1. **T5 S₀² 部分标定**：已产出独立标定产物并通过 6/12；Mo/Rh/Pd/Ir/Ce/U 仍缺高质量宽能区标准，未标定元素仍需运行时 `--s02` 才能做正式 CN（已通过元素可用 `--s02-from-t5`）；
+ 2. **常见相仍缺**：FeO、FeOOH、PtO2、Cr2O3、MnO/MnO2/Mn3O4、ZnO、MoO2/MoO3、RuO2、Rh2O3、PdO、Ag2O、IrO2、Au2O3、UO2/U3O8；
+ 3. **多位点联合模型未自动构建**：当前需显式 `--absorber-site` 或 `absorber_fract`；
+ 4. **T7/T8 已实现**：`--multi-element` 逐元素并列报告、不推荐 Top-1；`--xanes-cross-check` 只报警告、不改 `cn_reliable`（#120/#121）。
+ 
+ ## 8. 一句话状态
+ 
+-**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 121+4 CI 全部通过；T5 已产出 6/12 独立标定产物（静态表未改），T7 多元素与 T8 联合校验已实现。**
++**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 123+4 CI 全部通过；T5 已产出 6/12 独立标定产物（静态表未改），运行期可用 `--s02-from-t5` 溯源，T7 多元素与 T8 联合校验已实现。**
+diff --git a/README.md b/README.md
+index 19ebc28..7f46551 100644
+--- a/README.md
++++ b/README.md
+@@ -42,8 +42,9 @@ python xafs_report.py
+ - 识别 `confident`：按 motif 自动选壳层，做多壳层 CN；
+ - `partial` / `ambiguous` / `no_match`：默认只做 L1 第一壳；
+ - 未在 absorber.py 标定 S₀² 的新元素：拒绝 CN 定量；可用运行时
+-  `--s02 <值>` 显式覆盖（现有 Fe/Co/Ni/Cu/Pt 均已标定；T5 独立标定
+-  产物见下文，不写静态表）；
++  `--s02 <值>` 显式覆盖，或对 T5 已通过元素用 `--s02-from-t5`
++  从独立产物读取（现有 Fe/Co/Ni/Cu/Pt 均已标定；T5 产物见下文，
++  不写静态表）；
+ - `--fit-weights`（仅 `kind="mixture"`）：固定每路径晶体学简并度，
+   用 softmax 放开各组分权重（恒正、和=1），输出 `mixture_weights`
+   `[{group, weight, weight_err}]`。此时表里的 `N` 是**有效简并度
+@@ -75,7 +76,7 @@ python xafs_report.py
+ | `calibrate_s02.py` | 标定 S₀²（金属箔/氧化物标样，生产等效协议；`--motif-file` 用标定专用结构） |
+ | `calibrate_t5.py` | T5 批量标定 12 元素，产物落 `data/s02_calibration/`（不改静态表） |
+ | `absorber.py` | 吸收元素配置表（边能量/S₀²/kmax），元素泛化唯一入口 |
+-| `regression_test.py` | 121 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验） |
++| `regression_test.py` | 123 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源） |
+ | `run_ci.py` | 跨平台 CI：编译 + 契约回归 + 可选压力测试，输出 ci_report.json/md |
+ | `stress_test_{co,ni,cu,nio}.py` | 元素泛化/护栏/CN 回收压力测试 |
+ | `xafs_config.py` | 配置文件支持（.yaml/.json）、批处理入口（--batch-dir） |
+@@ -103,7 +104,8 @@ python xafs_report.py
+ 跑批量标定，产物在 `data/s02_calibration/`（`index.json`、逐元素
+ `calibration.json`、`REPORT.md`）。**不写 `absorber.py`**——#60 要求
+ 静态表中这 12 个元素保持 `s02=None`/`calibrated=False`；运行时用
+-`run_xafs.py --s02 <值>` 显式覆盖。
++`run_xafs.py --s02 <值>` 显式覆盖，或对已通过元素用
++`run_xafs.py --s02-from-t5 --fit` 读取独立产物（见下文 P5-A）。
+ 
+ | 元素 | S₀² | 标样 / motif | Rf | 窗口极差 |
+ |------|------|--------------|----|----------|
+@@ -127,12 +129,17 @@ Tugarinovite s02_err>0.06、MoS₂ 单窗口、Mo 箔撞上界）、Rh/Pd/Ir
+ ```text
+ python run_xafs.py a.dat b.dat --multi-element --multi-element-s02 "Fe=0.803,Co=0.7308"
+ python run_xafs.py sample.xdi --absorber Fe --xanes-cross-check
++python run_xafs.py Cr-K-Cr2O3.xdi --absorber Cr --s02-from-t5 --identify --fit
+ ```
+ 
+ - `--multi-element`：逐文件从 XDI `Element.symbol` / `Absorber:` 头自动判定
+   吸收元素，分元素独立子目录跑批，输出 `multi_element_summary.json/.md`；
+   各元素结果**并列**，`recommended=null`、`best_element=null`，不自动
+   选择/推荐 Top-1。
++- `--s02-from-t5`：从 `data/s02_calibration/<元素>/calibration.json` 读取
++  T5 已通过元素的 S₀²；只接受 `status="calibrated"` 且
++  `static_absorber_py_unchanged=True` 的产物，未通过元素明确拒绝。
++  优先级 `--multi-element-s02` > 全局 `--s02` > T5 产物。
+ - `--xanes-cross-check`：归一化平台、边步、E0 导数双峰、白线可靠性与位置、
+   K 边极端 CN–白线对比、荧光自吸收风险；只写警告到
+   `<stem>_meta.json.xanes_cross_check`，`affects_cn_reliable=False`，
+@@ -687,6 +694,28 @@ N=12.259、R=2.8591 Å、Rf=0.0022；真实 Mo 箔 `s02=0.88`：
+ top1=`mo_bcc`，N₁=7.47/R₁=2.7196 Å、N₂=6.20/R₂=3.1355 Å、
+ Rf=0.0082。
+ 
++### P5-A T5 运行期溯源（`--s02-from-t5`，2026-11-09）
++`run_xafs.py --s02-from-t5 --identify/--fit` 从逐元素
++`data/s02_calibration/<元素>/calibration.json` 读取 T5 S₀²，不改
++`absorber.py` 静态表。读取规则：
++
++- 只接受 `status="calibrated"` 且 `static_absorber_py_unchanged=True`；
++  未通过元素（如 Mo/Rh/Pd/Ir/Ce/U）抛 `XAFSConfigError`，错误含
++  “未通过”，不静默回退到静态表或猜测值；
++- 显式 `--s02` / `--multi-element-s02` 优先；显式 `--absorber` 优先于
++  文件头元素判定，避免 S₀² 与拟合元素错配；
++- 溯源串写入 L1/motif 输出与 `<stem>_meta.json.fit.s02_source`：
++  `s02_calibration:<相对路径>#sha256:<12位>;standard_sha256:<12位>`；
++- 正式 CN 表把 T5 产物来源记为 `s02_calibrated=True`（普通 `--s02`
++  手填值仍为 `False`）；
++- `calibrate_t5.py --only <元素>` 只重跑所选元素，其余元素从既有
++  `<元素>/calibration.json` 合并回 `index.json`/`REPORT.md`，不丢结果。
++
++Cr₂O₃ 真实谱冒烟：`fit.s02=0.6482`，`s02_source` 以
++`s02_calibration:` 开头；L1 `N=6.34±0.21`、`R=1.975 Å`、`Rf=0.0216`。
++契约 #122 锁定产物完整性与 `--only` 增量合并，#123 锁定加载器与
++来源优先级。
++
+ ### B19-1 原位序列 EXAFS 联合精修
+ `xafs_fit.run_operando_exafs_series(results, absorber_symbol, motif=None,
+ catalytic_model=None, ..., share_sigma2_across_series=False)` 对 ≥3 个
+diff --git a/calibrate_t5.py b/calibrate_t5.py
+index ec25108..de65f37 100644
+--- a/calibrate_t5.py
++++ b/calibrate_t5.py
+@@ -316,9 +316,38 @@ def _run_element(element, outdir: Path) -> dict:
+     return payload
+ 
+ 
++def _load_existing_payloads(outdir: Path) -> dict[str, dict]:
++    """读取 ``<元素>/calibration.json``，供 ``--only`` 增量合并。
++
++    局部重跑只更新所选元素；其余元素从既有逐元素产物恢复，避免把
++    ``index.json`` 覆盖成子集。缺失/损坏的产物跳过并打印警告，不伪造。
++    """
++    payloads: dict[str, dict] = {}
++    for el in ELEMENTS:
++        path = outdir / el / "calibration.json"
++        if not path.is_file():
++            continue
++        try:
++            data = json.loads(path.read_text(encoding="utf-8"))
++        except (OSError, json.JSONDecodeError) as exc:
++            print(f"[T5] 警告: 跳过无法读取的既有产物 {path}: {exc}",
++                  file=sys.stderr)
++            continue
++        if data.get("absorber") != el:
++            print(f"[T5] 警告: {path} 的 absorber={data.get('absorber')!r} "
++                  f"与目录元素 {el!r} 不一致，已跳过", file=sys.stderr)
++            continue
++        payloads[el] = data
++    return payloads
++
++
+ def write_index(results: list[dict], outdir: Path) -> dict:
+     rows = []
+     for r in results:
++        attempts = r.get("attempts_compact")
++        if attempts is None:
++            attempts = [_compact_attempt(a)
++                        for a in (r.get("attempts") or [])]
+         rows.append({
+             "absorber": r["absorber"],
+             "status": r["status"],
+@@ -330,8 +359,7 @@ def write_index(results: list[dict], outdir: Path) -> dict:
+             "standard": r.get("standard"),
+             "standard_sha256": r.get("standard_sha256"),
+             "reason": r.get("reason"),
+-            "attempts": r.get("attempts_compact")
+-                        or [_compact_attempt(a) for a in r["attempts"]],
++            "attempts": attempts,
+         })
+     passed = [r for r in rows if r["status"] == "calibrated"]
+     index = {
+@@ -424,6 +452,12 @@ def main(argv=None):
+                   f"Rf={payload.get('rf')}  spread={payload.get('spread')}")
+         else:
+             print(f"  ✗ 未标定：{payload.get('reason')}")
++    if args.only:
++        # 增量合并：局部重跑不得丢掉未重跑元素的既有产物。
++        merged = {r["absorber"]: r for r in results}
++        for el, payload in _load_existing_payloads(outdir).items():
++            merged.setdefault(el, payload)
++        results = [merged[el] for el in ELEMENTS if el in merged]
+     index = write_index(results, outdir)
+     report = write_report(index, outdir)
+     print("-" * 66)
+diff --git a/regression_test.py b/regression_test.py
+index 86d4154..e0e948c 100644
+--- a/regression_test.py
++++ b/regression_test.py
+@@ -60,9 +60,10 @@ Phase III（B9–B12）新增 15 项契约：
+ P4+ 新增：
+     - T7 多元素综合报告：自动分元素、并列结果、不推荐 Top-1
+     - T8 XANES–EXAFS 软校验：只产生警告，不改变 cn_reliable
++    - P5-A T5 标定产物完整性 / --only 增量合并 / --s02-from-t5 溯源
+ 
+-当前共 121 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+
+-CIF 抓取/条件 CN/T7/T8 契约）。
++当前共 123 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+
++CIF 抓取/条件 CN/T7/T8/P5-A 契约）。
+ 
+ 运行:
+     python regression_test.py
+@@ -5422,6 +5423,126 @@ O1 O 0 0 0 0.5
+             cc2["checks"]["cn_white_line_contrast"]["status"],
+             "unavailable")
+ 
++    def test_t5_artifacts_static_lock_and_incremental_merge(self):
++        """#122 P5-A：T5 产物完整、#60 静态锁定、--only 增量不丢元素。"""
++        import calibrate_s02
++        import calibrate_t5
++        from unittest import mock
++        from xafs_core import XAFSDataError
++
++        locked = {"Cr", "Mn", "Zn", "Mo", "Ru", "Rh", "Pd", "Ag",
++                  "Ir", "Au", "Ce", "U"}
++        self.assertEqual(set(calibrate_s02.T5_STATIC_LOCKED), locked)
++        for el in sorted(locked):
++            cfg = get_absorber(el)
++            self.assertIsNone(cfg.s02, el)
++            self.assertFalse(cfg.calibrated, el)
++
++        index_path = ROOT / "data" / "s02_calibration" / "index.json"
++        index = json.loads(index_path.read_text(encoding="utf-8"))
++        self.assertTrue(index["static_absorber_py_unchanged"])
++        self.assertFalse(index["apply_to_absorber_py"])
++        self.assertEqual(index["runtime_override"], "--s02")
++        rows = {r["absorber"]: r for r in index["elements"]}
++        self.assertEqual(set(rows), set(calibrate_t5.ELEMENTS))
++        self.assertEqual(index["pass_count"] + index["fail_count"], 12)
++        self.assertGreaterEqual(index["pass_count"], 6)
++        self.assertNotIn("C:\\\\", index_path.read_text(encoding="utf-8"))
++        for el in ("Cr", "Mn", "Zn", "Ru", "Ag", "Au"):
++            self.assertEqual(rows[el]["status"], "calibrated", el)
++            self.assertIsNotNone(rows[el]["s02"], el)
++        for el in ("Mo", "Rh", "Pd", "Ir", "Ce", "U"):
++            self.assertEqual(rows[el]["status"], "not_calibrated", el)
++            self.assertIsNone(rows[el]["s02"], el)
++            self.assertTrue(rows[el].get("reason"), el)
++
++        # --apply 对 #60 锁定元素硬拒绝（不真正跑标定）。
++        with mock.patch.object(calibrate_s02, "calibrate_s02",
++                               return_value={"pass": True, "s02": 0.6}):
++            with self.assertRaises(SystemExit) as cm:
++                calibrate_s02.main([
++                    "dummy.dat", "--absorber", "Cr", "--apply"])
++        self.assertIn("#60", str(cm.exception))
++
++        # 标定专用 motif 缺 sites 必须拒绝，不得回退到 expand_full。
++        payload = json.loads((ROOT / "data" / "s02_calibration" / "motifs" /
++                              "cr2o3_corundum.json").read_text(
++                                  encoding="utf-8"))
++        payload["sites"] = []
++        with tempfile.TemporaryDirectory() as tmp:
++            bad = Path(tmp) / "bad.json"
++            bad.write_text(json.dumps(payload), encoding="utf-8")
++            with self.assertRaises(XAFSDataError):
++                calibrate_s02.load_motif_json(bad, "Cr")
++
++        # --only 只重跑 Cr，但 index/REPORT 必须保留既有 Mn/Au。
++        with tempfile.TemporaryDirectory() as tmp:
++            tmp = Path(tmp)
++            for el in ("Mn", "Au"):
++                el_dir = tmp / el
++                el_dir.mkdir()
++                existing = {
++                    "absorber": el, "status": "calibrated",
++                    "s02": 0.5, "s02_err": 0.01, "rf": 0.01,
++                    "spread": 0.001, "motif": f"{el.lower()}_motif",
++                    "standard": "dummy", "standard_sha256": "a" * 64,
++                    "attempts_compact": [],
++                }
++                (el_dir / "calibration.json").write_text(
++                    json.dumps(existing), encoding="utf-8")
++            new_cr = {
++                "absorber": "Cr", "status": "calibrated", "s02": 0.6482,
++                "s02_err": 0.0198, "rf": 0.0074, "spread": 0.0053,
++                "motif": "cr2o3_corundum", "standard": "dummy",
++                "standard_sha256": "b" * 64, "attempts_compact": [],
++            }
++            with mock.patch.object(calibrate_t5, "_run_element",
++                                   return_value=new_cr):
++                rc = calibrate_t5.main(
++                    ["--only", "Cr", "--outdir", str(tmp)])
++            self.assertEqual(rc, 0)
++            merged = json.loads((tmp / "index.json").read_text(
++                encoding="utf-8"))
++            self.assertEqual([r["absorber"] for r in merged["elements"]],
++                             ["Cr", "Mn", "Au"])
++            self.assertEqual(merged["pass_count"], 3)
++            self.assertTrue((tmp / "REPORT.md").is_file())
++
++    def test_t5_s02_loader_and_provenance(self):
++        """#123 P5-A：--s02-from-t5 只接受已标定元素并记录溯源。"""
++        import run_xafs
++
++        s02, source = run_xafs.load_t5_s02("Cr")
++        self.assertAlmostEqual(s02, 0.6482, places=4)
++        self.assertTrue(source.startswith("s02_calibration:"))
++        self.assertIn("sha256:", source)
++        self.assertIn("standard_sha256:", source)
++
++        with self.assertRaises(XAFSConfigError) as cm:
++            run_xafs.load_t5_s02("Mo")
++        self.assertIn("未通过", str(cm.exception))
++        with self.assertRaises(XAFSConfigError):
++            run_xafs.load_t5_s02("Xx")
++
++        # 显式 --s02 优先于 T5 产物；未显式给值时从 T5 读取。
++        from types import SimpleNamespace
++        args = SimpleNamespace(s02=0.9, s02_from_t5=True, absorber="Cr")
++        val, src = run_xafs._resolve_s02_for_paths(args, ["dummy.dat"])
++        self.assertEqual(val, 0.9)
++        self.assertEqual(src, "--s02 runtime override")
++        args2 = SimpleNamespace(s02=None, s02_from_t5=True, absorber=None)
++        val2, src2 = run_xafs._resolve_s02_for_paths(
++            args2, [str(ROOT / "data" / "bmm_standards" / "Data" / "Cr" /
++                         "Cr-K-Cr2O3.xdi")])
++        self.assertAlmostEqual(val2, 0.6482, places=4)
++        self.assertTrue(src2.startswith("s02_calibration:"))
++
++        # 正式表：T5 产物视为已标定，普通 --s02 手填值不算。
++        self.assertTrue(xafs_fit._s02_calibrated_flag(
++            get_absorber("Cr"), "s02_calibration:x"))
++        self.assertFalse(xafs_fit._s02_calibrated_flag(
++            get_absorber("Cr"), "--s02 runtime override"))
++
+ 
+ if __name__ == "__main__":
+     # unittest 默认写 stderr；PowerShell 会把任何 stderr 记录当成
+diff --git a/run_xafs.py b/run_xafs.py
+index c2c2949..1e36a17 100644
+--- a/run_xafs.py
++++ b/run_xafs.py
+@@ -31,6 +31,7 @@ from __future__ import annotations
+ 
+ import argparse
+ import csv
++import hashlib
+ import json
+ import re
+ import sys
+@@ -48,6 +49,10 @@ import xafs_fit
+ import xafs_io
+ import xafs_lcf
+ import xafs_pipeline
++from xafs_core import XAFSConfigError
++
++PROJECT_ROOT = Path(__file__).resolve().parent
++T5_CALIBRATION_DIR = PROJECT_ROOT / "data" / "s02_calibration"
+ 
+ # Windows 控制台默认 GBK；帮助文本含 Å/σ²/S₀²/α 等字符，
+ # 不重配会在 --help 时抛 UnicodeEncodeError。改 UTF-8 + replace
+@@ -131,6 +136,100 @@ def _normalize_element(value) -> str | None:
+     return el
+ 
+ 
++def _sha256_file(path) -> str:
++    h = hashlib.sha256()
++    with open(path, "rb") as fh:
++        for chunk in iter(lambda: fh.read(65536), b""):
++            h.update(chunk)
++    return h.hexdigest()
++
++
++def _project_rel(path) -> str:
++    try:
++        return str(Path(path).resolve().relative_to(PROJECT_ROOT))
++    except ValueError:
++        return str(Path(path).resolve())
++
++
++def load_t5_s02(element, root=None) -> tuple[float, str]:
++    """读取 T5 独立标定产物中的 S₀²，并返回可写入正式表的溯源串。
++
++    只接受 ``data/s02_calibration/<元素>/calibration.json`` 中
++    ``status="calibrated"`` 的结果。未通过元素**明确拒绝**，不静默
++    回退到静态表或猜测值。该函数不修改 ``absorber.py``（#60）。
++    """
++    el = _normalize_element(element)
++    if el is None:
++        raise XAFSConfigError(
++            "T5", f"未知吸收元素 {element!r}；无法读取 T5 标定产物")
++    root = Path(root) if root is not None else T5_CALIBRATION_DIR
++    path = root / el / "calibration.json"
++    if not path.is_file():
++        raise XAFSConfigError(
++            "T5", f"{el} 缺少 T5 标定产物 {_project_rel(path)}；"
++                   f"先运行 calibrate_t5.py，或显式给 --s02")
++    try:
++        payload = json.loads(path.read_text(encoding="utf-8"))
++    except (OSError, json.JSONDecodeError) as exc:
++        raise XAFSConfigError(
++            "T5", f"{_project_rel(path)} 读取/解析失败: {exc}") from exc
++    if str(payload.get("absorber", "")).capitalize() != el:
++        raise XAFSConfigError(
++            "T5", f"{_project_rel(path)} 的 absorber="
++                   f"{payload.get('absorber')!r} 与请求元素 {el!r} 不一致")
++    status = payload.get("status")
++    if status != "calibrated":
++        reason = payload.get("reason") or "未通过标定门禁"
++        raise XAFSConfigError(
++            "T5", f"{el} 的 T5 标定状态={status!r}，拒绝自动注入 S₀²："
++                   f"{reason}；请显式 --s02 或先补标定")
++    if payload.get("static_absorber_py_unchanged") is not True:
++        raise XAFSConfigError(
++            "T5", f"{_project_rel(path)} 未声明 "
++                   f"static_absorber_py_unchanged=True；拒绝作为 T5 产物使用")
++    try:
++        s02 = float(payload.get("s02"))
++    except (TypeError, ValueError) as exc:
++        raise XAFSConfigError(
++            "T5", f"{_project_rel(path)} 的 s02={payload.get('s02')!r} "
++                   f"不是数值") from exc
++    if not (0.4 <= s02 <= 1.3):
++        raise XAFSConfigError(
++            "T5", f"{el} 的 T5 s02={s02} 超出 [0.4, 1.3]")
++    calibration_sha = _sha256_file(path)
++    source = (f"s02_calibration:{_project_rel(path)}"
++              f"#sha256:{calibration_sha[:12]}")
++    standard_sha = payload.get("standard_sha256")
++    if standard_sha:
++        source += f";standard_sha256:{str(standard_sha)[:12]}"
++    return s02, source
++
++
++def _resolve_s02_for_paths(args, paths, absorber_hint=None):
++    """按 CLI 优先级解析 S₀²：显式 --s02 > --s02-from-t5 > 静态表。
++
++    返回 ``(s02, source)``；未启用任何覆盖时返回 ``(None, None)``，
++    由 ``xafs_fit`` 沿用 absorber.py 静态表。
++    """
++    if getattr(args, "s02", None) is not None:
++        return float(args.s02), "--s02 runtime override"
++    if not getattr(args, "s02_from_t5", False):
++        return None, None
++    hint = absorber_hint if absorber_hint is not None \
++        else getattr(args, "absorber", None)
++    if hint:
++        # 显式 --absorber 优先：避免文件头与用户指定元素不一致时，
++        # S₀² 与真正用于拟合的元素错配。
++        element = _normalize_element(hint)
++    else:
++        element, _source = detect_absorber(paths[0])
++    if element is None:
++        raise XAFSConfigError(
++            "T5", f"{Path(paths[0]).name}: 启用 --s02-from-t5 但无法判定"
++                   f"吸收元素；请显式给 --absorber")
++    return load_t5_s02(element)
++
++
+ def detect_absorber(path, fallback: str | None = None) -> tuple[str | None, str]:
+     """从 XDI/纯文本头自动判定吸收元素。
+ 
+@@ -183,6 +282,8 @@ def _multi_row(element, path, res, outdir) -> dict:
+         "fit_mode": fit.get("mode"),
+         "fit_motif": fit.get("motif"),
+         "cn_reliable": fit.get("cn_reliable"),
++        "s02_source": fit.get("s02_source"),
++        "s02": fit.get("s02"),
+         "r_factor": None,
+         "first_shell": None,
+         "warnings": [],
+@@ -292,8 +393,8 @@ def _multi_markdown(summary: dict) -> str:
+         "- **不自动选择/推荐 Top-1 元素或相**；各元素结果并列，"
+         "由用户依据科学问题判断。",
+         "",
+-        "| 元素 | 文件 | 识别状态 | 拟合 motif | 第一壳 | N_fit | N0 | Rf | CN 可靠 | 警告 |",
+-        "|------|------|----------|------------|--------|-------|----|----|---------|------|",
++        "| 元素 | 文件 | 识别状态 | 拟合 motif | 第一壳 | N_fit | N0 | Rf | CN 可靠 | S₀²来源 | 警告 |",
++        "|------|------|----------|------------|--------|-------|----|----|---------|----------|------|",
+     ]
+     for r in summary["rows"]:
+         fs = r.get("first_shell") or {}
+@@ -305,7 +406,8 @@ def _multi_markdown(summary: dict) -> str:
+             f"{r.get('identify_status') or '—'} | {r.get('fit_motif') or '—'} | "
+             f"{fs.get('label') or '—'} | {fmt(fs.get('n_fit'))} | "
+             f"{fmt(fs.get('n0'))} | {fmt(r.get('r_factor'), 4)} | "
+-            f"{r.get('cn_reliable')} | {warns} |")
++            f"{r.get('cn_reliable')} | {r.get('s02_source') or '—'} | "
++            f"{warns} |")
+     if summary["errors"]:
+         lines += ["", "## 失败文件", ""]
+         for e in summary["errors"]:
+@@ -348,6 +450,7 @@ def process_sample(paths, outdir, align: bool = False,
+                    hetero_cocupancy: bool = False,
+                    constraints=None,
+                    s02: float | None = None,
++                   s02_source: str | None = None,
+                    phase_correct: bool = False,
+                    chi2_contour: bool = False,
+                    self_absorption_formula: str | None = None,
+@@ -479,6 +582,7 @@ def process_sample(paths, outdir, align: bool = False,
+             hetero_cocupancy=hetero_cocupancy,
+             constraints=constraints,
+             s02=s02,
++            s02_source=s02_source,
+             verbose=verbose,
+             formal_cn=formal_cn,
+             structure_model=structure_model,
+@@ -678,6 +782,11 @@ def main():
+                         help="B18-2 运行时覆盖 S₀²（0.4–1.3）：解锁 absorber.py "
+                              "未标定元素（Au/Mo/Cr/Zn 等）的 S6.5/S7，"
+                              "不修改静态标定表")
++    parser.add_argument("--s02-from-t5", action="store_true",
++                        help="从 data/s02_calibration/<元素>/calibration.json "
++                             "读取 T5 独立标定值；仅接受 status=calibrated "
++                             "的元素，未通过元素明确拒绝；显式 --s02/"
++                             "--multi-element-s02 优先。不修改静态表")
+     parser.add_argument("--hetero-cocupancy", action="store_true",
+                         help="B13-2 异核共占位双分支精修：对 motif.cif_file 中"
+                              "occ<1 的异核位点拆成逐元素路径并共享 ΔR/σ²"
+@@ -959,6 +1068,8 @@ def main():
+         parser.error("--formal-cn 需要同时给 --fit（正式 CN 依赖 S7 拟合结果）")
+     if args.s02 is not None and not (0.4 <= args.s02 <= 1.3):
+         parser.error("--s02 必须在 [0.4, 1.3] 内")
++    if args.s02_from_t5 and not (args.identify or args.fit):
++        parser.error("--s02-from-t5 需要 --identify 或 --fit（S₀² 只用于拟合链）")
+     for _flag, _label in (("catalytic_model", "--catalytic-model"),
+                           ("hetero_cocupancy", "--hetero-cocupancy"),
+                           ("constraints", "--constraints")):
+@@ -1045,6 +1156,15 @@ def main():
+             parser.error("--multi-element 没有可处理文件")
+ 
+         def _run_one_element(fpath, element, sub_out):
++            # 优先级：--multi-element-s02 > 全局 --s02 > T5 独立标定产物。
++            s02_val = multi_s02.get(element)
++            s02_src = (f"--multi-element-s02 ({element})"
++                       if s02_val is not None else None)
++            if s02_val is None and args.s02 is not None:
++                s02_val = args.s02
++                s02_src = "--s02 runtime override"
++            elif s02_val is None and args.s02_from_t5:
++                s02_val, s02_src = load_t5_s02(element)
+             return process_sample(
+                 [fpath], sub_out, align=args.align, absorber=element,
+                 edge_energy=args.edge_energy, e0_method=args.e0_method,
+@@ -1070,7 +1190,8 @@ def main():
+                 catalytic_model=args.catalytic_model,
+                 hetero_cocupancy=args.hetero_cocupancy,
+                 constraints=constraints,
+-                s02=multi_s02.get(element, args.s02),
++                s02=s02_val,
++                s02_source=s02_src,
+                 phase_correct=args.phase_correct,
+                 chi2_contour=args.chi2_contour,
+                 self_absorption_formula=args.self_absorption_formula,
+@@ -1101,6 +1222,7 @@ def main():
+             parser.error("--operando 与 --batch-dir 不能同时使用")
+         if len(files) < 3:
+             parser.error("--operando 至少需要 3 个样品文件")
++        op_s02, op_s02_src = _resolve_s02_for_paths(args, files, args.absorber)
+         results = []
+         for i, fpath in enumerate(files, 1):
+             print(f"[operando {i}/{len(files)}] {Path(fpath).name}")
+@@ -1120,7 +1242,8 @@ def main():
+                 self_absorption_density=args.self_absorption_density,
+                 self_absorption_angles=sa_angles,
+                 self_absorption_line=args.self_absorption_line,
+-                s02=args.s02,
++                s02=op_s02,
++                s02_source=op_s02_src,
+                 verbose=False))
+         std_scans = None
+         if lcf_standards:
+@@ -1159,6 +1282,8 @@ def main():
+             sub_out = batch_out / stem
+             print(f"\n[{i}/{len(files)}] {Path(fpath).name}")
+             try:
++                file_s02, file_s02_src = _resolve_s02_for_paths(
++                    args, [fpath], args.absorber)
+                 process_sample(
+                     [fpath], sub_out, align=args.align, absorber=args.absorber,
+                     edge_energy=args.edge_energy, e0_method=args.e0_method,
+@@ -1184,7 +1309,8 @@ def main():
+                     catalytic_model=args.catalytic_model,
+                     hetero_cocupancy=args.hetero_cocupancy,
+                     constraints=constraints,
+-                    s02=args.s02,
++                    s02=file_s02,
++                    s02_source=file_s02_src,
+                     phase_correct=args.phase_correct,
+                     chi2_contour=args.chi2_contour,
+                     self_absorption_formula=args.self_absorption_formula,
+@@ -1216,6 +1342,7 @@ def main():
+     print("=" * 66)
+     print(f"处理 {len(files)} 个文件 → {args.outdir}")
+     print("=" * 66)
++    run_s02, run_s02_src = _resolve_s02_for_paths(args, files, args.absorber)
+     result = process_sample(
+         files, args.outdir, align=args.align, absorber=args.absorber,
+         edge_energy=args.edge_energy, e0_method=args.e0_method,
+@@ -1238,7 +1365,8 @@ def main():
+         catalytic_model=args.catalytic_model,
+         hetero_cocupancy=args.hetero_cocupancy,
+         constraints=constraints,
+-        s02=args.s02,
++        s02=run_s02,
++        s02_source=run_s02_src,
+         phase_correct=args.phase_correct,
+         chi2_contour=args.chi2_contour,
+         self_absorption_formula=args.self_absorption_formula,
+diff --git a/xafs_fit.py b/xafs_fit.py
+index 0a9d877..625b1a6 100644
+--- a/xafs_fit.py
++++ b/xafs_fit.py
+@@ -978,6 +978,17 @@ def write_rdf_csv(path, rdf: dict):
+     return path
+ 
+ 
++def _s02_calibrated_flag(absorber, s02_source: str | None) -> bool:
++    """正式表 S₀² 是否来自“已标定”来源。
++
++    静态表已标定（absorber.calibrated=True）或 T5 独立标定产物
++    （``s02_calibration:`` 前缀）都算已标定；普通 ``--s02`` 手填值
++    仍为 False。这不改变 #60 的静态表约束。
++    """
++    return (bool(getattr(absorber, "calibrated", False))
++            or str(s02_source or "").startswith("s02_calibration:"))
++
++
+ def _formal_cn_meta(formal_cn: bool, structure_model: StructureModel | None,
+                     status_override: str | None = None,
+                     reason_override: str | None = None) -> dict:
+@@ -1038,6 +1049,7 @@ def fit_identified(res, motif_id: str | None = None,
+                    hetero_cocupancy: bool = False,
+                    constraints=None,
+                    s02: float | None = None,
++                   s02_source: str | None = None,
+                    verbose: bool = True,
+                    formal_cn: bool = False,
+                    structure_model: StructureModel | None = None,
+@@ -1074,8 +1086,13 @@ def fit_identified(res, motif_id: str | None = None,
+         raise XAFSConfigError(
+             "FIT", f"{absorber.symbol} 未标定 S₀²，拒绝 CN 定量；"
+                    f"先在 absorber.py 用标准样标定")
+-    s02_source = ("--s02 runtime override" if s02 is not None
+-                  else "absorber.py")
++    s02_label = (s02_source if s02_source is not None else
++                 ("--s02 runtime override" if s02 is not None
++                  else "absorber.py"))
++    if str(s02_label).startswith("s02_calibration:") and s02 is None:
++        raise XAFSConfigError(
++            "FIT", "T5 S₀² 来源已给出但 s02=None；拒绝在没有数值的情况下"
++                   "记录标定溯源")
+     self_abs = _self_absorption_diag(res)
+ 
+     # ---- B13-1 显式催化模型：绕过晶相库搜索，直接进 S7 ----
+@@ -1143,6 +1160,7 @@ def fit_identified(res, motif_id: str | None = None,
+             out = {"mode": "l1_first_shell", "status": status,
+                    "coverage_ok": sid.get("coverage_ok"),
+                    "cn_reliable": l1_reliable,
++                   "s02": absorber.s02, "s02_source": s02_label,
+                    "flags": {"c3_dropped_by_nidp":
+                              bool(l1.get("c3_dropped_by_nidp", False)),
+                              "c3_at_bound": l1_c3_bound},
+@@ -1565,7 +1583,8 @@ def fit_identified(res, motif_id: str | None = None,
+            "mixture_weights": (fit.mixture_weights if fit_weights else None),
+            "flags": flags,
+            "structure": sid, "rmin": plan["rmin"], "rmax": plan["rmax"],
+-           "s02": absorber.s02, "shells": plan["shells"], "fit": fit,
++           "s02": absorber.s02, "s02_source": s02_label,
++           "shells": plan["shells"], "fit": fit,
+            "fit_space": fit.fit_space,
+            "aic": fit.aic, "bic": fit.bic,
+            "bvs": fit.bvs, "bvs_target": fit.bvs_target,
+@@ -1721,7 +1740,7 @@ def fit_identified(res, motif_id: str | None = None,
+                     structure_model=structure_model,
+                     absorber=absorber,
+                     cn_systematics=out.get("cn_systematics"),
+-                    s02_source=s02_source,
++                    s02_source=s02_label,
+                     data_sha256=(getattr(res, "data_sha256", "") or ""))
+             else:
+                 block = {
+@@ -1753,6 +1772,7 @@ def run(res, identify: bool = True, fit: bool = False,
+         hetero_cocupancy: bool = False,
+         constraints=None,
+         s02: float | None = None,
++        s02_source: str | None = None,
+         verbose: bool = True,
+         formal_cn: bool = False,
+         structure_model: StructureModel | None = None,
+@@ -1790,6 +1810,7 @@ def run(res, identify: bool = True, fit: bool = False,
+             hetero_cocupancy=hetero_cocupancy,
+             constraints=constraints,
+             s02=s02,
++            s02_source=s02_source,
+             verbose=verbose,
+             formal_cn=formal_cn,
+             structure_model=structure_model,
+@@ -2667,7 +2688,7 @@ def build_formal_cn_block(
+             "rf": rf,
+             "s02": absorber.s02,
+             "s02_source": s02_source,
+-            "s02_calibrated": bool(absorber.calibrated),
++            "s02_calibrated": _s02_calibrated_flag(absorber, s02_source),
+             "kmin": conditional_cn.get("kmin", ""),
+             "kmax": conditional_cn.get("kmax", ""),
+             "kweight": conditional_cn.get("kweight", ""),

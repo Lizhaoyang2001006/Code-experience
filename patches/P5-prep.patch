@@ -1,0 +1,1139 @@
+diff --git a/CIF_CRAWLER_INTEGRATION.md b/CIF_CRAWLER_INTEGRATION.md
+index b9f49b8..90bb958 100644
+--- a/CIF_CRAWLER_INTEGRATION.md
++++ b/CIF_CRAWLER_INTEGRATION.md
+@@ -14,7 +14,7 @@
+ - 17 个 COD motif 入库，结构库共 **43 个 motif**，覆盖 **17/17** 吸收元素；
+ - T5 12 条 IIT-Lytle 真实谱全部落盘，**0 个 placeholder**；
+ - 旧 ID 迁移完成：`LEGACY_MOTIFS_LEFT 0`、`QUARANTINE_FILES 0`；
+-- `regression_test.py` **125 项** + 4 个压力测试全部通过（`run_ci.py --stress` PASS；P5-C 后）。
++- `regression_test.py` **126 项** + 4 个压力测试全部通过（`run_ci.py --stress` PASS；P5-prep 后）。
+ 
+ 运行期仍然完全离线：`run_xafs.py` 不导入根爬虫，不读取 `data/cif_crawler_index.json` 取几何，只通过
+ `structure_lib.load_library(absorber)` 读取 `_structure_lib`。
+@@ -161,8 +161,8 @@ U3O8 均未采用）。`phase_coverage.json` 的 `missing_common_phases` 全部
+ ### 5.1 回归与压力
+ 
+ ```text
+-regression_test.py: 125 tests OK (142.474s)
+-run_ci.py --stress: PASS (215.1s)
++regression_test.py: 126 tests OK (176.600s)
++run_ci.py --stress: PASS (200.4s)
+   stress_test_co.py   PASS
+   stress_test_ni.py   PASS
+   stress_test_cu.py   PASS
+@@ -225,4 +225,4 @@ python cif_crawler.py --t5
+ 
+ ## 8. 一句话状态
+ 
+-**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 125+4 CI 全部通过；phase pack 已由 P5-C 扩到 44 条；T5 已产出 7/12 独立标定产物（静态表未改），运行期可用 `--s02-from-t5` 溯源，T7 多元素与 T8 联合校验已实现。**
++**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 126+4 CI 全部通过；phase pack 已由 P5-C 扩到 44 条；T5 已产出 7/12 独立标定产物（静态表未改），运行期可用 `--s02-from-t5` 溯源，T7 多元素与 T8 联合校验已实现；P5-prep 已把 5 个未通过元素纳入谱源隔离池并冻结门禁。**
+diff --git a/README.md b/README.md
+index a2e1c76..b1d31ce 100644
+--- a/README.md
++++ b/README.md
+@@ -76,7 +76,7 @@ python xafs_report.py
+ | `calibrate_s02.py` | 标定 S₀²（金属箔/氧化物标样，生产等效协议；`--motif-file` 用标定专用结构） |
+ | `calibrate_t5.py` | T5 批量标定 12 元素，产物落 `data/s02_calibration/`（不改静态表） |
+ | `absorber.py` | 吸收元素配置表（边能量/S₀²/kmax），元素泛化唯一入口 |
+-| `regression_test.py` | 125 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝、P5-C 18 个常见相 COD 补齐/coverage 无缺口） |
++| `regression_test.py` | 126 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝、P5-C 18 个常见相 COD 补齐/coverage 无缺口、P5-prep 标准谱源隔离池/5 元素门禁冻结） |
+ | `run_ci.py` | 跨平台 CI：编译 + 契约回归 + 可选压力测试，输出 ci_report.json/md |
+ | `stress_test_{co,ni,cu,nio}.py` | 元素泛化/护栏/CN 回收压力测试 |
+ | `xafs_config.py` | 配置文件支持（.yaml/.json）、批处理入口（--batch-dir） |
+@@ -790,6 +790,19 @@ S₀²=0.46 与这个非物理 σ² 绑定；固定 σ² 时 S₀² 随假设值
+ 根索引 CIF，P5-C 下载缓存仅用于构建，导入后清理。契约 #125 锁定
+ 18 个目标、44 条索引与全覆盖。
+ 
++### P5-prep 标准谱源隔离池（2026-11-09）
++T5 未通过的 5 个元素进入**逻辑隔离池**：不移动/删除原始谱，不产生
++S₀²，运行期不得用于 `--s02-from-t5`。索引
++`data/s02_calibration/source_pool/index.json` 由
++`tools/build_source_pool.py` 从标定产物与门禁常量确定性重建：
++Rh/Pd/Ir 为短谱（k_max≈5.7 Å⁻¹，需换 k_max≥10–12 Å⁻¹ 的谱）；
++Ce 已经是 CeO2 基准，问题是 ΔE₀ 贴 10 eV、σ² 压到 1e-4、无 interior
++窗口；U 谱长足够但 α-U 第一壳模型不稳，UO2 切换需先核实 UO2 标准谱。
++Ir 的“提高 k_min”建议只保留为换谱后的诊断项——当前 k_max 下
++N_idp 不足以支撑 4 个参数，不能靠调窗绕过门禁。全部门禁阈值冻结，
++`absorber.py` 静态表不变。契约 #126 锁定 5 元素分类、`s02=None`
++与门禁常量；详见 `data/s02_calibration/source_pool/README.md`。
++
+ ### B19-1 原位序列 EXAFS 联合精修
+ `xafs_fit.run_operando_exafs_series(results, absorber_symbol, motif=None,
+ catalytic_model=None, ..., share_sigma2_across_series=False)` 对 ≥3 个
+diff --git a/data/s02_calibration/source_pool/README.md b/data/s02_calibration/source_pool/README.md
+new file mode 100644
+index 0000000..568af95
+--- /dev/null
++++ b/data/s02_calibration/source_pool/README.md
+@@ -0,0 +1,219 @@
++# S₀² 标准谱源隔离池（P5 遗留项）
++
++日期：2026-11-09  
++范围：T5 未通过的 5 个元素——**Rh、Pd、Ir、Ce、U**  
++产物：`data/s02_calibration/source_pool/index.json`（机器可读）  
++生成/校验：`python tools/build_source_pool.py [--check]`
++
++## 1. 目的与边界
++
++这个池只做三件事：
++
++1. 把未通过 T5 的谱源**逻辑隔离**，明确标记为不可用于 S₀²；
++2. 记录每个元素的失败证据、建议分类、下一步动作与替换准入条件；
++3. 冻结门禁，防止“为了通过而改阈值/手调窗口/自动选 Top-1”。
++
++边界：
++
++- 池内谱源**不产生 S₀²**，`s02` 永远为 `null`，`usable_for_s02=false`；
++- 不移动、不删除原始谱，避免破坏既有标定溯源；隔离状态只存在于索引；
++- 不修改 `absorber.py` 静态表；T5 结果仍只落独立产物；
++- 运行期不能用池内谱源做 `--s02-from-t5`；
++- 新谱只有通过**原样冻结**的全部门禁才可移出隔离池。
++
++## 2. 冻结门禁（不得放宽）
++
++来源：`calibrate_s02.py` 模块级常量，由 `tools/build_source_pool.py` 用 AST 读取，
++不导入/不执行标定模块。
++
++| 门禁 | 阈值/规则 |
++|------|-----------|
++| S₀² 通过区间 | `[0.4, 1.15]` |
++| S₀² 误差 | `< 0.06` |
++| Rf | `≤ 0.12` |
++| ΔE₀ | `|ΔE₀| < 10 eV` |
++| 鲁棒性窗口 | `WINDOW_FRACS=(0.12, 0.18, 0.26)`，三窗口都必须 interior |
++| 跨窗口极差 | `≤ 0.05` |
++| σ² | 不得贴界；优化下界 `1e-4 Å²`，`≤5e-4 Å²` 判为 at-bound |
++| 自由度 | 每个窗口 `n_variables < N_idp` |
++| 其他禁止项 | 不改门禁、不手调窗口凑数、不自动 Top-1 |
++
++**这些值在隔离池建立后保持不变。** 任何“调 k_min / 换 rmin / 放宽 ΔE₀”的建议都必须
++作为诊断项记录，不能作为通过判定的替代。
++
++## 3. 状态分类总表
++
++| 元素 | 当前谱源 | 边/E₀ | k_max 估计 | 失败类别 | 隔离状态 | 下一步 |
++|------|----------|-------|-----------|----------|----------|--------|
++| Rh | IIT-Lytle Rh 箔 `r/rhfoil.a03` | K / 23220 eV | 5.67 Å⁻¹ | 谱截断 | quarantined | 换长谱 |
++| Pd | IIT-Lytle Pd 箔 `p/pdfoil.a71` | K / 24350 eV | 5.68 Å⁻¹ | 谱截断 | quarantined | 换长谱 |
++| Ir | IIT-Lytle Ir 箔 `i/irfoie.a46` | L3 / 11215 eV | 5.66 Å⁻¹ | 谱截断 | quarantined | 换长谱，再做 k_min 诊断 |
++| Ce | NIST BMM `Ce-L3-CeO2.xdi` | L3 / 5726 eV | 10.58 Å⁻¹ | 归一化/ΔE₀/σ² | quarantined | 保持 CeO2 基准重处理 |
++| U | IIT-Lytle U 金属 `U/umetal.351` | L3 / 17163 eV | 20.47 Å⁻¹ | 物相/模型不适配 | quarantined | 核实 UO2 谱源后再切换 |
++
++> 注：早期 `calibration.json` 对 Rh/Pd/Ir 写的“170–195 eV above E0”是近似描述；
++> 按源文件实测，三者边后跨度均约 122 eV，`k_max≈5.66–5.68 Å⁻¹`。隔离池索引
++> 采用实测值，`failure_reason` 保留标定产物原文以便审计。
++
++### 与 Gemini 建议的逐项对照
++
++| 元素 | Gemini 建议分类 | 本项目评估 |
++|------|----------------|------------|
++| Rh | XANES 截断待换谱 | **同意**；需换 k_max ≥ 10–12 Å⁻¹ 的长谱 |
++| Pd | XANES 截断待换谱 | **同意**；需换 k_max ≥ 10–12 Å⁻¹ 的长谱 |
++| Ir | 参数窗口调优（提高 k_min 避开白线） | **不同意仅靠调 k_min**；当前 k_max≈5.66 Å⁻¹，k_min≥2.5 时 N_idp 仍小于 4 个参数，且失败发生在 WT 网格为空；必须先换谱，换谱后 k_min 只能作为诊断项 |
++| Ce | 物相再标定，转向 CeO2 | **物相已经是 CeO2**；主谱是 BMM `Ce-L3-CeO2.xdi`，motif 是 `ceo2_fluorite_cod_1562989`；真正问题是 ΔE₀ 贴 10 eV、σ² 压到 1e-4 下界、无 interior 窗口 |
++| U | 核实是否换 UO2 | **同意核实，但不能直接换**；本地没有 UO2 标准谱，只有 RAW U 金属荧光谱；UO2 结构 CIF 已在 P5-C 入库，需先找到可追溯的 UO2 L3 谱 |
++
++## 4. 逐元素状态卡
++
++### 4.1 Rh：谱截断，换谱
++
++- 谱源：`_standards_lib/Rh/Rh_metal_foil.dat`（IIT-Lytle，`r/rhfoil.a03`）；
++  sha256 `074792a1…a9d85`；未提交。
++- 数据：137 点，23169.73–23342.59 eV，E₀=23220 eV；
++  边后仅 122.6 eV，k_max≈5.67 Å⁻¹。
++- 失败：`ValueError: zero-size array to reduction operation maximum which has no identity`；
++  WT 无有效网格，未进入拟合。
++- 动作：获取 Rh K 边、k_max ≥ 10–12 Å⁻¹ 的 Rh 箔或 Rh2O3 谱；
++  优先 Rh 箔（fcc，N=12）复核 S₀²；Rh2O3 需配套 corundum motif。
++- 准入：原样通过第 2 节全部门禁。
++
++### 4.2 Pd：谱截断，换谱
++
++- 谱源：`_standards_lib/Pd/Pd_metal_foil.dat`（IIT-Lytle，`p/pdfoil.a71`）；
++  sha256 `9f07525a…7a21e`；未提交。
++- 数据：195 点，24275.21–24472.85 eV，E₀=24350 eV；
++  边后仅 122.9 eV，k_max≈5.68 Å⁻¹。
++- 失败：同 Rh，WT 无有效网格。
++- 动作：获取 Pd K 边、k_max ≥ 10–12 Å⁻¹ 的 Pd 箔或 PdO 谱；
++  优先 Pd 箔（fcc，N=12）；PdO 需配套 tetragonal motif。
++- 准入：原样通过第 2 节全部门禁。
++
++### 4.3 Ir：谱截断；k_min 调优不能替代换谱
++
++- 谱源：`_standards_lib/Ir/Ir_metal_foil.dat`（IIT-Lytle，`i/irfoie.a46`）；
++  sha256 `959da06b…d341b`；未提交。
++- 数据：272 点，11142.70–11336.90 eV，E₀=11215 eV；
++  边后仅 121.9 eV，k_max≈5.66 Å⁻¹。
++- 失败：同 Rh/Pd，WT 无有效网格。
++- 对“提高 k_min 避开白线”的评估：
++  - 当前失败点是 WT 网格为空，不是白线污染；
++  - 即使 `k_min=2.5 Å⁻¹`，`Δk≈3.16 Å⁻¹`；3 窗口的 `N_idp` 仍小于
++    `s02 + ΔE₀ + ΔR + σ²` 四个自由参数；
++  - 因此 k_min 调优**不能**救当前谱，也不能用来绕过门禁；
++  - 换到 k_max ≥ 10–12 Å⁻¹ 的 Ir 谱后，可将提高 k_min 作为白线规避的
++    诊断项，并记录 `kw=1/2/3` 敏感性。
++- 动作：优先换 Ir L3 长谱（Ir 箔或 IrO2）；再做 k_min 诊断；
++  三窗口 spread、N_idp、σ² 不贴界等门禁不变。
++
++### 4.4 Ce：物相已是 CeO2，问题在归一化/ΔE₀/σ²
++
++- 主谱：`data/bmm_standards/Data/Ce/Ce-L3-CeO2.xdi`（NIST BMM 公共数据，
++  DOI 10.18434/mds2-4032）；sha256 `1f679ebd…c1e7e`；已提交。
++- 结构：CeO2 fluorite，COD 1562989；第一壳 Ce–O 2.3414 Å，N=8。
++- 数据：259 点，5523.405–6152.412 eV，E₀=5726 eV；k_max≈10.58 Å⁻¹。
++  **谱长足够**，不是截断问题。
++- 失败证据：
++  - 三窗口 ΔE₀=9.78–10.20 eV，贴 `E0_MAX=10`；
++  - σ² 三窗口均为 `1e-4`，`sigma2_at_bound`；
++  - 无 interior 窗口，`s02_in_range`/`s02_err_ok`/`window_spread_ok` 失败；
++  - 单窗口 S₀²≈0.46 只是数值解，不是通过值。
++- 已拒绝的替代谱：`Ce-L3-CeriumDioxide.xdi`（sha256 `e4d10395…db6603`），
++  边后平台 2.271，属归一化伪迹，严格门禁必须拒绝。
++- 动作：保持 CeO2 基准，复核 rbkg/背景、E0 方法（derivative vs
++  half_height）、可比较其它来源的 CeO2 L3 谱；不得放宽 ΔE₀/σ² 门禁；
++  若仍无唯一解，保持 `not_calibrated`。
++- 注意：`data/standards_raw/Ce_metal_foil.dat` 的文件头实际写的是
++  “CeO2 L3 参考谱（IIT-Lytle 库中无 Ce 金属箔）”，不要被文件名误导。
++
++### 4.5 U：先核实 UO2 谱源，再决定是否换相
++
++- 当前谱：`_standards_lib/U/U_metal_foil.dat`（IIT-Lytle RAW 荧光，
++  `U/umetal.351`）；sha256 `5b31461e…10dfe`；未提交。
++- 数据：455 点，16966.00–18759.65 eV，E₀=17163.1 eV；k_max≈20.47 Å⁻¹。
++  **谱长足够**，问题不是截断。
++- 结构：α-U，COD 1527120；第一壳 U–U 2.7425 Å，固定 N=4。
++- 失败证据：
++  - S₀² 钉在 `0.3` 下界；
++  - ΔE₀=9.41–10.94 eV；
++  - Rf=0.55–0.60；
++  - `N_idp=2.48 < 4` 个自由参数；
++  - 5 项门禁全部失败。
++- UO2 候选的物理依据：UO2 fluorite 第一壳为 8×U–O≈2.37 Å，
++  比 α-U 金属的多壳层/强相关模型更适合作为 S₀² 标定基准。
++- 现实约束：本地没有 UO2 标准谱；BMM 数据没有 U 目录；P5-C 只入库了
++  UO2 结构 CIF（COD 9009049），没有配套谱。
++- 动作：
++  1. 先核实是否存在可追溯、许可明确的 UO2 L3 标准谱；
++  2. 若有：用 COD 9009049 生成 **calibration-only** UO2 fluorite motif，
++     以 8×U–O 第一壳重新标定；
++  3. 若无：保持 `not_calibrated`，不用 RAW U 金属谱强行给值；
++  4. 换相后仍原样通过第 2 节全部门禁。
++
++## 5. 隔离池工作流
++
++```text
++T5 失败/拒绝
++   │
++   ├─→ quarantined：登记谱源、sha256、失败证据、分类、动作
++   │
++   ├─→ candidate：新谱进入候选（不产生 S₀²）
++   │       │
++   │       ├─ 未通过冻结门禁 → quarantined（记录原因）
++   │       └─ 通过冻结门禁 → accepted
++   │
++   └─ accepted：更新 data/s02_calibration/<El>/calibration.json 与 index.json
++```
++
++规则：
++
++- `quarantined` 不等于“删除”；原始谱仍保留用于审计/复现；
++- 旧谱即使被替换也继续留在池中，记录“已拒绝/已替换”原因；
++- 任何状态变更都必须经过 `tools/build_source_pool.py --check`；
++- 池内谱源不进入生产 `_structure_lib`，不进入运行期 `--s02-from-t5`。
++
++## 6. 替换谱接收清单
++
++新谱进入 `candidate` 前必须提供：
++
++1. **来源**：实验谱，明确 beamline/文献/DOI；不得用 DFT 或模拟谱；
++2. **许可**：再分发许可明确；许可不明时只保留本地，不提交；
++3. **指纹**：源文件 sha256、能量范围、点数、E₀、边；
++4. **长度**：EXAFS k_max ≥ 10 Å⁻¹（优先 ≥ 12 Å⁻¹）；三窗口必须有
++   足够 `N_idp`；
++5. **物相匹配**：标准谱物相与 motif 一致；换相必须同时换
++   calibration-only motif，不能“谱是氧化物、模型是金属”；
++6. **归一化**：边后平台 0.85–1.15；边前无明显伪迹；
++7. **门禁**：原样通过第 2 节全部条件；
++8. **记录**：保留失败尝试与最终通过值，不覆盖历史。
++
++## 7. 不变式与禁止项
++
++- `absorber.py` 静态表：Fe/Co/Ni/Cu/Pt 已标定，其余 12 元素
++  `s02=None`、`calibrated=False`；隔离池不改变这一点。
++- T5 结果只落 `data/s02_calibration/`，运行时必须显式
++  `--s02` 或对已通过元素使用 `--s02-from-t5`。
++- **禁止**：放宽 `S02_PASS`、`S02_ERR_MAX`、`RF_MAX`、`E0_MAX`、
++  `WINDOW_SPREAD_MAX`；禁止手工裁剪窗口凑 interior；禁止自动 Top-1；
++  禁止把隔离谱源写成通过。
++- `tools/build_source_pool.py --check` 失败即表示索引与标定产物/门禁
++  常量不一致，必须先修正再继续。
++
++## 8. 复现与相关文件
++
++```powershell
++python tools/build_source_pool.py          # 生成/更新 index.json
++python tools/build_source_pool.py --check  # 校验索引与标定产物一致
++python tools/build_source_pool.py --json   # 打印完整索引
++python regression_test.py                  # 契约 #126 锁定隔离池
++```
++
++相关文件：
++
++- `data/s02_calibration/index.json`：T5 总索引（5 个 `not_calibrated`）
++- `data/s02_calibration/{Rh,Pd,Ir,Ce,U}/calibration.json`：失败尝试明细
++- `data/s02_calibration/REPORT.md`：T5 报告
++- `calibrate_s02.py`：门禁常量与生产等效拟合协议
++- `data/s02_calibration/build_motifs.py`：calibration-only motif 生成器
++- `_structure_lib/_phase_pack/`：P5-C 补齐的常见相 CIF（UO2 等）
+diff --git a/data/s02_calibration/source_pool/index.json b/data/s02_calibration/source_pool/index.json
+new file mode 100644
+index 0000000..1568d20
+--- /dev/null
++++ b/data/s02_calibration/source_pool/index.json
+@@ -0,0 +1,300 @@
++{
++  "schema_version": 1,
++  "pool_id": "s02-standard-source-isolation",
++  "generated_at": "2026-11-09",
++  "generated_by": "tools/build_source_pool.py",
++  "scope": "T5 未通过 5 元素的谱源逻辑隔离池；只做状态分类与替换准入，不产生 S₀²、不改静态表、不改门禁",
++  "policy": {
++    "s02_pass_range": [
++      0.4,
++      1.15
++    ],
++    "s02_err_max": 0.06,
++    "rf_max": 0.12,
++    "abs_delta_e0_max_ev": 10.0,
++    "window_fracs": [
++      0.12,
++      0.18,
++      0.26
++    ],
++    "window_spread_max": 0.05,
++    "delta_r_limits": [
++      -0.03,
++      0.03
++    ],
++    "sigma2_optimizer_floor": 0.0001,
++    "sigma2_at_bound_threshold": 0.0005,
++    "require_vars_lt_n_idp": true,
++    "require_three_interior_windows": true,
++    "gate_relaxation": "forbidden",
++    "manual_window_trimming": "forbidden",
++    "auto_top1_selection": "forbidden",
++    "static_absorber_py": "unchanged",
++    "runtime_effect": "none"
++  },
++  "user_classification_map": {
++    "xanes_truncation_replace_spectrum": [
++      "Rh",
++      "Pd"
++    ],
++    "phase_recalibration_oxide_baseline": [
++      "Ce",
++      "U"
++    ],
++    "parameter_window_tuning": [
++      "Ir"
++    ]
++  },
++  "elements_total": 5,
++  "classification_counts": {
++    "oxide_baseline_reprocess": 1,
++    "oxide_phase_verification": 1,
++    "short_spectrum_replace": 3
++  },
++  "elements": [
++    {
++      "element": "Rh",
++      "edge": "K",
++      "e0_ev": 23220.0,
++      "current_source": "_standards_lib/Rh/Rh_metal_foil.dat",
++      "source_sha256": "074792a1b5de859f72921a69f0ef90b0f5fa3a023f8dafdfda1c8204fa7a9d85",
++      "source_license": "IIT-Lytle；许可未明确，不提交",
++      "source_committed": false,
++      "data_points": 137,
++      "energy_range_ev": [
++        23169.73,
++        23342.59
++      ],
++      "post_edge_span_ev": 122.59,
++      "k_max_estimate": 5.67,
++      "calibration_motif": "rh_fcc_cod_9008482",
++      "calibration_artifact": "data/s02_calibration/Rh/calibration.json",
++      "last_status": "not_calibrated",
++      "attempt_status": "gated_out",
++      "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
++      "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity",
++      "gate_failures": [
++        "wt_no_valid_grid"
++      ],
++      "s02": null,
++      "usable_for_s02": false,
++      "pool_state": "quarantined",
++      "classification": "short_spectrum_replace",
++      "user_suggested_class": "xanes_truncation_replace_spectrum",
++      "assessment": "同意：谱长不足，无法进入拟合。",
++      "action_class": "replace_source",
++      "phase_baseline": "Rh fcc（COD 9008482）",
++      "phase_switch_needed": false,
++      "next_actions": [
++        "获取 Rh K 边、k_max ≥ 10–12 Å⁻¹ 的 Rh 箔或 Rh2O3 谱",
++        "优先 Rh 箔（fcc 第一壳 N=12）复核 S₀²；Rh2O3 需配套 corundum motif",
++        "新谱通过全部冻结门禁后才可移出隔离池"
++      ],
++      "replacement_candidates": [
++        "Rh K 边 Rh 箔透射/荧光谱（k_max ≥ 10 Å⁻¹）",
++        "Rh2O3 corundum（P5-C COD 1010584）配套谱"
++      ],
++      "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated"
++    },
++    {
++      "element": "Pd",
++      "edge": "K",
++      "e0_ev": 24350.0,
++      "current_source": "_standards_lib/Pd/Pd_metal_foil.dat",
++      "source_sha256": "9f07525aaa52e0ac6ebbc4344d9c715e3c50cea6fd2654729b3909e13d77a21e",
++      "source_license": "IIT-Lytle；许可未明确，不提交",
++      "source_committed": false,
++      "data_points": 195,
++      "energy_range_ev": [
++        24275.21,
++        24472.85
++      ],
++      "post_edge_span_ev": 122.85,
++      "k_max_estimate": 5.68,
++      "calibration_motif": "pd_fcc_cod_9008478",
++      "calibration_artifact": "data/s02_calibration/Pd/calibration.json",
++      "last_status": "not_calibrated",
++      "attempt_status": "gated_out",
++      "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
++      "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity",
++      "gate_failures": [
++        "wt_no_valid_grid"
++      ],
++      "s02": null,
++      "usable_for_s02": false,
++      "pool_state": "quarantined",
++      "classification": "short_spectrum_replace",
++      "user_suggested_class": "xanes_truncation_replace_spectrum",
++      "assessment": "同意：谱长不足，无法进入拟合。",
++      "action_class": "replace_source",
++      "phase_baseline": "Pd fcc（COD 9008478）",
++      "phase_switch_needed": false,
++      "next_actions": [
++        "获取 Pd K 边、k_max ≥ 10–12 Å⁻¹ 的 Pd 箔或 PdO 谱",
++        "优先 Pd 箔（fcc 第一壳 N=12）复核 S₀²；PdO 需配套 tetragonal motif",
++        "新谱通过全部冻结门禁后才可移出隔离池"
++      ],
++      "replacement_candidates": [
++        "Pd K 边 Pd 箔透射/荧光谱（k_max ≥ 10 Å⁻¹）",
++        "PdO（P5-C COD 1009031）配套谱"
++      ],
++      "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated"
++    },
++    {
++      "element": "Ir",
++      "edge": "L3",
++      "e0_ev": 11215.0,
++      "current_source": "_standards_lib/Ir/Ir_metal_foil.dat",
++      "source_sha256": "959da06b723b3342c26b5e349dce2ce1aa6ac3dda9fa62479599e5a0387d341b",
++      "source_license": "IIT-Lytle；许可未明确，不提交",
++      "source_committed": false,
++      "data_points": 272,
++      "energy_range_ev": [
++        11142.7,
++        11336.9
++      ],
++      "post_edge_span_ev": 121.9,
++      "k_max_estimate": 5.66,
++      "calibration_motif": "ir_fcc_cod_9008470",
++      "calibration_artifact": "data/s02_calibration/Ir/calibration.json",
++      "last_status": "not_calibrated",
++      "attempt_status": "gated_out",
++      "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
++      "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity",
++      "gate_failures": [
++        "wt_no_valid_grid"
++      ],
++      "s02": null,
++      "usable_for_s02": false,
++      "pool_state": "quarantined",
++      "classification": "short_spectrum_replace",
++      "user_suggested_class": "parameter_window_tuning_raise_kmin",
++      "assessment": "不同意‘仅调 k_min 可解决’。当前谱 k_max≈5.66 Å⁻¹，即使 k_min=2.5 Å⁻¹，Δk≈3.16 Å⁻¹，3 窗口的 N_idp 仍小于 4 个自由参数；且失败发生在 WT 网格为空，尚未进入参数窗口。k_min 只能在换到长谱后作为诊断项，不能替代换谱，也不能用来绕过门禁。",
++      "action_class": "replace_source_then_kmin_diagnostic",
++      "phase_baseline": "Ir fcc（COD 9008470）",
++      "phase_switch_needed": false,
++      "next_actions": [
++        "获取 Ir L3 边、k_max ≥ 10–12 Å⁻¹ 的 Ir 箔或 IrO2 谱",
++        "换谱后可将提高 k_min 作为白线规避的诊断项，但必须记录敏感性",
++        "三窗口 spread、N_idp、σ² 不贴界等门禁全部保持不变"
++      ],
++      "replacement_candidates": [
++        "Ir L3 边 Ir 箔透射/荧光谱（k_max ≥ 10 Å⁻¹）",
++        "IrO2 rutile（P5-C COD 2101854）配套谱"
++      ],
++      "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated",
++      "kmin_tuning_assessment": {
++        "suggested": true,
++        "sufficient_with_current_source": false,
++        "reason": "k_max≈5.66 Å⁻¹；k_min≥2.5 Å⁻¹ 时 Δk≈3.16 Å⁻¹，N_idp 不足以支撑 s02+dE0+dR+sigma2 四个参数；当前失败点是 WT 无有效网格，不是白线污染。",
++        "allowed_after_replacement": true,
++        "may_relax_gates": false
++      }
++    },
++    {
++      "element": "Ce",
++      "edge": "L3",
++      "e0_ev": 5726.0,
++      "current_source": "data/bmm_standards/Data/Ce/Ce-L3-CeO2.xdi",
++      "source_sha256": "1f679ebd0fb31ed37bca9e8ba125ad06fc0b08554052f8329a2ce7386b8c1e7e",
++      "source_license": "NIST BMM 公共数据（DOI 10.18434/mds2-4032）",
++      "source_committed": true,
++      "data_points": 259,
++      "energy_range_ev": [
++        5523.405,
++        6152.412
++      ],
++      "post_edge_span_ev": 426.412,
++      "k_max_estimate": 10.58,
++      "calibration_motif": "ceo2_fluorite_cod_1562989",
++      "calibration_artifact": "data/s02_calibration/Ce/calibration.json",
++      "last_status": "not_calibrated",
++      "attempt_status": "gated_out",
++      "failure_reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
++      "failure_error": null,
++      "gate_failures": [
++        "window_runs_interior",
++        "s02_in_range",
++        "s02_err_ok",
++        "window_spread_ok",
++        "sigma2_not_at_bound"
++      ],
++      "s02": null,
++      "usable_for_s02": false,
++      "pool_state": "quarantined",
++      "classification": "oxide_baseline_reprocess",
++      "user_suggested_class": "phase_recalibration_oxide_baseline",
++      "assessment": "物相基准已经是 CeO2：T5 主谱为 NIST BMM Ce-L3-CeO2.xdi，motif 为 ceo2_fluorite_cod_1562989，不是 Ce 金属箔。问题不在‘换 CeO2’，而在归一化/ΔE₀/σ²：三个窗口 ΔE₀=9.78–10.20 eV 贴上限，σ² 压到 1e-4 下界，无 interior 窗口，S₀² 无唯一解。",
++      "action_class": "reprocess_normalization_e0",
++      "phase_baseline": "CeO2 fluorite（COD 1562989）",
++      "phase_switch_needed": false,
++      "next_actions": [
++        "保留 CeO2 基准，复核 rbkg/背景归一化与 E0 方法（derivative vs half_height）",
++        "可比较其它 CeO2 L3 谱，但必须重新通过严格归一化门禁",
++        "不得使用 Ce-L3-CeriumDioxide.xdi（平台 2.271 的归一化伪迹）",
++        "若仍无唯一解，保持 not_calibrated；不放宽 ΔE₀/σ² 门禁"
++      ],
++      "replacement_candidates": [
++        "其它来源的 CeO2 L3 透射谱（平台 0.85–1.15）",
++        "NIST BMM Ce-L3-CeO2.xdi 重新归一化/换 E0 方法"
++      ],
++      "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated",
++      "rejected_sources": [
++        {
++          "source": "data/bmm_standards/Data/Ce/Ce-L3-CeriumDioxide.xdi",
++          "sha256": "e4d10395c858d41f56a1cddb173745fe71ca45405d532bd8e9cf603894db6603",
++          "reason": "边后平台 2.271，归一化伪迹；严格门禁拒绝"
++        }
++      ]
++    },
++    {
++      "element": "U",
++      "edge": "L3",
++      "e0_ev": 17163.1,
++      "current_source": "_standards_lib/U/U_metal_foil.dat",
++      "source_sha256": "5b31461e25fe6379d30197199d31a59bb44af6e8f4855e3cb2c0b995c9510dfe",
++      "source_license": "IIT-Lytle；许可未明确，不提交",
++      "source_committed": false,
++      "data_points": 455,
++      "energy_range_ev": [
++        16966.0,
++        18759.65
++      ],
++      "post_edge_span_ev": 1596.55,
++      "k_max_estimate": 20.47,
++      "calibration_motif": "u_alpha_u_cod_1527120",
++      "calibration_artifact": "data/s02_calibration/U/calibration.json",
++      "last_status": "not_calibrated",
++      "attempt_status": "gated_out",
++      "failure_reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
++      "failure_error": null,
++      "gate_failures": [
++        "window_runs_interior",
++        "s02_in_range",
++        "s02_err_ok",
++        "window_spread_ok",
++        "sigma2_not_at_bound"
++      ],
++      "s02": null,
++      "usable_for_s02": false,
++      "pool_state": "quarantined",
++      "classification": "oxide_phase_verification",
++      "user_suggested_class": "phase_recalibration_oxide_baseline",
++      "assessment": "同意核实 UO2 基准，但当前本地没有 UO2 标准谱。现有 U_metal_foil.dat 是 IIT-Lytle RAW 荧光谱，α-U 第一壳模型（4×U–U 2.7425 Å）拟合 s02 钉在 0.3、ΔE₀≈9.4–10.9 eV、Rf≈0.55–0.60、N_idp=2.48<4 参数。UO2 结构 CIF 已在 P5-C 入库，但还缺配套 UO2 L3 谱；先核实谱源，再决定是否切换。",
++      "action_class": "verify_uo2_phase_switch",
++      "phase_baseline": "α-U（COD 1527120）→ 候选 UO2 fluorite（COD 9009049）",
++      "phase_switch_needed": "pending_source_verification",
++      "next_actions": [
++        "先核实是否存在可追溯、许可明确的 UO2 L3 标准谱",
++        "若存在：用 COD 9009049 生成 calibration-only UO2 fluorite motif，以 8×U–O 第一壳重新标定",
++        "若不存在：保持 not_calibrated，不用 RAW U 金属谱强行给值",
++        "任何相位切换都必须重新通过全部冻结门禁"
++      ],
++      "replacement_candidates": [
++        "UO2 L3 透射/荧光谱（许可明确、k_max ≥ 10 Å⁻¹）",
++        "更干净的 α-U 金属箔谱 + 多壳层 α-U 模型（备选，不优先）"
++      ],
++      "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated"
++    }
++  ]
++}
+diff --git a/regression_test.py b/regression_test.py
+index 218cbea..fdfb696 100644
+--- a/regression_test.py
++++ b/regression_test.py
+@@ -63,9 +63,10 @@ P4+ 新增：
+     - P5-A T5 标定产物完整性 / --only 增量合并 / --s02-from-t5 溯源
+     - P5-B Mo 双壳 bcc 标定 / Ce σ² 压界与归一化伪迹拒绝
+     - P5-C 固定 COD ID 补齐 18 个常见相 / coverage 无缺口
++    - P5-prep 标准谱源隔离池 / 5 个未通过元素门禁冻结
+ 
+-当前共 125 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+
+-CIF 抓取/条件 CN/T7/T8/P5-A/P5-B/P5-C 契约）。
++当前共 126 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+
++CIF 抓取/条件 CN/T7/T8/P5-A/P5-B/P5-C/P5-prep 契约）。
+ 
+ 运行:
+     python regression_test.py
+@@ -5681,6 +5682,79 @@ O1 O 0 0 0 0.5
+             self.assertIsNone(res.structure_model, phase_name)
+             self.assertIn("多个吸收位点", res.reason, phase_name)
+ 
++    def test_p5_standard_source_isolation_pool(self):
++        """#126 P5-prep：5 个未通过元素的谱源隔离池与门禁冻结。"""
++        from tools import build_source_pool
++
++        pool = json.loads((ROOT / "data" / "s02_calibration" /
++                           "source_pool" / "index.json")
++                          .read_text(encoding="utf-8"))
++        self.assertEqual(pool["schema_version"], 1)
++        self.assertEqual(pool["pool_id"], "s02-standard-source-isolation")
++        self.assertEqual(pool["elements_total"], 5)
++        # 索引必须能由标定产物与门禁常量确定性重建。
++        self.assertEqual(build_source_pool.build_pool(), pool)
++
++        rows = {row["element"]: row for row in pool["elements"]}
++        self.assertEqual(set(rows), {"Rh", "Pd", "Ir", "Ce", "U"})
++        expected_class = {
++            "Rh": "short_spectrum_replace",
++            "Pd": "short_spectrum_replace",
++            "Ir": "short_spectrum_replace",
++            "Ce": "oxide_baseline_reprocess",
++            "U": "oxide_phase_verification",
++        }
++        for element, row in rows.items():
++            self.assertEqual(row["classification"], expected_class[element])
++            self.assertEqual(row["pool_state"], "quarantined")
++            self.assertFalse(row["usable_for_s02"])
++            self.assertIsNone(row["s02"])
++            self.assertEqual(row["last_status"], "not_calibrated")
++            self.assertTrue(row["gate_failures"], element)
++            cfg = get_absorber(element)
++            self.assertIsNone(cfg.s02, element)
++            self.assertFalse(cfg.calibrated, element)
++
++        # 谱长判定：Rh/Pd/Ir 是短谱；Ce/U 不是截断问题。
++        for element in ("Rh", "Pd", "Ir"):
++            self.assertLess(rows[element]["k_max_estimate"], 6.0, element)
++        self.assertGreater(rows["Ce"]["k_max_estimate"], 10.0)
++        self.assertGreater(rows["U"]["k_max_estimate"], 10.0)
++
++        # Ir 的 k_min 建议只能换谱后诊断，不能作为通过手段。
++        ir = rows["Ir"]
++        self.assertFalse(ir["kmin_tuning_assessment"]
++                         ["sufficient_with_current_source"])
++        self.assertFalse(ir["kmin_tuning_assessment"]["may_relax_gates"])
++
++        # Ce 已经使用 CeO2 基准；U 的 UO2 切换必须等谱源核实。
++        self.assertFalse(rows["Ce"]["phase_switch_needed"])
++        self.assertIn("Ce-L3-CeO2.xdi", rows["Ce"]["current_source"])
++        self.assertIn("CeO2", rows["Ce"]["phase_baseline"])
++        self.assertEqual(rows["U"]["phase_switch_needed"],
++                         "pending_source_verification")
++
++        # 门禁冻结：与 calibrate_s02.py 常量一致，且未放宽。
++        policy = pool["policy"]
++        self.assertEqual(policy["s02_pass_range"], [0.4, 1.15])
++        self.assertEqual(policy["s02_err_max"], 0.06)
++        self.assertEqual(policy["rf_max"], 0.12)
++        self.assertEqual(policy["abs_delta_e0_max_ev"], 10.0)
++        self.assertEqual(policy["window_fracs"], [0.12, 0.18, 0.26])
++        self.assertEqual(policy["window_spread_max"], 0.05)
++        self.assertEqual(policy["delta_r_limits"], [-0.03, 0.03])
++        self.assertEqual(policy["gate_relaxation"], "forbidden")
++        self.assertEqual(policy["manual_window_trimming"], "forbidden")
++        self.assertEqual(policy["auto_top1_selection"], "forbidden")
++
++        # T5 总索引仍保持 5 个 not_calibrated、s02=None。
++        t5_index = json.loads((ROOT / "data" / "s02_calibration" /
++                               "index.json").read_text(encoding="utf-8"))
++        t5 = {row["absorber"]: row for row in t5_index["elements"]}
++        for element in rows:
++            self.assertEqual(t5[element]["status"], "not_calibrated", element)
++            self.assertIsNone(t5[element]["s02"], element)
++
+ 
+ if __name__ == "__main__":
+     # unittest 默认写 stderr；PowerShell 会把任何 stderr 记录当成
+diff --git a/tools/build_source_pool.py b/tools/build_source_pool.py
+new file mode 100644
+index 0000000..5c639b4
+--- /dev/null
++++ b/tools/build_source_pool.py
+@@ -0,0 +1,442 @@
++# -*- coding: utf-8 -*-
++"""build_source_pool.py — S₀² 标准谱源隔离池（P5 遗留项准备）
++
++把 T5 未通过的 5 个元素（Rh/Pd/Ir/Ce/U）的谱源状态固化为
++``data/s02_calibration/source_pool/index.json``：
++
++- 只读取本地标定产物与谱源元数据，不运行拟合；
++- 不修改 ``absorber.py`` 静态表、不修改任何门禁；
++- 隔离是**逻辑隔离**：不移动/删除原始谱，避免破坏既有标定溯源；
++- 隔离池中的谱源永远不产生 S₀²，运行期不得用于 ``--s02-from-t5``。
++
++用法::
++
++    python tools/build_source_pool.py
++    python tools/build_source_pool.py --check
++    python tools/build_source_pool.py --json
++"""
++from __future__ import annotations
++
++import argparse
++import ast
++import hashlib
++import json
++import math
++import sys
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parents[1]
++CAL_ROOT = ROOT / "data" / "s02_calibration"
++POOL_ROOT = CAL_ROOT / "source_pool"
++POOL_INDEX = POOL_ROOT / "index.json"
++GATE_SOURCE = ROOT / "calibrate_s02.py"
++
++# 池内容变更时手动更新；不取系统时间，保证产物可复现。
++POOL_DATE = "2026-11-09"
++
++ELEMENTS = ("Rh", "Pd", "Ir", "Ce", "U")
++
++# k = sqrt((E - E0) / 3.81)，与项目既有 EXAFS k 换算一致。
++K_CONVERSION = 3.81
++
++# 本地 2026-11-09 观测值；当原始谱不在本机（IIT-Lytle 不提交）时作为
++# 可复现的回退证据。文件存在时会重新读取并校验 sha256。
++SOURCE_EVIDENCE = {
++    "Rh": {"points": 137, "e_min": 23169.73, "e_max": 23342.59,
++           "edge_e0": 23220.0, "file_format": "IIT-Lytle .dat"},
++    "Pd": {"points": 195, "e_min": 24275.21, "e_max": 24472.85,
++           "edge_e0": 24350.0, "file_format": "IIT-Lytle .dat"},
++    "Ir": {"points": 272, "e_min": 11142.70, "e_max": 11336.90,
++           "edge_e0": 11215.0, "file_format": "IIT-Lytle .dat"},
++    "Ce": {"points": 259, "e_min": 5523.405, "e_max": 6152.412,
++           "edge_e0": 5723.4, "file_format": "NIST BMM XDI"},
++    "U": {"points": 455, "e_min": 16966.00, "e_max": 18759.65,
++          "edge_e0": 17166.0, "file_format": "IIT-Lytle .dat"},
++}
++
++# 人工判定的分类与下一步。user_class 保留 Gemini 建议的原始分类，
++# assessment 是本项目依据实际数据给出的评估（可以不同意建议）。
++POOL_META = {
++    "Rh": {
++        "edge": "K",
++        "source_license": "IIT-Lytle；许可未明确，不提交",
++        "phase_baseline": "Rh fcc（COD 9008482）",
++        "user_class": "xanes_truncation_replace_spectrum",
++        "classification": "short_spectrum_replace",
++        "assessment": "同意：谱长不足，无法进入拟合。",
++        "pool_state": "quarantined",
++        "action_class": "replace_source",
++        "phase_switch_needed": False,
++        "next_actions": [
++            "获取 Rh K 边、k_max ≥ 10–12 Å⁻¹ 的 Rh 箔或 Rh2O3 谱",
++            "优先 Rh 箔（fcc 第一壳 N=12）复核 S₀²；Rh2O3 需配套 corundum motif",
++            "新谱通过全部冻结门禁后才可移出隔离池",
++        ],
++        "replacement_candidates": [
++            "Rh K 边 Rh 箔透射/荧光谱（k_max ≥ 10 Å⁻¹）",
++            "Rh2O3 corundum（P5-C COD 1010584）配套谱",
++        ],
++    },
++    "Pd": {
++        "edge": "K",
++        "source_license": "IIT-Lytle；许可未明确，不提交",
++        "phase_baseline": "Pd fcc（COD 9008478）",
++        "user_class": "xanes_truncation_replace_spectrum",
++        "classification": "short_spectrum_replace",
++        "assessment": "同意：谱长不足，无法进入拟合。",
++        "pool_state": "quarantined",
++        "action_class": "replace_source",
++        "phase_switch_needed": False,
++        "next_actions": [
++            "获取 Pd K 边、k_max ≥ 10–12 Å⁻¹ 的 Pd 箔或 PdO 谱",
++            "优先 Pd 箔（fcc 第一壳 N=12）复核 S₀²；PdO 需配套 tetragonal motif",
++            "新谱通过全部冻结门禁后才可移出隔离池",
++        ],
++        "replacement_candidates": [
++            "Pd K 边 Pd 箔透射/荧光谱（k_max ≥ 10 Å⁻¹）",
++            "PdO（P5-C COD 1009031）配套谱",
++        ],
++    },
++    "Ir": {
++        "edge": "L3",
++        "source_license": "IIT-Lytle；许可未明确，不提交",
++        "phase_baseline": "Ir fcc（COD 9008470）",
++        "user_class": "parameter_window_tuning_raise_kmin",
++        "classification": "short_spectrum_replace",
++        "assessment": (
++            "不同意‘仅调 k_min 可解决’。当前谱 k_max≈5.66 Å⁻¹，"
++            "即使 k_min=2.5 Å⁻¹，Δk≈3.16 Å⁻¹，3 窗口的 N_idp 仍小于 "
++            "4 个自由参数；且失败发生在 WT 网格为空，尚未进入参数窗口。"
++            "k_min 只能在换到长谱后作为诊断项，不能替代换谱，也不能"
++            "用来绕过门禁。"
++        ),
++        "pool_state": "quarantined",
++        "action_class": "replace_source_then_kmin_diagnostic",
++        "phase_switch_needed": False,
++        "kmin_tuning_assessment": {
++            "suggested": True,
++            "sufficient_with_current_source": False,
++            "reason": (
++                "k_max≈5.66 Å⁻¹；k_min≥2.5 Å⁻¹ 时 Δk≈3.16 Å⁻¹，"
++                "N_idp 不足以支撑 s02+dE0+dR+sigma2 四个参数；"
++                "当前失败点是 WT 无有效网格，不是白线污染。"
++            ),
++            "allowed_after_replacement": True,
++            "may_relax_gates": False,
++        },
++        "next_actions": [
++            "获取 Ir L3 边、k_max ≥ 10–12 Å⁻¹ 的 Ir 箔或 IrO2 谱",
++            "换谱后可将提高 k_min 作为白线规避的诊断项，但必须记录敏感性",
++            "三窗口 spread、N_idp、σ² 不贴界等门禁全部保持不变",
++        ],
++        "replacement_candidates": [
++            "Ir L3 边 Ir 箔透射/荧光谱（k_max ≥ 10 Å⁻¹）",
++            "IrO2 rutile（P5-C COD 2101854）配套谱",
++        ],
++    },
++    "Ce": {
++        "edge": "L3",
++        "source_license": "NIST BMM 公共数据（DOI 10.18434/mds2-4032）",
++        "phase_baseline": "CeO2 fluorite（COD 1562989）",
++        "user_class": "phase_recalibration_oxide_baseline",
++        "classification": "oxide_baseline_reprocess",
++        "assessment": (
++            "物相基准已经是 CeO2：T5 主谱为 NIST BMM "
++            "Ce-L3-CeO2.xdi，motif 为 ceo2_fluorite_cod_1562989，"
++            "不是 Ce 金属箔。问题不在‘换 CeO2’，而在归一化/ΔE₀/σ²："
++            "三个窗口 ΔE₀=9.78–10.20 eV 贴上限，σ² 压到 1e-4 下界，"
++            "无 interior 窗口，S₀² 无唯一解。"
++        ),
++        "pool_state": "quarantined",
++        "action_class": "reprocess_normalization_e0",
++        "phase_switch_needed": False,
++        "next_actions": [
++            "保留 CeO2 基准，复核 rbkg/背景归一化与 E0 方法（derivative vs half_height）",
++            "可比较其它 CeO2 L3 谱，但必须重新通过严格归一化门禁",
++            "不得使用 Ce-L3-CeriumDioxide.xdi（平台 2.271 的归一化伪迹）",
++            "若仍无唯一解，保持 not_calibrated；不放宽 ΔE₀/σ² 门禁",
++        ],
++        "replacement_candidates": [
++            "其它来源的 CeO2 L3 透射谱（平台 0.85–1.15）",
++            "NIST BMM Ce-L3-CeO2.xdi 重新归一化/换 E0 方法",
++        ],
++        "rejected_sources": [
++            {
++                "source": "data/bmm_standards/Data/Ce/Ce-L3-CeriumDioxide.xdi",
++                "sha256": "e4d10395c858d41f56a1cddb173745fe71ca45405d532bd8e9cf603894db6603",
++                "reason": "边后平台 2.271，归一化伪迹；严格门禁拒绝",
++            }
++        ],
++    },
++    "U": {
++        "edge": "L3",
++        "source_license": "IIT-Lytle；许可未明确，不提交",
++        "phase_baseline": "α-U（COD 1527120）→ 候选 UO2 fluorite（COD 9009049）",
++        "user_class": "phase_recalibration_oxide_baseline",
++        "classification": "oxide_phase_verification",
++        "assessment": (
++            "同意核实 UO2 基准，但当前本地没有 UO2 标准谱。现有 "
++            "U_metal_foil.dat 是 IIT-Lytle RAW 荧光谱，α-U 第一壳模型"
++            "（4×U–U 2.7425 Å）拟合 s02 钉在 0.3、ΔE₀≈9.4–10.9 eV、"
++            "Rf≈0.55–0.60、N_idp=2.48<4 参数。UO2 结构 CIF 已在 P5-C "
++            "入库，但还缺配套 UO2 L3 谱；先核实谱源，再决定是否切换。"
++        ),
++        "pool_state": "quarantined",
++        "action_class": "verify_uo2_phase_switch",
++        "phase_switch_needed": "pending_source_verification",
++        "next_actions": [
++            "先核实是否存在可追溯、许可明确的 UO2 L3 标准谱",
++            "若存在：用 COD 9009049 生成 calibration-only UO2 fluorite motif，"
++            "以 8×U–O 第一壳重新标定",
++            "若不存在：保持 not_calibrated，不用 RAW U 金属谱强行给值",
++            "任何相位切换都必须重新通过全部冻结门禁",
++        ],
++        "replacement_candidates": [
++            "UO2 L3 透射/荧光谱（许可明确、k_max ≥ 10 Å⁻¹）",
++            "更干净的 α-U 金属箔谱 + 多壳层 α-U 模型（备选，不优先）",
++        ],
++    },
++}
++
++GATE_NAMES = (
++    "S02_PASS", "S02_ERR_MAX", "RF_MAX", "E0_MAX", "WINDOW_FRACS",
++    "WINDOW_SPREAD_MAX", "DELTAR_LIM_CAL",
++)
++
++
++def _literal_assignments(path: Path) -> dict:
++    """用 AST 读取模块级字面量常量，不执行被导入模块。"""
++    tree = ast.parse(path.read_text(encoding="utf-8"))
++    found = {}
++    for node in tree.body:
++        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
++            continue
++        target = node.targets[0]
++        if not isinstance(target, ast.Name) or target.id not in GATE_NAMES:
++            continue
++        try:
++            found[target.id] = ast.literal_eval(node.value)
++        except (ValueError, SyntaxError):
++            continue
++    return found
++
++
++def gate_policy() -> dict:
++    raw = _literal_assignments(GATE_SOURCE)
++    missing = [name for name in GATE_NAMES if name not in raw]
++    if missing:
++        raise SystemExit(f"calibrate_s02.py 缺少门禁常量: {missing}")
++    return {
++        "s02_pass_range": list(raw["S02_PASS"]),
++        "s02_err_max": float(raw["S02_ERR_MAX"]),
++        "rf_max": float(raw["RF_MAX"]),
++        "abs_delta_e0_max_ev": float(raw["E0_MAX"]),
++        "window_fracs": list(raw["WINDOW_FRACS"]),
++        "window_spread_max": float(raw["WINDOW_SPREAD_MAX"]),
++        "delta_r_limits": list(raw["DELTAR_LIM_CAL"]),
++        "sigma2_optimizer_floor": 0.0001,
++        "sigma2_at_bound_threshold": 0.0005,
++        "require_vars_lt_n_idp": True,
++        "require_three_interior_windows": True,
++        "gate_relaxation": "forbidden",
++        "manual_window_trimming": "forbidden",
++        "auto_top1_selection": "forbidden",
++        "static_absorber_py": "unchanged",
++        "runtime_effect": "none",
++    }
++
++
++def _sha256(path: Path) -> str:
++    digest = hashlib.sha256()
++    with path.open("rb") as fh:
++        for chunk in iter(lambda: fh.read(1 << 20), b""):
++            digest.update(chunk)
++    return digest.hexdigest()
++
++
++def _load_json(path: Path) -> dict:
++    return json.loads(path.read_text(encoding="utf-8"))
++
++
++def _normalize_path(raw) -> str:
++    text = str(raw or "").replace("\\", "/")
++    while text.startswith("./"):
++        text = text[2:]
++    return text
++
++
++def _first_attempt(calibration: dict) -> dict:
++    attempts = calibration.get("attempts") or []
++    return attempts[0] if attempts else {}
++
++
++def _gate_failures(attempt: dict) -> list[str]:
++    result = attempt.get("result") or {}
++    checks = result.get("checks") or {}
++    failures = [key for key, value in checks.items() if value is False]
++    if failures:
++        return failures
++    if attempt.get("status") == "error":
++        return ["source_or_normalization_error"]
++    if attempt.get("error"):
++        return ["wt_no_valid_grid"]
++    return []
++
++
++def build_element(element: str) -> dict:
++    cal_path = CAL_ROOT / element / "calibration.json"
++    calibration = _load_json(cal_path)
++    attempt = _first_attempt(calibration)
++    result = attempt.get("result") or {}
++    provenance = attempt.get("provenance") or {}
++    meta = POOL_META[element]
++    evidence = SOURCE_EVIDENCE[element]
++
++    source = _normalize_path(
++        provenance.get("source_path") or attempt.get("standard"))
++    source_sha = str(provenance.get("source_sha256") or "").lower()
++    source_path = ROOT / source
++    if source_path.is_file() and source_sha:
++        actual_sha = _sha256(source_path)
++        if actual_sha != source_sha:
++            raise SystemExit(
++                f"{element} 源文件 sha256 不匹配: {source} 实际 {actual_sha}")
++
++    # 数值证据固定为 2026-11-09 的观测值，保证 index.json 在
++    # 没有 IIT-Lytle 本地文件（不提交）的机器上也可复现。
++    observed = {"points": evidence["points"],
++                "e_min": evidence["e_min"],
++                "e_max": evidence["e_max"]}
++
++    e0 = result.get("e0")
++    if e0 is None:
++        e0 = attempt.get("manual_e0") or evidence["edge_e0"]
++    post_edge_span = float(observed["e_max"]) - float(e0)
++    k_max = (math.sqrt(post_edge_span / K_CONVERSION)
++             if post_edge_span > 0 else 0.0)
++
++    return {
++        "element": element,
++        "edge": meta["edge"],
++        "e0_ev": round(float(e0), 3),
++        "current_source": source,
++        "source_sha256": source_sha,
++        "source_license": meta["source_license"],
++        "source_committed": bool(provenance.get("committed")),
++        "data_points": int(observed["points"]),
++        "energy_range_ev": [round(float(observed["e_min"]), 3),
++                            round(float(observed["e_max"]), 3)],
++        "post_edge_span_ev": round(post_edge_span, 3),
++        "k_max_estimate": round(k_max, 2),
++        "calibration_motif": attempt.get("motif"),
++        "calibration_artifact": f"data/s02_calibration/{element}/calibration.json",
++        "last_status": calibration.get("status"),
++        "attempt_status": attempt.get("status"),
++        "failure_reason": calibration.get("reason"),
++        "failure_error": attempt.get("error"),
++        "gate_failures": _gate_failures(attempt),
++        "s02": calibration.get("s02"),
++        "usable_for_s02": False,
++        "pool_state": meta["pool_state"],
++        "classification": meta["classification"],
++        "user_suggested_class": meta["user_class"],
++        "assessment": meta["assessment"],
++        "action_class": meta["action_class"],
++        "phase_baseline": meta["phase_baseline"],
++        "phase_switch_needed": meta["phase_switch_needed"],
++        "next_actions": list(meta["next_actions"]),
++        "replacement_candidates": list(meta["replacement_candidates"]),
++        "acceptance": (
++            "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、"
++            "s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、"
++            "σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated"
++        ),
++        **({"kmin_tuning_assessment": meta["kmin_tuning_assessment"]}
++           if "kmin_tuning_assessment" in meta else {}),
++        **({"rejected_sources": meta["rejected_sources"]}
++           if "rejected_sources" in meta else {}),
++    }
++
++
++def build_pool() -> dict:
++    elements = [build_element(element) for element in ELEMENTS]
++    counts: dict[str, int] = {}
++    for row in elements:
++        counts[row["classification"]] = counts.get(row["classification"], 0) + 1
++    return {
++        "schema_version": 1,
++        "pool_id": "s02-standard-source-isolation",
++        "generated_at": POOL_DATE,
++        "generated_by": "tools/build_source_pool.py",
++        "scope": (
++            "T5 未通过 5 元素的谱源逻辑隔离池；只做状态分类与替换准入，"
++            "不产生 S₀²、不改静态表、不改门禁"
++        ),
++        "policy": gate_policy(),
++        "user_classification_map": {
++            "xanes_truncation_replace_spectrum": ["Rh", "Pd"],
++            "phase_recalibration_oxide_baseline": ["Ce", "U"],
++            "parameter_window_tuning": ["Ir"],
++        },
++        "elements_total": len(elements),
++        "classification_counts": dict(sorted(counts.items())),
++        "elements": elements,
++    }
++
++
++def _write_json_if_changed(path: Path, data: dict) -> bool:
++    payload = (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode(
++        "utf-8")
++    if path.is_file() and path.read_bytes() == payload:
++        return False
++    path.parent.mkdir(parents=True, exist_ok=True)
++    with path.open("wb") as fh:
++        fh.write(payload)
++    return True
++
++
++def _print_summary(data: dict) -> None:
++    print(f"pool: {data['pool_id']}  elements={data['elements_total']}")
++    for row in data["elements"]:
++        print(f"  {row['element']:3s} {row['classification']:30s} "
++              f"k_max={row['k_max_estimate']:5.2f}  "
++              f"status={row['last_status']}  "
++              f"usable={row['usable_for_s02']}")
++
++
++def main(argv=None) -> int:
++    parser = argparse.ArgumentParser(
++        description="生成/校验 S₀² 标准谱源隔离池")
++    parser.add_argument("--check", action="store_true",
++                        help="只校验现有 index.json 是否最新")
++    parser.add_argument("--json", action="store_true",
++                        help="把池索引输出到 stdout")
++    args = parser.parse_args(argv)
++
++    data = build_pool()
++    if args.json:
++        print(json.dumps(data, ensure_ascii=False, indent=2))
++        return 0
++    if args.check:
++        if not POOL_INDEX.is_file():
++            print(f"缺少 {POOL_INDEX.relative_to(ROOT)}", file=sys.stderr)
++            return 1
++        stored = _load_json(POOL_INDEX)
++        if stored != data:
++            print("source_pool/index.json 已过期；请运行 "
++                  "python tools/build_source_pool.py", file=sys.stderr)
++            return 1
++        _print_summary(data)
++        print("OK: source pool index 与标定产物/门禁常量一致")
++        return 0
++
++    changed = _write_json_if_changed(POOL_INDEX, data)
++    _print_summary(data)
++    print(f"{'更新' if changed else '未变化'}: "
++          f"{POOL_INDEX.relative_to(ROOT).as_posix()}")
++    return 0
++
++
++if __name__ == "__main__":
++    sys.stdout.reconfigure(encoding="utf-8")
++    raise SystemExit(main())

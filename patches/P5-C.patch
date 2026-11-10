@@ -1,0 +1,5116 @@
+diff --git a/CIF_CRAWLER_INTEGRATION.md b/CIF_CRAWLER_INTEGRATION.md
+index f65ddf1..b9f49b8 100644
+--- a/CIF_CRAWLER_INTEGRATION.md
++++ b/CIF_CRAWLER_INTEGRATION.md
+@@ -14,7 +14,7 @@
+ - 17 个 COD motif 入库，结构库共 **43 个 motif**，覆盖 **17/17** 吸收元素；
+ - T5 12 条 IIT-Lytle 真实谱全部落盘，**0 个 placeholder**；
+ - 旧 ID 迁移完成：`LEGACY_MOTIFS_LEFT 0`、`QUARANTINE_FILES 0`；
+-- `regression_test.py` **124 项** + 4 个压力测试全部通过（`run_ci.py --stress` PASS）。
++- `regression_test.py` **125 项** + 4 个压力测试全部通过（`run_ci.py --stress` PASS；P5-C 后）。
+ 
+ 运行期仍然完全离线：`run_xafs.py` 不导入根爬虫，不读取 `data/cif_crawler_index.json` 取几何，只通过
+ `structure_lib.load_library(absorber)` 读取 `_structure_lib`。
+@@ -24,7 +24,7 @@
+ | 工具 | 职责 | 产物 | 运行期依赖 |
+ |---|---|---|---|
+ | 根目录 `cif_crawler.py` | COD motif 抓取/核验/入库 + T5 标准谱抓取 | `data/cif_raw/`、`data/standards_raw/`、`data/cif_crawler_index.json`、`_structure_lib/<元素>/*.json`、`_standards_lib/<元素>/*.dat` | **否** |
+-| `tools/cif_crawler.py` | 仅做 phase pack 的固定 ID CIF 导入与索引重建 | `_structure_lib/_phase_pack/`、`phase_index.json`、`phase_coverage.json` | **否** |
++| `tools/cif_crawler.py` | 仅做 phase pack 的固定 ID CIF 导入与索引重建（T3/T4/P5-C） | `_structure_lib/_phase_pack/`、`phase_index.json`、`phase_coverage.json` | **否** |
+ | `structure_lib.load_library()` | 运行期读取诊断 motif 库 | `_structure_lib/<元素>/*.json` | **是** |
+ 
+ 硬边界：
+@@ -123,13 +123,46 @@ python cif_crawler.py --t5
+   备选透射谱平台 2.27 属归一化伪迹，严格门禁拒绝；
+ - `_standards_lib/` 与 `data/standards_raw/` 因许可未明确不提交；Ag 标定依赖本地 IIT-Lytle 谱，产物记录源文件 SHA256，但不保证无本地标准时可复现。
+ 
++### 4.5 P5-C 常见相补齐
++
++`tools/cif_crawler.py --p5c --online` 按固定 COD ID 补齐 18 个
++`missing_common_phases`，phase pack 由 26 条增至 **44 条**，固定抓取目标
++由 21 个增至 **39 个**。18 条全部为实验 `crystal_cif`，逐条通过 gemmi
++解析、IT 空间群号与化学计量核验：
++
++| 元素 | 相 | COD ID | 空间群 | 备注 |
++|------|----|--------|--------|------|
++| Fe | FeO | 1011169 | 225 | wüstite |
++| Fe | FeOOH | 9002158 | 62 | goethite，298 K |
++| Pt | PtO2 | 1008935 | 58 | β-PtO2；COD 无常压结构，已标注高压合成 |
++| Cr | Cr2O3 | 9014036 | 167 | eskolaite，常压 |
++| Mn | MnO | 9006658 | 225 | manganosite，P=0 |
++| Mn | MnO2 | 9009081 | 136 | pyrolusite |
++| Mn | Mn3O4 | 1514120 | 141 | hausmannite，Mn1/Mn2 |
++| Zn | ZnO | 9004178 | 186 | zincite，293 K |
++| Mo | MoO2 | 9009090 | 14 | tugarinovite |
++| Mo | MoO3 | 9009669 | 62 | molybdite |
++| Ru | RuO2 | 9007541 | 136 | rutile |
++| Rh | Rh2O3 | 1010584 | 167 | corundum |
++| Pd | PdO | 1009031 | 131 | palladinite |
++| Ag | Ag2O | 1010486 | 224 | cuprite |
++| Ir | IrO2 | 2101854 | 136 | rutile |
++| Au | Au2O3 | 2105390 | 43 | gold(III) oxide |
++| U | UO2 | 9009049 | 225 | uraninite |
++| U | U3O8 | 2310519 | 21 | α-U3O8，中子衍射，U1/U2 |
++
++高压/高温/DFT 条目显式排除（Cr2O3 的 63.9 GPa 条目、β-U3O8、高温
++U3O8 均未采用）。`phase_coverage.json` 的 `missing_common_phases` 全部
++为空；Mn3O4 与 U3O8 多位点仍需显式 `--absorber-site`。P5-C 下载缓存
++只用于构建期导入，导入后清理，`data/cif_raw/` 仍保持 17 个根索引 CIF。
++
+ ## 5. 验收
+ 
+ ### 5.1 回归与压力
+ 
+ ```text
+-regression_test.py: 124 tests OK
+-run_ci.py --stress: PASS (202.5s)
++regression_test.py: 125 tests OK (142.474s)
++run_ci.py --stress: PASS (215.1s)
+   stress_test_co.py   PASS
+   stress_test_ni.py   PASS
+   stress_test_cu.py   PASS
+@@ -163,7 +196,7 @@ fit_table SHA256 = E098D0EDC24E49296710E44518F8A8F010DCD03D7D7EB8CB2E26831A7532E
+ - `_structure_lib/**/*.json`、`_structure_lib/*/_cif/*.cif`、`_structure_lib/_phase_pack/`；
+ - 整合文档与测试修改。
+ 
+-未索引的 9 个重复/旁路 CIF 已清理（5 个大小写重复副本 + Cr/Zn/Mo/Au 4 个仅 phase pack 使用的旁路缓存）。
++未索引的 9 个重复/旁路 CIF 已清理（5 个大小写重复副本 + Cr/Zn/Mo/Au 4 个仅 phase pack 使用的旁路缓存）。P5-C 新增的 18 个下载缓存同样只在构建期使用，导入后清理；phase pack 内的 `<sha256>.cif` 才是权威副本。
+ 
+ ### 6.2 不随仓库提交
+ 
+@@ -186,10 +219,10 @@ python cif_crawler.py --t5
+ ## 7. 仍然存在的缺口
+ 
+ 1. **T5 S₀² 部分标定**：已产出独立标定产物并通过 7/12；Rh/Pd/Ir 缺足够宽能区标准、Ce 的 CeO₂ 标准 σ² 与 S₀² 强相关（无唯一解）、U 撞界；未标定元素仍需运行时 `--s02` 才能做正式 CN（已通过元素可用 `--s02-from-t5`）；
+-2. **常见相仍缺**：FeO、FeOOH、PtO2、Cr2O3、MnO/MnO2/Mn3O4、ZnO、MoO2/MoO3、RuO2、Rh2O3、PdO、Ag2O、IrO2、Au2O3、UO2/U3O8；
++2. **常见相已补齐（P5-C）**：18 个 `missing_common_phases` 全部有 verified CIF；唯一边界是 PtO2 在 COD 中只有高压合成 β-PtO2、没有常压 α 相，已在条目 notes 标注；Mn3O4/U3O8 为多位点，正式 CN 仍需显式 `--absorber-site`；
+ 3. **多位点联合模型未自动构建**：当前需显式 `--absorber-site` 或 `absorber_fract`；
+ 4. **T7/T8 已实现**：`--multi-element` 逐元素并列报告、不推荐 Top-1；`--xanes-cross-check` 只报警告、不改 `cn_reliable`（#120/#121）。
+ 
+ ## 8. 一句话状态
+ 
+-**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 124+4 CI 全部通过；T5 已产出 7/12 独立标定产物（静态表未改），运行期可用 `--s02-from-t5` 溯源，T7 多元素与 T8 联合校验已实现。**
++**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 125+4 CI 全部通过；phase pack 已由 P5-C 扩到 44 条；T5 已产出 7/12 独立标定产物（静态表未改），运行期可用 `--s02-from-t5` 溯源，T7 多元素与 T8 联合校验已实现。**
+diff --git a/README.md b/README.md
+index 72392bc..a2e1c76 100644
+--- a/README.md
++++ b/README.md
+@@ -76,7 +76,7 @@ python xafs_report.py
+ | `calibrate_s02.py` | 标定 S₀²（金属箔/氧化物标样，生产等效协议；`--motif-file` 用标定专用结构） |
+ | `calibrate_t5.py` | T5 批量标定 12 元素，产物落 `data/s02_calibration/`（不改静态表） |
+ | `absorber.py` | 吸收元素配置表（边能量/S₀²/kmax），元素泛化唯一入口 |
+-| `regression_test.py` | 124 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝） |
++| `regression_test.py` | 125 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝、P5-C 18 个常见相 COD 补齐/coverage 无缺口） |
+ | `run_ci.py` | 跨平台 CI：编译 + 契约回归 + 可选压力测试，输出 ci_report.json/md |
+ | `stress_test_{co,ni,cu,nio}.py` | 元素泛化/护栏/CN 回收压力测试 |
+ | `xafs_config.py` | 配置文件支持（.yaml/.json）、批处理入口（--batch-dir） |
+@@ -754,6 +754,42 @@ S₀²=0.46 与这个非物理 σ² 绑定；固定 σ² 时 S₀² 随假设值
+ 新增门禁 `sigma2_not_at_bound`：任一窗口 σ² 压到 1e-4 下界即判失败。
+ 这是更严格的物理约束，不放松任何原有阈值；契约 #124 锁定。
+ 
++### P5-C 固定 COD ID 补齐常见相（2026-11-09）
++`tools/cif_crawler.py` 新增 `--p5c` 目标组（tier=`P5C`），按固定 COD ID
++补齐 `phase_pack.COMMON_PHASES` 中的 18 个 `missing_common_phases`：
++
++| 元素 | 常见相 | COD ID | 空间群 | 说明 |
++|------|--------|--------|--------|------|
++| Fe | FeO | 1011169 | 225 | wüstite |
++| Fe | FeOOH | 9002158 | 62 | goethite，298 K |
++| Pt | PtO2 | 1008935 | 58 | β-PtO2；COD 无常压结构，已标注高压合成 |
++| Cr | Cr2O3 | 9014036 | 167 | eskolaite，常压 |
++| Mn | MnO | 9006658 | 225 | manganosite，P=0 |
++| Mn | MnO2 | 9009081 | 136 | pyrolusite |
++| Mn | Mn3O4 | 1514120 | 141 | hausmannite（Mn1/Mn2 两位点） |
++| Zn | ZnO | 9004178 | 186 | zincite，293 K |
++| Mo | MoO2 | 9009090 | 14 | tugarinovite |
++| Mo | MoO3 | 9009669 | 62 | molybdite |
++| Ru | RuO2 | 9007541 | 136 | rutile |
++| Rh | Rh2O3 | 1010584 | 167 | corundum |
++| Pd | PdO | 1009031 | 131 | palladinite |
++| Ag | Ag2O | 1010486 | 224 | cuprite |
++| Ir | IrO2 | 2101854 | 136 | rutile |
++| Au | Au2O3 | 2105390 | 43 | gold(III) oxide |
++| U | UO2 | 9009049 | 225 | uraninite |
++| U | U3O8 | 2310519 | 21 | α-U3O8（中子衍射，U1/U2 两位点） |
++
++结果：phase pack 由 26 条增至 **44 条**；`tools/cif_crawler.py` 固定目标
++由 21 个增至 **39 个**；`phase_coverage.json` 的 `missing_common_phases`
++全部为空。18 条全部为实验 `crystal_cif`，每条都通过 gemmi 解析、IT 空间群
++与化学计量核验。高压/高温/DFT 条目显式排除（如 Cr2O3 的 63.9 GPa 条目、
++β-U3O8、高温 U3O8）。Mn3O4 与 U3O8 有多个吸收位点，正式 CN 仍必须显式
++`--absorber-site`，不自动 Top-1。
++
++运行期仍只读 `_structure_lib/_phase_pack/`；`data/cif_raw/` 保持 17 个
++根索引 CIF，P5-C 下载缓存仅用于构建，导入后清理。契约 #125 锁定
++18 个目标、44 条索引与全覆盖。
++
+ ### B19-1 原位序列 EXAFS 联合精修
+ `xafs_fit.run_operando_exafs_series(results, absorber_symbol, motif=None,
+ catalytic_model=None, ..., share_sigma2_across_series=False)` 对 ≥3 个
+diff --git a/_structure_lib/_phase_pack/COD/1008935/822e9576bf5c377e274eb3fc8331b414bb4341644af4678e3970d2afdeceb959.cif b/_structure_lib/_phase_pack/COD/1008935/822e9576bf5c377e274eb3fc8331b414bb4341644af4678e3970d2afdeceb959.cif
+new file mode 100644
+index 0000000..8c50b8f
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/1008935/822e9576bf5c377e274eb3fc8331b414bb4341644af4678e3970d2afdeceb959.cif
+@@ -0,0 +1,81 @@
++#------------------------------------------------------------------------------
++#$Date: 2017-10-13 02:32:00 +0300 (Fri, 13 Oct 2017) $
++#$Revision: 201954 $
++#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/1/00/89/1008935.cif $
++#------------------------------------------------------------------------------
++#
++# This file is available in the Crystallography Open Database (COD),
++# http://www.crystallography.net/
++#
++# All data on this site have been placed in the public domain by the
++# contributors.
++#
++data_1008935
++loop_
++_publ_author_name
++'Muller, Olaf'
++'Roy, Rustum'
++_publ_section_title
++;
++ Formation and stability of the platinum and rhodium oxides at high
++ oxygen pressures and the structures of Pt~3~O~4~, \b-PtO~2~ and RhO~2~
++;
++_journal_coden_ASTM              JCOMAH
++_journal_issue                   2
++_journal_name_full               'Journal of the Less-Common Metals'
++_journal_page_first              129
++_journal_page_last               146
++_journal_paper_doi               10.1016/0022-5088(68)90070-2
++_journal_volume                  16
++_journal_year                    1968
++_chemical_formula_structural     'Pt O2'
++_chemical_formula_sum            'O2 Pt'
++_chemical_name_systematic        'Platinum(IV) oxide - \b'
++_space_group_IT_number           58
++_symmetry_cell_setting           orthorhombic
++_symmetry_Int_Tables_number      58
++_symmetry_space_group_name_Hall  '-P 2 2n'
++_symmetry_space_group_name_H-M   'P n n m'
++_cell_angle_alpha                90
++_cell_angle_beta                 90
++_cell_angle_gamma                90
++_cell_formula_units_Z            2
++_cell_length_a                   4.486
++_cell_length_b                   4.537
++_cell_length_c                   3.138
++_cell_volume                     63.9
++_refine_ls_R_factor_all          0.122
++_cod_database_code               1008935
++loop_
++_symmetry_equiv_pos_as_xyz
++x,y,z
++-x,-y,z
++1/2+x,1/2-y,1/2-z
++1/2-x,1/2+y,1/2-z
++-x,-y,-z
++x,y,-z
++1/2-x,1/2+y,1/2+z
++1/2+x,1/2-y,1/2+z
++loop_
++_atom_site_label
++_atom_site_type_symbol
++_atom_site_symmetry_multiplicity
++_atom_site_Wyckoff_symbol
++_atom_site_fract_x
++_atom_site_fract_y
++_atom_site_fract_z
++_atom_site_occupancy
++_atom_site_attached_hydrogens
++_atom_site_calc_flag
++Pt1 Pt4+ 2 a 0. 0. 0. 1. 0 d
++O1 O2- 4 g 0.29 0.31 0. 1. 0 d
++loop_
++_atom_type_symbol
++_atom_type_oxidation_number
++Pt4+ 4.000
++O2- -2.000
++loop_
++_cod_related_entry_id
++_cod_related_entry_database
++_cod_related_entry_code
++1 ChemSpider 66604
+diff --git a/_structure_lib/_phase_pack/COD/1008935/822e9576bf5c377e274eb3fc8331b414bb4341644af4678e3970d2afdeceb959.meta.json b/_structure_lib/_phase_pack/COD/1008935/822e9576bf5c377e274eb3fc8331b414bb4341644af4678e3970d2afdeceb959.meta.json
+new file mode 100644
+index 0000000..c0f99d4
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/1008935/822e9576bf5c377e274eb3fc8331b414bb4341644af4678e3970d2afdeceb959.meta.json
+@@ -0,0 +1,34 @@
++{
++  "source": "COD",
++  "id": "1008935",
++  "formula": "PtO2",
++  "spacegroup": "P n n m",
++  "cell": {
++    "a": 4.486,
++    "b": 4.537,
++    "c": 3.138,
++    "alpha": 90.0,
++    "beta": 90.0,
++    "gamma": 90.0
++  },
++  "absorber_sites": [
++    "Pt1"
++  ],
++  "absorber_elements": [
++    "Pt"
++  ],
++  "cif_path": "COD/1008935/822e9576bf5c377e274eb3fc8331b414bb4341644af4678e3970d2afdeceb959.cif",
++  "cif_sha256": "822e9576bf5c377e274eb3fc8331b414bb4341644af4678e3970d2afdeceb959",
++  "experimental": true,
++  "model_level": "crystal_cif",
++  "tags": [
++    "PtO2",
++    "oxide",
++    "platinum_dioxide",
++    "beta",
++    "catalyst"
++  ],
++  "added_by": "tools/cif_crawler.py",
++  "original_filename": "PtO2_COD_1008935.cif",
++  "notes": "P5C beta-PtO2; COD:1008935; source_url=https://www.crystallography.net/cod/1008935.cif; COD 无常压 PtO2 结构；采用高压合成 β-PtO2（非环境相）"
++}
+diff --git a/_structure_lib/_phase_pack/COD/1009031/7bfb22fa748f24d860b368935dd22733b129f7702dc769ec45eac48d4b2c9b43.cif b/_structure_lib/_phase_pack/COD/1009031/7bfb22fa748f24d860b368935dd22733b129f7702dc769ec45eac48d4b2c9b43.cif
+new file mode 100644
+index 0000000..f52077d
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/1009031/7bfb22fa748f24d860b368935dd22733b129f7702dc769ec45eac48d4b2c9b43.cif
+@@ -0,0 +1,93 @@
++#------------------------------------------------------------------------------
++#$Date: 2023-11-14 20:05:30 +0200 (Tue, 14 Nov 2023) $
++#$Revision: 287588 $
++#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/1/00/90/1009031.cif $
++#------------------------------------------------------------------------------
++#
++# This file is available in the Crystallography Open Database (COD),
++# http://www.crystallography.net/
++#
++# All data on this site have been placed in the public domain by the
++# contributors.
++#
++data_1009031
++loop_
++_publ_author_name
++'Waser, J.'
++'Levy, H. A.'
++'Peterson, S. W.'
++_publ_section_title
++;
++ The structure of PdO
++ Locality: synthetic
++;
++_journal_name_full               'Acta Crystallographica'
++_journal_page_first              661
++_journal_page_last               663
++_journal_paper_doi               10.1107/S0365110X53001800
++_journal_volume                  6
++_journal_year                    1953
++_chemical_compound_source        synthetic
++_chemical_formula_structural     'Pd O'
++_chemical_formula_sum            'O Pd'
++_chemical_name_mineral           Palladinite
++_chemical_name_systematic        'Palladium oxide'
++_space_group_IT_number           131
++_space_group_name_Hall           '-P 4c 2 (x,y+1/2,z)'
++_space_group_name_H-M_alt        'P 42/m m c (a,b+1/2,c)'
++_symmetry_cell_setting           tetragonal
++_symmetry_Int_Tables_number      131
++_symmetry_space_group_name_H-M   'P 42/m m c (a,b+1/2,c)'
++_cell_angle_alpha                90
++_cell_angle_beta                 90
++_cell_angle_gamma                90
++_cell_formula_units_Z            2
++_cell_length_a                   3.03(1)
++_cell_length_b                   3.03(1)
++_cell_length_c                   5.33(2)
++_cell_volume                     48.9
++_exptl_crystal_density_diffrn    8.308
++_cod_original_sg_symbol_H-M      'P 42/m m c S'
++_cod_database_code               1009031
++loop_
++_symmetry_equiv_pos_as_xyz
++x,y,z
++-x,-y,z
++1/2-y,1/2+x,1/2+z
++1/2+y,1/2-x,1/2+z
++-x,y,-z
++x,-y,-z
++1/2+y,1/2+x,1/2-z
++1/2-y,1/2-x,1/2-z
++-x,-y,-z
++x,y,-z
++1/2+y,1/2-x,1/2-z
++1/2-y,1/2+x,1/2-z
++x,-y,z
++-x,y,z
++1/2-y,1/2-x,1/2+z
++1/2+y,1/2+x,1/2+z
++loop_
++_atom_site_label
++_atom_site_type_symbol
++_atom_site_symmetry_multiplicity
++_atom_site_Wyckoff_symbol
++_atom_site_fract_x
++_atom_site_fract_y
++_atom_site_fract_z
++_atom_site_occupancy
++_atom_site_attached_hydrogens
++_atom_site_calc_flag
++Pd1 Pd2+ 2 a 0. 0. 0. 1. 0 d
++O1 O2- 2 f 0.5 0. 0.25 1. 0 d
++loop_
++_atom_type_symbol
++_atom_type_oxidation_number
++Pd2+ 2.000
++O2- -2.000
++loop_
++_cod_related_entry_id
++_cod_related_entry_database
++_cod_related_entry_code
++1 ChemSpider 66602
++_database_code_amcsd 0009157
+diff --git a/_structure_lib/_phase_pack/COD/1009031/7bfb22fa748f24d860b368935dd22733b129f7702dc769ec45eac48d4b2c9b43.meta.json b/_structure_lib/_phase_pack/COD/1009031/7bfb22fa748f24d860b368935dd22733b129f7702dc769ec45eac48d4b2c9b43.meta.json
+new file mode 100644
+index 0000000..00fe79a
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/1009031/7bfb22fa748f24d860b368935dd22733b129f7702dc769ec45eac48d4b2c9b43.meta.json
+@@ -0,0 +1,33 @@
++{
++  "source": "COD",
++  "id": "1009031",
++  "formula": "PdO",
++  "spacegroup": "P 42/m m c (a,b+1/2,c)",
++  "cell": {
++    "a": 3.03,
++    "b": 3.03,
++    "c": 5.33,
++    "alpha": 90.0,
++    "beta": 90.0,
++    "gamma": 90.0
++  },
++  "absorber_sites": [
++    "Pd1"
++  ],
++  "absorber_elements": [
++    "Pd"
++  ],
++  "cif_path": "COD/1009031/7bfb22fa748f24d860b368935dd22733b129f7702dc769ec45eac48d4b2c9b43.cif",
++  "cif_sha256": "7bfb22fa748f24d860b368935dd22733b129f7702dc769ec45eac48d4b2c9b43",
++  "experimental": true,
++  "model_level": "crystal_cif",
++  "tags": [
++    "PdO",
++    "oxide",
++    "palladinite",
++    "catalyst"
++  ],
++  "added_by": "tools/cif_crawler.py",
++  "original_filename": "PdO_COD_1009031.cif",
++  "notes": "P5C palladinite; COD:1009031; source_url=https://www.crystallography.net/cod/1009031.cif"
++}
+diff --git a/_structure_lib/_phase_pack/COD/1010486/9a8554902dfa6749ff1b04703125eddaae6ccdad9bc51d66d366486abed7341e.cif b/_structure_lib/_phase_pack/COD/1010486/9a8554902dfa6749ff1b04703125eddaae6ccdad9bc51d66d366486abed7341e.cif
+new file mode 100644
+index 0000000..be6d3c3
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/1010486/9a8554902dfa6749ff1b04703125eddaae6ccdad9bc51d66d366486abed7341e.cif
+@@ -0,0 +1,117 @@
++#------------------------------------------------------------------------------
++#$Date: 2017-10-13 02:32:00 +0300 (Fri, 13 Oct 2017) $
++#$Revision: 201954 $
++#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/1/01/04/1010486.cif $
++#------------------------------------------------------------------------------
++#
++# This file is available in the Crystallography Open Database (COD),
++# http://www.crystallography.net/
++#
++# All data on this site have been placed in the public domain by the
++# contributors.
++#
++data_1010486
++loop_
++_publ_author_name
++'Niggli, P'
++_publ_section_title              'Die Kristallstruktur einiger Oxyde I.'
++_journal_coden_ASTM              ZEKGAX
++_journal_name_full
++;
++Zeitschrift fuer Kristallographie, Kristallgeometrie, Kristallphysik,
++Kristallchemie (-144,1977)
++;
++_journal_page_first              253
++_journal_page_last               299
++_journal_volume                  57
++_journal_year                    1922
++_chemical_formula_structural     'Ag2 O'
++_chemical_formula_sum            'Ag2 O'
++_chemical_name_systematic        'Silver oxide'
++_space_group_IT_number           224
++_symmetry_cell_setting           cubic
++_symmetry_space_group_name_Hall  'P 4n 2 3 -1n'
++_symmetry_space_group_name_H-M   'P n -3 m :1'
++_cell_angle_alpha                90
++_cell_angle_beta                 90
++_cell_angle_gamma                90
++_cell_formula_units_Z            2
++_cell_length_a                   4.718
++_cell_length_b                   4.718
++_cell_length_c                   4.718
++_cell_volume                     105.0
++_cod_original_sg_symbol_H-M      'P n -3 m S'
++_cod_database_code               1010486
++loop_
++_symmetry_equiv_pos_as_xyz
++x,y,z
++x,z,y
++y,z,x
++z,y,x
++z,x,y
++y,x,z
++x,-y,-z
++x,-z,-y
++y,-z,-x
++z,-y,-x
++z,-x,-y
++y,-x,-z
++-x,y,-z
++-x,z,-y
++-y,z,-x
++-z,y,-x
++-z,x,-y
++-y,x,-z
++-x,-y,z
++-x,-z,y
++-y,-z,x
++-z,-y,x
++-z,-x,y
++-y,-x,z
++1/2-x,1/2-y,1/2-z
++1/2-x,1/2-z,1/2-y
++1/2-y,1/2-z,1/2-x
++1/2-z,1/2-y,1/2-x
++1/2-z,1/2-x,1/2-y
++1/2-y,1/2-x,1/2-z
++1/2-x,1/2+y,1/2+z
++1/2-x,1/2+z,1/2+y
++1/2-y,1/2+z,1/2+x
++1/2-z,1/2+y,1/2+x
++1/2-z,1/2+x,1/2+y
++1/2-y,1/2+x,1/2+z
++1/2+x,1/2-y,1/2+z
++1/2+x,1/2-z,1/2+y
++1/2+y,1/2-z,1/2+x
++1/2+z,1/2-y,1/2+x
++1/2+z,1/2-x,1/2+y
++1/2+y,1/2-x,1/2+z
++1/2+x,1/2+y,1/2-z
++1/2+x,1/2+z,1/2-y
++1/2+y,1/2+z,1/2-x
++1/2+z,1/2+y,1/2-x
++1/2+z,1/2+x,1/2-y
++1/2+y,1/2+x,1/2-z
++loop_
++_atom_site_label
++_atom_site_type_symbol
++_atom_site_symmetry_multiplicity
++_atom_site_Wyckoff_symbol
++_atom_site_fract_x
++_atom_site_fract_y
++_atom_site_fract_z
++_atom_site_occupancy
++_atom_site_attached_hydrogens
++_atom_site_calc_flag
++Ag1 Ag1+ 4 b 0.25 0.25 0.25 1. 0 d
++O1 O2- 2 a 0. 0. 0. 1. 0 d
++loop_
++_atom_type_symbol
++_atom_type_oxidation_number
++Ag1+ 1.000
++O2- -2.000
++loop_
++_cod_related_entry_id
++_cod_related_entry_database
++_cod_related_entry_code
++1 ChemSpider 7970393
+diff --git a/_structure_lib/_phase_pack/COD/1010486/9a8554902dfa6749ff1b04703125eddaae6ccdad9bc51d66d366486abed7341e.meta.json b/_structure_lib/_phase_pack/COD/1010486/9a8554902dfa6749ff1b04703125eddaae6ccdad9bc51d66d366486abed7341e.meta.json
+new file mode 100644
+index 0000000..26bdba7
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/1010486/9a8554902dfa6749ff1b04703125eddaae6ccdad9bc51d66d366486abed7341e.meta.json
+@@ -0,0 +1,33 @@
++{
++  "source": "COD",
++  "id": "1010486",
++  "formula": "Ag2O",
++  "spacegroup": "P n -3 m :1",
++  "cell": {
++    "a": 4.718,
++    "b": 4.718,
++    "c": 4.718,
++    "alpha": 90.0,
++    "beta": 90.0,
++    "gamma": 90.0
++  },
++  "absorber_sites": [
++    "Ag1"
++  ],
++  "absorber_elements": [
++    "Ag"
++  ],
++  "cif_path": "COD/1010486/9a8554902dfa6749ff1b04703125eddaae6ccdad9bc51d66d366486abed7341e.cif",
++  "cif_sha256": "9a8554902dfa6749ff1b04703125eddaae6ccdad9bc51d66d366486abed7341e",
++  "experimental": true,
++  "model_level": "crystal_cif",
++  "tags": [
++    "Ag2O",
++    "oxide",
++    "cuprite",
++    "catalyst"
++  ],
++  "added_by": "tools/cif_crawler.py",
++  "original_filename": "Ag2O_COD_1010486.cif",
++  "notes": "P5C cuprite; COD:1010486; source_url=https://www.crystallography.net/cod/1010486.cif"
++}
+diff --git a/_structure_lib/_phase_pack/COD/1010584/04e3b1d9bb00230064a493550483d0af7d7d302dcf142290536a7f142ddda66b.cif b/_structure_lib/_phase_pack/COD/1010584/04e3b1d9bb00230064a493550483d0af7d7d302dcf142290536a7f142ddda66b.cif
+new file mode 100644
+index 0000000..b9adbb8
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/1010584/04e3b1d9bb00230064a493550483d0af7d7d302dcf142290536a7f142ddda66b.cif
+@@ -0,0 +1,85 @@
++#------------------------------------------------------------------------------
++#$Date: 2017-10-13 02:32:00 +0300 (Fri, 13 Oct 2017) $
++#$Revision: 201954 $
++#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/1/01/05/1010584.cif $
++#------------------------------------------------------------------------------
++#
++# This file is available in the Crystallography Open Database (COD),
++# http://www.crystallography.net/
++#
++# All data on this site have been placed in the public domain by the
++# contributors.
++#
++data_1010584
++loop_
++_publ_author_name
++'Zachariasen, W H'
++_publ_section_title
++;
++Untersuchungen ueber die Kristallstruktur von Sesquioxyden und
++Verbindungen ABO~3~
++;
++_journal_coden_ASTM              SUNVAQ
++_journal_name_full
++;
++Skrifter utgitt av det Norske Videnskaps-Akademi i Oslo 1: Matematisk-
++Naturvidenskapelig Klasse
++;
++_journal_page_first              1
++_journal_page_last               165
++_journal_volume                  1928
++_journal_year                    1928
++_chemical_formula_structural     'Rh2 O3'
++_chemical_formula_sum            'O3 Rh2'
++_chemical_name_systematic        'Rhodium(III) oxide'
++_space_group_IT_number           167
++_symmetry_cell_setting           trigonal
++_symmetry_space_group_name_Hall  '-P 3* 2n'
++_symmetry_space_group_name_H-M   'R -3 c :R'
++_cell_angle_alpha                55.7(1)
++_cell_angle_beta                 55.7(1)
++_cell_angle_gamma                55.7(1)
++_cell_formula_units_Z            2
++_cell_length_a                   5.45(3)
++_cell_length_b                   5.45(3)
++_cell_length_c                   5.45(3)
++_cell_volume                     103.0
++_cod_original_sg_symbol_H-M      'R -3 c R'
++_cod_database_code               1010584
++loop_
++_symmetry_equiv_pos_as_xyz
++x,y,z
++y,z,x
++z,x,y
++-x,-y,-z
++-y,-z,-x
++-z,-x,-y
++1/2+y,1/2+x,1/2+z
++1/2+z,1/2+y,1/2+x
++1/2+x,1/2+z,1/2+y
++1/2-y,1/2-x,1/2-z
++1/2-z,1/2-y,1/2-x
++1/2-x,1/2-z,1/2-y
++loop_
++_atom_site_label
++_atom_site_type_symbol
++_atom_site_symmetry_multiplicity
++_atom_site_Wyckoff_symbol
++_atom_site_fract_x
++_atom_site_fract_y
++_atom_site_fract_z
++_atom_site_occupancy
++_atom_site_attached_hydrogens
++_atom_site_calc_flag
++Rh1 Rh3+ 4 c 0.10(1) 0.10(1) 0.10(1) 1. 0 d
++O1 O2- 6 e -0.3 0.8 0.25 1. 0 d
++loop_
++_atom_type_symbol
++_atom_type_oxidation_number
++Rh3+ 3.000
++O2- -2.000
++loop_
++_cod_related_entry_id
++_cod_related_entry_code
++_cod_related_entry_database
++1 140186 ChemSpider
+diff --git a/_structure_lib/_phase_pack/COD/1010584/04e3b1d9bb00230064a493550483d0af7d7d302dcf142290536a7f142ddda66b.meta.json b/_structure_lib/_phase_pack/COD/1010584/04e3b1d9bb00230064a493550483d0af7d7d302dcf142290536a7f142ddda66b.meta.json
+new file mode 100644
+index 0000000..8c5d6c0
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/1010584/04e3b1d9bb00230064a493550483d0af7d7d302dcf142290536a7f142ddda66b.meta.json
+@@ -0,0 +1,33 @@
++{
++  "source": "COD",
++  "id": "1010584",
++  "formula": "Rh2O3",
++  "spacegroup": "R -3 c :R",
++  "cell": {
++    "a": 5.45,
++    "b": 5.45,
++    "c": 5.45,
++    "alpha": 55.7,
++    "beta": 55.7,
++    "gamma": 55.7
++  },
++  "absorber_sites": [
++    "Rh1"
++  ],
++  "absorber_elements": [
++    "Rh"
++  ],
++  "cif_path": "COD/1010584/04e3b1d9bb00230064a493550483d0af7d7d302dcf142290536a7f142ddda66b.cif",
++  "cif_sha256": "04e3b1d9bb00230064a493550483d0af7d7d302dcf142290536a7f142ddda66b",
++  "experimental": true,
++  "model_level": "crystal_cif",
++  "tags": [
++    "Rh2O3",
++    "oxide",
++    "corundum",
++    "catalyst"
++  ],
++  "added_by": "tools/cif_crawler.py",
++  "original_filename": "Rh2O3_COD_1010584.cif",
++  "notes": "P5C corundum; COD:1010584; source_url=https://www.crystallography.net/cod/1010584.cif"
++}
+diff --git a/_structure_lib/_phase_pack/COD/1011169/cb24b198da6c970ad54f54731a10c59e9bc5c2067257462cb342f41364287ec3.cif b/_structure_lib/_phase_pack/COD/1011169/cb24b198da6c970ad54f54731a10c59e9bc5c2067257462cb342f41364287ec3.cif
+new file mode 100644
+index 0000000..2d41460
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/1011169/cb24b198da6c970ad54f54731a10c59e9bc5c2067257462cb342f41364287ec3.cif
+@@ -0,0 +1,265 @@
++#------------------------------------------------------------------------------
++#$Date: 2017-10-13 02:32:00 +0300 (Fri, 13 Oct 2017) $
++#$Revision: 201954 $
++#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/1/01/11/1011169.cif $
++#------------------------------------------------------------------------------
++#
++# This file is available in the Crystallography Open Database (COD),
++# http://www.crystallography.net/
++#
++# All data on this site have been placed in the public domain by the
++# contributors.
++#
++data_1011169
++loop_
++_publ_author_name
++'Jette, E R'
++'Foote, F'
++_publ_section_title
++;
++An x-ray study of the wuestite (Fe O) solid solutions
++;
++_journal_coden_ASTM              JCPSA6
++_journal_name_full               'Journal of Chemical Physics'
++_journal_page_first              29
++_journal_page_last               36
++_journal_paper_doi               10.1063/1.1749215
++_journal_volume                  1
++_journal_year                    1933
++_chemical_compound_source        'hypothetical stoichometric end-member'
++_chemical_formula_structural     'Fe O'
++_chemical_formula_sum            'Fe O'
++_chemical_name_mineral           Wuestite
++_chemical_name_systematic        'Iron oxide'
++_space_group_IT_number           225
++_symmetry_cell_setting           cubic
++_symmetry_Int_Tables_number      225
++_symmetry_space_group_name_Hall  '-F 4 2 3'
++_symmetry_space_group_name_H-M   'F m -3 m'
++_cell_angle_alpha                90
++_cell_angle_beta                 90
++_cell_angle_gamma                90
++_cell_formula_units_Z            4
++_cell_length_a                   4.332
++_cell_length_b                   4.332
++_cell_length_c                   4.332
++_cell_volume                     81.3
++_exptl_crystal_density_meas      5.8
++_cod_database_code               1011169
++loop_
++_symmetry_equiv_pos_as_xyz
++x,y,z
++y,z,x
++z,x,y
++x,z,y
++y,x,z
++z,y,x
++x,-y,-z
++y,-z,-x
++z,-x,-y
++x,-z,-y
++y,-x,-z
++z,-y,-x
++-x,y,-z
++-y,z,-x
++-z,x,-y
++-x,z,-y
++-y,x,-z
++-z,y,-x
++-x,-y,z
++-y,-z,x
++-z,-x,y
++-x,-z,y
++-y,-x,z
++-z,-y,x
++-x,-y,-z
++-y,-z,-x
++-z,-x,-y
++-x,-z,-y
++-y,-x,-z
++-z,-y,-x
++-x,y,z
++-y,z,x
++-z,x,y
++-x,z,y
++-y,x,z
++-z,y,x
++x,-y,z
++y,-z,x
++z,-x,y
++x,-z,y
++y,-x,z
++z,-y,x
++x,y,-z
++y,z,-x
++z,x,-y
++x,z,-y
++y,x,-z
++z,y,-x
++x,1/2+y,1/2+z
++1/2+x,y,1/2+z
++1/2+x,1/2+y,z
++y,1/2+z,1/2+x
++1/2+y,z,1/2+x
++1/2+y,1/2+z,x
++z,1/2+x,1/2+y
++1/2+z,x,1/2+y
++1/2+z,1/2+x,y
++x,1/2+z,1/2+y
++1/2+x,z,1/2+y
++1/2+x,1/2+z,y
++y,1/2+x,1/2+z
++1/2+y,x,1/2+z
++1/2+y,1/2+x,z
++z,1/2+y,1/2+x
++1/2+z,y,1/2+x
++1/2+z,1/2+y,x
++x,1/2-y,1/2-z
++1/2+x,-y,1/2-z
++1/2+x,1/2-y,-z
++y,1/2-z,1/2-x
++1/2+y,-z,1/2-x
++1/2+y,1/2-z,-x
++z,1/2-x,1/2-y
++1/2+z,-x,1/2-y
++1/2+z,1/2-x,-y
++x,1/2-z,1/2-y
++1/2+x,-z,1/2-y
++1/2+x,1/2-z,-y
++y,1/2-x,1/2-z
++1/2+y,-x,1/2-z
++1/2+y,1/2-x,-z
++z,1/2-y,1/2-x
++1/2+z,-y,1/2-x
++1/2+z,1/2-y,-x
++-x,1/2+y,1/2-z
++1/2-x,y,1/2-z
++1/2-x,1/2+y,-z
++-y,1/2+z,1/2-x
++1/2-y,z,1/2-x
++1/2-y,1/2+z,-x
++-z,1/2+x,1/2-y
++1/2-z,x,1/2-y
++1/2-z,1/2+x,-y
++-x,1/2+z,1/2-y
++1/2-x,z,1/2-y
++1/2-x,1/2+z,-y
++-y,1/2+x,1/2-z
++1/2-y,x,1/2-z
++1/2-y,1/2+x,-z
++-z,1/2+y,1/2-x
++1/2-z,y,1/2-x
++1/2-z,1/2+y,-x
++-x,1/2-y,1/2+z
++1/2-x,-y,1/2+z
++1/2-x,1/2-y,z
++-y,1/2-z,1/2+x
++1/2-y,-z,1/2+x
++1/2-y,1/2-z,x
++-z,1/2-x,1/2+y
++1/2-z,-x,1/2+y
++1/2-z,1/2-x,y
++-x,1/2-z,1/2+y
++1/2-x,-z,1/2+y
++1/2-x,1/2-z,y
++-y,1/2-x,1/2+z
++1/2-y,-x,1/2+z
++1/2-y,1/2-x,z
++-z,1/2-y,1/2+x
++1/2-z,-y,1/2+x
++1/2-z,1/2-y,x
++-x,1/2-y,1/2-z
++1/2-x,-y,1/2-z
++1/2-x,1/2-y,-z
++-y,1/2-z,1/2-x
++1/2-y,-z,1/2-x
++1/2-y,1/2-z,-x
++-z,1/2-x,1/2-y
++1/2-z,-x,1/2-y
++1/2-z,1/2-x,-y
++-x,1/2-z,1/2-y
++1/2-x,-z,1/2-y
++1/2-x,1/2-z,-y
++-y,1/2-x,1/2-z
++1/2-y,-x,1/2-z
++1/2-y,1/2-x,-z
++-z,1/2-y,1/2-x
++1/2-z,-y,1/2-x
++1/2-z,1/2-y,-x
++-x,1/2+y,1/2+z
++1/2-x,y,1/2+z
++1/2-x,1/2+y,z
++-y,1/2+z,1/2+x
++1/2-y,z,1/2+x
++1/2-y,1/2+z,x
++-z,1/2+x,1/2+y
++1/2-z,x,1/2+y
++1/2-z,1/2+x,y
++-x,1/2+z,1/2+y
++1/2-x,z,1/2+y
++1/2-x,1/2+z,y
++-y,1/2+x,1/2+z
++1/2-y,x,1/2+z
++1/2-y,1/2+x,z
++-z,1/2+y,1/2+x
++1/2-z,y,1/2+x
++1/2-z,1/2+y,x
++x,1/2-y,1/2+z
++1/2+x,-y,1/2+z
++1/2+x,1/2-y,z
++y,1/2-z,1/2+x
++1/2+y,-z,1/2+x
++1/2+y,1/2-z,x
++z,1/2-x,1/2+y
++1/2+z,-x,1/2+y
++1/2+z,1/2-x,y
++x,1/2-z,1/2+y
++1/2+x,-z,1/2+y
++1/2+x,1/2-z,y
++y,1/2-x,1/2+z
++1/2+y,-x,1/2+z
++1/2+y,1/2-x,z
++z,1/2-y,1/2+x
++1/2+z,-y,1/2+x
++1/2+z,1/2-y,x
++x,1/2+y,1/2-z
++1/2+x,y,1/2-z
++1/2+x,1/2+y,-z
++y,1/2+z,1/2-x
++1/2+y,z,1/2-x
++1/2+y,1/2+z,-x
++z,1/2+x,1/2-y
++1/2+z,x,1/2-y
++1/2+z,1/2+x,-y
++x,1/2+z,1/2-y
++1/2+x,z,1/2-y
++1/2+x,1/2+z,-y
++y,1/2+x,1/2-z
++1/2+y,x,1/2-z
++1/2+y,1/2+x,-z
++z,1/2+y,1/2-x
++1/2+z,y,1/2-x
++1/2+z,1/2+y,-x
++loop_
++_atom_site_label
++_atom_site_type_symbol
++_atom_site_symmetry_multiplicity
++_atom_site_Wyckoff_symbol
++_atom_site_fract_x
++_atom_site_fract_y
++_atom_site_fract_z
++_atom_site_occupancy
++_atom_site_attached_hydrogens
++_atom_site_calc_flag
++Fe1 Fe2+ 4 a 0. 0. 0. 1. 0 d
++O1 O2- 4 b 0.5 0.5 0.5 1. 0 d
++loop_
++_atom_type_symbol
++_atom_type_oxidation_number
++Fe2+ 2.000
++O2- -2.000
++loop_
++_cod_related_entry_id
++_cod_related_entry_database
++_cod_related_entry_code
++1 ChemSpider 396260
+diff --git a/_structure_lib/_phase_pack/COD/1011169/cb24b198da6c970ad54f54731a10c59e9bc5c2067257462cb342f41364287ec3.meta.json b/_structure_lib/_phase_pack/COD/1011169/cb24b198da6c970ad54f54731a10c59e9bc5c2067257462cb342f41364287ec3.meta.json
+new file mode 100644
+index 0000000..975e27a
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/1011169/cb24b198da6c970ad54f54731a10c59e9bc5c2067257462cb342f41364287ec3.meta.json
+@@ -0,0 +1,33 @@
++{
++  "source": "COD",
++  "id": "1011169",
++  "formula": "FeO",
++  "spacegroup": "F m -3 m",
++  "cell": {
++    "a": 4.332,
++    "b": 4.332,
++    "c": 4.332,
++    "alpha": 90.0,
++    "beta": 90.0,
++    "gamma": 90.0
++  },
++  "absorber_sites": [
++    "Fe1"
++  ],
++  "absorber_elements": [
++    "Fe"
++  ],
++  "cif_path": "COD/1011169/cb24b198da6c970ad54f54731a10c59e9bc5c2067257462cb342f41364287ec3.cif",
++  "cif_sha256": "cb24b198da6c970ad54f54731a10c59e9bc5c2067257462cb342f41364287ec3",
++  "experimental": true,
++  "model_level": "crystal_cif",
++  "tags": [
++    "FeO",
++    "oxide",
++    "wuestite",
++    "catalyst"
++  ],
++  "added_by": "tools/cif_crawler.py",
++  "original_filename": "FeO_COD_1011169.cif",
++  "notes": "P5C wuestite; COD:1011169; source_url=https://www.crystallography.net/cod/1011169.cif"
++}
+diff --git a/_structure_lib/_phase_pack/COD/1514120/072a4d12bc73a08261f2dbdee4e81b9e06b44345198b95fc354af9ff78233d4e.cif b/_structure_lib/_phase_pack/COD/1514120/072a4d12bc73a08261f2dbdee4e81b9e06b44345198b95fc354af9ff78233d4e.cif
+new file mode 100644
+index 0000000..d081506
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/1514120/072a4d12bc73a08261f2dbdee4e81b9e06b44345198b95fc354af9ff78233d4e.cif
+@@ -0,0 +1,121 @@
++#------------------------------------------------------------------------------
++#$Date: 2016-02-21 09:49:01 +0200 (Sun, 21 Feb 2016) $
++#$Revision: 176808 $
++#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/1/51/41/1514120.cif $
++#------------------------------------------------------------------------------
++#
++# This file is available in the Crystallography Open Database (COD),
++# http://www.crystallography.net/
++#
++# All data on this site have been placed in the public domain by the
++# contributors.
++#
++data_1514120
++loop_
++_publ_author_name
++'Boucher, B.'
++'Buhl, R.'
++'Perrin, M.'
++_publ_section_title
++;
++ Proprietes et structure magnetique de Mn3 O4
++;
++_journal_coden_ASTM              JPCSAW
++_journal_name_full               'Journal of Physics and Chemistry of Solids'
++_journal_page_first              2429
++_journal_page_last               2437
++_journal_paper_doi               10.1016/S0022-3697(71)80239-1
++_journal_volume                  32
++_journal_year                    1971
++_chemical_formula_structural     'Mn3 O4'
++_chemical_formula_sum            'Mn3 O4'
++_chemical_name_mineral           Hausmannite
++_chemical_name_systematic        'Manganese Dimanganese(III) Oxide'
++_space_group_IT_number           141
++_symmetry_Int_Tables_number      141
++_symmetry_space_group_name_Hall  'I 4bw 2bw -1bw'
++_symmetry_space_group_name_H-M   'I 41/a m d :1'
++_audit_creation_date             2000/12/16
++_audit_update_record             2007/08/01
++_cell_angle_alpha                90.
++_cell_angle_beta                 90.
++_cell_angle_gamma                90.
++_cell_formula_units_Z            4
++_cell_length_a                   5.763
++_cell_length_b                   5.763
++_cell_length_c                   9.456
++_cell_volume                     314.054
++_refine_ls_R_factor_all          0.05
++_cod_data_source_file            'data_Mn3O4melanie076088.cif'
++_cod_data_source_block
++/var/www/cod/tmp/uploads/1396025466.1-D290F29E9218B844.cif
++_cod_original_cell_volume        314.05
++_cod_original_sg_symbol_H-M      'I 41/a m d S'
++_cod_database_code               1514120
++loop_
++_symmetry_equiv_pos_site_id
++_symmetry_equiv_pos_as_xyz
++1 'y, -x+1/2, z+1/4'
++2 '-y, x+1/2, z+1/4'
++3 'y, -x, -z'
++4 '-y, x, -z'
++5 '-y, -x+1/2, z+1/4'
++6 'y, x+1/2, z+1/4'
++7 '-y, -x, -z'
++8 'y, x, -z'
++9 'x, -y+1/2, -z+1/4'
++10 '-x, y+1/2, -z+1/4'
++11 'x, -y, z'
++12 '-x, y, z'
++13 '-x, -y+1/2, -z+1/4'
++14 'x, y+1/2, -z+1/4'
++15 '-x, -y, z'
++16 'x, y, z'
++17 'y+1/2, -x, z+3/4'
++18 '-y+1/2, x, z+3/4'
++19 'y+1/2, -x+1/2, -z+1/2'
++20 '-y+1/2, x+1/2, -z+1/2'
++21 '-y+1/2, -x, z+3/4'
++22 'y+1/2, x, z+3/4'
++23 '-y+1/2, -x+1/2, -z+1/2'
++24 'y+1/2, x+1/2, -z+1/2'
++25 'x+1/2, -y, -z+3/4'
++26 '-x+1/2, y, -z+3/4'
++27 'x+1/2, -y+1/2, z+1/2'
++28 '-x+1/2, y+1/2, z+1/2'
++29 '-x+1/2, -y, -z+3/4'
++30 'x+1/2, y, -z+3/4'
++31 '-x+1/2, -y+1/2, z+1/2'
++32 'x+1/2, y+1/2, z+1/2'
++loop_
++_atom_site_label
++_atom_site_type_symbol
++_atom_site_symmetry_multiplicity
++_atom_site_Wyckoff_symbol
++_atom_site_fract_x
++_atom_site_fract_y
++_atom_site_fract_z
++_atom_site_occupancy
++_atom_site_attached_hydrogens
++_atom_site_B_iso_or_equiv
++Mn1 Mn2+ 4 a 0 0 0 1. 0 0
++Mn2 Mn3+ 8 d 0 0.25 0.625 1. 0 0
++O1 O2- 16 h 0 0.227 0.383 1. 0 0
++loop_
++_atom_type_symbol
++_atom_type_oxidation_number
++Mn2+ 2
++Mn3+ 3
++O2- -2
++loop_
++_citation_id
++_citation_journal_full
++_citation_year
++_citation_journal_volume
++_citation_page_first
++_citation_page_last
++_citation_journal_id_ASTM
++primary 'Journal of Physics and Chemistry of Solids' 1971 32 2429 2437 JPCSAW
++2 'Golden Book of Phase Transitions, Wroclaw' 2002 1 1 123 GBOPT5
++3 'Journal of Physics and Chemistry of Solids' 1962 23 711 727 JPCSAW
++4 'Powder Diffraction' 1986 1 66 76 PODIE2
+diff --git a/_structure_lib/_phase_pack/COD/1514120/072a4d12bc73a08261f2dbdee4e81b9e06b44345198b95fc354af9ff78233d4e.meta.json b/_structure_lib/_phase_pack/COD/1514120/072a4d12bc73a08261f2dbdee4e81b9e06b44345198b95fc354af9ff78233d4e.meta.json
+new file mode 100644
+index 0000000..ba8d8c3
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/1514120/072a4d12bc73a08261f2dbdee4e81b9e06b44345198b95fc354af9ff78233d4e.meta.json
+@@ -0,0 +1,35 @@
++{
++  "source": "COD",
++  "id": "1514120",
++  "formula": "Mn3O4",
++  "spacegroup": "I 41/a m d :1",
++  "cell": {
++    "a": 5.763,
++    "b": 5.763,
++    "c": 9.456,
++    "alpha": 90.0,
++    "beta": 90.0,
++    "gamma": 90.0
++  },
++  "absorber_sites": [
++    "Mn1",
++    "Mn2"
++  ],
++  "absorber_elements": [
++    "Mn"
++  ],
++  "cif_path": "COD/1514120/072a4d12bc73a08261f2dbdee4e81b9e06b44345198b95fc354af9ff78233d4e.cif",
++  "cif_sha256": "072a4d12bc73a08261f2dbdee4e81b9e06b44345198b95fc354af9ff78233d4e",
++  "experimental": true,
++  "model_level": "crystal_cif",
++  "tags": [
++    "Mn3O4",
++    "oxide",
++    "hausmannite",
++    "spinel",
++    "catalyst"
++  ],
++  "added_by": "tools/cif_crawler.py",
++  "original_filename": "Mn3O4_COD_1514120.cif",
++  "notes": "P5C hausmannite; COD:1514120; source_url=https://www.crystallography.net/cod/1514120.cif"
++}
+diff --git a/_structure_lib/_phase_pack/COD/2101854/a475838a182a5a235458a9d63e59a63d393276ece71f90ae161be03796316a78.cif b/_structure_lib/_phase_pack/COD/2101854/a475838a182a5a235458a9d63e59a63d393276ece71f90ae161be03796316a78.cif
+new file mode 100644
+index 0000000..f185ce8
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/2101854/a475838a182a5a235458a9d63e59a63d393276ece71f90ae161be03796316a78.cif
+@@ -0,0 +1,75 @@
++#------------------------------------------------------------------------------
++#$Date: 2023-11-11 19:11:52 +0200 (Sat, 11 Nov 2023) $
++#$Revision: 287549 $
++#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/2/10/18/2101854.cif $
++#------------------------------------------------------------------------------
++#
++# This file is available in the Crystallography Open Database (COD),
++# http://www.crystallography.net/. The original data for this entry
++# were provided by IUCr Journals, http://journals.iucr.org/.
++#
++# The file may be used within the scientific community so long as
++# proper attribution is given to the journal article from which the
++# data were obtained.
++#
++data_2101854
++loop_
++_publ_author_name
++'Bolzan, A. A.'
++'Fong, C.'
++'Kennedy, B. J.'
++'Howard, C. J.'
++_publ_section_title
++;
++ Structural Studies of Rutile-Type Metal Dioxides
++;
++_journal_issue                   3
++_journal_name_full               'Acta Crystallographica Section B'
++_journal_page_first              373
++_journal_page_last               380
++_journal_paper_doi               10.1107/S0108768197001468
++_journal_volume                  53
++_journal_year                    1997
++_chemical_formula_sum            'Ir O2'
++_symmetry_cell_setting           tetragonal
++_symmetry_space_group_name_Hall  '-P 4n 2n'
++_symmetry_space_group_name_H-M   'P 42/m n m'
++_cell_angle_alpha                90.0
++_cell_angle_beta                 90.0
++_cell_angle_gamma                90.0
++_cell_formula_units_Z            2
++_cell_length_a                   4.5051(3)
++_cell_length_b                   4.5051(3)
++_cell_length_c                   3.1586(2)
++_cell_volume                     64.107(7)
++_diffrn_radiation_probe          neutron
++_diffrn_radiation_type           neutron
++_diffrn_radiation_wavelength     1.372
++_cod_data_source_file            br0044.cif
++_cod_data_source_block           br0044d
++_cod_original_formula_sum        'Ir1 O2'
++_cod_database_code               2101854
++_database_code_amcsd             0019243
++loop_
++_atom_site_aniso_label
++_atom_site_aniso_U_11
++_atom_site_aniso_U_22
++_atom_site_aniso_U_33
++_atom_site_aniso_U_12
++_atom_site_aniso_U_13
++_atom_site_aniso_U_23
++Ir 0.01100 0.01100 0.00640 0.00040 0.00000 0.00000
++O 0.01210 0.00000 0.00700 0.00290 0.00000 0.00000
++loop_
++_atom_site_label
++_atom_site_fract_x
++_atom_site_fract_y
++_atom_site_fract_z
++Ir .0 .0 .0
++O .3077(3) .3077(3) .0
++loop_
++_cod_related_entry_id
++_cod_related_entry_database
++_cod_related_entry_code
++1 ChemSpider 10605808
++2 AMCSD 0019243
+diff --git a/_structure_lib/_phase_pack/COD/2101854/a475838a182a5a235458a9d63e59a63d393276ece71f90ae161be03796316a78.meta.json b/_structure_lib/_phase_pack/COD/2101854/a475838a182a5a235458a9d63e59a63d393276ece71f90ae161be03796316a78.meta.json
+new file mode 100644
+index 0000000..e922dc4
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/2101854/a475838a182a5a235458a9d63e59a63d393276ece71f90ae161be03796316a78.meta.json
+@@ -0,0 +1,33 @@
++{
++  "source": "COD",
++  "id": "2101854",
++  "formula": "IrO2",
++  "spacegroup": "P 42/m n m",
++  "cell": {
++    "a": 4.5051,
++    "b": 4.5051,
++    "c": 3.1586,
++    "alpha": 90.0,
++    "beta": 90.0,
++    "gamma": 90.0
++  },
++  "absorber_sites": [
++    "Ir"
++  ],
++  "absorber_elements": [
++    "Ir"
++  ],
++  "cif_path": "COD/2101854/a475838a182a5a235458a9d63e59a63d393276ece71f90ae161be03796316a78.cif",
++  "cif_sha256": "a475838a182a5a235458a9d63e59a63d393276ece71f90ae161be03796316a78",
++  "experimental": true,
++  "model_level": "crystal_cif",
++  "tags": [
++    "IrO2",
++    "oxide",
++    "rutile",
++    "catalyst"
++  ],
++  "added_by": "tools/cif_crawler.py",
++  "original_filename": "IrO2_COD_2101854.cif",
++  "notes": "P5C rutile; COD:2101854; source_url=https://www.crystallography.net/cod/2101854.cif"
++}
+diff --git a/_structure_lib/_phase_pack/COD/2105390/88c501cb3978e34e3386ba7b5d3c77c37c06c8df16094f3082abf5f8100ec084.cif b/_structure_lib/_phase_pack/COD/2105390/88c501cb3978e34e3386ba7b5d3c77c37c06c8df16094f3082abf5f8100ec084.cif
+new file mode 100644
+index 0000000..b69d751
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/2105390/88c501cb3978e34e3386ba7b5d3c77c37c06c8df16094f3082abf5f8100ec084.cif
+@@ -0,0 +1,77 @@
++#------------------------------------------------------------------------------
++#$Date: 2018-09-27 07:13:35 +0300 (Thu, 27 Sep 2018) $
++#$Revision: 211196 $
++#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/2/10/53/2105390.cif $
++#------------------------------------------------------------------------------
++#
++# This file is available in the Crystallography Open Database (COD),
++# http://www.crystallography.net/. The original data for this entry
++# were provided by IUCr Journals, http://journals.iucr.org/.
++#
++# The file may be used within the scientific community so long as
++# proper attribution is given to the journal article from which the
++# data were obtained.
++#
++data_2105390
++loop_
++_publ_author_name
++'Sheldrick, G.M.'
++'Jones, P.G.'
++'Schwarzmann, E.'
++'Rumpel, H.'
++_publ_section_title
++;
++ Gold(III) oxide
++;
++_journal_name_full               'Acta Crystallographica B (24,1968-38,1982)'
++_journal_page_first              1435
++_journal_page_last               1437
++_journal_paper_doi               10.1107/S0567740879006622
++_journal_volume                  35
++_journal_year                    1979
++_chemical_formula_sum            'Au2 O3'
++_space_group_IT_number           43
++_symmetry_space_group_name_Hall  'F 2 -2d'
++_symmetry_space_group_name_H-M   'F d d 2'
++_cell_angle_alpha                90
++_cell_angle_beta                 90
++_cell_angle_gamma                90
++_cell_formula_units_Z            8
++_cell_length_a                   12.827
++_cell_length_b                   10.52
++_cell_length_c                   3.838
++_cell_volume                     517.900
++_citation_journal_id_ASTM        ACBCAR
++_cod_data_source_file            gold_545.cif
++_cod_data_source_block           Au2O3
++_cod_original_cell_volume        517.8999
++_cod_database_code               2105390
++loop_
++_symmetry_equiv_pos_as_xyz
++x,y,z
++-x,-y,z
++-x+1/4,y+1/4,z+1/4
++x+3/4,-y+3/4,z+1/4
++x,y+1/2,z+1/2
++-x,-y+1/2,z+1/2
++-x+1/4,y+3/4,z+3/4
++x+3/4,-y+5/4,z+3/4
++x+1/2,y,z+1/2
++-x+1/2,-y,z+1/2
++-x+3/4,y+1/4,z+3/4
++x+5/4,-y+3/4,z+3/4
++x+1/2,y+1/2,z
++-x+1/2,-y+1/2,z
++-x+3/4,y+3/4,z+1/4
++x+5/4,-y+5/4,z+1/4
++loop_
++_atom_site_label
++_atom_site_type_symbol
++_atom_site_fract_x
++_atom_site_fract_y
++_atom_site_fract_z
++_atom_site_occupancy
++_atom_site_U_iso_or_equiv
++O2 O-2 0 0 0.8107 1 0.0
++O1 O-2 0.0825 0.2334 0.6232 1 0.0
++Au1 Au+3 -0.0458 0.1329 0.5 1 0.0
+diff --git a/_structure_lib/_phase_pack/COD/2105390/88c501cb3978e34e3386ba7b5d3c77c37c06c8df16094f3082abf5f8100ec084.meta.json b/_structure_lib/_phase_pack/COD/2105390/88c501cb3978e34e3386ba7b5d3c77c37c06c8df16094f3082abf5f8100ec084.meta.json
+new file mode 100644
+index 0000000..857958b
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/2105390/88c501cb3978e34e3386ba7b5d3c77c37c06c8df16094f3082abf5f8100ec084.meta.json
+@@ -0,0 +1,33 @@
++{
++  "source": "COD",
++  "id": "2105390",
++  "formula": "Au2O3",
++  "spacegroup": "F d d 2",
++  "cell": {
++    "a": 12.827,
++    "b": 10.52,
++    "c": 3.838,
++    "alpha": 90.0,
++    "beta": 90.0,
++    "gamma": 90.0
++  },
++  "absorber_sites": [
++    "Au1"
++  ],
++  "absorber_elements": [
++    "Au"
++  ],
++  "cif_path": "COD/2105390/88c501cb3978e34e3386ba7b5d3c77c37c06c8df16094f3082abf5f8100ec084.cif",
++  "cif_sha256": "88c501cb3978e34e3386ba7b5d3c77c37c06c8df16094f3082abf5f8100ec084",
++  "experimental": true,
++  "model_level": "crystal_cif",
++  "tags": [
++    "Au2O3",
++    "oxide",
++    "gold_oxide",
++    "catalyst"
++  ],
++  "added_by": "tools/cif_crawler.py",
++  "original_filename": "Au2O3_COD_2105390.cif",
++  "notes": "P5C gold_oxide; COD:2105390; source_url=https://www.crystallography.net/cod/2105390.cif"
++}
+diff --git a/_structure_lib/_phase_pack/COD/2310519/409276cea18da25deb97985305b56b493c7ae4a9160f3934b5fa766af1945d31.cif b/_structure_lib/_phase_pack/COD/2310519/409276cea18da25deb97985305b56b493c7ae4a9160f3934b5fa766af1945d31.cif
+new file mode 100644
+index 0000000..421fd0d
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/2310519/409276cea18da25deb97985305b56b493c7ae4a9160f3934b5fa766af1945d31.cif
+@@ -0,0 +1,69 @@
++#------------------------------------------------------------------------------
++#$Date: 2015-07-13 20:10:25 +0300 (Mon, 13 Jul 2015) $
++#$Revision: 150343 $
++#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/2/31/05/2310519.cif $
++#------------------------------------------------------------------------------
++#
++# This file is available in the Crystallography Open Database (COD),
++# http://www.crystallography.net/. The original data for this entry
++# were provided by IUCr Journals, http://journals.iucr.org/.
++#
++# The file may be used within the scientific community so long as
++# proper attribution is given to the journal article from which the
++# data were obtained.
++#
++data_2310519
++loop_
++_publ_author_name
++'Andresen, A.F.'
++_publ_section_title
++;
++ The structure of U3 O8 determined by neutron diffraction
++;
++_journal_name_full               'Acta Crystallographica (1,1948-23,1967)'
++_journal_page_first              612
++_journal_page_last               614
++_journal_volume                  11
++_journal_year                    1958
++_chemical_formula_sum            'O8 U3'
++_chemical_name_systematic        'U3 O8'
++_space_group_IT_number           21
++_symmetry_space_group_name_Hall  'C 2 2'
++_symmetry_space_group_name_H-M   'C 2 2 2'
++_cell_angle_alpha                90
++_cell_angle_beta                 90
++_cell_angle_gamma                90
++_cell_formula_units_Z            2
++_cell_length_a                   6.704
++_cell_length_b                   11.95
++_cell_length_c                   4.142
++_cell_volume                     331.827
++_citation_journal_id_ASTM        ACCRA9
++_cod_data_source_file            Andresen_ACCRA9_1958_268.cif
++_cod_data_source_block           O8U3
++_cod_original_cell_volume        331.8272
++_cod_database_code               2310519
++loop_
++_symmetry_equiv_pos_as_xyz
++x,y,z
++-x,-y,z
++x,-y,-z
++-x,y,-z
++x+1/2,y+1/2,z
++-x+1/2,-y+1/2,z
++x+1/2,-y+1/2,-z
++-x+1/2,y+1/2,-z
++loop_
++_atom_site_label
++_atom_site_type_symbol
++_atom_site_fract_x
++_atom_site_fract_y
++_atom_site_fract_z
++_atom_site_occupancy
++_atom_site_U_iso_or_equiv
++O3 O 0 0.315 0.5 1 0.0
++U1 U 0 0 0 1 0.0
++O2 O 0 0 0.5 1 0.0
++U2 U 0 0.315 0 1 0.0
++O1 O 0 0.5 0 1 0.0
++O4 O 0.19 0.145 0.08 1 0.0
+diff --git a/_structure_lib/_phase_pack/COD/2310519/409276cea18da25deb97985305b56b493c7ae4a9160f3934b5fa766af1945d31.meta.json b/_structure_lib/_phase_pack/COD/2310519/409276cea18da25deb97985305b56b493c7ae4a9160f3934b5fa766af1945d31.meta.json
+new file mode 100644
+index 0000000..69219c5
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/2310519/409276cea18da25deb97985305b56b493c7ae4a9160f3934b5fa766af1945d31.meta.json
+@@ -0,0 +1,34 @@
++{
++  "source": "COD",
++  "id": "2310519",
++  "formula": "U3O8",
++  "spacegroup": "C 2 2 2",
++  "cell": {
++    "a": 6.704,
++    "b": 11.95,
++    "c": 4.142,
++    "alpha": 90.0,
++    "beta": 90.0,
++    "gamma": 90.0
++  },
++  "absorber_sites": [
++    "U1",
++    "U2"
++  ],
++  "absorber_elements": [
++    "U"
++  ],
++  "cif_path": "COD/2310519/409276cea18da25deb97985305b56b493c7ae4a9160f3934b5fa766af1945d31.cif",
++  "cif_sha256": "409276cea18da25deb97985305b56b493c7ae4a9160f3934b5fa766af1945d31",
++  "experimental": true,
++  "model_level": "crystal_cif",
++  "tags": [
++    "U3O8",
++    "oxide",
++    "triuranium_octoxide",
++    "catalyst"
++  ],
++  "added_by": "tools/cif_crawler.py",
++  "original_filename": "U3O8_COD_2310519.cif",
++  "notes": "P5C alpha-U3O8; COD:2310519; source_url=https://www.crystallography.net/cod/2310519.cif"
++}
+diff --git a/_structure_lib/_phase_pack/COD/9002158/6ba7eb0e1891b8337442032c0c999c73c838a600cd0a12c185a9fe09edf0abdc.cif b/_structure_lib/_phase_pack/COD/9002158/6ba7eb0e1891b8337442032c0c999c73c838a600cd0a12c185a9fe09edf0abdc.cif
+new file mode 100644
+index 0000000..ebda0e3
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/9002158/6ba7eb0e1891b8337442032c0c999c73c838a600cd0a12c185a9fe09edf0abdc.cif
+@@ -0,0 +1,77 @@
++#------------------------------------------------------------------------------
++#$Date: 2025-11-01 14:29:51 +0200 (Sat, 01 Nov 2025) $
++#$Revision: 303136 $
++#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/9/00/21/9002158.cif $
++#------------------------------------------------------------------------------
++#
++# This file is available in the Crystallography Open Database (COD),
++# http://www.crystallography.net/. The original data for this entry
++# were provided the American Mineralogist Crystal Structure Database,
++# http://rruff.geo.arizona.edu/AMS/amcsd.php
++#
++# The file may be used within the scientific community so long as
++# proper attribution is given to the journal article from which the
++# data were obtained.
++#
++data_9002158
++loop_
++_publ_author_name
++'Gualtieri, A.'
++'Venturelli, P.'
++_publ_section_title
++;
++ In situ study of the goethite-hematite phase transformation by real time
++ synchrotron powder diffraction
++ Sample at T = 25 C
++;
++_journal_name_full               'American Mineralogist'
++_journal_page_first              895
++_journal_page_last               904
++_journal_volume                  84
++_journal_year                    1999
++_chemical_formula_sum            'Fe H O2'
++_chemical_name_mineral           Goethite
++_space_group_crystal_system      orthorhombic
++_space_group_IT_number           62
++_space_group_name_Hall           '-P 2ac 2n'
++_space_group_name_H-M_alt        'P n m a'
++_symmetry_space_group_name_H-M   'P n m a'
++_cell_angle_alpha                90
++_cell_angle_beta                 90
++_cell_angle_gamma                90
++_cell_formula_units_Z            4
++_cell_length_a                   9.9134
++_cell_length_b                   3.0128
++_cell_length_c                   4.5800
++_cell_volume                     136.791
++_database_code_amcsd             0002226
++_diffrn_ambient_temperature      298.15
++_exptl_crystal_density_diffrn    4.314
++_cod_database_code               9002158
++loop_
++_space_group_symop_id
++_space_group_symop_operation_xyz
++1 x,y,z
++2 x,1/2-y,z
++3 -x,1/2+y,-z
++4 1/2-x,1/2+y,1/2+z
++5 1/2+x,1/2-y,1/2-z
++6 1/2+x,y,1/2-z
++7 1/2-x,-y,1/2+z
++8 -x,-y,-z
++loop_
++_atom_site_label
++_atom_site_fract_x
++_atom_site_fract_y
++_atom_site_fract_z
++_atom_site_U_iso_or_equiv
++Fe 0.14590 0.25000 -0.04860 0.04900
++H -0.10100 0.25000 -0.39900 0.06000
++O1 -0.19900 0.25000 0.28500 0.04600
++O2 -0.05170 0.25000 -0.19600 0.04600
++loop_
++_cod_related_entry_id
++_cod_related_entry_database
++_cod_related_entry_code
++1 AMCSD 0002226
++2 ROD 3500033
+diff --git a/_structure_lib/_phase_pack/COD/9002158/6ba7eb0e1891b8337442032c0c999c73c838a600cd0a12c185a9fe09edf0abdc.meta.json b/_structure_lib/_phase_pack/COD/9002158/6ba7eb0e1891b8337442032c0c999c73c838a600cd0a12c185a9fe09edf0abdc.meta.json
+new file mode 100644
+index 0000000..31e205b
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/9002158/6ba7eb0e1891b8337442032c0c999c73c838a600cd0a12c185a9fe09edf0abdc.meta.json
+@@ -0,0 +1,33 @@
++{
++  "source": "COD",
++  "id": "9002158",
++  "formula": "FeOOH",
++  "spacegroup": "P n m a",
++  "cell": {
++    "a": 9.9134,
++    "b": 3.0128,
++    "c": 4.58,
++    "alpha": 90.0,
++    "beta": 90.0,
++    "gamma": 90.0
++  },
++  "absorber_sites": [
++    "Fe"
++  ],
++  "absorber_elements": [
++    "Fe"
++  ],
++  "cif_path": "COD/9002158/6ba7eb0e1891b8337442032c0c999c73c838a600cd0a12c185a9fe09edf0abdc.cif",
++  "cif_sha256": "6ba7eb0e1891b8337442032c0c999c73c838a600cd0a12c185a9fe09edf0abdc",
++  "experimental": true,
++  "model_level": "crystal_cif",
++  "tags": [
++    "FeOOH",
++    "hydroxide",
++    "goethite",
++    "catalyst"
++  ],
++  "added_by": "tools/cif_crawler.py",
++  "original_filename": "FeOOH_COD_9002158.cif",
++  "notes": "P5C goethite; COD:9002158; source_url=https://www.crystallography.net/cod/9002158.cif"
++}
+diff --git a/_structure_lib/_phase_pack/COD/9004178/dbc92c19b101d4fabb5594cc89f2a31629a0e8adab6539edd248c40c585649a1.cif b/_structure_lib/_phase_pack/COD/9004178/dbc92c19b101d4fabb5594cc89f2a31629a0e8adab6539edd248c40c585649a1.cif
+new file mode 100644
+index 0000000..067e847
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/9004178/dbc92c19b101d4fabb5594cc89f2a31629a0e8adab6539edd248c40c585649a1.cif
+@@ -0,0 +1,85 @@
++#------------------------------------------------------------------------------
++#$Date: 2024-04-25 17:59:02 +0300 (Thu, 25 Apr 2024) $
++#$Revision: 291351 $
++#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/9/00/41/9004178.cif $
++#------------------------------------------------------------------------------
++#
++# This file is available in the Crystallography Open Database (COD),
++# http://www.crystallography.net/. The original data for this entry
++# were provided the American Mineralogist Crystal Structure Database,
++# http://rruff.geo.arizona.edu/AMS/amcsd.php
++#
++# The file may be used within the scientific community so long as
++# proper attribution is given to the journal article from which the
++# data were obtained.
++#
++data_9004178
++loop_
++_publ_author_name
++'Kihara, K.'
++'Donnay, G.'
++_publ_section_title
++;
++ Anharmonic thermal vibrations in ZnO
++ Model: 2-c, at T = 293 K
++;
++_journal_name_full               'The Canadian Mineralogist'
++_journal_page_first              647
++_journal_page_last               654
++_journal_volume                  23
++_journal_year                    1985
++_chemical_formula_sum            'O Zn'
++_chemical_name_mineral           Zincite
++_space_group_IT_number           186
++_symmetry_space_group_name_Hall  'P 6c -2c'
++_symmetry_space_group_name_H-M   'P 63 m c'
++_cell_angle_alpha                90
++_cell_angle_beta                 90
++_cell_angle_gamma                120
++_cell_length_a                   3.2494
++_cell_length_b                   3.2494
++_cell_length_c                   5.2038
++_cell_formula_units_Z            2
++_cell_volume                     47.584
++_database_code_amcsd             0005203
++_diffrn_ambient_temperature      293
++_exptl_crystal_density_diffrn    5.681
++_cod_original_formula_sum        'Zn O'
++_cod_database_code               9004178
++loop_
++_symmetry_equiv_pos_as_xyz
++x,y,z
++-x,-x+y,1/2+z
++x-y,x,1/2+z
++-y,-x,z
++-y,x-y,z
++x-y,-y,1/2+z
++-x,-y,1/2+z
++x,x-y,z
++-x+y,-x,z
++y,x,1/2+z
++y,-x+y,1/2+z
++-x+y,y,z
++loop_
++_atom_site_aniso_label
++_atom_site_aniso_U_11
++_atom_site_aniso_U_22
++_atom_site_aniso_U_33
++_atom_site_aniso_U_12
++_atom_site_aniso_U_13
++_atom_site_aniso_U_23
++Zn 0.01820 0.01820 0.00540 0.00910 0.00000 0.00000
++O 0.01810 0.01810 0.00540 0.00905 0.00000 0.00000
++loop_
++_atom_site_label
++_atom_site_fract_x
++_atom_site_fract_y
++_atom_site_fract_z
++Zn 0.33333 0.66667 0.00000
++O 0.33333 0.66667 0.38210
++loop_
++_cod_related_entry_id
++_cod_related_entry_database
++_cod_related_entry_code
++1 AMCSD 0005203
++2 ChemSpider 2277402
+diff --git a/_structure_lib/_phase_pack/COD/9004178/dbc92c19b101d4fabb5594cc89f2a31629a0e8adab6539edd248c40c585649a1.meta.json b/_structure_lib/_phase_pack/COD/9004178/dbc92c19b101d4fabb5594cc89f2a31629a0e8adab6539edd248c40c585649a1.meta.json
+new file mode 100644
+index 0000000..1de640a
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/9004178/dbc92c19b101d4fabb5594cc89f2a31629a0e8adab6539edd248c40c585649a1.meta.json
+@@ -0,0 +1,33 @@
++{
++  "source": "COD",
++  "id": "9004178",
++  "formula": "ZnO",
++  "spacegroup": "P 63 m c",
++  "cell": {
++    "a": 3.2494,
++    "b": 3.2494,
++    "c": 5.2038,
++    "alpha": 90.0,
++    "beta": 90.0,
++    "gamma": 120.0
++  },
++  "absorber_sites": [
++    "Zn"
++  ],
++  "absorber_elements": [
++    "Zn"
++  ],
++  "cif_path": "COD/9004178/dbc92c19b101d4fabb5594cc89f2a31629a0e8adab6539edd248c40c585649a1.cif",
++  "cif_sha256": "dbc92c19b101d4fabb5594cc89f2a31629a0e8adab6539edd248c40c585649a1",
++  "experimental": true,
++  "model_level": "crystal_cif",
++  "tags": [
++    "ZnO",
++    "oxide",
++    "zincite",
++    "catalyst"
++  ],
++  "added_by": "tools/cif_crawler.py",
++  "original_filename": "ZnO_COD_9004178.cif",
++  "notes": "P5C zincite; COD:9004178; source_url=https://www.crystallography.net/cod/9004178.cif"
++}
+diff --git a/_structure_lib/_phase_pack/COD/9006658/96e89281276f4b7abede444c4e08a22bbc63b09e781cf1e279b3acd3e2c99518.cif b/_structure_lib/_phase_pack/COD/9006658/96e89281276f4b7abede444c4e08a22bbc63b09e781cf1e279b3acd3e2c99518.cif
+new file mode 100644
+index 0000000..da27dc4
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/9006658/96e89281276f4b7abede444c4e08a22bbc63b09e781cf1e279b3acd3e2c99518.cif
+@@ -0,0 +1,256 @@
++#------------------------------------------------------------------------------
++#$Date: 2024-05-02 13:48:35 +0300 (Thu, 02 May 2024) $
++#$Revision: 291455 $
++#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/9/00/66/9006658.cif $
++#------------------------------------------------------------------------------
++#
++# This file is available in the Crystallography Open Database (COD),
++# http://www.crystallography.net/. The original data for this entry
++# were provided the American Mineralogist Crystal Structure Database,
++# http://rruff.geo.arizona.edu/AMS/amcsd.php
++#
++# The file may be used within the scientific community so long as
++# proper attribution is given to the journal article from which the
++# data were obtained.
++#
++data_9006658
++loop_
++_publ_author_name
++'Zhang, J.'
++_publ_section_title
++;
++ Room temperature compressibilities of MnO and CdO: further
++ examination of the role of cation type in bulk modulus systematics
++ Sample from Run #1: P = 0.00 GPa at beginning of experiment
++;
++_journal_name_full               'Physics and Chemistry of Minerals'
++_journal_page_first              644
++_journal_page_last               648
++_journal_paper_doi               10.1007/s002690050229
++_journal_volume                  26
++_journal_year                    1999
++_chemical_formula_sum            'Mn O'
++_chemical_name_mineral           Manganosite
++_space_group_IT_number           225
++_symmetry_space_group_name_Hall  '-F 4 2 3'
++_symmetry_space_group_name_H-M   'F m -3 m'
++_cell_angle_alpha                90
++_cell_angle_beta                 90
++_cell_angle_gamma                90
++_cell_length_a                   4.4459
++_cell_length_b                   4.4459
++_cell_length_c                   4.4459
++_cell_formula_units_Z            4
++_cell_volume                     87.878
++_database_code_amcsd             0008240
++_diffrn_ambient_pressure         0
++_exptl_crystal_density_diffrn    5.362
++_cod_original_sg_symbol_H-M      'F m 3 m'
++_cod_database_code               9006658
++loop_
++_space_group_symop_operation_xyz
++x,y,z
++x,1/2+y,1/2+z
++1/2+x,y,1/2+z
++1/2+x,1/2+y,z
++z,-x,y
++z,1/2-x,1/2+y
++1/2+z,-x,1/2+y
++1/2+z,1/2-x,y
++-y,z,-x
++-y,1/2+z,1/2-x
++1/2-y,z,1/2-x
++1/2-y,1/2+z,-x
++x,-y,z
++x,1/2-y,1/2+z
++1/2+x,-y,1/2+z
++1/2+x,1/2-y,z
++-z,x,-y
++-z,1/2+x,1/2-y
++1/2-z,x,1/2-y
++1/2-z,1/2+x,-y
++y,-z,x
++y,1/2-z,1/2+x
++1/2+y,-z,1/2+x
++1/2+y,1/2-z,x
++-x,y,-z
++-x,1/2+y,1/2-z
++1/2-x,y,1/2-z
++1/2-x,1/2+y,-z
++x,-z,-y
++x,1/2-z,1/2-y
++1/2+x,-z,1/2-y
++1/2+x,1/2-z,-y
++-z,y,x
++-z,1/2+y,1/2+x
++1/2-z,y,1/2+x
++1/2-z,1/2+y,x
++y,-x,-z
++y,1/2-x,1/2-z
++1/2+y,-x,1/2-z
++1/2+y,1/2-x,-z
++-x,z,y
++-x,1/2+z,1/2+y
++1/2-x,z,1/2+y
++1/2-x,1/2+z,y
++z,-y,-x
++z,1/2-y,1/2-x
++1/2+z,-y,1/2-x
++1/2+z,1/2-y,-x
++-y,x,z
++-y,1/2+x,1/2+z
++1/2-y,x,1/2+z
++1/2-y,1/2+x,z
++x,z,y
++x,1/2+z,1/2+y
++1/2+x,z,1/2+y
++1/2+x,1/2+z,y
++-z,-y,-x
++-z,1/2-y,1/2-x
++1/2-z,-y,1/2-x
++1/2-z,1/2-y,-x
++y,x,z
++y,1/2+x,1/2+z
++1/2+y,x,1/2+z
++1/2+y,1/2+x,z
++-x,-z,-y
++-x,1/2-z,1/2-y
++1/2-x,-z,1/2-y
++1/2-x,1/2-z,-y
++z,y,x
++z,1/2+y,1/2+x
++1/2+z,y,1/2+x
++1/2+z,1/2+y,x
++-y,-x,-z
++-y,1/2-x,1/2-z
++1/2-y,-x,1/2-z
++1/2-y,1/2-x,-z
++z,x,-y
++z,1/2+x,1/2-y
++1/2+z,x,1/2-y
++1/2+z,1/2+x,-y
++-y,-z,x
++-y,1/2-z,1/2+x
++1/2-y,-z,1/2+x
++1/2-y,1/2-z,x
++x,y,-z
++x,1/2+y,1/2-z
++1/2+x,y,1/2-z
++1/2+x,1/2+y,-z
++-z,-x,y
++-z,1/2-x,1/2+y
++1/2-z,-x,1/2+y
++1/2-z,1/2-x,y
++y,z,-x
++y,1/2+z,1/2-x
++1/2+y,z,1/2-x
++1/2+y,1/2+z,-x
++-x,-y,z
++-x,1/2-y,1/2+z
++1/2-x,-y,1/2+z
++1/2-x,1/2-y,z
++-z,x,y
++-z,1/2+x,1/2+y
++1/2-z,x,1/2+y
++1/2-z,1/2+x,y
++y,-z,-x
++y,1/2-z,1/2-x
++1/2+y,-z,1/2-x
++1/2+y,1/2-z,-x
++-x,y,z
++-x,1/2+y,1/2+z
++1/2-x,y,1/2+z
++1/2-x,1/2+y,z
++z,-x,-y
++z,1/2-x,1/2-y
++1/2+z,-x,1/2-y
++1/2+z,1/2-x,-y
++-y,z,x
++-y,1/2+z,1/2+x
++1/2-y,z,1/2+x
++1/2-y,1/2+z,x
++x,-y,-z
++x,1/2-y,1/2-z
++1/2+x,-y,1/2-z
++1/2+x,1/2-y,-z
++-x,z,-y
++-x,1/2+z,1/2-y
++1/2-x,z,1/2-y
++1/2-x,1/2+z,-y
++z,-y,x
++z,1/2-y,1/2+x
++1/2+z,-y,1/2+x
++1/2+z,1/2-y,x
++-y,x,-z
++-y,1/2+x,1/2-z
++1/2-y,x,1/2-z
++1/2-y,1/2+x,-z
++x,-z,y
++x,1/2-z,1/2+y
++1/2+x,-z,1/2+y
++1/2+x,1/2-z,y
++-z,y,-x
++-z,1/2+y,1/2-x
++1/2-z,y,1/2-x
++1/2-z,1/2+y,-x
++y,-x,z
++y,1/2-x,1/2+z
++1/2+y,-x,1/2+z
++1/2+y,1/2-x,z
++-x,-z,y
++-x,1/2-z,1/2+y
++1/2-x,-z,1/2+y
++1/2-x,1/2-z,y
++z,y,-x
++z,1/2+y,1/2-x
++1/2+z,y,1/2-x
++1/2+z,1/2+y,-x
++-y,-x,z
++-y,1/2-x,1/2+z
++1/2-y,-x,1/2+z
++1/2-y,1/2-x,z
++x,z,-y
++x,1/2+z,1/2-y
++1/2+x,z,1/2-y
++1/2+x,1/2+z,-y
++-z,-y,x
++-z,1/2-y,1/2+x
++1/2-z,-y,1/2+x
++1/2-z,1/2-y,x
++y,x,-z
++y,1/2+x,1/2-z
++1/2+y,x,1/2-z
++1/2+y,1/2+x,-z
++-z,-x,-y
++-z,1/2-x,1/2-y
++1/2-z,-x,1/2-y
++1/2-z,1/2-x,-y
++y,z,x
++y,1/2+z,1/2+x
++1/2+y,z,1/2+x
++1/2+y,1/2+z,x
++-x,-y,-z
++-x,1/2-y,1/2-z
++1/2-x,-y,1/2-z
++1/2-x,1/2-y,-z
++z,x,y
++z,1/2+x,1/2+y
++1/2+z,x,1/2+y
++1/2+z,1/2+x,y
++-y,-z,-x
++-y,1/2-z,1/2-x
++1/2-y,-z,1/2-x
++1/2-y,1/2-z,-x
++loop_
++_atom_site_label
++_atom_site_fract_x
++_atom_site_fract_y
++_atom_site_fract_z
++Mn 0.00000 0.00000 0.00000
++O 0.50000 0.50000 0.50000
++loop_
++_cod_related_entry_id
++_cod_related_entry_database
++_cod_related_entry_code
++1 ChemSpider 141409
++2 AMCSD 0008240
+diff --git a/_structure_lib/_phase_pack/COD/9006658/96e89281276f4b7abede444c4e08a22bbc63b09e781cf1e279b3acd3e2c99518.meta.json b/_structure_lib/_phase_pack/COD/9006658/96e89281276f4b7abede444c4e08a22bbc63b09e781cf1e279b3acd3e2c99518.meta.json
+new file mode 100644
+index 0000000..c26a5f5
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/9006658/96e89281276f4b7abede444c4e08a22bbc63b09e781cf1e279b3acd3e2c99518.meta.json
+@@ -0,0 +1,33 @@
++{
++  "source": "COD",
++  "id": "9006658",
++  "formula": "MnO",
++  "spacegroup": "F m -3 m",
++  "cell": {
++    "a": 4.4459,
++    "b": 4.4459,
++    "c": 4.4459,
++    "alpha": 90.0,
++    "beta": 90.0,
++    "gamma": 90.0
++  },
++  "absorber_sites": [
++    "Mn"
++  ],
++  "absorber_elements": [
++    "Mn"
++  ],
++  "cif_path": "COD/9006658/96e89281276f4b7abede444c4e08a22bbc63b09e781cf1e279b3acd3e2c99518.cif",
++  "cif_sha256": "96e89281276f4b7abede444c4e08a22bbc63b09e781cf1e279b3acd3e2c99518",
++  "experimental": true,
++  "model_level": "crystal_cif",
++  "tags": [
++    "MnO",
++    "oxide",
++    "manganosite",
++    "catalyst"
++  ],
++  "added_by": "tools/cif_crawler.py",
++  "original_filename": "MnO_COD_9006658.cif",
++  "notes": "P5C manganosite; COD:9006658; source_url=https://www.crystallography.net/cod/9006658.cif"
++}
+diff --git a/_structure_lib/_phase_pack/COD/9007541/5e8ba6c58302d83f8c3379690114b1788553425e483c1c04e85fe5093e0345ec.cif b/_structure_lib/_phase_pack/COD/9007541/5e8ba6c58302d83f8c3379690114b1788553425e483c1c04e85fe5093e0345ec.cif
+new file mode 100644
+index 0000000..c014b9b
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/9007541/5e8ba6c58302d83f8c3379690114b1788553425e483c1c04e85fe5093e0345ec.cif
+@@ -0,0 +1,82 @@
++#------------------------------------------------------------------------------
++#$Date: 2024-05-02 13:48:35 +0300 (Thu, 02 May 2024) $
++#$Revision: 291455 $
++#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/9/00/75/9007541.cif $
++#------------------------------------------------------------------------------
++#
++# This file is available in the Crystallography Open Database (COD),
++# http://www.crystallography.net/. The original data for this entry
++# were provided the American Mineralogist Crystal Structure Database,
++# http://rruff.geo.arizona.edu/AMS/amcsd.php
++#
++# The file may be used within the scientific community so long as
++# proper attribution is given to the journal article from which the
++# data were obtained.
++#
++data_9007541
++loop_
++_publ_author_name
++'Baur, W. H.'
++'Khan, A. A.'
++_publ_section_title
++;
++ Rutile-type compounds. IV.
++ SiO2, GeO2 and a comparison with other rutile-type structures
++ Note: data from Boman (1970)
++;
++_journal_issue                   11
++_journal_name_full               'Acta Crystallographica, Section B'
++_journal_page_first              2133
++_journal_page_last               2139
++_journal_paper_doi               10.1107/S0567740871005466
++_journal_volume                  27
++_journal_year                    1971
++_chemical_formula_structural     RuO2
++_chemical_formula_sum            'O2 Ru'
++_space_group_IT_number           136
++_symmetry_space_group_name_Hall  '-P 4n 2n'
++_symmetry_space_group_name_H-M   'P 42/m n m'
++_cell_angle_alpha                90
++_cell_angle_beta                 90
++_cell_angle_gamma                90
++_cell_length_a                   4.4919
++_cell_length_b                   4.4919
++_cell_length_c                   3.1066
++_cell_formula_units_Z            2
++_cell_volume                     62.682
++_database_code_amcsd             0009414
++_exptl_crystal_density_diffrn    7.050
++_cod_original_formula_sum        'Ru O2'
++_cod_database_code               9007541
++_amcsd_formula_title             RuO2
++loop_
++_space_group_symop_operation_xyz
++x,y,z
++-y,-x,z
++y,x,-z
++1/2+y,1/2-x,1/2-z
++1/2-y,1/2+x,1/2+z
++1/2+x,1/2-y,1/2+z
++1/2-x,1/2+y,1/2-z
++x,y,-z
++-x,-y,z
++y,x,z
++-y,-x,-z
++1/2-y,1/2+x,1/2-z
++1/2+y,1/2-x,1/2+z
++1/2-x,1/2+y,1/2+z
++1/2+x,1/2-y,1/2-z
++-x,-y,-z
++loop_
++_atom_site_label
++_atom_site_fract_x
++_atom_site_fract_y
++_atom_site_fract_z
++Ru 0.00000 0.00000 0.00000
++O 0.30580 0.30580 0.00000
++loop_
++_cod_related_entry_id
++_cod_related_entry_database
++_cod_related_entry_code
++1 ChemSpider 8488619
++2 AMCSD 0009414
+diff --git a/_structure_lib/_phase_pack/COD/9007541/5e8ba6c58302d83f8c3379690114b1788553425e483c1c04e85fe5093e0345ec.meta.json b/_structure_lib/_phase_pack/COD/9007541/5e8ba6c58302d83f8c3379690114b1788553425e483c1c04e85fe5093e0345ec.meta.json
+new file mode 100644
+index 0000000..0faa0df
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/9007541/5e8ba6c58302d83f8c3379690114b1788553425e483c1c04e85fe5093e0345ec.meta.json
+@@ -0,0 +1,33 @@
++{
++  "source": "COD",
++  "id": "9007541",
++  "formula": "RuO2",
++  "spacegroup": "P 42/m n m",
++  "cell": {
++    "a": 4.4919,
++    "b": 4.4919,
++    "c": 3.1066,
++    "alpha": 90.0,
++    "beta": 90.0,
++    "gamma": 90.0
++  },
++  "absorber_sites": [
++    "Ru"
++  ],
++  "absorber_elements": [
++    "Ru"
++  ],
++  "cif_path": "COD/9007541/5e8ba6c58302d83f8c3379690114b1788553425e483c1c04e85fe5093e0345ec.cif",
++  "cif_sha256": "5e8ba6c58302d83f8c3379690114b1788553425e483c1c04e85fe5093e0345ec",
++  "experimental": true,
++  "model_level": "crystal_cif",
++  "tags": [
++    "RuO2",
++    "oxide",
++    "rutile",
++    "catalyst"
++  ],
++  "added_by": "tools/cif_crawler.py",
++  "original_filename": "RuO2_COD_9007541.cif",
++  "notes": "P5C rutile; COD:9007541; source_url=https://www.crystallography.net/cod/9007541.cif"
++}
+diff --git a/_structure_lib/_phase_pack/COD/9009049/d9a769ad693d79f01155c6d218d3b490beff1889f98472b691c45095be8441fe.cif b/_structure_lib/_phase_pack/COD/9009049/d9a769ad693d79f01155c6d218d3b490beff1889f98472b691c45095be8441fe.cif
+new file mode 100644
+index 0000000..a3f2c1a
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/9009049/d9a769ad693d79f01155c6d218d3b490beff1889f98472b691c45095be8441fe.cif
+@@ -0,0 +1,254 @@
++#------------------------------------------------------------------------------
++#$Date: 2024-05-06 10:39:41 +0300 (Mon, 06 May 2024) $
++#$Revision: 291735 $
++#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/9/00/90/9009049.cif $
++#------------------------------------------------------------------------------
++#
++# This file is available in the Crystallography Open Database (COD),
++# http://www.crystallography.net/. The original data for this entry
++# were provided the American Mineralogist Crystal Structure Database,
++# http://rruff.geo.arizona.edu/AMS/amcsd.php
++#
++# The file may be used within the scientific community so long as
++# proper attribution is given to the journal article from which the
++# data were obtained.
++#
++data_9009049
++loop_
++_publ_author_name
++'Wyckoff, R. W. G.'
++_publ_section_title
++;
++ Second edition. Interscience Publishers, New York, New York
++ Fluorite structure
++;
++_journal_name_full               'Crystal Structures'
++_journal_page_first              239
++_journal_page_last               444
++_journal_volume                  1
++_journal_year                    1963
++_chemical_formula_sum            'O2 U'
++_chemical_name_mineral           Uraninite
++_space_group_IT_number           225
++_symmetry_space_group_name_Hall  '-F 4 2 3'
++_symmetry_space_group_name_H-M   'F m -3 m'
++_cell_angle_alpha                90
++_cell_angle_beta                 90
++_cell_angle_gamma                90
++_cell_length_a                   5.4682
++_cell_length_b                   5.4682
++_cell_length_c                   5.4682
++_cell_formula_units_Z            4
++_cell_volume                     163.506
++_database_code_amcsd             0011728
++_exptl_crystal_density_diffrn    10.969
++_cod_original_sg_symbol_H-M      'F m 3 m'
++_cod_original_formula_sum        'U O2'
++_cod_database_code               9009049
++loop_
++_space_group_symop_operation_xyz
++x,y,z
++x,1/2+y,1/2+z
++1/2+x,y,1/2+z
++1/2+x,1/2+y,z
++z,-x,y
++z,1/2-x,1/2+y
++1/2+z,-x,1/2+y
++1/2+z,1/2-x,y
++-y,z,-x
++-y,1/2+z,1/2-x
++1/2-y,z,1/2-x
++1/2-y,1/2+z,-x
++x,-y,z
++x,1/2-y,1/2+z
++1/2+x,-y,1/2+z
++1/2+x,1/2-y,z
++-z,x,-y
++-z,1/2+x,1/2-y
++1/2-z,x,1/2-y
++1/2-z,1/2+x,-y
++y,-z,x
++y,1/2-z,1/2+x
++1/2+y,-z,1/2+x
++1/2+y,1/2-z,x
++-x,y,-z
++-x,1/2+y,1/2-z
++1/2-x,y,1/2-z
++1/2-x,1/2+y,-z
++x,-z,-y
++x,1/2-z,1/2-y
++1/2+x,-z,1/2-y
++1/2+x,1/2-z,-y
++-z,y,x
++-z,1/2+y,1/2+x
++1/2-z,y,1/2+x
++1/2-z,1/2+y,x
++y,-x,-z
++y,1/2-x,1/2-z
++1/2+y,-x,1/2-z
++1/2+y,1/2-x,-z
++-x,z,y
++-x,1/2+z,1/2+y
++1/2-x,z,1/2+y
++1/2-x,1/2+z,y
++z,-y,-x
++z,1/2-y,1/2-x
++1/2+z,-y,1/2-x
++1/2+z,1/2-y,-x
++-y,x,z
++-y,1/2+x,1/2+z
++1/2-y,x,1/2+z
++1/2-y,1/2+x,z
++x,z,y
++x,1/2+z,1/2+y
++1/2+x,z,1/2+y
++1/2+x,1/2+z,y
++-z,-y,-x
++-z,1/2-y,1/2-x
++1/2-z,-y,1/2-x
++1/2-z,1/2-y,-x
++y,x,z
++y,1/2+x,1/2+z
++1/2+y,x,1/2+z
++1/2+y,1/2+x,z
++-x,-z,-y
++-x,1/2-z,1/2-y
++1/2-x,-z,1/2-y
++1/2-x,1/2-z,-y
++z,y,x
++z,1/2+y,1/2+x
++1/2+z,y,1/2+x
++1/2+z,1/2+y,x
++-y,-x,-z
++-y,1/2-x,1/2-z
++1/2-y,-x,1/2-z
++1/2-y,1/2-x,-z
++z,x,-y
++z,1/2+x,1/2-y
++1/2+z,x,1/2-y
++1/2+z,1/2+x,-y
++-y,-z,x
++-y,1/2-z,1/2+x
++1/2-y,-z,1/2+x
++1/2-y,1/2-z,x
++x,y,-z
++x,1/2+y,1/2-z
++1/2+x,y,1/2-z
++1/2+x,1/2+y,-z
++-z,-x,y
++-z,1/2-x,1/2+y
++1/2-z,-x,1/2+y
++1/2-z,1/2-x,y
++y,z,-x
++y,1/2+z,1/2-x
++1/2+y,z,1/2-x
++1/2+y,1/2+z,-x
++-x,-y,z
++-x,1/2-y,1/2+z
++1/2-x,-y,1/2+z
++1/2-x,1/2-y,z
++-z,x,y
++-z,1/2+x,1/2+y
++1/2-z,x,1/2+y
++1/2-z,1/2+x,y
++y,-z,-x
++y,1/2-z,1/2-x
++1/2+y,-z,1/2-x
++1/2+y,1/2-z,-x
++-x,y,z
++-x,1/2+y,1/2+z
++1/2-x,y,1/2+z
++1/2-x,1/2+y,z
++z,-x,-y
++z,1/2-x,1/2-y
++1/2+z,-x,1/2-y
++1/2+z,1/2-x,-y
++-y,z,x
++-y,1/2+z,1/2+x
++1/2-y,z,1/2+x
++1/2-y,1/2+z,x
++x,-y,-z
++x,1/2-y,1/2-z
++1/2+x,-y,1/2-z
++1/2+x,1/2-y,-z
++-x,z,-y
++-x,1/2+z,1/2-y
++1/2-x,z,1/2-y
++1/2-x,1/2+z,-y
++z,-y,x
++z,1/2-y,1/2+x
++1/2+z,-y,1/2+x
++1/2+z,1/2-y,x
++-y,x,-z
++-y,1/2+x,1/2-z
++1/2-y,x,1/2-z
++1/2-y,1/2+x,-z
++x,-z,y
++x,1/2-z,1/2+y
++1/2+x,-z,1/2+y
++1/2+x,1/2-z,y
++-z,y,-x
++-z,1/2+y,1/2-x
++1/2-z,y,1/2-x
++1/2-z,1/2+y,-x
++y,-x,z
++y,1/2-x,1/2+z
++1/2+y,-x,1/2+z
++1/2+y,1/2-x,z
++-x,-z,y
++-x,1/2-z,1/2+y
++1/2-x,-z,1/2+y
++1/2-x,1/2-z,y
++z,y,-x
++z,1/2+y,1/2-x
++1/2+z,y,1/2-x
++1/2+z,1/2+y,-x
++-y,-x,z
++-y,1/2-x,1/2+z
++1/2-y,-x,1/2+z
++1/2-y,1/2-x,z
++x,z,-y
++x,1/2+z,1/2-y
++1/2+x,z,1/2-y
++1/2+x,1/2+z,-y
++-z,-y,x
++-z,1/2-y,1/2+x
++1/2-z,-y,1/2+x
++1/2-z,1/2-y,x
++y,x,-z
++y,1/2+x,1/2-z
++1/2+y,x,1/2-z
++1/2+y,1/2+x,-z
++-z,-x,-y
++-z,1/2-x,1/2-y
++1/2-z,-x,1/2-y
++1/2-z,1/2-x,-y
++y,z,x
++y,1/2+z,1/2+x
++1/2+y,z,1/2+x
++1/2+y,1/2+z,x
++-x,-y,-z
++-x,1/2-y,1/2-z
++1/2-x,-y,1/2-z
++1/2-x,1/2-y,-z
++z,x,y
++z,1/2+x,1/2+y
++1/2+z,x,1/2+y
++1/2+z,1/2+x,y
++-y,-z,-x
++-y,1/2-z,1/2-x
++1/2-y,-z,1/2-x
++1/2-y,1/2-z,-x
++loop_
++_atom_site_label
++_atom_site_fract_x
++_atom_site_fract_y
++_atom_site_fract_z
++U 0.00000 0.00000 0.00000
++O 0.25000 0.25000 0.25000
++loop_
++_cod_related_entry_id
++_cod_related_entry_database
++_cod_related_entry_code
++1 MPOD 1000180
++2 AMCSD 0011728
+diff --git a/_structure_lib/_phase_pack/COD/9009049/d9a769ad693d79f01155c6d218d3b490beff1889f98472b691c45095be8441fe.meta.json b/_structure_lib/_phase_pack/COD/9009049/d9a769ad693d79f01155c6d218d3b490beff1889f98472b691c45095be8441fe.meta.json
+new file mode 100644
+index 0000000..162ddab
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/9009049/d9a769ad693d79f01155c6d218d3b490beff1889f98472b691c45095be8441fe.meta.json
+@@ -0,0 +1,33 @@
++{
++  "source": "COD",
++  "id": "9009049",
++  "formula": "UO2",
++  "spacegroup": "F m -3 m",
++  "cell": {
++    "a": 5.4682,
++    "b": 5.4682,
++    "c": 5.4682,
++    "alpha": 90.0,
++    "beta": 90.0,
++    "gamma": 90.0
++  },
++  "absorber_sites": [
++    "U"
++  ],
++  "absorber_elements": [
++    "U"
++  ],
++  "cif_path": "COD/9009049/d9a769ad693d79f01155c6d218d3b490beff1889f98472b691c45095be8441fe.cif",
++  "cif_sha256": "d9a769ad693d79f01155c6d218d3b490beff1889f98472b691c45095be8441fe",
++  "experimental": true,
++  "model_level": "crystal_cif",
++  "tags": [
++    "UO2",
++    "oxide",
++    "uraninite",
++    "catalyst"
++  ],
++  "added_by": "tools/cif_crawler.py",
++  "original_filename": "UO2_COD_9009049.cif",
++  "notes": "P5C uraninite; COD:9009049; source_url=https://www.crystallography.net/cod/9009049.cif"
++}
+diff --git a/_structure_lib/_phase_pack/COD/9009081/dc13bafe954d0b71916f2400ab6eeb6985ca3e46f850f86d760205cddec791a2.cif b/_structure_lib/_phase_pack/COD/9009081/dc13bafe954d0b71916f2400ab6eeb6985ca3e46f850f86d760205cddec791a2.cif
+new file mode 100644
+index 0000000..6a3a8bc
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/9009081/dc13bafe954d0b71916f2400ab6eeb6985ca3e46f850f86d760205cddec791a2.cif
+@@ -0,0 +1,76 @@
++#------------------------------------------------------------------------------
++#$Date: 2024-05-06 10:39:41 +0300 (Mon, 06 May 2024) $
++#$Revision: 291735 $
++#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/9/00/90/9009081.cif $
++#------------------------------------------------------------------------------
++#
++# This file is available in the Crystallography Open Database (COD),
++# http://www.crystallography.net/. The original data for this entry
++# were provided the American Mineralogist Crystal Structure Database,
++# http://rruff.geo.arizona.edu/AMS/amcsd.php
++#
++# The file may be used within the scientific community so long as
++# proper attribution is given to the journal article from which the
++# data were obtained.
++#
++data_9009081
++loop_
++_publ_author_name
++'Wyckoff, R. W. G.'
++_publ_section_title
++;
++ Second edition. Interscience Publishers, New York, New York
++ Note: beta phase of MnO2, rutile structure
++;
++_journal_name_full               'Crystal Structures'
++_journal_page_first              239
++_journal_page_last               444
++_journal_volume                  1
++_journal_year                    1963
++_chemical_formula_sum            'Mn O2'
++_chemical_name_mineral           Pyrolusite
++_space_group_IT_number           136
++_symmetry_space_group_name_Hall  '-P 4n 2n'
++_symmetry_space_group_name_H-M   'P 42/m n m'
++_cell_angle_alpha                90
++_cell_angle_beta                 90
++_cell_angle_gamma                90
++_cell_length_a                   4.396
++_cell_length_b                   4.396
++_cell_length_c                   2.871
++_cell_formula_units_Z            2
++_cell_volume                     55.482
++_database_code_amcsd             0011760
++_exptl_crystal_density_diffrn    5.204
++_cod_database_code               9009081
++loop_
++_space_group_symop_operation_xyz
++x,y,z
++-y,-x,z
++y,x,-z
++1/2+y,1/2-x,1/2-z
++1/2-y,1/2+x,1/2+z
++1/2+x,1/2-y,1/2+z
++1/2-x,1/2+y,1/2-z
++x,y,-z
++-x,-y,z
++y,x,z
++-y,-x,-z
++1/2-y,1/2+x,1/2-z
++1/2+y,1/2-x,1/2+z
++1/2-x,1/2+y,1/2+z
++1/2+x,1/2-y,1/2-z
++-x,-y,-z
++loop_
++_atom_site_label
++_atom_site_fract_x
++_atom_site_fract_y
++_atom_site_fract_z
++Mn 0.00000 0.00000 0.00000
++O 0.30200 0.30200 0.00000
++loop_
++_cod_related_entry_id
++_cod_related_entry_database
++_cod_related_entry_code
++1 ChemSpider 10609227
++2 AMCSD 0011760
+diff --git a/_structure_lib/_phase_pack/COD/9009081/dc13bafe954d0b71916f2400ab6eeb6985ca3e46f850f86d760205cddec791a2.meta.json b/_structure_lib/_phase_pack/COD/9009081/dc13bafe954d0b71916f2400ab6eeb6985ca3e46f850f86d760205cddec791a2.meta.json
+new file mode 100644
+index 0000000..c174e87
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/9009081/dc13bafe954d0b71916f2400ab6eeb6985ca3e46f850f86d760205cddec791a2.meta.json
+@@ -0,0 +1,33 @@
++{
++  "source": "COD",
++  "id": "9009081",
++  "formula": "MnO2",
++  "spacegroup": "P 42/m n m",
++  "cell": {
++    "a": 4.396,
++    "b": 4.396,
++    "c": 2.871,
++    "alpha": 90.0,
++    "beta": 90.0,
++    "gamma": 90.0
++  },
++  "absorber_sites": [
++    "Mn"
++  ],
++  "absorber_elements": [
++    "Mn"
++  ],
++  "cif_path": "COD/9009081/dc13bafe954d0b71916f2400ab6eeb6985ca3e46f850f86d760205cddec791a2.cif",
++  "cif_sha256": "dc13bafe954d0b71916f2400ab6eeb6985ca3e46f850f86d760205cddec791a2",
++  "experimental": true,
++  "model_level": "crystal_cif",
++  "tags": [
++    "MnO2",
++    "oxide",
++    "pyrolusite",
++    "catalyst"
++  ],
++  "added_by": "tools/cif_crawler.py",
++  "original_filename": "MnO2_COD_9009081.cif",
++  "notes": "P5C pyrolusite; COD:9009081; source_url=https://www.crystallography.net/cod/9009081.cif"
++}
+diff --git a/_structure_lib/_phase_pack/COD/9009090/38dd59e9f92af428bc7c93d0fc2ac246d294e95251dae05c64062677d76f93c4.cif b/_structure_lib/_phase_pack/COD/9009090/38dd59e9f92af428bc7c93d0fc2ac246d294e95251dae05c64062677d76f93c4.cif
+new file mode 100644
+index 0000000..00df8e6
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/9009090/38dd59e9f92af428bc7c93d0fc2ac246d294e95251dae05c64062677d76f93c4.cif
+@@ -0,0 +1,64 @@
++#------------------------------------------------------------------------------
++#$Date: 2024-05-06 10:39:41 +0300 (Mon, 06 May 2024) $
++#$Revision: 291735 $
++#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/9/00/90/9009090.cif $
++#------------------------------------------------------------------------------
++#
++# This file is available in the Crystallography Open Database (COD),
++# http://www.crystallography.net/. The original data for this entry
++# were provided the American Mineralogist Crystal Structure Database,
++# http://rruff.geo.arizona.edu/AMS/amcsd.php
++#
++# The file may be used within the scientific community so long as
++# proper attribution is given to the journal article from which the
++# data were obtained.
++#
++data_9009090
++loop_
++_publ_author_name
++'Wyckoff, R. W. G.'
++_publ_section_title
++;
++ Second edition. Interscience Publishers, New York, New York
++;
++_journal_name_full               'Crystal Structures'
++_journal_page_first              239
++_journal_page_last               444
++_journal_volume                  1
++_journal_year                    1963
++_chemical_formula_sum            'Mo O2'
++_chemical_name_mineral           Tugarinovite
++_space_group_IT_number           14
++_symmetry_space_group_name_Hall  '-P 2ybc'
++_symmetry_space_group_name_H-M   'P 1 21/c 1'
++_cell_angle_alpha                90
++_cell_angle_beta                 120.983
++_cell_angle_gamma                90
++_cell_length_a                   5.584
++_cell_length_b                   4.842
++_cell_length_c                   5.608
++_cell_formula_units_Z            4
++_cell_volume                     129.993
++_database_code_amcsd             0011769
++_exptl_crystal_density_diffrn    6.537
++_cod_database_code               9009090
++loop_
++_space_group_symop_operation_xyz
++x,y,z
++x,1/2-y,1/2+z
++-x,1/2+y,1/2-z
++-x,-y,-z
++loop_
++_atom_site_label
++_atom_site_fract_x
++_atom_site_fract_y
++_atom_site_fract_z
++Mo 0.23200 0.00000 0.01700
++O1 0.11000 0.21000 0.24000
++O2 0.39000 0.70000 0.30000
++loop_
++_cod_related_entry_id
++_cod_related_entry_database
++_cod_related_entry_code
++1 ChemSpider 8373194
++2 AMCSD 0011769
+diff --git a/_structure_lib/_phase_pack/COD/9009090/38dd59e9f92af428bc7c93d0fc2ac246d294e95251dae05c64062677d76f93c4.meta.json b/_structure_lib/_phase_pack/COD/9009090/38dd59e9f92af428bc7c93d0fc2ac246d294e95251dae05c64062677d76f93c4.meta.json
+new file mode 100644
+index 0000000..0a38cad
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/9009090/38dd59e9f92af428bc7c93d0fc2ac246d294e95251dae05c64062677d76f93c4.meta.json
+@@ -0,0 +1,33 @@
++{
++  "source": "COD",
++  "id": "9009090",
++  "formula": "MoO2",
++  "spacegroup": "P 1 21/c 1",
++  "cell": {
++    "a": 5.584,
++    "b": 4.842,
++    "c": 5.608,
++    "alpha": 90.0,
++    "beta": 120.983,
++    "gamma": 90.0
++  },
++  "absorber_sites": [
++    "Mo"
++  ],
++  "absorber_elements": [
++    "Mo"
++  ],
++  "cif_path": "COD/9009090/38dd59e9f92af428bc7c93d0fc2ac246d294e95251dae05c64062677d76f93c4.cif",
++  "cif_sha256": "38dd59e9f92af428bc7c93d0fc2ac246d294e95251dae05c64062677d76f93c4",
++  "experimental": true,
++  "model_level": "crystal_cif",
++  "tags": [
++    "MoO2",
++    "oxide",
++    "tugarinovite",
++    "catalyst"
++  ],
++  "added_by": "tools/cif_crawler.py",
++  "original_filename": "MoO2_COD_9009090.cif",
++  "notes": "P5C tugarinovite; COD:9009090; source_url=https://www.crystallography.net/cod/9009090.cif"
++}
+diff --git a/_structure_lib/_phase_pack/COD/9009669/1e2e51b1a0e870c762e16872542426bbdbbc5343902948f0427d31d3c2d3b579.cif b/_structure_lib/_phase_pack/COD/9009669/1e2e51b1a0e870c762e16872542426bbdbbc5343902948f0427d31d3c2d3b579.cif
+new file mode 100644
+index 0000000..a6c3024
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/9009669/1e2e51b1a0e870c762e16872542426bbdbbc5343902948f0427d31d3c2d3b579.cif
+@@ -0,0 +1,76 @@
++#------------------------------------------------------------------------------
++#$Date: 2024-05-06 10:39:41 +0300 (Mon, 06 May 2024) $
++#$Revision: 291735 $
++#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/9/00/96/9009669.cif $
++#------------------------------------------------------------------------------
++#
++# This file is available in the Crystallography Open Database (COD),
++# http://www.crystallography.net/. The original data for this entry
++# were provided the American Mineralogist Crystal Structure Database,
++# http://rruff.geo.arizona.edu/AMS/amcsd.php
++#
++# The file may be used within the scientific community so long as
++# proper attribution is given to the journal article from which the
++# data were obtained.
++#
++data_9009669
++loop_
++_publ_author_name
++'Sitepu, H.'
++'O'Connor B H'
++'Li, D.'
++_publ_section_title
++;
++ Comparative evaluation of the March and generalized spherical harmonic
++ preferred orientation models using X-ray diffraction data for molybdite
++ and calcite powders
++ Note: GSH model
++;
++_journal_name_full               'Journal of Applied Crystallography'
++_journal_page_first              158
++_journal_page_last               167
++_journal_paper_doi               10.1107/S0021889804031231
++_journal_volume                  38
++_journal_year                    2005
++_chemical_compound_source        Synthetic
++_chemical_formula_sum            'Mo O3'
++_chemical_name_mineral           Molybdite
++_space_group_IT_number           62
++_symmetry_space_group_name_Hall  '-P 2c 2ab'
++_symmetry_space_group_name_H-M   'P b n m'
++_cell_angle_alpha                90
++_cell_angle_beta                 90
++_cell_angle_gamma                90
++_cell_length_a                   3.9616
++_cell_length_b                   13.856
++_cell_length_c                   3.6978
++_cell_formula_units_Z            4
++_cell_volume                     202.979
++_database_code_amcsd             0012869
++_exptl_crystal_density_diffrn    4.710
++_cod_database_code               9009669
++loop_
++_space_group_symop_operation_xyz
++x,y,z
++x,y,1/2-z
++-x,-y,1/2+z
++1/2+x,1/2-y,1/2+z
++1/2-x,1/2+y,1/2-z
++1/2-x,1/2+y,z
++1/2+x,1/2-y,-z
++-x,-y,-z
++loop_
++_atom_site_label
++_atom_site_fract_x
++_atom_site_fract_y
++_atom_site_fract_z
++_atom_site_U_iso_or_equiv
++Mo 0.07300 0.10100 0.25000 0.02790
++O1 0.54400 0.42600 0.25000 0.02513
++O2 0.61500 0.09100 0.25000 0.02613
++O3 0.05300 0.22300 0.25000 0.01121
++loop_
++_cod_related_entry_id
++_cod_related_entry_database
++_cod_related_entry_code
++1 AMCSD 0012869
+diff --git a/_structure_lib/_phase_pack/COD/9009669/1e2e51b1a0e870c762e16872542426bbdbbc5343902948f0427d31d3c2d3b579.meta.json b/_structure_lib/_phase_pack/COD/9009669/1e2e51b1a0e870c762e16872542426bbdbbc5343902948f0427d31d3c2d3b579.meta.json
+new file mode 100644
+index 0000000..4a41bd5
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/9009669/1e2e51b1a0e870c762e16872542426bbdbbc5343902948f0427d31d3c2d3b579.meta.json
+@@ -0,0 +1,33 @@
++{
++  "source": "COD",
++  "id": "9009669",
++  "formula": "MoO3",
++  "spacegroup": "P b n m",
++  "cell": {
++    "a": 3.9616,
++    "b": 13.856,
++    "c": 3.6978,
++    "alpha": 90.0,
++    "beta": 90.0,
++    "gamma": 90.0
++  },
++  "absorber_sites": [
++    "Mo"
++  ],
++  "absorber_elements": [
++    "Mo"
++  ],
++  "cif_path": "COD/9009669/1e2e51b1a0e870c762e16872542426bbdbbc5343902948f0427d31d3c2d3b579.cif",
++  "cif_sha256": "1e2e51b1a0e870c762e16872542426bbdbbc5343902948f0427d31d3c2d3b579",
++  "experimental": true,
++  "model_level": "crystal_cif",
++  "tags": [
++    "MoO3",
++    "oxide",
++    "molybdite",
++    "catalyst"
++  ],
++  "added_by": "tools/cif_crawler.py",
++  "original_filename": "MoO3_COD_9009669.cif",
++  "notes": "P5C molybdite; COD:9009669; source_url=https://www.crystallography.net/cod/9009669.cif"
++}
+diff --git a/_structure_lib/_phase_pack/COD/9014036/41edcf78a02a22eac1c6dc347c810ce1cda0a8ac49e76b0c37d6cdaacad2d2bf.cif b/_structure_lib/_phase_pack/COD/9014036/41edcf78a02a22eac1c6dc347c810ce1cda0a8ac49e76b0c37d6cdaacad2d2bf.cif
+new file mode 100644
+index 0000000..092753a
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/9014036/41edcf78a02a22eac1c6dc347c810ce1cda0a8ac49e76b0c37d6cdaacad2d2bf.cif
+@@ -0,0 +1,100 @@
++#------------------------------------------------------------------------------
++#$Date: 2024-05-23 12:45:01 +0300 (Thu, 23 May 2024) $
++#$Revision: 292002 $
++#$URL: file:///home/coder/svn-repositories/_RELOADED_COD/cod-reloaded/cif/9/01/40/9014036.cif $
++#------------------------------------------------------------------------------
++#
++# This file is available in the Crystallography Open Database (COD),
++# http://www.crystallography.net/. The original data for this entry
++# were provided the American Mineralogist Crystal Structure Database,
++# http://rruff.geo.arizona.edu/AMS/amcsd.php
++#
++# The file may be used within the scientific community so long as
++# proper attribution is given to the journal article from which the
++# data were obtained.
++#
++data_9014036
++loop_
++_publ_author_name
++'Sawada, H.'
++_publ_section_title
++;
++ Residual electron density study of chromium sesquioxide
++ by crystal structure and scattering factor refinement
++ Note: harmonic scattering factor refinement
++;
++_journal_name_full               'Materials Research Bulletin'
++_journal_page_first              239
++_journal_page_last               245
++_journal_paper_doi               10.1016/0025-5408(94)90019-1
++_journal_volume                  29
++_journal_year                    1994
++_chemical_compound_source        Synthetic
++_chemical_formula_sum            'Cr2 O3'
++_chemical_name_mineral           Eskolaite
++_space_group_IT_number           167
++_symmetry_space_group_name_Hall  '-R 3 2"c'
++_symmetry_space_group_name_H-M   'R -3 c :H'
++_cell_angle_alpha                90
++_cell_angle_beta                 90
++_cell_angle_gamma                120
++_cell_length_a                   4.9570
++_cell_length_b                   4.9570
++_cell_length_c                   13.5923
++_cell_formula_units_Z            6
++_cell_volume                     289.242
++_database_code_amcsd             0017803
++_exptl_crystal_density_diffrn    5.235
++_cod_original_sg_symbol_H-M      'R -3 c'
++_cod_database_code               9014036
++loop_
++_space_group_symop_operation_xyz
++x,y,z
++2/3+x,1/3+y,1/3+z
++1/3+x,2/3+y,2/3+z
++x,x-y,1/2+z
++2/3+x,1/3+x-y,5/6+z
++1/3+x,2/3+x-y,1/6+z
++y,x,1/2-z
++2/3+y,1/3+x,5/6-z
++1/3+y,2/3+x,1/6-z
++-x+y,y,1/2+z
++2/3-x+y,1/3+y,5/6+z
++1/3-x+y,2/3+y,1/6+z
++-x,-x+y,1/2-z
++2/3-x,1/3-x+y,5/6-z
++1/3-x,2/3-x+y,1/6-z
++-y,-x,1/2+z
++2/3-y,1/3-x,5/6+z
++1/3-y,2/3-x,1/6+z
++x-y,-y,1/2-z
++2/3+x-y,1/3-y,5/6-z
++1/3+x-y,2/3-y,1/6-z
++y,-x+y,-z
++2/3+y,1/3-x+y,1/3-z
++1/3+y,2/3-x+y,2/3-z
++-x+y,-x,z
++2/3-x+y,1/3-x,1/3+z
++1/3-x+y,2/3-x,2/3+z
++-x,-y,-z
++2/3-x,1/3-y,1/3-z
++1/3-x,2/3-y,2/3-z
++-y,x-y,z
++2/3-y,1/3+x-y,1/3+z
++1/3-y,2/3+x-y,2/3+z
++x-y,x,-z
++2/3+x-y,1/3+x,1/3-z
++1/3+x-y,2/3+x,2/3-z
++loop_
++_atom_site_label
++_atom_site_fract_x
++_atom_site_fract_y
++_atom_site_fract_z
++_atom_site_U_iso_or_equiv
++Cr 0.00000 0.00000 0.34749 0.00275
++O 0.30570 0.00000 0.25000 0.00393
++loop_
++_cod_related_entry_id
++_cod_related_entry_database
++_cod_related_entry_code
++1 AMCSD 0017803
+diff --git a/_structure_lib/_phase_pack/COD/9014036/41edcf78a02a22eac1c6dc347c810ce1cda0a8ac49e76b0c37d6cdaacad2d2bf.meta.json b/_structure_lib/_phase_pack/COD/9014036/41edcf78a02a22eac1c6dc347c810ce1cda0a8ac49e76b0c37d6cdaacad2d2bf.meta.json
+new file mode 100644
+index 0000000..4a55c2a
+--- /dev/null
++++ b/_structure_lib/_phase_pack/COD/9014036/41edcf78a02a22eac1c6dc347c810ce1cda0a8ac49e76b0c37d6cdaacad2d2bf.meta.json
+@@ -0,0 +1,33 @@
++{
++  "source": "COD",
++  "id": "9014036",
++  "formula": "Cr2O3",
++  "spacegroup": "R -3 c :H",
++  "cell": {
++    "a": 4.957,
++    "b": 4.957,
++    "c": 13.5923,
++    "alpha": 90.0,
++    "beta": 90.0,
++    "gamma": 120.0
++  },
++  "absorber_sites": [
++    "Cr"
++  ],
++  "absorber_elements": [
++    "Cr"
++  ],
++  "cif_path": "COD/9014036/41edcf78a02a22eac1c6dc347c810ce1cda0a8ac49e76b0c37d6cdaacad2d2bf.cif",
++  "cif_sha256": "41edcf78a02a22eac1c6dc347c810ce1cda0a8ac49e76b0c37d6cdaacad2d2bf",
++  "experimental": true,
++  "model_level": "crystal_cif",
++  "tags": [
++    "Cr2O3",
++    "oxide",
++    "eskolaite",
++    "catalyst"
++  ],
++  "added_by": "tools/cif_crawler.py",
++  "original_filename": "Cr2O3_COD_9014036.cif",
++  "notes": "P5C eskolaite; COD:9014036; source_url=https://www.crystallography.net/cod/9014036.cif"
++}
+diff --git a/_structure_lib/_phase_pack/manifest.json b/_structure_lib/_phase_pack/manifest.json
+index 6ba76a8..c88fc1a 100644
+--- a/_structure_lib/_phase_pack/manifest.json
++++ b/_structure_lib/_phase_pack/manifest.json
+@@ -3,6 +3,73 @@
+   "pack_id": "formal-cn-phase-pack",
+   "notes": "本地真实 CIF 包；不镜像 COD/ICSD，运行期离线。",
+   "entries": [
++    {
++      "source": "COD",
++      "id": "1008935",
++      "formula": "PtO2",
++      "spacegroup": "P n n m",
++      "cell": {
++        "a": 4.486,
++        "b": 4.537,
++        "c": 3.138,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Pt1"
++      ],
++      "absorber_elements": [
++        "Pt"
++      ],
++      "cif_path": "COD/1008935/822e9576bf5c377e274eb3fc8331b414bb4341644af4678e3970d2afdeceb959.cif",
++      "cif_sha256": "822e9576bf5c377e274eb3fc8331b414bb4341644af4678e3970d2afdeceb959",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "PtO2",
++        "oxide",
++        "platinum_dioxide",
++        "beta",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "PtO2_COD_1008935.cif",
++      "notes": "P5C beta-PtO2; COD:1008935; source_url=https://www.crystallography.net/cod/1008935.cif; COD 无常压 PtO2 结构；采用高压合成 β-PtO2（非环境相）"
++    },
++    {
++      "source": "COD",
++      "id": "1009031",
++      "formula": "PdO",
++      "spacegroup": "P 42/m m c (a,b+1/2,c)",
++      "cell": {
++        "a": 3.03,
++        "b": 3.03,
++        "c": 5.33,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Pd1"
++      ],
++      "absorber_elements": [
++        "Pd"
++      ],
++      "cif_path": "COD/1009031/7bfb22fa748f24d860b368935dd22733b129f7702dc769ec45eac48d4b2c9b43.cif",
++      "cif_sha256": "7bfb22fa748f24d860b368935dd22733b129f7702dc769ec45eac48d4b2c9b43",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "PdO",
++        "oxide",
++        "palladinite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "PdO_COD_1009031.cif",
++      "notes": "P5C palladinite; COD:1009031; source_url=https://www.crystallography.net/cod/1009031.cif"
++    },
+     {
+       "source": "COD",
+       "id": "1010093",
+@@ -72,6 +139,72 @@
+       "original_filename": "Fe3O4_COD_1010369.cif",
+       "notes": "T3 magnetite; COD:1010369; source_url=https://www.crystallography.net/cod/1010369.cif"
+     },
++    {
++      "source": "COD",
++      "id": "1010486",
++      "formula": "Ag2O",
++      "spacegroup": "P n -3 m :1",
++      "cell": {
++        "a": 4.718,
++        "b": 4.718,
++        "c": 4.718,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Ag1"
++      ],
++      "absorber_elements": [
++        "Ag"
++      ],
++      "cif_path": "COD/1010486/9a8554902dfa6749ff1b04703125eddaae6ccdad9bc51d66d366486abed7341e.cif",
++      "cif_sha256": "9a8554902dfa6749ff1b04703125eddaae6ccdad9bc51d66d366486abed7341e",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "Ag2O",
++        "oxide",
++        "cuprite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "Ag2O_COD_1010486.cif",
++      "notes": "P5C cuprite; COD:1010486; source_url=https://www.crystallography.net/cod/1010486.cif"
++    },
++    {
++      "source": "COD",
++      "id": "1010584",
++      "formula": "Rh2O3",
++      "spacegroup": "R -3 c :R",
++      "cell": {
++        "a": 5.45,
++        "b": 5.45,
++        "c": 5.45,
++        "alpha": 55.7,
++        "beta": 55.7,
++        "gamma": 55.7
++      },
++      "absorber_sites": [
++        "Rh1"
++      ],
++      "absorber_elements": [
++        "Rh"
++      ],
++      "cif_path": "COD/1010584/04e3b1d9bb00230064a493550483d0af7d7d302dcf142290536a7f142ddda66b.cif",
++      "cif_sha256": "04e3b1d9bb00230064a493550483d0af7d7d302dcf142290536a7f142ddda66b",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "Rh2O3",
++        "oxide",
++        "corundum",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "Rh2O3_COD_1010584.cif",
++      "notes": "P5C corundum; COD:1010584; source_url=https://www.crystallography.net/cod/1010584.cif"
++    },
+     {
+       "source": "COD",
+       "id": "1010941",
+@@ -167,6 +300,39 @@
+       "original_filename": "CuO_COD_1011148.cif",
+       "notes": "T3 tenorite; COD:1011148; source_url=https://www.crystallography.net/cod/1011148.cif"
+     },
++    {
++      "source": "COD",
++      "id": "1011169",
++      "formula": "FeO",
++      "spacegroup": "F m -3 m",
++      "cell": {
++        "a": 4.332,
++        "b": 4.332,
++        "c": 4.332,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Fe1"
++      ],
++      "absorber_elements": [
++        "Fe"
++      ],
++      "cif_path": "COD/1011169/cb24b198da6c970ad54f54731a10c59e9bc5c2067257462cb342f41364287ec3.cif",
++      "cif_sha256": "cb24b198da6c970ad54f54731a10c59e9bc5c2067257462cb342f41364287ec3",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "FeO",
++        "oxide",
++        "wuestite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "FeO_COD_1011169.cif",
++      "notes": "P5C wuestite; COD:1011169; source_url=https://www.crystallography.net/cod/1011169.cif"
++    },
+     {
+       "source": "COD",
+       "id": "1011240",
+@@ -229,6 +395,41 @@
+       "added_by": "tools/import_phase_pack.py",
+       "original_filename": "COD-1100108.cif"
+     },
++    {
++      "source": "COD",
++      "id": "1514120",
++      "formula": "Mn3O4",
++      "spacegroup": "I 41/a m d :1",
++      "cell": {
++        "a": 5.763,
++        "b": 5.763,
++        "c": 9.456,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Mn1",
++        "Mn2"
++      ],
++      "absorber_elements": [
++        "Mn"
++      ],
++      "cif_path": "COD/1514120/072a4d12bc73a08261f2dbdee4e81b9e06b44345198b95fc354af9ff78233d4e.cif",
++      "cif_sha256": "072a4d12bc73a08261f2dbdee4e81b9e06b44345198b95fc354af9ff78233d4e",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "Mn3O4",
++        "oxide",
++        "hausmannite",
++        "spinel",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "Mn3O4_COD_1514120.cif",
++      "notes": "P5C hausmannite; COD:1514120; source_url=https://www.crystallography.net/cod/1514120.cif"
++    },
+     {
+       "source": "COD",
+       "id": "1527120",
+@@ -390,6 +591,106 @@
+       "original_filename": "CeO2_COD_1562989.cif",
+       "notes": "T3 fluorite; COD:1562989; source_url=https://www.crystallography.net/cod/1562989.cif"
+     },
++    {
++      "source": "COD",
++      "id": "2101854",
++      "formula": "IrO2",
++      "spacegroup": "P 42/m n m",
++      "cell": {
++        "a": 4.5051,
++        "b": 4.5051,
++        "c": 3.1586,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Ir"
++      ],
++      "absorber_elements": [
++        "Ir"
++      ],
++      "cif_path": "COD/2101854/a475838a182a5a235458a9d63e59a63d393276ece71f90ae161be03796316a78.cif",
++      "cif_sha256": "a475838a182a5a235458a9d63e59a63d393276ece71f90ae161be03796316a78",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "IrO2",
++        "oxide",
++        "rutile",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "IrO2_COD_2101854.cif",
++      "notes": "P5C rutile; COD:2101854; source_url=https://www.crystallography.net/cod/2101854.cif"
++    },
++    {
++      "source": "COD",
++      "id": "2105390",
++      "formula": "Au2O3",
++      "spacegroup": "F d d 2",
++      "cell": {
++        "a": 12.827,
++        "b": 10.52,
++        "c": 3.838,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Au1"
++      ],
++      "absorber_elements": [
++        "Au"
++      ],
++      "cif_path": "COD/2105390/88c501cb3978e34e3386ba7b5d3c77c37c06c8df16094f3082abf5f8100ec084.cif",
++      "cif_sha256": "88c501cb3978e34e3386ba7b5d3c77c37c06c8df16094f3082abf5f8100ec084",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "Au2O3",
++        "oxide",
++        "gold_oxide",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "Au2O3_COD_2105390.cif",
++      "notes": "P5C gold_oxide; COD:2105390; source_url=https://www.crystallography.net/cod/2105390.cif"
++    },
++    {
++      "source": "COD",
++      "id": "2310519",
++      "formula": "U3O8",
++      "spacegroup": "C 2 2 2",
++      "cell": {
++        "a": 6.704,
++        "b": 11.95,
++        "c": 4.142,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "U1",
++        "U2"
++      ],
++      "absorber_elements": [
++        "U"
++      ],
++      "cif_path": "COD/2310519/409276cea18da25deb97985305b56b493c7ae4a9160f3934b5fa766af1945d31.cif",
++      "cif_sha256": "409276cea18da25deb97985305b56b493c7ae4a9160f3934b5fa766af1945d31",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "U3O8",
++        "oxide",
++        "triuranium_octoxide",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "U3O8_COD_2310519.cif",
++      "notes": "P5C alpha-U3O8; COD:2310519; source_url=https://www.crystallography.net/cod/2310519.cif"
++    },
+     {
+       "source": "COD",
+       "id": "4105040",
+@@ -419,6 +720,72 @@
+       "added_by": "tools/import_phase_pack.py",
+       "original_filename": "COD-4105040.cif"
+     },
++    {
++      "source": "COD",
++      "id": "9002158",
++      "formula": "FeOOH",
++      "spacegroup": "P n m a",
++      "cell": {
++        "a": 9.9134,
++        "b": 3.0128,
++        "c": 4.58,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Fe"
++      ],
++      "absorber_elements": [
++        "Fe"
++      ],
++      "cif_path": "COD/9002158/6ba7eb0e1891b8337442032c0c999c73c838a600cd0a12c185a9fe09edf0abdc.cif",
++      "cif_sha256": "6ba7eb0e1891b8337442032c0c999c73c838a600cd0a12c185a9fe09edf0abdc",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "FeOOH",
++        "hydroxide",
++        "goethite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "FeOOH_COD_9002158.cif",
++      "notes": "P5C goethite; COD:9002158; source_url=https://www.crystallography.net/cod/9002158.cif"
++    },
++    {
++      "source": "COD",
++      "id": "9004178",
++      "formula": "ZnO",
++      "spacegroup": "P 63 m c",
++      "cell": {
++        "a": 3.2494,
++        "b": 3.2494,
++        "c": 5.2038,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 120.0
++      },
++      "absorber_sites": [
++        "Zn"
++      ],
++      "absorber_elements": [
++        "Zn"
++      ],
++      "cif_path": "COD/9004178/dbc92c19b101d4fabb5594cc89f2a31629a0e8adab6539edd248c40c585649a1.cif",
++      "cif_sha256": "dbc92c19b101d4fabb5594cc89f2a31629a0e8adab6539edd248c40c585649a1",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "ZnO",
++        "oxide",
++        "zincite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "ZnO_COD_9004178.cif",
++      "notes": "P5C zincite; COD:9004178; source_url=https://www.crystallography.net/cod/9004178.cif"
++    },
+     {
+       "source": "COD",
+       "id": "9005888",
+@@ -453,6 +820,72 @@
+       "original_filename": "Co3O4_COD_9005888.cif",
+       "notes": "T3 spinel; COD:9005888; source_url=https://www.crystallography.net/cod/9005888.cif"
+     },
++    {
++      "source": "COD",
++      "id": "9006658",
++      "formula": "MnO",
++      "spacegroup": "F m -3 m",
++      "cell": {
++        "a": 4.4459,
++        "b": 4.4459,
++        "c": 4.4459,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Mn"
++      ],
++      "absorber_elements": [
++        "Mn"
++      ],
++      "cif_path": "COD/9006658/96e89281276f4b7abede444c4e08a22bbc63b09e781cf1e279b3acd3e2c99518.cif",
++      "cif_sha256": "96e89281276f4b7abede444c4e08a22bbc63b09e781cf1e279b3acd3e2c99518",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "MnO",
++        "oxide",
++        "manganosite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "MnO_COD_9006658.cif",
++      "notes": "P5C manganosite; COD:9006658; source_url=https://www.crystallography.net/cod/9006658.cif"
++    },
++    {
++      "source": "COD",
++      "id": "9007541",
++      "formula": "RuO2",
++      "spacegroup": "P 42/m n m",
++      "cell": {
++        "a": 4.4919,
++        "b": 4.4919,
++        "c": 3.1066,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Ru"
++      ],
++      "absorber_elements": [
++        "Ru"
++      ],
++      "cif_path": "COD/9007541/5e8ba6c58302d83f8c3379690114b1788553425e483c1c04e85fe5093e0345ec.cif",
++      "cif_sha256": "5e8ba6c58302d83f8c3379690114b1788553425e483c1c04e85fe5093e0345ec",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "RuO2",
++        "oxide",
++        "rutile",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "RuO2_COD_9007541.cif",
++      "notes": "P5C rutile; COD:9007541; source_url=https://www.crystallography.net/cod/9007541.cif"
++    },
+     {
+       "source": "COD",
+       "id": "9008459",
+@@ -815,6 +1248,138 @@
+       "original_filename": "Mn_COD_9008589.cif",
+       "notes": "T4 alpha-Mn; COD:9008589; source_url=https://www.crystallography.net/cod/9008589.cif"
+     },
++    {
++      "source": "COD",
++      "id": "9009049",
++      "formula": "UO2",
++      "spacegroup": "F m -3 m",
++      "cell": {
++        "a": 5.4682,
++        "b": 5.4682,
++        "c": 5.4682,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "U"
++      ],
++      "absorber_elements": [
++        "U"
++      ],
++      "cif_path": "COD/9009049/d9a769ad693d79f01155c6d218d3b490beff1889f98472b691c45095be8441fe.cif",
++      "cif_sha256": "d9a769ad693d79f01155c6d218d3b490beff1889f98472b691c45095be8441fe",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "UO2",
++        "oxide",
++        "uraninite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "UO2_COD_9009049.cif",
++      "notes": "P5C uraninite; COD:9009049; source_url=https://www.crystallography.net/cod/9009049.cif"
++    },
++    {
++      "source": "COD",
++      "id": "9009081",
++      "formula": "MnO2",
++      "spacegroup": "P 42/m n m",
++      "cell": {
++        "a": 4.396,
++        "b": 4.396,
++        "c": 2.871,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Mn"
++      ],
++      "absorber_elements": [
++        "Mn"
++      ],
++      "cif_path": "COD/9009081/dc13bafe954d0b71916f2400ab6eeb6985ca3e46f850f86d760205cddec791a2.cif",
++      "cif_sha256": "dc13bafe954d0b71916f2400ab6eeb6985ca3e46f850f86d760205cddec791a2",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "MnO2",
++        "oxide",
++        "pyrolusite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "MnO2_COD_9009081.cif",
++      "notes": "P5C pyrolusite; COD:9009081; source_url=https://www.crystallography.net/cod/9009081.cif"
++    },
++    {
++      "source": "COD",
++      "id": "9009090",
++      "formula": "MoO2",
++      "spacegroup": "P 1 21/c 1",
++      "cell": {
++        "a": 5.584,
++        "b": 4.842,
++        "c": 5.608,
++        "alpha": 90.0,
++        "beta": 120.983,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Mo"
++      ],
++      "absorber_elements": [
++        "Mo"
++      ],
++      "cif_path": "COD/9009090/38dd59e9f92af428bc7c93d0fc2ac246d294e95251dae05c64062677d76f93c4.cif",
++      "cif_sha256": "38dd59e9f92af428bc7c93d0fc2ac246d294e95251dae05c64062677d76f93c4",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "MoO2",
++        "oxide",
++        "tugarinovite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "MoO2_COD_9009090.cif",
++      "notes": "P5C tugarinovite; COD:9009090; source_url=https://www.crystallography.net/cod/9009090.cif"
++    },
++    {
++      "source": "COD",
++      "id": "9009669",
++      "formula": "MoO3",
++      "spacegroup": "P b n m",
++      "cell": {
++        "a": 3.9616,
++        "b": 13.856,
++        "c": 3.6978,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Mo"
++      ],
++      "absorber_elements": [
++        "Mo"
++      ],
++      "cif_path": "COD/9009669/1e2e51b1a0e870c762e16872542426bbdbbc5343902948f0427d31d3c2d3b579.cif",
++      "cif_sha256": "1e2e51b1a0e870c762e16872542426bbdbbc5343902948f0427d31d3c2d3b579",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "MoO3",
++        "oxide",
++        "molybdite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "MoO3_COD_9009669.cif",
++      "notes": "P5C molybdite; COD:9009669; source_url=https://www.crystallography.net/cod/9009669.cif"
++    },
+     {
+       "source": "COD",
+       "id": "9010987",
+@@ -847,6 +1412,39 @@
+       "added_by": "tools/cif_crawler.py",
+       "original_filename": "Ce_COD_9010987.cif",
+       "notes": "T4 fcc; COD:9010987; source_url=https://www.crystallography.net/cod/9010987.cif"
++    },
++    {
++      "source": "COD",
++      "id": "9014036",
++      "formula": "Cr2O3",
++      "spacegroup": "R -3 c :H",
++      "cell": {
++        "a": 4.957,
++        "b": 4.957,
++        "c": 13.5923,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 120.0
++      },
++      "absorber_sites": [
++        "Cr"
++      ],
++      "absorber_elements": [
++        "Cr"
++      ],
++      "cif_path": "COD/9014036/41edcf78a02a22eac1c6dc347c810ce1cda0a8ac49e76b0c37d6cdaacad2d2bf.cif",
++      "cif_sha256": "41edcf78a02a22eac1c6dc347c810ce1cda0a8ac49e76b0c37d6cdaacad2d2bf",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "Cr2O3",
++        "oxide",
++        "eskolaite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "Cr2O3_COD_9014036.cif",
++      "notes": "P5C eskolaite; COD:9014036; source_url=https://www.crystallography.net/cod/9014036.cif"
+     }
+   ]
+ }
+diff --git a/_structure_lib/phase_coverage.json b/_structure_lib/phase_coverage.json
+index 011dbe1..f51675e 100644
+--- a/_structure_lib/phase_coverage.json
++++ b/_structure_lib/phase_coverage.json
+@@ -47,7 +47,7 @@
+     "motif_only_elements": [],
+     "elements_not_covered": 0,
+     "not_covered_elements": [],
+-    "elements_with_motif": 9,
++    "elements_with_motif": 17,
+     "with_motif_elements": [
+       "Fe",
+       "Co",
+@@ -55,37 +55,38 @@
+       "Cu",
+       "Pt",
+       "Cr",
++      "Mn",
+       "Zn",
+       "Mo",
+-      "Au"
+-    ],
+-    "elements_without_motif": 8,
+-    "without_motif_elements": [
+-      "Mn",
+       "Ru",
+       "Rh",
+       "Pd",
+       "Ag",
+       "Ir",
++      "Au",
+       "Ce",
+       "U"
+     ],
+-    "verified_cif": 26
++    "elements_without_motif": 0,
++    "without_motif_elements": [],
++    "verified_cif": 44
+   },
+   "elements": {
+     "Fe": {
+       "element": "Fe",
+-      "verified_cif": 3,
+-      "prototype": 7,
++      "verified_cif": 5,
++      "prototype": 9,
+       "cluster": 4,
+-      "motif_total": 11,
++      "motif_total": 13,
+       "motif_source_ref_only": 2,
+       "formal_cn_ready": true,
+       "coverage_status": "verified",
+       "phase_ids": [
+         "COD:1010369",
++        "COD:1011169",
+         "COD:1011240",
+-        "COD:1100108"
++        "COD:1100108",
++        "COD:9002158"
+       ],
+       "common_phases": [
+         "metal",
+@@ -94,10 +95,7 @@
+         "Fe2O3",
+         "FeOOH"
+       ],
+-      "missing_common_phases": [
+-        "FeO",
+-        "FeOOH"
+-      ]
++      "missing_common_phases": []
+     },
+     "Co": {
+       "element": "Co",
+@@ -164,7 +162,7 @@
+     },
+     "Pt": {
+       "element": "Pt",
+-      "verified_cif": 1,
++      "verified_cif": 2,
+       "prototype": 2,
+       "cluster": 1,
+       "motif_total": 3,
+@@ -172,19 +170,18 @@
+       "formal_cn_ready": true,
+       "coverage_status": "verified",
+       "phase_ids": [
++        "COD:1008935",
+         "COD:1011103"
+       ],
+       "common_phases": [
+         "metal",
+         "PtO2"
+       ],
+-      "missing_common_phases": [
+-        "PtO2"
+-      ]
++      "missing_common_phases": []
+     },
+     "Cr": {
+       "element": "Cr",
+-      "verified_cif": 1,
++      "verified_cif": 2,
+       "prototype": 1,
+       "cluster": 0,
+       "motif_total": 1,
+@@ -192,27 +189,29 @@
+       "formal_cn_ready": true,
+       "coverage_status": "verified",
+       "phase_ids": [
+-        "COD:9008531"
++        "COD:9008531",
++        "COD:9014036"
+       ],
+       "common_phases": [
+         "metal",
+         "Cr2O3"
+       ],
+-      "missing_common_phases": [
+-        "Cr2O3"
+-      ]
++      "missing_common_phases": []
+     },
+     "Mn": {
+       "element": "Mn",
+-      "verified_cif": 1,
+-      "prototype": 0,
++      "verified_cif": 4,
++      "prototype": 1,
+       "cluster": 0,
+-      "motif_total": 0,
++      "motif_total": 1,
+       "motif_source_ref_only": 0,
+       "formal_cn_ready": true,
+       "coverage_status": "verified",
+       "phase_ids": [
+-        "COD:9008589"
++        "COD:1514120",
++        "COD:9006658",
++        "COD:9008589",
++        "COD:9009081"
+       ],
+       "common_phases": [
+         "metal",
+@@ -220,15 +219,11 @@
+         "MnO2",
+         "Mn3O4"
+       ],
+-      "missing_common_phases": [
+-        "MnO",
+-        "MnO2",
+-        "Mn3O4"
+-      ]
++      "missing_common_phases": []
+     },
+     "Zn": {
+       "element": "Zn",
+-      "verified_cif": 1,
++      "verified_cif": 2,
+       "prototype": 1,
+       "cluster": 0,
+       "motif_total": 1,
+@@ -236,19 +231,18 @@
+       "formal_cn_ready": true,
+       "coverage_status": "verified",
+       "phase_ids": [
++        "COD:9004178",
+         "COD:9008522"
+       ],
+       "common_phases": [
+         "metal",
+         "ZnO"
+       ],
+-      "missing_common_phases": [
+-        "ZnO"
+-      ]
++      "missing_common_phases": []
+     },
+     "Mo": {
+       "element": "Mo",
+-      "verified_cif": 1,
++      "verified_cif": 3,
+       "prototype": 1,
+       "cluster": 0,
+       "motif_total": 1,
+@@ -256,121 +250,115 @@
+       "formal_cn_ready": true,
+       "coverage_status": "verified",
+       "phase_ids": [
+-        "COD:9008543"
++        "COD:9008543",
++        "COD:9009090",
++        "COD:9009669"
+       ],
+       "common_phases": [
+         "metal",
+         "MoO2",
+         "MoO3"
+       ],
+-      "missing_common_phases": [
+-        "MoO2",
+-        "MoO3"
+-      ]
++      "missing_common_phases": []
+     },
+     "Ru": {
+       "element": "Ru",
+-      "verified_cif": 1,
+-      "prototype": 0,
++      "verified_cif": 2,
++      "prototype": 1,
+       "cluster": 0,
+-      "motif_total": 0,
++      "motif_total": 1,
+       "motif_source_ref_only": 0,
+       "formal_cn_ready": true,
+       "coverage_status": "verified",
+       "phase_ids": [
++        "COD:9007541",
+         "COD:9008513"
+       ],
+       "common_phases": [
+         "metal",
+         "RuO2"
+       ],
+-      "missing_common_phases": [
+-        "RuO2"
+-      ]
++      "missing_common_phases": []
+     },
+     "Rh": {
+       "element": "Rh",
+-      "verified_cif": 1,
+-      "prototype": 0,
++      "verified_cif": 2,
++      "prototype": 1,
+       "cluster": 0,
+-      "motif_total": 0,
++      "motif_total": 1,
+       "motif_source_ref_only": 0,
+       "formal_cn_ready": true,
+       "coverage_status": "verified",
+       "phase_ids": [
++        "COD:1010584",
+         "COD:9008482"
+       ],
+       "common_phases": [
+         "metal",
+         "Rh2O3"
+       ],
+-      "missing_common_phases": [
+-        "Rh2O3"
+-      ]
++      "missing_common_phases": []
+     },
+     "Pd": {
+       "element": "Pd",
+-      "verified_cif": 1,
+-      "prototype": 0,
++      "verified_cif": 2,
++      "prototype": 1,
+       "cluster": 0,
+-      "motif_total": 0,
++      "motif_total": 1,
+       "motif_source_ref_only": 0,
+       "formal_cn_ready": true,
+       "coverage_status": "verified",
+       "phase_ids": [
++        "COD:1009031",
+         "COD:9008478"
+       ],
+       "common_phases": [
+         "metal",
+         "PdO"
+       ],
+-      "missing_common_phases": [
+-        "PdO"
+-      ]
++      "missing_common_phases": []
+     },
+     "Ag": {
+       "element": "Ag",
+-      "verified_cif": 1,
+-      "prototype": 0,
++      "verified_cif": 2,
++      "prototype": 1,
+       "cluster": 0,
+-      "motif_total": 0,
++      "motif_total": 1,
+       "motif_source_ref_only": 0,
+       "formal_cn_ready": true,
+       "coverage_status": "verified",
+       "phase_ids": [
++        "COD:1010486",
+         "COD:9008459"
+       ],
+       "common_phases": [
+         "metal",
+         "Ag2O"
+       ],
+-      "missing_common_phases": [
+-        "Ag2O"
+-      ]
++      "missing_common_phases": []
+     },
+     "Ir": {
+       "element": "Ir",
+-      "verified_cif": 1,
+-      "prototype": 0,
++      "verified_cif": 2,
++      "prototype": 1,
+       "cluster": 0,
+-      "motif_total": 0,
++      "motif_total": 1,
+       "motif_source_ref_only": 0,
+       "formal_cn_ready": true,
+       "coverage_status": "verified",
+       "phase_ids": [
++        "COD:2101854",
+         "COD:9008470"
+       ],
+       "common_phases": [
+         "metal",
+         "IrO2"
+       ],
+-      "missing_common_phases": [
+-        "IrO2"
+-      ]
++      "missing_common_phases": []
+     },
+     "Au": {
+       "element": "Au",
+-      "verified_cif": 1,
++      "verified_cif": 2,
+       "prototype": 1,
+       "cluster": 0,
+       "motif_total": 1,
+@@ -378,22 +366,21 @@
+       "formal_cn_ready": true,
+       "coverage_status": "verified",
+       "phase_ids": [
++        "COD:2105390",
+         "COD:9008463"
+       ],
+       "common_phases": [
+         "metal",
+         "Au2O3"
+       ],
+-      "missing_common_phases": [
+-        "Au2O3"
+-      ]
++      "missing_common_phases": []
+     },
+     "Ce": {
+       "element": "Ce",
+       "verified_cif": 2,
+-      "prototype": 0,
++      "prototype": 2,
+       "cluster": 0,
+-      "motif_total": 0,
++      "motif_total": 2,
+       "motif_source_ref_only": 0,
+       "formal_cn_ready": true,
+       "coverage_status": "verified",
+@@ -408,24 +395,23 @@
+     },
+     "U": {
+       "element": "U",
+-      "verified_cif": 1,
+-      "prototype": 0,
++      "verified_cif": 3,
++      "prototype": 1,
+       "cluster": 0,
+-      "motif_total": 0,
++      "motif_total": 1,
+       "motif_source_ref_only": 0,
+       "formal_cn_ready": true,
+       "coverage_status": "verified",
+       "phase_ids": [
+-        "COD:1527120"
++        "COD:1527120",
++        "COD:2310519",
++        "COD:9009049"
+       ],
+       "common_phases": [
+         "UO2",
+         "U3O8"
+       ],
+-      "missing_common_phases": [
+-        "UO2",
+-        "U3O8"
+-      ]
++      "missing_common_phases": []
+     }
+   }
+ }
+diff --git a/_structure_lib/phase_index.json b/_structure_lib/phase_index.json
+index c673e46..e394469 100644
+--- a/_structure_lib/phase_index.json
++++ b/_structure_lib/phase_index.json
+@@ -3,10 +3,10 @@
+   "generated_by": "tools/build_phase_index.py",
+   "pack_id": "formal-cn-phase-pack",
+   "pack_root": "_structure_lib/_phase_pack",
+-  "manifest_sha256": "b748b6a9bfd7410c93584265434387f281f27b181852756f1cdea0247e0b8ac7",
++  "manifest_sha256": "f088a97db72a666e7c12ad82fdb21aad325b40bb2c3e29094c76112df0438f45",
+   "summary": {
+-    "entries": 26,
+-    "verified_cif": 26,
++    "entries": 44,
++    "verified_cif": 44,
+     "elements_covered": [
+       "Ag",
+       "Au",
+@@ -29,6 +29,75 @@
+     "elements_total": 17
+   },
+   "entries": [
++    {
++      "source": "COD",
++      "id": "1008935",
++      "formula": "PtO2",
++      "spacegroup": "P n n m",
++      "cell": {
++        "a": 4.486,
++        "b": 4.537,
++        "c": 3.138,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Pt1"
++      ],
++      "absorber_elements": [
++        "Pt"
++      ],
++      "cif_path": "_structure_lib/_phase_pack/COD/1008935/822e9576bf5c377e274eb3fc8331b414bb4341644af4678e3970d2afdeceb959.cif",
++      "cif_sha256": "822e9576bf5c377e274eb3fc8331b414bb4341644af4678e3970d2afdeceb959",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "PtO2",
++        "oxide",
++        "platinum_dioxide",
++        "beta",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "PtO2_COD_1008935.cif",
++      "notes": "P5C beta-PtO2; COD:1008935; source_url=https://www.crystallography.net/cod/1008935.cif; COD 无常压 PtO2 结构；采用高压合成 β-PtO2（非环境相）",
++      "pack_path": "COD/1008935/822e9576bf5c377e274eb3fc8331b414bb4341644af4678e3970d2afdeceb959.cif"
++    },
++    {
++      "source": "COD",
++      "id": "1009031",
++      "formula": "PdO",
++      "spacegroup": "P 42/m m c (a,b+1/2,c)",
++      "cell": {
++        "a": 3.03,
++        "b": 3.03,
++        "c": 5.33,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Pd1"
++      ],
++      "absorber_elements": [
++        "Pd"
++      ],
++      "cif_path": "_structure_lib/_phase_pack/COD/1009031/7bfb22fa748f24d860b368935dd22733b129f7702dc769ec45eac48d4b2c9b43.cif",
++      "cif_sha256": "7bfb22fa748f24d860b368935dd22733b129f7702dc769ec45eac48d4b2c9b43",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "PdO",
++        "oxide",
++        "palladinite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "PdO_COD_1009031.cif",
++      "notes": "P5C palladinite; COD:1009031; source_url=https://www.crystallography.net/cod/1009031.cif",
++      "pack_path": "COD/1009031/7bfb22fa748f24d860b368935dd22733b129f7702dc769ec45eac48d4b2c9b43.cif"
++    },
+     {
+       "source": "COD",
+       "id": "1010093",
+@@ -100,6 +169,74 @@
+       "notes": "T3 magnetite; COD:1010369; source_url=https://www.crystallography.net/cod/1010369.cif",
+       "pack_path": "COD/1010369/60f507446c8a7dd4e8b34cd1fe57fcf776155fbec7097e08c8921cff7c55a75a.cif"
+     },
++    {
++      "source": "COD",
++      "id": "1010486",
++      "formula": "Ag2O",
++      "spacegroup": "P n -3 m :1",
++      "cell": {
++        "a": 4.718,
++        "b": 4.718,
++        "c": 4.718,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Ag1"
++      ],
++      "absorber_elements": [
++        "Ag"
++      ],
++      "cif_path": "_structure_lib/_phase_pack/COD/1010486/9a8554902dfa6749ff1b04703125eddaae6ccdad9bc51d66d366486abed7341e.cif",
++      "cif_sha256": "9a8554902dfa6749ff1b04703125eddaae6ccdad9bc51d66d366486abed7341e",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "Ag2O",
++        "oxide",
++        "cuprite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "Ag2O_COD_1010486.cif",
++      "notes": "P5C cuprite; COD:1010486; source_url=https://www.crystallography.net/cod/1010486.cif",
++      "pack_path": "COD/1010486/9a8554902dfa6749ff1b04703125eddaae6ccdad9bc51d66d366486abed7341e.cif"
++    },
++    {
++      "source": "COD",
++      "id": "1010584",
++      "formula": "Rh2O3",
++      "spacegroup": "R -3 c :R",
++      "cell": {
++        "a": 5.45,
++        "b": 5.45,
++        "c": 5.45,
++        "alpha": 55.7,
++        "beta": 55.7,
++        "gamma": 55.7
++      },
++      "absorber_sites": [
++        "Rh1"
++      ],
++      "absorber_elements": [
++        "Rh"
++      ],
++      "cif_path": "_structure_lib/_phase_pack/COD/1010584/04e3b1d9bb00230064a493550483d0af7d7d302dcf142290536a7f142ddda66b.cif",
++      "cif_sha256": "04e3b1d9bb00230064a493550483d0af7d7d302dcf142290536a7f142ddda66b",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "Rh2O3",
++        "oxide",
++        "corundum",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "Rh2O3_COD_1010584.cif",
++      "notes": "P5C corundum; COD:1010584; source_url=https://www.crystallography.net/cod/1010584.cif",
++      "pack_path": "COD/1010584/04e3b1d9bb00230064a493550483d0af7d7d302dcf142290536a7f142ddda66b.cif"
++    },
+     {
+       "source": "COD",
+       "id": "1010941",
+@@ -198,6 +335,40 @@
+       "notes": "T3 tenorite; COD:1011148; source_url=https://www.crystallography.net/cod/1011148.cif",
+       "pack_path": "COD/1011148/47c498e66a280fde4854ab4697fc9e5b90b0c199faef202206f60e3da6cf97d7.cif"
+     },
++    {
++      "source": "COD",
++      "id": "1011169",
++      "formula": "FeO",
++      "spacegroup": "F m -3 m",
++      "cell": {
++        "a": 4.332,
++        "b": 4.332,
++        "c": 4.332,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Fe1"
++      ],
++      "absorber_elements": [
++        "Fe"
++      ],
++      "cif_path": "_structure_lib/_phase_pack/COD/1011169/cb24b198da6c970ad54f54731a10c59e9bc5c2067257462cb342f41364287ec3.cif",
++      "cif_sha256": "cb24b198da6c970ad54f54731a10c59e9bc5c2067257462cb342f41364287ec3",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "FeO",
++        "oxide",
++        "wuestite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "FeO_COD_1011169.cif",
++      "notes": "P5C wuestite; COD:1011169; source_url=https://www.crystallography.net/cod/1011169.cif",
++      "pack_path": "COD/1011169/cb24b198da6c970ad54f54731a10c59e9bc5c2067257462cb342f41364287ec3.cif"
++    },
+     {
+       "source": "COD",
+       "id": "1011240",
+@@ -262,6 +433,42 @@
+       "original_filename": "COD-1100108.cif",
+       "pack_path": "COD/1100108/41085e65debf2bd82a772bcee9e7c0a43ef42b67666d2f233c8f2d822769b8fe.cif"
+     },
++    {
++      "source": "COD",
++      "id": "1514120",
++      "formula": "Mn3O4",
++      "spacegroup": "I 41/a m d :1",
++      "cell": {
++        "a": 5.763,
++        "b": 5.763,
++        "c": 9.456,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Mn1",
++        "Mn2"
++      ],
++      "absorber_elements": [
++        "Mn"
++      ],
++      "cif_path": "_structure_lib/_phase_pack/COD/1514120/072a4d12bc73a08261f2dbdee4e81b9e06b44345198b95fc354af9ff78233d4e.cif",
++      "cif_sha256": "072a4d12bc73a08261f2dbdee4e81b9e06b44345198b95fc354af9ff78233d4e",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "Mn3O4",
++        "oxide",
++        "hausmannite",
++        "spinel",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "Mn3O4_COD_1514120.cif",
++      "notes": "P5C hausmannite; COD:1514120; source_url=https://www.crystallography.net/cod/1514120.cif",
++      "pack_path": "COD/1514120/072a4d12bc73a08261f2dbdee4e81b9e06b44345198b95fc354af9ff78233d4e.cif"
++    },
+     {
+       "source": "COD",
+       "id": "1527120",
+@@ -428,6 +635,109 @@
+       "notes": "T3 fluorite; COD:1562989; source_url=https://www.crystallography.net/cod/1562989.cif",
+       "pack_path": "COD/1562989/9f333e83a8d9e03f75409dc6206594b0f93cc005b840167b0cf48318626e7676.cif"
+     },
++    {
++      "source": "COD",
++      "id": "2101854",
++      "formula": "IrO2",
++      "spacegroup": "P 42/m n m",
++      "cell": {
++        "a": 4.5051,
++        "b": 4.5051,
++        "c": 3.1586,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Ir"
++      ],
++      "absorber_elements": [
++        "Ir"
++      ],
++      "cif_path": "_structure_lib/_phase_pack/COD/2101854/a475838a182a5a235458a9d63e59a63d393276ece71f90ae161be03796316a78.cif",
++      "cif_sha256": "a475838a182a5a235458a9d63e59a63d393276ece71f90ae161be03796316a78",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "IrO2",
++        "oxide",
++        "rutile",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "IrO2_COD_2101854.cif",
++      "notes": "P5C rutile; COD:2101854; source_url=https://www.crystallography.net/cod/2101854.cif",
++      "pack_path": "COD/2101854/a475838a182a5a235458a9d63e59a63d393276ece71f90ae161be03796316a78.cif"
++    },
++    {
++      "source": "COD",
++      "id": "2105390",
++      "formula": "Au2O3",
++      "spacegroup": "F d d 2",
++      "cell": {
++        "a": 12.827,
++        "b": 10.52,
++        "c": 3.838,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Au1"
++      ],
++      "absorber_elements": [
++        "Au"
++      ],
++      "cif_path": "_structure_lib/_phase_pack/COD/2105390/88c501cb3978e34e3386ba7b5d3c77c37c06c8df16094f3082abf5f8100ec084.cif",
++      "cif_sha256": "88c501cb3978e34e3386ba7b5d3c77c37c06c8df16094f3082abf5f8100ec084",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "Au2O3",
++        "oxide",
++        "gold_oxide",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "Au2O3_COD_2105390.cif",
++      "notes": "P5C gold_oxide; COD:2105390; source_url=https://www.crystallography.net/cod/2105390.cif",
++      "pack_path": "COD/2105390/88c501cb3978e34e3386ba7b5d3c77c37c06c8df16094f3082abf5f8100ec084.cif"
++    },
++    {
++      "source": "COD",
++      "id": "2310519",
++      "formula": "U3O8",
++      "spacegroup": "C 2 2 2",
++      "cell": {
++        "a": 6.704,
++        "b": 11.95,
++        "c": 4.142,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "U1",
++        "U2"
++      ],
++      "absorber_elements": [
++        "U"
++      ],
++      "cif_path": "_structure_lib/_phase_pack/COD/2310519/409276cea18da25deb97985305b56b493c7ae4a9160f3934b5fa766af1945d31.cif",
++      "cif_sha256": "409276cea18da25deb97985305b56b493c7ae4a9160f3934b5fa766af1945d31",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "U3O8",
++        "oxide",
++        "triuranium_octoxide",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "U3O8_COD_2310519.cif",
++      "notes": "P5C alpha-U3O8; COD:2310519; source_url=https://www.crystallography.net/cod/2310519.cif",
++      "pack_path": "COD/2310519/409276cea18da25deb97985305b56b493c7ae4a9160f3934b5fa766af1945d31.cif"
++    },
+     {
+       "source": "COD",
+       "id": "4105040",
+@@ -458,6 +768,74 @@
+       "original_filename": "COD-4105040.cif",
+       "pack_path": "COD/4105040/39726e1afd93226e126184d30eb0e45df8138f9a78c07b5fd59d9a700cb2300c.cif"
+     },
++    {
++      "source": "COD",
++      "id": "9002158",
++      "formula": "FeOOH",
++      "spacegroup": "P n m a",
++      "cell": {
++        "a": 9.9134,
++        "b": 3.0128,
++        "c": 4.58,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Fe"
++      ],
++      "absorber_elements": [
++        "Fe"
++      ],
++      "cif_path": "_structure_lib/_phase_pack/COD/9002158/6ba7eb0e1891b8337442032c0c999c73c838a600cd0a12c185a9fe09edf0abdc.cif",
++      "cif_sha256": "6ba7eb0e1891b8337442032c0c999c73c838a600cd0a12c185a9fe09edf0abdc",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "FeOOH",
++        "hydroxide",
++        "goethite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "FeOOH_COD_9002158.cif",
++      "notes": "P5C goethite; COD:9002158; source_url=https://www.crystallography.net/cod/9002158.cif",
++      "pack_path": "COD/9002158/6ba7eb0e1891b8337442032c0c999c73c838a600cd0a12c185a9fe09edf0abdc.cif"
++    },
++    {
++      "source": "COD",
++      "id": "9004178",
++      "formula": "ZnO",
++      "spacegroup": "P 63 m c",
++      "cell": {
++        "a": 3.2494,
++        "b": 3.2494,
++        "c": 5.2038,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 120.0
++      },
++      "absorber_sites": [
++        "Zn"
++      ],
++      "absorber_elements": [
++        "Zn"
++      ],
++      "cif_path": "_structure_lib/_phase_pack/COD/9004178/dbc92c19b101d4fabb5594cc89f2a31629a0e8adab6539edd248c40c585649a1.cif",
++      "cif_sha256": "dbc92c19b101d4fabb5594cc89f2a31629a0e8adab6539edd248c40c585649a1",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "ZnO",
++        "oxide",
++        "zincite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "ZnO_COD_9004178.cif",
++      "notes": "P5C zincite; COD:9004178; source_url=https://www.crystallography.net/cod/9004178.cif",
++      "pack_path": "COD/9004178/dbc92c19b101d4fabb5594cc89f2a31629a0e8adab6539edd248c40c585649a1.cif"
++    },
+     {
+       "source": "COD",
+       "id": "9005888",
+@@ -493,6 +871,74 @@
+       "notes": "T3 spinel; COD:9005888; source_url=https://www.crystallography.net/cod/9005888.cif",
+       "pack_path": "COD/9005888/87153e539d9821686004c0c96fc69c176b4158fbb7063b9a5eee5dedc98d29e4.cif"
+     },
++    {
++      "source": "COD",
++      "id": "9006658",
++      "formula": "MnO",
++      "spacegroup": "F m -3 m",
++      "cell": {
++        "a": 4.4459,
++        "b": 4.4459,
++        "c": 4.4459,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Mn"
++      ],
++      "absorber_elements": [
++        "Mn"
++      ],
++      "cif_path": "_structure_lib/_phase_pack/COD/9006658/96e89281276f4b7abede444c4e08a22bbc63b09e781cf1e279b3acd3e2c99518.cif",
++      "cif_sha256": "96e89281276f4b7abede444c4e08a22bbc63b09e781cf1e279b3acd3e2c99518",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "MnO",
++        "oxide",
++        "manganosite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "MnO_COD_9006658.cif",
++      "notes": "P5C manganosite; COD:9006658; source_url=https://www.crystallography.net/cod/9006658.cif",
++      "pack_path": "COD/9006658/96e89281276f4b7abede444c4e08a22bbc63b09e781cf1e279b3acd3e2c99518.cif"
++    },
++    {
++      "source": "COD",
++      "id": "9007541",
++      "formula": "RuO2",
++      "spacegroup": "P 42/m n m",
++      "cell": {
++        "a": 4.4919,
++        "b": 4.4919,
++        "c": 3.1066,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Ru"
++      ],
++      "absorber_elements": [
++        "Ru"
++      ],
++      "cif_path": "_structure_lib/_phase_pack/COD/9007541/5e8ba6c58302d83f8c3379690114b1788553425e483c1c04e85fe5093e0345ec.cif",
++      "cif_sha256": "5e8ba6c58302d83f8c3379690114b1788553425e483c1c04e85fe5093e0345ec",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "RuO2",
++        "oxide",
++        "rutile",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "RuO2_COD_9007541.cif",
++      "notes": "P5C rutile; COD:9007541; source_url=https://www.crystallography.net/cod/9007541.cif",
++      "pack_path": "COD/9007541/5e8ba6c58302d83f8c3379690114b1788553425e483c1c04e85fe5093e0345ec.cif"
++    },
+     {
+       "source": "COD",
+       "id": "9008459",
+@@ -866,6 +1312,142 @@
+       "notes": "T4 alpha-Mn; COD:9008589; source_url=https://www.crystallography.net/cod/9008589.cif",
+       "pack_path": "COD/9008589/cd454b6b5bc9a6ebf0c91b261dfa794bdca805b479f135477019ee7cd6c1181f.cif"
+     },
++    {
++      "source": "COD",
++      "id": "9009049",
++      "formula": "UO2",
++      "spacegroup": "F m -3 m",
++      "cell": {
++        "a": 5.4682,
++        "b": 5.4682,
++        "c": 5.4682,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "U"
++      ],
++      "absorber_elements": [
++        "U"
++      ],
++      "cif_path": "_structure_lib/_phase_pack/COD/9009049/d9a769ad693d79f01155c6d218d3b490beff1889f98472b691c45095be8441fe.cif",
++      "cif_sha256": "d9a769ad693d79f01155c6d218d3b490beff1889f98472b691c45095be8441fe",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "UO2",
++        "oxide",
++        "uraninite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "UO2_COD_9009049.cif",
++      "notes": "P5C uraninite; COD:9009049; source_url=https://www.crystallography.net/cod/9009049.cif",
++      "pack_path": "COD/9009049/d9a769ad693d79f01155c6d218d3b490beff1889f98472b691c45095be8441fe.cif"
++    },
++    {
++      "source": "COD",
++      "id": "9009081",
++      "formula": "MnO2",
++      "spacegroup": "P 42/m n m",
++      "cell": {
++        "a": 4.396,
++        "b": 4.396,
++        "c": 2.871,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Mn"
++      ],
++      "absorber_elements": [
++        "Mn"
++      ],
++      "cif_path": "_structure_lib/_phase_pack/COD/9009081/dc13bafe954d0b71916f2400ab6eeb6985ca3e46f850f86d760205cddec791a2.cif",
++      "cif_sha256": "dc13bafe954d0b71916f2400ab6eeb6985ca3e46f850f86d760205cddec791a2",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "MnO2",
++        "oxide",
++        "pyrolusite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "MnO2_COD_9009081.cif",
++      "notes": "P5C pyrolusite; COD:9009081; source_url=https://www.crystallography.net/cod/9009081.cif",
++      "pack_path": "COD/9009081/dc13bafe954d0b71916f2400ab6eeb6985ca3e46f850f86d760205cddec791a2.cif"
++    },
++    {
++      "source": "COD",
++      "id": "9009090",
++      "formula": "MoO2",
++      "spacegroup": "P 1 21/c 1",
++      "cell": {
++        "a": 5.584,
++        "b": 4.842,
++        "c": 5.608,
++        "alpha": 90.0,
++        "beta": 120.983,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Mo"
++      ],
++      "absorber_elements": [
++        "Mo"
++      ],
++      "cif_path": "_structure_lib/_phase_pack/COD/9009090/38dd59e9f92af428bc7c93d0fc2ac246d294e95251dae05c64062677d76f93c4.cif",
++      "cif_sha256": "38dd59e9f92af428bc7c93d0fc2ac246d294e95251dae05c64062677d76f93c4",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "MoO2",
++        "oxide",
++        "tugarinovite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "MoO2_COD_9009090.cif",
++      "notes": "P5C tugarinovite; COD:9009090; source_url=https://www.crystallography.net/cod/9009090.cif",
++      "pack_path": "COD/9009090/38dd59e9f92af428bc7c93d0fc2ac246d294e95251dae05c64062677d76f93c4.cif"
++    },
++    {
++      "source": "COD",
++      "id": "9009669",
++      "formula": "MoO3",
++      "spacegroup": "P b n m",
++      "cell": {
++        "a": 3.9616,
++        "b": 13.856,
++        "c": 3.6978,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 90.0
++      },
++      "absorber_sites": [
++        "Mo"
++      ],
++      "absorber_elements": [
++        "Mo"
++      ],
++      "cif_path": "_structure_lib/_phase_pack/COD/9009669/1e2e51b1a0e870c762e16872542426bbdbbc5343902948f0427d31d3c2d3b579.cif",
++      "cif_sha256": "1e2e51b1a0e870c762e16872542426bbdbbc5343902948f0427d31d3c2d3b579",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "MoO3",
++        "oxide",
++        "molybdite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "MoO3_COD_9009669.cif",
++      "notes": "P5C molybdite; COD:9009669; source_url=https://www.crystallography.net/cod/9009669.cif",
++      "pack_path": "COD/9009669/1e2e51b1a0e870c762e16872542426bbdbbc5343902948f0427d31d3c2d3b579.cif"
++    },
+     {
+       "source": "COD",
+       "id": "9010987",
+@@ -899,6 +1481,40 @@
+       "original_filename": "Ce_COD_9010987.cif",
+       "notes": "T4 fcc; COD:9010987; source_url=https://www.crystallography.net/cod/9010987.cif",
+       "pack_path": "COD/9010987/71c7b0030296e1f9927c8ca4dd40b87be3db69a700934bc9726d18aa0c9f0b02.cif"
++    },
++    {
++      "source": "COD",
++      "id": "9014036",
++      "formula": "Cr2O3",
++      "spacegroup": "R -3 c :H",
++      "cell": {
++        "a": 4.957,
++        "b": 4.957,
++        "c": 13.5923,
++        "alpha": 90.0,
++        "beta": 90.0,
++        "gamma": 120.0
++      },
++      "absorber_sites": [
++        "Cr"
++      ],
++      "absorber_elements": [
++        "Cr"
++      ],
++      "cif_path": "_structure_lib/_phase_pack/COD/9014036/41edcf78a02a22eac1c6dc347c810ce1cda0a8ac49e76b0c37d6cdaacad2d2bf.cif",
++      "cif_sha256": "41edcf78a02a22eac1c6dc347c810ce1cda0a8ac49e76b0c37d6cdaacad2d2bf",
++      "experimental": true,
++      "model_level": "crystal_cif",
++      "tags": [
++        "Cr2O3",
++        "oxide",
++        "eskolaite",
++        "catalyst"
++      ],
++      "added_by": "tools/cif_crawler.py",
++      "original_filename": "Cr2O3_COD_9014036.cif",
++      "notes": "P5C eskolaite; COD:9014036; source_url=https://www.crystallography.net/cod/9014036.cif",
++      "pack_path": "COD/9014036/41edcf78a02a22eac1c6dc347c810ce1cda0a8ac49e76b0c37d6cdaacad2d2bf.cif"
+     }
+   ]
+ }
+diff --git a/regression_test.py b/regression_test.py
+index cbc1e88..218cbea 100644
+--- a/regression_test.py
++++ b/regression_test.py
+@@ -62,9 +62,10 @@ P4+ 新增：
+     - T8 XANES–EXAFS 软校验：只产生警告，不改变 cn_reliable
+     - P5-A T5 标定产物完整性 / --only 增量合并 / --s02-from-t5 溯源
+     - P5-B Mo 双壳 bcc 标定 / Ce σ² 压界与归一化伪迹拒绝
++    - P5-C 固定 COD ID 补齐 18 个常见相 / coverage 无缺口
+ 
+-当前共 124 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+
+-CIF 抓取/条件 CN/T7/T8/P5-A/P5-B 契约）。
++当前共 125 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+
++CIF 抓取/条件 CN/T7/T8/P5-A/P5-B/P5-C 契约）。
+ 
+ 运行:
+     python regression_test.py
+@@ -4199,12 +4200,14 @@ Ru1 Ru 0.5 0.5 0.5 0.3
+         self.assertEqual(report["summary"]["motifs"], 43)
+ 
+     def test_phase_pack_import_and_index(self):
+-        """#84 P1a：26 条来源（5 金属种子 + 21 抓取目标）可校验、可索引。"""
++        """#84 P1a：44 条来源（5 金属种子 + 39 抓取目标）可校验、可索引。"""
++        from tools import cif_crawler
++
+         pack_root = ROOT / "_structure_lib" / "_phase_pack"
+         manifest = phase_pack.load_manifest(pack_root)
+         self.assertEqual(manifest["schema_version"], 1)
+         self.assertEqual(manifest["pack_id"], "formal-cn-phase-pack")
+-        self.assertEqual(len(manifest["entries"]), 26)
++        self.assertEqual(len(manifest["entries"]), 44)
+ 
+         seeds = {
+             "1100108": ("Fe", ["Fe1"]),
+@@ -4251,11 +4254,17 @@ Ru1 Ru 0.5 0.5 0.5 0.3
+             self.assertEqual(entry["absorber_elements"], [element])
+             self.assertEqual(entry["absorber_sites"], sites)
+ 
++        # P5-C：18 个常见相补齐目标必须都已导入。
++        p5c_ids = {t["cod_id"] for t in cif_crawler.VERIFIED_TARGETS.values()
++                   if t["tier"] == "P5C"}
++        self.assertEqual(len(p5c_ids), 18)
++        self.assertTrue(p5c_ids <= set(by_id), p5c_ids - set(by_id))
++
+         index = json.loads((ROOT / "_structure_lib" /
+                             "phase_index.json").read_text(encoding="utf-8"))
+         self.assertEqual(index["schema_version"], 1)
+         self.assertEqual(index["pack_id"], manifest["pack_id"])
+-        self.assertEqual(len(index["entries"]), 26)
++        self.assertEqual(len(index["entries"]), 44)
+         self.assertEqual(set(index["summary"]["elements_covered"]), {
+             "Fe", "Co", "Ni", "Cu", "Pt", "Cr", "Mn", "Zn", "Mo",
+             "Ru", "Rh", "Pd", "Ag", "Ir", "Au", "Ce", "U"})
+@@ -4270,10 +4279,9 @@ Ru1 Ru 0.5 0.5 0.5 0.3
+                                "phase_coverage.json")
+                               .read_text(encoding="utf-8"))
+         self.assertEqual(len(coverage["absorber_elements"]), 17)
+-        self.assertEqual(coverage["summary"]["elements_with_motif"], 9)
+-        self.assertEqual(coverage["summary"]["elements_without_motif"], 8)
+-        self.assertEqual(set(coverage["summary"]["without_motif_elements"]),
+-                         {"Ag", "Ce", "Ir", "Mn", "Pd", "Rh", "Ru", "U"})
++        self.assertEqual(coverage["summary"]["elements_with_motif"], 17)
++        self.assertEqual(coverage["summary"]["elements_without_motif"], 0)
++        self.assertEqual(coverage["summary"]["without_motif_elements"], [])
+         self.assertEqual(set(coverage["summary"]["verified_elements"]), {
+             "Fe", "Co", "Ni", "Cu", "Pt", "Cr", "Mn", "Zn", "Mo",
+             "Ru", "Rh", "Pd", "Ag", "Ir", "Au", "Ce", "U"})
+@@ -4365,7 +4373,7 @@ Ru1 Ru 0.5 0.5 0.5 0.3
+                               .read_text(encoding="utf-8"))
+         index = json.loads((ROOT / "_structure_lib" /
+                             "phase_index.json").read_text(encoding="utf-8"))
+-        # P4+ 已用 21 条真实 CIF 补齐全部 17 个吸收元素。
++        # P4+ 的 21 条 + P5-C 的 18 条真实 CIF 已补齐全部 17 个吸收元素。
+         self.assertEqual(coverage["summary"]["elements_verified"], 17)
+         self.assertEqual(coverage["summary"]["elements_not_covered"], 0)
+         self.assertEqual(coverage["summary"]["not_covered_elements"], [])
+@@ -4573,8 +4581,8 @@ Ru1 Ru 0.5 0.5 0.5 0.3
+         self.assertIn("pack_root", index)
+         self.assertIn("manifest_sha256", index)
+         self.assertIn("summary", index)
+-        self.assertEqual(index["summary"]["entries"], 26)
+-        self.assertEqual(index["summary"]["verified_cif"], 26)
++        self.assertEqual(index["summary"]["entries"], 44)
++        self.assertEqual(index["summary"]["verified_cif"], 44)
+         self.assertEqual(set(index["summary"]["elements_covered"]), {
+             "Fe", "Co", "Ni", "Cu", "Pt", "Cr", "Mn", "Zn", "Mo",
+             "Ru", "Rh", "Pd", "Ag", "Ir", "Au", "Ce", "U"})
+@@ -5114,15 +5122,15 @@ O1 O 0 0 0 0.5
+     # 115–119. P4+：CIF crawler 目标表、离线导入、多位点门禁与正式 CN 行
+     # ------------------------------------------------------------
+     def test_cif_crawler_target_table(self):
+-        """#115 P4+：21 个抓取目标 ID 唯一、元素/化学式/空间群自洽。"""
++        """#115 P4+：39 个抓取目标 ID 唯一、元素/化学式/空间群自洽。"""
+         from tools import cif_crawler
+-        self.assertEqual(len(cif_crawler.VERIFIED_TARGETS), 21)
++        self.assertEqual(len(cif_crawler.VERIFIED_TARGETS), 39)
+         cod_ids = [t["cod_id"] for t in
+                    cif_crawler.VERIFIED_TARGETS.values()]
+         self.assertEqual(len(cod_ids), len(set(cod_ids)))
+         seen_elements = set()
+         for name, target in cif_crawler.VERIFIED_TARGETS.items():
+-            self.assertIn(target["tier"], ("T3", "T4"), name)
++            self.assertIn(target["tier"], ("T3", "T4", "P5C"), name)
+             self.assertIn(target["absorber"],
+                           phase_pack.ABSORBER_ELEMENTS, name)
+             parsed = cif_crawler.parse_formula(target["formula"])
+@@ -5133,8 +5141,7 @@ O1 O 0 0 0 0.5
+                                 for n in target["spg_nums"]), name)
+             self.assertTrue(target["tags"], name)
+             seen_elements.add(target["absorber"])
+-        self.assertEqual(seen_elements,
+-                         set(phase_pack.ABSORBER_ELEMENTS) - {"Pt"})
++        self.assertEqual(seen_elements, set(phase_pack.ABSORBER_ELEMENTS))
+ 
+     def test_cif_crawler_offline_import(self):
+         """#116 P4+：离线缓存 → 核验 → phase pack 导入，sha256 可追溯。"""
+@@ -5615,6 +5622,65 @@ O1 O 0 0 0 0.5
+             run_xafs.load_t5_s02("Ce")
+         self.assertIn("未通过", str(cm.exception))
+ 
++    def test_p5c_common_phase_coverage(self):
++        """#125 P5-C：18 个固定 COD ID 补齐常见相，coverage 无缺口。"""
++        from types import SimpleNamespace
++        from tools import cif_crawler
++        import phase_resolver
++
++        expected = {
++            ("Fe", "FeO"), ("Fe", "FeOOH"), ("Pt", "PtO2"),
++            ("Cr", "Cr2O3"), ("Mn", "MnO"), ("Mn", "MnO2"),
++            ("Mn", "Mn3O4"), ("Zn", "ZnO"), ("Mo", "MoO2"),
++            ("Mo", "MoO3"), ("Ru", "RuO2"), ("Rh", "Rh2O3"),
++            ("Pd", "PdO"), ("Ag", "Ag2O"), ("Ir", "IrO2"),
++            ("Au", "Au2O3"), ("U", "UO2"), ("U", "U3O8"),
++        }
++        p5c = {name: target for name, target in
++               cif_crawler.VERIFIED_TARGETS.items()
++               if target["tier"] == "P5C"}
++        self.assertEqual(len(p5c), 18)
++        self.assertEqual({(t["absorber"], name) for name, t in p5c.items()},
++                         expected)
++        selected = cif_crawler._select_targets(SimpleNamespace(
++            all=False, t3=False, t4=False, p5c=True, target=None))
++        self.assertEqual(len(selected), 18)
++
++        pack_root = ROOT / "_structure_lib" / "_phase_pack"
++        manifest = phase_pack.load_manifest(pack_root)
++        by_id = {entry["id"]: entry for entry in manifest["entries"]}
++        for name, target in p5c.items():
++            self.assertIn(target["cod_id"], by_id, name)
++            entry = by_id[target["cod_id"]]
++            self.assertEqual(entry["formula"], target["formula"], name)
++            self.assertEqual(entry["absorber_elements"],
++                             [target["absorber"]], name)
++            self.assertEqual(entry["model_level"], "crystal_cif", name)
++            self.assertTrue(entry["experimental"], name)
++            self.assertEqual(entry["source"], "COD", name)
++            check = phase_pack.validate_entry(pack_root, entry)
++            self.assertTrue(check["ok"], (name, check))
++
++        coverage = json.loads((ROOT / "_structure_lib" /
++                               "phase_coverage.json")
++                              .read_text(encoding="utf-8"))
++        self.assertEqual(coverage["summary"]["verified_cif"], 44)
++        for element, row in coverage["elements"].items():
++            self.assertEqual(row["missing_common_phases"], [], element)
++            self.assertTrue(row["formal_cn_ready"], element)
++
++        # 多位点常见相仍必须显式 --absorber-site，不能自动 Top-1。
++        for element, phase_name in (("Mn", "Mn3O4"), ("U", "U3O8")):
++            target = p5c[phase_name]
++            entry = by_id[target["cod_id"]]
++            self.assertGreaterEqual(len(entry["absorber_sites"]), 2,
++                                    phase_name)
++            res = phase_resolver.resolve_phase(
++                element, phase_id=f"COD:{target['cod_id']}")
++            self.assertEqual(res.status, "resolved", phase_name)
++            self.assertIsNone(res.structure_model, phase_name)
++            self.assertIn("多个吸收位点", res.reason, phase_name)
++
+ 
+ if __name__ == "__main__":
+     # unittest 默认写 stderr；PowerShell 会把任何 stderr 记录当成
+diff --git a/tools/cif_crawler.py b/tools/cif_crawler.py
+index 78271f8..9db9589 100644
+--- a/tools/cif_crawler.py
++++ b/tools/cif_crawler.py
+@@ -29,6 +29,7 @@
+     python tools/cif_crawler.py --list
+     python tools/cif_crawler.py --t3 --online
+     python tools/cif_crawler.py --t4 --online
++    python tools/cif_crawler.py --p5c --online
+     python tools/cif_crawler.py --all --online
+     python tools/cif_crawler.py --target Fe2O3 --offline
+ 
+@@ -201,6 +202,120 @@ VERIFIED_TARGETS = {
+         "cod_id": "9008463", "spg_nums": [225],
+         "tags": ["metal", "fcc", "element_seed"],
+     },
++    # ---- P5-C: 常见氧化物/氢氧化物补齐（固定 COD ID）----
++    # 目标来自 phase_pack.COMMON_PHASES 的 missing_common_phases。优先
++    # 常压/室温实验结构；高压、高温或 DFT 条目一律排除（例如 Cr2O3 的
++    # 63.9 GPa 条目、β-U3O8 与高温 U3O8）。PtO2 在 COD 中没有常压
++    # 结构，只能采用高压合成 β-PtO2，已在 phase/notes 明确标注。
++    "FeO": {
++        "tier": "P5C", "phase": "wuestite", "absorber": "Fe",
++        "formula": "FeO", "stoich": {"Fe": 1, "O": 1},
++        "cod_id": "1011169", "spg_nums": [225],
++        "tags": ["oxide", "wuestite", "catalyst"],
++    },
++    "FeOOH": {
++        "tier": "P5C", "phase": "goethite", "absorber": "Fe",
++        "formula": "FeOOH", "stoich": {"Fe": 1, "O": 2, "H": 1},
++        "cod_id": "9002158", "spg_nums": [62],
++        "tags": ["hydroxide", "goethite", "catalyst"],
++    },
++    "PtO2": {
++        "tier": "P5C", "phase": "beta-PtO2", "absorber": "Pt",
++        "formula": "PtO2", "stoich": {"Pt": 1, "O": 2},
++        "cod_id": "1008935", "spg_nums": [58],
++        "tags": ["oxide", "platinum_dioxide", "beta", "catalyst"],
++        "note": "COD 无常压 PtO2 结构；采用高压合成 β-PtO2（非环境相）",
++    },
++    "Cr2O3": {
++        "tier": "P5C", "phase": "eskolaite", "absorber": "Cr",
++        "formula": "Cr2O3", "stoich": {"Cr": 2, "O": 3},
++        "cod_id": "9014036", "spg_nums": [167],
++        "tags": ["oxide", "eskolaite", "catalyst"],
++    },
++    "MnO": {
++        "tier": "P5C", "phase": "manganosite", "absorber": "Mn",
++        "formula": "MnO", "stoich": {"Mn": 1, "O": 1},
++        "cod_id": "9006658", "spg_nums": [225],
++        "tags": ["oxide", "manganosite", "catalyst"],
++    },
++    "MnO2": {
++        "tier": "P5C", "phase": "pyrolusite", "absorber": "Mn",
++        "formula": "MnO2", "stoich": {"Mn": 1, "O": 2},
++        "cod_id": "9009081", "spg_nums": [136],
++        "tags": ["oxide", "pyrolusite", "catalyst"],
++    },
++    "Mn3O4": {
++        "tier": "P5C", "phase": "hausmannite", "absorber": "Mn",
++        "formula": "Mn3O4", "stoich": {"Mn": 3, "O": 4},
++        "cod_id": "1514120", "spg_nums": [141],
++        "tags": ["oxide", "hausmannite", "spinel", "catalyst"],
++    },
++    "ZnO": {
++        "tier": "P5C", "phase": "zincite", "absorber": "Zn",
++        "formula": "ZnO", "stoich": {"Zn": 1, "O": 1},
++        "cod_id": "9004178", "spg_nums": [186],
++        "tags": ["oxide", "zincite", "catalyst"],
++    },
++    "MoO2": {
++        "tier": "P5C", "phase": "tugarinovite", "absorber": "Mo",
++        "formula": "MoO2", "stoich": {"Mo": 1, "O": 2},
++        "cod_id": "9009090", "spg_nums": [14],
++        "tags": ["oxide", "tugarinovite", "catalyst"],
++    },
++    "MoO3": {
++        "tier": "P5C", "phase": "molybdite", "absorber": "Mo",
++        "formula": "MoO3", "stoich": {"Mo": 1, "O": 3},
++        "cod_id": "9009669", "spg_nums": [62],
++        "tags": ["oxide", "molybdite", "catalyst"],
++    },
++    "RuO2": {
++        "tier": "P5C", "phase": "rutile", "absorber": "Ru",
++        "formula": "RuO2", "stoich": {"Ru": 1, "O": 2},
++        "cod_id": "9007541", "spg_nums": [136],
++        "tags": ["oxide", "rutile", "catalyst"],
++    },
++    "Rh2O3": {
++        "tier": "P5C", "phase": "corundum", "absorber": "Rh",
++        "formula": "Rh2O3", "stoich": {"Rh": 2, "O": 3},
++        "cod_id": "1010584", "spg_nums": [167],
++        "tags": ["oxide", "corundum", "catalyst"],
++    },
++    "PdO": {
++        "tier": "P5C", "phase": "palladinite", "absorber": "Pd",
++        "formula": "PdO", "stoich": {"Pd": 1, "O": 1},
++        "cod_id": "1009031", "spg_nums": [131],
++        "tags": ["oxide", "palladinite", "catalyst"],
++    },
++    "Ag2O": {
++        "tier": "P5C", "phase": "cuprite", "absorber": "Ag",
++        "formula": "Ag2O", "stoich": {"Ag": 2, "O": 1},
++        "cod_id": "1010486", "spg_nums": [224],
++        "tags": ["oxide", "cuprite", "catalyst"],
++    },
++    "IrO2": {
++        "tier": "P5C", "phase": "rutile", "absorber": "Ir",
++        "formula": "IrO2", "stoich": {"Ir": 1, "O": 2},
++        "cod_id": "2101854", "spg_nums": [136],
++        "tags": ["oxide", "rutile", "catalyst"],
++    },
++    "Au2O3": {
++        "tier": "P5C", "phase": "gold_oxide", "absorber": "Au",
++        "formula": "Au2O3", "stoich": {"Au": 2, "O": 3},
++        "cod_id": "2105390", "spg_nums": [43],
++        "tags": ["oxide", "gold_oxide", "catalyst"],
++    },
++    "UO2": {
++        "tier": "P5C", "phase": "uraninite", "absorber": "U",
++        "formula": "UO2", "stoich": {"U": 1, "O": 2},
++        "cod_id": "9009049", "spg_nums": [225],
++        "tags": ["oxide", "uraninite", "catalyst"],
++    },
++    "U3O8": {
++        "tier": "P5C", "phase": "alpha-U3O8", "absorber": "U",
++        "formula": "U3O8", "stoich": {"U": 3, "O": 8},
++        "cod_id": "2310519", "spg_nums": [21],
++        "tags": ["oxide", "triuranium_octoxide", "catalyst"],
++    },
+ }
+ 
+ # 兼容旧报告/脚本命名。
+@@ -580,6 +695,7 @@ def import_target(name: str, cif_path: Path, *, pack_root: Path,
+         "notes": (
+             f"{target['tier']} {target['phase']}; "
+             f"COD:{target['cod_id']}; source_url={source_url}"
++            + (f"; {target['note']}" if target.get("note") else "")
+         ),
+     }
+     return phase_pack.import_cif(
+@@ -600,6 +716,9 @@ def _select_targets(args) -> list[str]:
+     if args.t4:
+         selected.extend(n for n, t in VERIFIED_TARGETS.items()
+                         if t["tier"] == "T4")
++    if getattr(args, "p5c", False):
++        selected.extend(n for n, t in VERIFIED_TARGETS.items()
++                        if t["tier"] == "P5C")
+     if args.target:
+         lowered = {n.lower(): n for n in VERIFIED_TARGETS}
+         for raw in args.target:
+@@ -641,6 +760,8 @@ def main(argv=None) -> int:
+                         help="目标名，可重复，例如 --target Fe2O3")
+     parser.add_argument("--t3", action="store_true", help="全部 T3 目标")
+     parser.add_argument("--t4", action="store_true", help="全部 T4 目标")
++    parser.add_argument("--p5c", action="store_true",
++                        help="全部 P5-C 常见相补齐目标")
+     parser.add_argument("--all", action="store_true", help="全部目标")
+     parser.add_argument("--list", action="store_true", help="列出目标后退出")
+     parser.add_argument("--online", action="store_true",

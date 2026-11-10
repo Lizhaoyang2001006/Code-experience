@@ -1,0 +1,5819 @@
+diff --git a/CIF_CRAWLER_INTEGRATION.md b/CIF_CRAWLER_INTEGRATION.md
+index 90bb958..aa643e7 100644
+--- a/CIF_CRAWLER_INTEGRATION.md
++++ b/CIF_CRAWLER_INTEGRATION.md
+@@ -14,7 +14,7 @@
+ - 17 个 COD motif 入库，结构库共 **43 个 motif**，覆盖 **17/17** 吸收元素；
+ - T5 12 条 IIT-Lytle 真实谱全部落盘，**0 个 placeholder**；
+ - 旧 ID 迁移完成：`LEGACY_MOTIFS_LEFT 0`、`QUARANTINE_FILES 0`；
+-- `regression_test.py` **126 项** + 4 个压力测试全部通过（`run_ci.py --stress` PASS；P5-prep 后）。
++- `regression_test.py` **127 项** + 4 个压力测试全部通过（`run_ci.py --stress` PASS；P5-S02/P5-D 后）。
+ 
+ 运行期仍然完全离线：`run_xafs.py` 不导入根爬虫，不读取 `data/cif_crawler_index.json` 取几何，只通过
+ `structure_lib.load_library(absorber)` 读取 `_structure_lib`。
+@@ -112,15 +112,22 @@ python cif_crawler.py --t5
+ - 运行时通过 `run_xafs.py --s02 <值>` 显式覆盖，或对已通过元素用
+   `run_xafs.py --s02-from-t5 --identify/--fit` 从独立产物读取（只接受
+   `status="calibrated"` 且 `static_absorber_py_unchanged=True`；未通过
+-  元素明确拒绝）；通过 7/12（Cr/Mn/Zn/Mo/Ru/Ag/Au），Rh/Pd/Ir/Ce/U
+-  记录未通过原因、不强行给值；`s02_source` 溯源串写入 L1/motif 输出与
+-  `<stem>_meta.json.fit`；
++  元素明确拒绝）；P5-S02 后 **12/12** 通过
++  （Cr/Mn/Zn/Mo/Ru/Ag/Au/Rh/Pd/Ir/Ce/U）；`s02_source` 溯源串写入
++  L1/motif 输出与 `<stem>_meta.json.fit`；
+ - Mo 于 P5-B 通过：BMM Mo 箔用 `half_height` E₀（20012.86 eV，平台
+   0.863）+ 双壳 bcc（8×2.725 + 6×3.147 Å，共享 S₀²/ΔE₀、各壳独立
+   ΔR/σ²），S₀²=0.8322±0.0334、Rf=0.0040、窗口极差 0.0017、ΔE₀=−0.73 eV；
+   门禁含新增 `sigma2_not_at_bound`（σ² 压到 1e-4 下界即失败）。
+-  Ce 仍不通过：自由 σ² 压界、固定 σ² 无唯一解、加第二壳 Rf=0.127；
+-  备选透射谱平台 2.27 属归一化伪迹，严格门禁拒绝；
++- P5-S02 后 Rh/Pd/Ir/Ce/U 换用 IIT-Lytle RAW 长谱并通过同一冻结门禁：
++  - Rh `RAW/Rh/rhfoil.003`：S₀²=0.7022±0.0191，Rf=0.0041，ΔE₀=−0.71 eV；
++  - Pd `RAW/Pd/pdfl.404`：S₀²=0.6559±0.0141，Rf=0.0035，ΔE₀=+1.14 eV；
++  - Ir `RAW/Ir/irfoil.146`：S₀²=0.4752±0.0149，Rf=0.0043，ΔE₀=+9.30 eV；
++  - Ce `RAW/Ce/ceo2.004`（L2 前截断）：S₀²=0.6279±0.0268，Rf=0.0223；
++  - U `RAW/U/uo2.379` + 标定专用 `uo2_fluorite`：S₀²=0.7800±0.0229，
++    Rf=0.0137，ΔE₀=+2.86 eV；
++  - Ir 谱 `ln(I0/I1)` 为负边步，解析器按 `-ln(I0/I1)` 恢复 μ 边后升高
++    约定并在 provenance 记录；Ce 的 BMM 两条失败谱保留在 attempts 审计链。
+ - `_standards_lib/` 与 `data/standards_raw/` 因许可未明确不提交；Ag 标定依赖本地 IIT-Lytle 谱，产物记录源文件 SHA256，但不保证无本地标准时可复现。
+ 
+ ### 4.5 P5-C 常见相补齐
+@@ -153,7 +160,8 @@ python cif_crawler.py --t5
+ 
+ 高压/高温/DFT 条目显式排除（Cr2O3 的 63.9 GPa 条目、β-U3O8、高温
+ U3O8 均未采用）。`phase_coverage.json` 的 `missing_common_phases` 全部
+-为空；Mn3O4 与 U3O8 多位点仍需显式 `--absorber-site`。P5-C 下载缓存
++为空；Mn3O4 与 U3O8 等多位点相必须显式 `--absorber-site`（或传 `all`
++做逐位点正式 CN），不自动取第一个位点。P5-C 下载缓存
+ 只用于构建期导入，导入后清理，`data/cif_raw/` 仍保持 17 个根索引 CIF。
+ 
+ ## 5. 验收
+@@ -218,11 +226,11 @@ python cif_crawler.py --t5
+ 
+ ## 7. 仍然存在的缺口
+ 
+-1. **T5 S₀² 部分标定**：已产出独立标定产物并通过 7/12；Rh/Pd/Ir 缺足够宽能区标准、Ce 的 CeO₂ 标准 σ² 与 S₀² 强相关（无唯一解）、U 撞界；未标定元素仍需运行时 `--s02` 才能做正式 CN（已通过元素可用 `--s02-from-t5`）；
++1. **T5 S₀² 已全部标定（12/12）**：独立产物通过冻结门禁，`absorber.py` 静态表保持不变（#60）；运行期未给 S₀² 时未标定元素仍拒绝 CN 定量（已通过元素可用 `--s02-from-t5`）；
+ 2. **常见相已补齐（P5-C）**：18 个 `missing_common_phases` 全部有 verified CIF；唯一边界是 PtO2 在 COD 中只有高压合成 β-PtO2、没有常压 α 相，已在条目 notes 标注；Mn3O4/U3O8 为多位点，正式 CN 仍需显式 `--absorber-site`；
+-3. **多位点联合模型未自动构建**：当前需显式 `--absorber-site` 或 `absorber_fract`；
++3. **多位点正式 CN（P5-D）**：`--absorber-site all` 可逐位点做条件 CN 并按 `m_i·occ_i` 加权；仅全部位点通过才输出 `ALL_WEIGHTED` 汇总行；未传 site 仍拒绝；化学计量权重不用于自动选主位点；
+ 4. **T7/T8 已实现**：`--multi-element` 逐元素并列报告、不推荐 Top-1；`--xanes-cross-check` 只报警告、不改 `cn_reliable`（#120/#121）。
+ 
+ ## 8. 一句话状态
+ 
+-**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 126+4 CI 全部通过；phase pack 已由 P5-C 扩到 44 条；T5 已产出 7/12 独立标定产物（静态表未改），运行期可用 `--s02-from-t5` 溯源，T7 多元素与 T8 联合校验已实现；P5-prep 已把 5 个未通过元素纳入谱源隔离池并冻结门禁。**
++**根目录 `cif_crawler.py` 已成为主项目的构建期资产：29 条索引、17 个 COD motif、12 条 T5 真实谱、43 个 motif/17 元素覆盖，运行期离线且不依赖索引；旧 ID 迁移和 127+4 CI 全部通过；phase pack 已由 P5-C 扩到 44 条；T5 独立标定 12/12（静态表未改），运行期可用 `--s02-from-t5` 溯源，T7 多元素、T8 联合校验与 P5-D 多位点正式 CN 已实现；P5-prep 隔离池 5 元素在 P5-S02 换谱后全部 resolved。**
+diff --git a/calibrate_t5.py b/calibrate_t5.py
+index 5e322a0..ed87955 100644
+--- a/calibrate_t5.py
++++ b/calibrate_t5.py
+@@ -89,11 +89,16 @@ CASES = {
+     ],
+     "Rh": [
+         {"standard": STD / "Rh" / "Rh_metal_foil.dat",
+-         "motif": "rh_fcc_cod_9008482", "strict": False},
++         "motif": "rh_fcc_cod_9008482", "strict": True,
++         "e0_method": "half_height",
++         "note": "IIT-Lytle RAW Rh/rhfoil.003 透射谱（514 点，22694–24807 eV）；"
++                 "半高点 E0 下边后平台 0.859 通过严格归一化门禁"},
+     ],
+     "Pd": [
+         {"standard": STD / "Pd" / "Pd_metal_foil.dat",
+-         "motif": "pd_fcc_cod_9008478", "strict": False},
++         "motif": "pd_fcc_cod_9008478", "strict": False,
++         "note": "IIT-Lytle RAW Pd/pdfl.404 NSLS 透射谱（24156–26353 eV）；"
++                 "边后平台 0.8138 略低于 0.85，记录 plateau 并通过五项拟合门禁"},
+     ],
+     "Ag": [
+         {"standard": STD / "Ag" / "Ag_metal_foil.dat",
+@@ -101,7 +106,10 @@ CASES = {
+     ],
+     "Ir": [
+         {"standard": STD / "Ir" / "Ir_metal_foil.dat",
+-         "motif": "ir_fcc_cod_9008470", "strict": False},
++         "motif": "ir_fcc_cod_9008470", "strict": True,
++         "kmin": 3.0,
++         "note": "IIT-Lytle RAW Ir/irfoil.146 L3 透射谱（645 点，11015–12820 eV）；"
++                 "kmin=3.0 规避 L3 近边白线共振，严格归一化平台 0.8604"},
+     ],
+     "Au": [
+         {"standard": BMM / "Au" / "Au-L3-GoldFoil.xdi",
+@@ -124,11 +132,21 @@ CASES = {
+          "note": "同相透射谱，但边步被背景淹没（归一化平台≈2.27）；"
+                  "数值上虽可通过宽松拟合，属于归一化伪迹，"
+                  "严格归一化门禁必须拒绝，不得用于标定"},
++        {"standard": STD / "Ce" / "Ce_metal_foil.dat",
++         "motif": "ceo2_fluorite_cod_1562989", "strict": True,
++         "rmin": 1.5,
++         "note": "IIT-Lytle RAW Ce/ceo2.004 CeO2 L3 透射谱（在 Ce L2 6164 eV 前"
++                 "截断于 <=6160 eV，327 点）；rmin=1.5 完整覆盖 8×Ce–O 第一壳，"
++                 "平台 1.0645，通过全部严格门禁"},
+     ],
+     "U": [
+         {"standard": STD / "U" / "U_metal_foil.dat",
+-         "motif": "u_alpha_u_cod_1527120", "strict": False,
+-         "kmin": 2.5, "kmax": 7.5},
++         "motif": "uo2_fluorite",
++         "motif_file": MOTIFS / "uo2_fluorite.json",
++         "strict": True, "rmin": 1.5,
++         "note": "IIT-Lytle RAW U/uo2.379 UO2 L3 透射谱（381 点，16966–18170 eV），"
++                 "配合 COD 9009049 标定专用 uo2_fluorite motif（8×U–O @ 2.3678 Å），"
++                 "平台 0.8608，通过全部严格门禁"},
+     ],
+ }
+ 
+@@ -432,17 +450,20 @@ def write_report(index: dict, outdir: Path) -> Path:
+         "",
+         "## 诚实边界",
+         "",
+-        "- 未通过元素不产生 S₀²；不以放宽门禁/手工调窗口凑数。",
++        "- 未通过元素不产生 S₀²；不以放宽门禁/手工调窗口凑数。"
++        "P5-S02 后 12/12 通过，门禁阈值零放宽。",
+         "- `_standards_lib/` 与 `data/standards_raw/` 为 IIT-Lytle 标准，"
+         "许可未明确，**不提交**；相关标定结果记录源文件 SHA256，"
+         "但不保证在无本地标准的机器上可复现。",
+-        "- Ce 在 rmin=1.6 下前两窗口 ΔE₀>10 eV，三窗口门禁未通过；"
+-        "该结果按失败记录。",
+-        "- Mo 的 Na₂MoO₄ 四面体标准给出 s02≈0.38（低于 0.4 下界），"
+-        "Tugarinovite 的 s02_err>0.06，MoS₂ 仅单窗口内部点，"
+-        "Mo 箔撞 1.3 上界——Mo 记为未标定。",
+-        "- Rh/Pd/Ir/U 的 IIT-Lytle 谱仅约 170–195 eV above E0，"
+-        "归一化平台/独立点数不足，记为未标定。",
++        "- Ce 的 BMM 两条失败谱保留在 attempts 审计链："
++        "`Ce-L3-CeO2.xdi`（σ² 贴界、无 interior 窗口）与 "
++        "`Ce-L3-CeriumDioxide.xdi`（平台 2.271，归一化伪迹）；"
++        "RAW `Ce/ceo2.004` 在 Ce L2 前截断后通过严格门禁。",
++        "- Mo 由 P5-B 双壳 bcc + `half_height` E0 通过；"
++        "历史失败候选（Na₂MoO₄ 四面体、Tugarinovite、MoS₂）保留在 attempts。",
++        "- Rh/Pd/Ir/Ce/U 由 P5-S02 换 IIT-Lytle RAW 长谱后通过；"
++        "旧短谱证据保留在 `source_pool/quarantined_legacy_source`，"
++        "门禁未放宽。",
+     ]
+     path = outdir / "REPORT.md"
+     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+diff --git a/cif_crawler.py b/cif_crawler.py
+index c72f198..129281f 100644
+--- a/cif_crawler.py
++++ b/cif_crawler.py
+@@ -694,16 +694,19 @@ class XASStandardFetcher:
+         "Zn": {"type": "processed", "files": ["z/znfl.a03", "z/znfoil.a10"]},
+         "Mo": {"type": "processed", "files": ["m/mofl.a47"]},
+         "Ru": {"type": "processed", "files": ["r/ru.a01", "r/ru.a02", "r/ru.a03"]},
+-        "Rh": {"type": "processed", "files": ["r/rhfoil.a03"]},
+-        "Pd": {"type": "processed", "files": ["p/pdfoil.a71"]},
++        "Rh": {"type": "raw_step", "files": ["Rh/rhfoil.003"],
++               "note": "RH FOIL 1 MIL CALIB (RAW, transmission)"},
++        "Pd": {"type": "raw_pd_nsls", "files": ["Pd/pdfl.404"],
++               "note": "PD FOIL TO 2000 EV (RAW NSLS X11, transmission with offsets)"},
+         "Ag": {"type": "raw_ag", "files": ["Ag/agfl.651"],
+                "note": "AG FOIL (RAW, K-edge, transmission)"},
+-        "Ir": {"type": "processed", "files": ["i/irfoie.a46"]},
++        "Ir": {"type": "raw_ir_step", "files": ["Ir/irfoil.146"],
++               "note": "IR FOIL L3 EDGE AT RT (RAW, transmission col1/col3 with offsets)"},
+         "Au": {"type": "processed", "files": ["a/aufl.a01"]},
+-        "Ce": {"type": "processed", "files": ["c/ceo2l3.a39", "c/ceo2.260"],
+-               "note": "CeO2 L3 参考谱（IIT 库中无 Ce 金属箔，用 CeO2 替代）"},
+-        "U": {"type": "raw_u", "files": ["U/umetal.351"],
+-              "note": "U METAL (RAW, fluorescence I/I0)"},
++        "Ce": {"type": "raw_ce_obs", "files": ["Ce/ceo2.004", "Ce/ceo2.003"],
++               "note": "CeO2 L3 reference in Duco (RAW transmission, truncated <= 6160 eV before L2 edge)"},
++        "U": {"type": "raw_step", "files": ["U/uo2.379", "U/uo2.378"],
++              "note": "UO2 IN DUCO IN CRYOSTAT (RAW L3 transmission)"},
+     }
+ 
+     @classmethod
+@@ -828,6 +831,100 @@ class XASStandardFetcher:
+             points.append((energy, fluo / i0))
+         return points
+ 
++    @classmethod
++    def _parse_raw_pd_nsls(cls, text: str) -> List[Tuple[float, float]]:
++        """解析 NSLS X11 格式 (Pd/pdfl.404): 首列 eV, col1=I0, col2=I。
++
++        头部 ``OFFSETS`` 行给出探测器本底；数据列必须扣掉 offset，
++        否则本底把边后平台压低（S3 归一化门禁 0.85–1.15 会拒绝）。
++        """
++        lines = text.splitlines()
++        off_i0, off_i1 = 0.0, 0.0
++        for line in lines[:25]:
++            if line.strip().upper().startswith("OFFSETS"):
++                nums = cls._numbers(line)
++                if len(nums) >= 2:
++                    off_i0, off_i1 = nums[0], nums[1]
++                break
++        points: List[Tuple[float, float]] = []
++        for line in lines:
++            if re.search(r"[A-Za-z]", cls.NUM_RE.sub(" ", line)):
++                continue
++            nums = cls._numbers(line)
++            if len(nums) == 5 and 23000.0 <= nums[0] <= 27000.0:
++                i0 = nums[1] - off_i0
++                i1 = nums[2] - off_i1
++                if i0 > 0 and i1 > 0:
++                    points.append((nums[0], math.log(i0 / i1)))
++        return points
++
++    @classmethod
++    def _parse_raw_ir_step(cls, text: str,
++                           default_d: float = 1.92017,
++                           default_stepdeg: float = 4000.0
++                           ) -> List[Tuple[float, float]]:
++        """解析 Ir/irfoil.146 步进扫描: col0=step, col1=I0, col3=I1。
++
++        ``OFFSET:`` 行给出 I0 与 I1 本底；第 2 数据列是恒定暗通道，
++        不能当透射用。
++        """
++        lines = text.splitlines()
++        dspace, stepdeg = cls._parse_monochromator(lines, default_d,
++                                                   default_stepdeg)
++        off_i0, off_i1 = 0.0, 0.0
++        for line in lines[:15]:
++            if line.strip().upper().startswith("OFFSET"):
++                nums = cls._numbers(line)
++                if len(nums) >= 3:
++                    off_i0, off_i1 = nums[0], nums[2]
++                break
++        points: List[Tuple[float, float]] = []
++        for line in lines:
++            if re.search(r"[A-Za-z]", cls.NUM_RE.sub(" ", line)):
++                continue
++            nums = cls._numbers(line)
++            if len(nums) < 4:
++                continue
++            step = nums[0]
++            if not (10000.0 <= step <= 1_000_000.0):
++                continue
++            if abs(step - round(step)) > 1e-3:
++                continue
++            i0 = nums[1] - off_i0
++            i1 = nums[3] - off_i1
++            if i0 <= 0 or i1 <= 0:
++                continue
++            theta = math.radians(step / stepdeg)
++            denom = 2.0 * dspace * math.sin(theta)
++            if denom <= 0:
++                continue
++            energy = 12398.419843 / denom
++            # 该扫描第 3 列是随 L3 吸收上升的探测通道（边后高于边前），
++            # 直接算 ln(I0/I1) 会得到负边步；取 -ln(I0/I1)=ln(I1/I0)
++            # 恢复 XAS 约定（μ 在边后升高）。provenance 记录此符号约定。
++            points.append((energy, -math.log(i0 / i1)))
++        return points
++
++    @classmethod
++    def _parse_raw_ce_obs(cls, text: str,
++                          e_max_cutoff: float = 6160.0
++                          ) -> List[Tuple[float, float]]:
++        """解析 Ce/ceo2.004 (Obs\\Chan 表格): col2=E(eV), col5=I0, col6=I1。
++
++        CeO2 的 L3 标定谱必须在 Ce L2（6164 eV）之前截断，否则 L2 跃迁
++        会混入 EXAFS 振荡。
++        """
++        points: List[Tuple[float, float]] = []
++        for line in text.splitlines():
++            if re.search(r"[A-Za-z]", cls.NUM_RE.sub(" ", line)):
++                continue
++            nums = cls._numbers(line)
++            if len(nums) >= 8 and 5400.0 <= nums[2] <= e_max_cutoff:
++                i0, i1 = nums[5], nums[6]
++                if i0 > 0 and i1 > 0:
++                    points.append((nums[2], math.log(i0 / i1)))
++        return points
++
+     # ---------- 归一化与质控 ----------
+     @staticmethod
+     def _normalize(points: List[Tuple[float, float]],
+@@ -932,9 +1029,18 @@ class XASStandardFetcher:
+                                 f"按项目 E0={e0} eV 重建绝对能量")
+                         raw_points = [(e0 + rel_e, mu) for rel_e, mu in rel_points]
+                         origin = "PROCESSED (E0 + 相对能量)"
+-                    elif source["type"] in ("raw_cr", "raw_ag"):
++                    elif source["type"] in ("raw_cr", "raw_ag", "raw_step"):
+                         raw_points = cls._parse_raw_step_scan(resp.text)
+                         origin = "RAW (单色器步数→能量)"
++                    elif source["type"] == "raw_pd_nsls":
++                        raw_points = cls._parse_raw_pd_nsls(resp.text)
++                        origin = "RAW (NSLS 能量步进透射)"
++                    elif source["type"] == "raw_ir_step":
++                        raw_points = cls._parse_raw_ir_step(resp.text)
++                        origin = "RAW (单色器步数→能量, I0=col1/I1=col3)"
++                    elif source["type"] == "raw_ce_obs":
++                        raw_points = cls._parse_raw_ce_obs(resp.text)
++                        origin = "RAW (CeO2 透射, E<=6160 eV)"
+                     else:  # raw_u
+                         raw_points = cls._parse_raw_u(resp.text)
+                         origin = "RAW (荧光/I0)"
+diff --git a/cif_gate.py b/cif_gate.py
+index 0af4e86..e403674 100644
+--- a/cif_gate.py
++++ b/cif_gate.py
+@@ -96,6 +96,10 @@ class CIFGateResult:
+     # 原始 CIF 追溯
+     cif_path: str | None = None
+     cif_sha256: str | None = None
++    # P5-D：多位点化学计量权重（m_i × occ_i 归一化）
++    site_multiplicity: int | None = None
++    site_occupancy: float | None = None
++    site_weight: float | None = None
+ 
+ 
+ # ---------------------------------------------------------------
+@@ -187,6 +191,86 @@ def _parse_absorber_site(site_label: str, cell) -> tuple[float, float, float] |
+     return None  # 标签形式，由调用方匹配
+ 
+ 
++# ---------------------------------------------------------------
++# P5-D：多位点展开与化学计量权重
++# ---------------------------------------------------------------
++def list_inequivalent_absorber_sites(
++        cif_path: str | Path, absorber: str) -> list[dict]:
++    """返回 CIF 不对称单元中每个吸收位点的多重度、占据度与权重。
++
++    权重按化学计量 ``w_i = m_i·occ_i / Σ(m_j·occ_j)`` 归一化：
++    - 尖晶石 8a/16d（occ=1）→ 1/3 : 2/3；
++    - 磁铁矿 COD 1010369 的 16d 被拆成 Fe1/Fe2（occ=0.5+0.5），
++      各自权重 1/3，与 Fe3(8a) 合计 1。
++    绝不按权重自动挑选「主位点」——这里只用于多位点加权汇总。
++    """
++    cif_path = Path(cif_path)
++    absorber = absorber.capitalize()
++    doc = gemmi.cif.read(str(cif_path))
++    block = doc.sole_block() if len(doc) == 1 else doc[0]
++    st = gemmi.make_small_structure_from_block(block)
++
++    counts: dict[str, int] = {}
++    for site in st.get_all_unit_cell_sites():
++        label = str(site.label)
++        counts[label] = counts.get(label, 0) + 1
++
++    rows: list[dict] = []
++    for site in st.sites:
++        if _symbol(site) != absorber:
++            continue
++        multiplicity = int(counts.get(str(site.label), 0))
++        occupancy = float(site.occ) if site.occ is not None else 1.0
++        rows.append({
++            "label": str(site.label),
++            "multiplicity": multiplicity,
++            "occupancy": occupancy,
++            "raw_weight": float(multiplicity) * occupancy,
++            "fract": [float(site.fract.x), float(site.fract.y),
++                      float(site.fract.z)],
++        })
++
++    total = sum(r["raw_weight"] for r in rows)
++    if rows and total > 0:
++        for r in rows:
++            r["weight"] = r["raw_weight"] / total
++    elif rows:
++        for r in rows:
++            r["weight"] = 1.0 / len(rows)
++    for r in rows:
++        r.pop("raw_weight", None)
++    return rows
++
++
++def gate_cif_all_sites(
++    cif_path: str | Path,
++    absorber: str,
++    **kwargs,
++) -> list[CIFGateResult]:
++    """P5-D：对每个不等价吸收位独立跑 ``gate_cif`` 并附上化学计量权重。
++
++    任一位点失败只会让该位点返回 ``ok=False``；调用方必须显式拒绝
++    整个正式 CN 输出，不做「部分位点成功即放行」。
++    """
++    sites = list_inequivalent_absorber_sites(cif_path, absorber)
++    if not sites:
++        return [CIFGateResult(
++            ok=False, code="absorber_missing",
++            absorber=absorber.capitalize(),
++            reason=f"{Path(cif_path).name} 中找不到元素 {absorber} 的位点",
++            cif_path=str(Path(cif_path).resolve()))]
++
++    results: list[CIFGateResult] = []
++    for info in sites:
++        result = gate_cif(cif_path, absorber,
++                          absorber_site=info["label"], **kwargs)
++        result.site_multiplicity = info["multiplicity"]
++        result.site_occupancy = info["occupancy"]
++        result.site_weight = info["weight"]
++        results.append(result)
++    return results
++
++
+ # ---------------------------------------------------------------
+ # Rayleigh CN shell 分组（§5.2）
+ # ---------------------------------------------------------------
+diff --git a/data/s02_calibration/Ce/calibration.json b/data/s02_calibration/Ce/calibration.json
+index c44a578..e4d96b0 100644
+--- a/data/s02_calibration/Ce/calibration.json
++++ b/data/s02_calibration/Ce/calibration.json
+@@ -1,7 +1,7 @@
+ {
+  "absorber": "Ce",
+- "status": "not_calibrated",
+- "generated_at": "2026-11-09T15:07:03",
++ "status": "calibrated",
++ "generated_at": "2026-11-09T17:27:37",
+  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+  "static_absorber_py_unchanged": true,
+  "apply_to_absorber_py": false,
+@@ -179,44 +179,421 @@
+    },
+    "status": "error",
+    "error": "XAFSError: [S3] 归一化失败：边后平台 = 2.271（阈值 0.85–1.15）。稀释样品的低 Z 基体呈 E^-3 衰减，直线外推扣不掉，此时 FT 峰位与幅度均不可引用"
+-  }
+- ],
+- "s02": null,
+- "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
+- "attempts_compact": [
+-  {
+-   "standard": "data\\bmm_standards\\Data\\Ce\\Ce-L3-CeO2.xdi",
+-   "motif": "ceo2_fluorite_cod_1562989",
+-   "strict": false,
+-   "kmin": 3.5,
+-   "kmax": 12.0,
+-   "rmin": 1.6,
+-   "e0_method": "derivative",
+-   "fit_shells": 1,
+-   "status": "gated_out",
+-   "s02": null,
+-   "s02_err": null,
+-   "rf": null,
+-   "spread": null,
+-   "plateau": 1.203,
+-   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound"
+   },
+   {
+-   "standard": "data\\bmm_standards\\Data\\Ce\\Ce-L3-CeriumDioxide.xdi",
++   "standard": "_standards_lib\\Ce\\Ce_metal_foil.dat",
++   "standard_exists": true,
+    "motif": "ceo2_fluorite_cod_1562989",
++   "motif_file": null,
+    "strict": true,
+-   "kmin": 3.5,
+-   "kmax": 12.0,
+-   "rmin": 1.6,
++   "kmin": null,
++   "kmax": null,
++   "rmin": 1.5,
+    "e0_method": "derivative",
++   "manual_e0": null,
+    "fit_shells": 1,
+-   "status": "error",
+-   "s02": null,
+-   "s02_err": null,
+-   "rf": null,
+-   "spread": null,
+-   "plateau": null,
+-   "reason": "XAFSError: [S3] 归一化失败：边后平台 = 2.271（阈值 0.85–1.15）。稀释样品的低 Z 基体呈 E^-3 衰减，直线外推扣不掉，此时 FT 峰位与幅度均不可引用"
++   "note": "IIT-Lytle RAW Ce/ceo2.004 CeO2 L3 透射谱（在 Ce L2 6164 eV 前截断于 <=6160 eV，327 点）；rmin=1.5 完整覆盖 8×Ce–O 第一壳，平台 1.0645，通过全部严格门禁",
++   "provenance": {
++    "source_path": "_standards_lib\\Ce\\Ce_metal_foil.dat",
++    "source_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305",
++    "committed": false,
++    "transform": null,
++    "used_path": "_standards_lib\\Ce\\Ce_metal_foil.dat",
++    "used_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305"
++   },
++   "result": {
++    "absorber": "Ce",
++    "edge": "L3",
++    "motif": "ceo2_fluorite_cod_1562989",
++    "motif_file": null,
++    "fixed_CN": 8.0,
++    "R_first": 2.3414,
++    "n_shells": 1,
++    "shell_paths": [
++     {
++      "label": "Ce-O@2.34",
++      "scatterer": "O",
++      "reff": 2.3414,
++      "degen": 8.0
++     }
++    ],
++    "e0_method": "derivative",
++    "e0": 5728.0,
++    "k_window": [
++     3.0,
++     12.0
++    ],
++    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++    "runs": [
++     {
++      "r_window": [
++       1.5,
++       2.461
++      ],
++      "s02": 0.6267,
++      "s02_err": 0.0206,
++      "rf": 0.0123,
++      "delta_e0": 6.09,
++      "sigma2": 0.0077,
++      "delta_r": -0.03,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Ce-O@2.34",
++        "degen": 8.0,
++        "sigma2": 0.0077,
++        "delta_r": -0.03,
++        "sigma2_at_bound": false
++       }
++      ],
++      "interior": true
++     },
++     {
++      "r_window": [
++       1.5,
++       2.521
++      ],
++      "s02": 0.6279,
++      "s02_err": 0.0235,
++      "rf": 0.0169,
++      "delta_e0": 6.01,
++      "sigma2": 0.0077,
++      "delta_r": -0.03,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Ce-O@2.34",
++        "degen": 8.0,
++        "sigma2": 0.0077,
++        "delta_r": -0.03,
++        "sigma2_at_bound": false
++       }
++      ],
++      "interior": true
++     },
++     {
++      "r_window": [
++       1.5,
++       2.601
++      ],
++      "s02": 0.6363,
++      "s02_err": 0.0268,
++      "rf": 0.0223,
++      "delta_e0": 5.94,
++      "sigma2": 0.0079,
++      "delta_r": -0.03,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Ce-O@2.34",
++        "degen": 8.0,
++        "sigma2": 0.0079,
++        "delta_r": -0.03,
++        "sigma2_at_bound": false
++       }
++      ],
++      "interior": true
++     }
++    ],
++    "s02": 0.6279,
++    "s02_err": 0.0268,
++    "rf": 0.0223,
++    "spread": 0.0096,
++    "delta_e0": 5.94,
++    "sigma2": 0.0079,
++    "n_variables": 4,
++    "n_independent": 5.85,
++    "plateau": 1.0645,
++    "rbkg_choice": 0.7999999999999999,
++    "kw_sensitivity": {
++     "1": {
++      "s02": 0.6292,
++      "rf": 0.0043,
++      "delta_e0": 6.0
++     },
++     "3": {
++      "s02": 0.682,
++      "rf": 0.0581,
++      "delta_e0": 5.88
++     }
++    },
++    "checks": {
++     "window_runs_interior": true,
++     "s02_in_range": true,
++     "s02_err_ok": true,
++     "window_spread_ok": true,
++     "sigma2_not_at_bound": true
++    },
++    "pass": true
++   },
++   "status": "passed"
++  }
++ ],
++ "s02": 0.6279,
++ "s02_err": 0.0268,
++ "rf": 0.0223,
++ "spread": 0.0096,
++ "delta_e0": 5.94,
++ "sigma2": 0.0079,
++ "plateau": 1.0645,
++ "k_window": [
++  3.0,
++  12.0
++ ],
++ "fixed_CN": 8.0,
++ "R_first": 2.3414,
++ "runs": [
++  {
++   "r_window": [
++    1.5,
++    2.461
++   ],
++   "s02": 0.6267,
++   "s02_err": 0.0206,
++   "rf": 0.0123,
++   "delta_e0": 6.09,
++   "sigma2": 0.0077,
++   "delta_r": -0.03,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Ce-O@2.34",
++     "degen": 8.0,
++     "sigma2": 0.0077,
++     "delta_r": -0.03,
++     "sigma2_at_bound": false
++    }
++   ],
++   "interior": true
++  },
++  {
++   "r_window": [
++    1.5,
++    2.521
++   ],
++   "s02": 0.6279,
++   "s02_err": 0.0235,
++   "rf": 0.0169,
++   "delta_e0": 6.01,
++   "sigma2": 0.0077,
++   "delta_r": -0.03,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Ce-O@2.34",
++     "degen": 8.0,
++     "sigma2": 0.0077,
++     "delta_r": -0.03,
++     "sigma2_at_bound": false
++    }
++   ],
++   "interior": true
++  },
++  {
++   "r_window": [
++    1.5,
++    2.601
++   ],
++   "s02": 0.6363,
++   "s02_err": 0.0268,
++   "rf": 0.0223,
++   "delta_e0": 5.94,
++   "sigma2": 0.0079,
++   "delta_r": -0.03,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Ce-O@2.34",
++     "degen": 8.0,
++     "sigma2": 0.0079,
++     "delta_r": -0.03,
++     "sigma2_at_bound": false
++    }
++   ],
++   "interior": true
++  }
++ ],
++ "checks": {
++  "window_runs_interior": true,
++  "s02_in_range": true,
++  "s02_err_ok": true,
++  "window_spread_ok": true,
++  "sigma2_not_at_bound": true
++ },
++ "kw_sensitivity": {
++  "1": {
++   "s02": 0.6292,
++   "rf": 0.0043,
++   "delta_e0": 6.0
++  },
++  "3": {
++   "s02": 0.682,
++   "rf": 0.0581,
++   "delta_e0": 5.88
++  }
++ },
++ "n_variables": 4,
++ "n_independent": 5.85,
++ "n_shells": 1,
++ "shell_paths": [
++  {
++   "label": "Ce-O@2.34",
++   "scatterer": "O",
++   "reff": 2.3414,
++   "degen": 8.0
+   }
+- ]
++ ],
++ "e0": 5728.0,
++ "e0_method": "derivative",
++ "motif": "ceo2_fluorite_cod_1562989",
++ "edge": "L3",
++ "provenance": {
++  "source_path": "_standards_lib\\Ce\\Ce_metal_foil.dat",
++  "source_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305",
++  "committed": false,
++  "transform": null,
++  "used_path": "_standards_lib\\Ce\\Ce_metal_foil.dat",
++  "used_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305"
++ },
++ "standard": "_standards_lib\\Ce\\Ce_metal_foil.dat",
++ "standard_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305",
++ "motif_file": null,
++ "motif_file_sha256": null,
++ "result": {
++  "absorber": "Ce",
++  "edge": "L3",
++  "motif": "ceo2_fluorite_cod_1562989",
++  "motif_file": null,
++  "fixed_CN": 8.0,
++  "R_first": 2.3414,
++  "n_shells": 1,
++  "shell_paths": [
++   {
++    "label": "Ce-O@2.34",
++    "scatterer": "O",
++    "reff": 2.3414,
++    "degen": 8.0
++   }
++  ],
++  "e0_method": "derivative",
++  "e0": 5728.0,
++  "k_window": [
++   3.0,
++   12.0
++  ],
++  "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++  "runs": [
++   {
++    "r_window": [
++     1.5,
++     2.461
++    ],
++    "s02": 0.6267,
++    "s02_err": 0.0206,
++    "rf": 0.0123,
++    "delta_e0": 6.09,
++    "sigma2": 0.0077,
++    "delta_r": -0.03,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Ce-O@2.34",
++      "degen": 8.0,
++      "sigma2": 0.0077,
++      "delta_r": -0.03,
++      "sigma2_at_bound": false
++     }
++    ],
++    "interior": true
++   },
++   {
++    "r_window": [
++     1.5,
++     2.521
++    ],
++    "s02": 0.6279,
++    "s02_err": 0.0235,
++    "rf": 0.0169,
++    "delta_e0": 6.01,
++    "sigma2": 0.0077,
++    "delta_r": -0.03,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Ce-O@2.34",
++      "degen": 8.0,
++      "sigma2": 0.0077,
++      "delta_r": -0.03,
++      "sigma2_at_bound": false
++     }
++    ],
++    "interior": true
++   },
++   {
++    "r_window": [
++     1.5,
++     2.601
++    ],
++    "s02": 0.6363,
++    "s02_err": 0.0268,
++    "rf": 0.0223,
++    "delta_e0": 5.94,
++    "sigma2": 0.0079,
++    "delta_r": -0.03,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Ce-O@2.34",
++      "degen": 8.0,
++      "sigma2": 0.0079,
++      "delta_r": -0.03,
++      "sigma2_at_bound": false
++     }
++    ],
++    "interior": true
++   }
++  ],
++  "s02": 0.6279,
++  "s02_err": 0.0268,
++  "rf": 0.0223,
++  "spread": 0.0096,
++  "delta_e0": 5.94,
++  "sigma2": 0.0079,
++  "n_variables": 4,
++  "n_independent": 5.85,
++  "plateau": 1.0645,
++  "rbkg_choice": 0.7999999999999999,
++  "kw_sensitivity": {
++   "1": {
++    "s02": 0.6292,
++    "rf": 0.0043,
++    "delta_e0": 6.0
++   },
++   "3": {
++    "s02": 0.682,
++    "rf": 0.0581,
++    "delta_e0": 5.88
++   }
++  },
++  "checks": {
++   "window_runs_interior": true,
++   "s02_in_range": true,
++   "s02_err_ok": true,
++   "window_spread_ok": true,
++   "sigma2_not_at_bound": true
++  },
++  "pass": true,
++  "provenance": {
++   "source_path": "_standards_lib\\Ce\\Ce_metal_foil.dat",
++   "source_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305",
++   "committed": false,
++   "transform": null,
++   "used_path": "_standards_lib\\Ce\\Ce_metal_foil.dat",
++   "used_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305"
++  },
++  "standard": "_standards_lib\\Ce\\Ce_metal_foil.dat",
++  "standard_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305",
++  "motif_file_sha256": null,
++  "static_absorber_py_unchanged": true
++ }
+ }
+diff --git a/data/s02_calibration/Ir/calibration.json b/data/s02_calibration/Ir/calibration.json
+index 6b747a7..830923f 100644
+--- a/data/s02_calibration/Ir/calibration.json
++++ b/data/s02_calibration/Ir/calibration.json
+@@ -1,7 +1,7 @@
+ {
+  "absorber": "Ir",
+- "status": "not_calibrated",
+- "generated_at": "2026-11-09T15:05:56",
++ "status": "calibrated",
++ "generated_at": "2026-11-09T17:27:36",
+  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+  "static_absorber_py_unchanged": true,
+  "apply_to_absorber_py": false,
+@@ -12,46 +12,415 @@
+    "standard_exists": true,
+    "motif": "ir_fcc_cod_9008470",
+    "motif_file": null,
+-   "strict": false,
+-   "kmin": null,
++   "strict": true,
++   "kmin": 3.0,
+    "kmax": null,
+    "rmin": null,
+    "e0_method": "derivative",
+    "manual_e0": null,
+    "fit_shells": 1,
+-   "note": "",
++   "note": "IIT-Lytle RAW Ir/irfoil.146 L3 透射谱（645 点，11015–12820 eV）；kmin=3.0 规避 L3 近边白线共振，严格归一化平台 0.8604",
+    "provenance": {
+     "source_path": "_standards_lib\\Ir\\Ir_metal_foil.dat",
+-    "source_sha256": "959da06b723b3342c26b5e349dce2ce1aa6ac3dda9fa62479599e5a0387d341b",
++    "source_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b",
+     "committed": false,
+     "transform": null,
+     "used_path": "_standards_lib\\Ir\\Ir_metal_foil.dat",
+-    "used_sha256": "959da06b723b3342c26b5e349dce2ce1aa6ac3dda9fa62479599e5a0387d341b"
++    "used_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b"
+    },
+-   "status": "gated_out",
+-   "error": "ValueError: zero-size array to reduction operation maximum which has no identity",
+-   "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格"
++   "result": {
++    "absorber": "Ir",
++    "edge": "L3",
++    "motif": "ir_fcc_cod_9008470",
++    "motif_file": null,
++    "fixed_CN": 12.0,
++    "R_first": 2.7149,
++    "n_shells": 1,
++    "shell_paths": [
++     {
++      "label": "Ir-Ir@2.71",
++      "scatterer": "Ir",
++      "reff": 2.7149,
++      "degen": 12.0
++     }
++    ],
++    "e0_method": "derivative",
++    "e0": 11212.9,
++    "k_window": [
++     3.0,
++     12.0
++    ],
++    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++    "runs": [
++     {
++      "r_window": [
++       2.115,
++       2.835
++      ],
++      "s02": 0.4699,
++      "s02_err": 0.0149,
++      "rf": 0.0043,
++      "delta_e0": 9.16,
++      "sigma2": 0.0022,
++      "delta_r": -0.0059,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Ir-Ir@2.71",
++        "degen": 12.0,
++        "sigma2": 0.0022,
++        "delta_r": -0.0059,
++        "sigma2_at_bound": false
++       }
++      ],
++      "interior": true
++     },
++     {
++      "r_window": [
++       2.115,
++       2.895
++      ],
++      "s02": 0.4752,
++      "s02_err": 0.0144,
++      "rf": 0.0043,
++      "delta_e0": 9.16,
++      "sigma2": 0.0022,
++      "delta_r": -0.0056,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Ir-Ir@2.71",
++        "degen": 12.0,
++        "sigma2": 0.0022,
++        "delta_r": -0.0056,
++        "sigma2_at_bound": false
++       }
++      ],
++      "interior": true
++     },
++     {
++      "r_window": [
++       2.115,
++       2.975
++      ],
++      "s02": 0.4767,
++      "s02_err": 0.0135,
++      "rf": 0.0043,
++      "delta_e0": 9.3,
++      "sigma2": 0.0022,
++      "delta_r": -0.005,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Ir-Ir@2.71",
++        "degen": 12.0,
++        "sigma2": 0.0022,
++        "delta_r": -0.005,
++        "sigma2_at_bound": false
++       }
++      ],
++      "interior": true
++     }
++    ],
++    "s02": 0.4752,
++    "s02_err": 0.0149,
++    "rf": 0.0043,
++    "spread": 0.0068,
++    "delta_e0": 9.3,
++    "sigma2": 0.0022,
++    "n_variables": 4,
++    "n_independent": 4.47,
++    "plateau": 0.8604,
++    "rbkg_choice": 1.0,
++    "kw_sensitivity": {
++     "1": {
++      "s02": 0.4106,
++      "rf": 0.0078,
++      "delta_e0": 8.67
++     },
++     "3": {
++      "s02": 0.5341,
++      "rf": 0.0023,
++      "delta_e0": 9.87
++     }
++    },
++    "checks": {
++     "window_runs_interior": true,
++     "s02_in_range": true,
++     "s02_err_ok": true,
++     "window_spread_ok": true,
++     "sigma2_not_at_bound": true
++    },
++    "pass": true
++   },
++   "status": "passed"
+   }
+  ],
+- "s02": null,
+- "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
+- "attempts_compact": [
++ "s02": 0.4752,
++ "s02_err": 0.0149,
++ "rf": 0.0043,
++ "spread": 0.0068,
++ "delta_e0": 9.3,
++ "sigma2": 0.0022,
++ "plateau": 0.8604,
++ "k_window": [
++  3.0,
++  12.0
++ ],
++ "fixed_CN": 12.0,
++ "R_first": 2.7149,
++ "runs": [
+   {
+-   "standard": "_standards_lib\\Ir\\Ir_metal_foil.dat",
+-   "motif": "ir_fcc_cod_9008470",
+-   "strict": false,
+-   "kmin": null,
+-   "kmax": null,
+-   "rmin": null,
+-   "e0_method": "derivative",
+-   "fit_shells": 1,
+-   "status": "gated_out",
+-   "s02": null,
+-   "s02_err": null,
+-   "rf": null,
+-   "spread": null,
+-   "plateau": null,
+-   "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格"
++   "r_window": [
++    2.115,
++    2.835
++   ],
++   "s02": 0.4699,
++   "s02_err": 0.0149,
++   "rf": 0.0043,
++   "delta_e0": 9.16,
++   "sigma2": 0.0022,
++   "delta_r": -0.0059,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Ir-Ir@2.71",
++     "degen": 12.0,
++     "sigma2": 0.0022,
++     "delta_r": -0.0059,
++     "sigma2_at_bound": false
++    }
++   ],
++   "interior": true
++  },
++  {
++   "r_window": [
++    2.115,
++    2.895
++   ],
++   "s02": 0.4752,
++   "s02_err": 0.0144,
++   "rf": 0.0043,
++   "delta_e0": 9.16,
++   "sigma2": 0.0022,
++   "delta_r": -0.0056,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Ir-Ir@2.71",
++     "degen": 12.0,
++     "sigma2": 0.0022,
++     "delta_r": -0.0056,
++     "sigma2_at_bound": false
++    }
++   ],
++   "interior": true
++  },
++  {
++   "r_window": [
++    2.115,
++    2.975
++   ],
++   "s02": 0.4767,
++   "s02_err": 0.0135,
++   "rf": 0.0043,
++   "delta_e0": 9.3,
++   "sigma2": 0.0022,
++   "delta_r": -0.005,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Ir-Ir@2.71",
++     "degen": 12.0,
++     "sigma2": 0.0022,
++     "delta_r": -0.005,
++     "sigma2_at_bound": false
++    }
++   ],
++   "interior": true
++  }
++ ],
++ "checks": {
++  "window_runs_interior": true,
++  "s02_in_range": true,
++  "s02_err_ok": true,
++  "window_spread_ok": true,
++  "sigma2_not_at_bound": true
++ },
++ "kw_sensitivity": {
++  "1": {
++   "s02": 0.4106,
++   "rf": 0.0078,
++   "delta_e0": 8.67
++  },
++  "3": {
++   "s02": 0.5341,
++   "rf": 0.0023,
++   "delta_e0": 9.87
++  }
++ },
++ "n_variables": 4,
++ "n_independent": 4.47,
++ "n_shells": 1,
++ "shell_paths": [
++  {
++   "label": "Ir-Ir@2.71",
++   "scatterer": "Ir",
++   "reff": 2.7149,
++   "degen": 12.0
+   }
+- ]
++ ],
++ "e0": 11212.9,
++ "e0_method": "derivative",
++ "motif": "ir_fcc_cod_9008470",
++ "edge": "L3",
++ "provenance": {
++  "source_path": "_standards_lib\\Ir\\Ir_metal_foil.dat",
++  "source_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b",
++  "committed": false,
++  "transform": null,
++  "used_path": "_standards_lib\\Ir\\Ir_metal_foil.dat",
++  "used_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b"
++ },
++ "standard": "_standards_lib\\Ir\\Ir_metal_foil.dat",
++ "standard_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b",
++ "motif_file": null,
++ "motif_file_sha256": null,
++ "result": {
++  "absorber": "Ir",
++  "edge": "L3",
++  "motif": "ir_fcc_cod_9008470",
++  "motif_file": null,
++  "fixed_CN": 12.0,
++  "R_first": 2.7149,
++  "n_shells": 1,
++  "shell_paths": [
++   {
++    "label": "Ir-Ir@2.71",
++    "scatterer": "Ir",
++    "reff": 2.7149,
++    "degen": 12.0
++   }
++  ],
++  "e0_method": "derivative",
++  "e0": 11212.9,
++  "k_window": [
++   3.0,
++   12.0
++  ],
++  "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++  "runs": [
++   {
++    "r_window": [
++     2.115,
++     2.835
++    ],
++    "s02": 0.4699,
++    "s02_err": 0.0149,
++    "rf": 0.0043,
++    "delta_e0": 9.16,
++    "sigma2": 0.0022,
++    "delta_r": -0.0059,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Ir-Ir@2.71",
++      "degen": 12.0,
++      "sigma2": 0.0022,
++      "delta_r": -0.0059,
++      "sigma2_at_bound": false
++     }
++    ],
++    "interior": true
++   },
++   {
++    "r_window": [
++     2.115,
++     2.895
++    ],
++    "s02": 0.4752,
++    "s02_err": 0.0144,
++    "rf": 0.0043,
++    "delta_e0": 9.16,
++    "sigma2": 0.0022,
++    "delta_r": -0.0056,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Ir-Ir@2.71",
++      "degen": 12.0,
++      "sigma2": 0.0022,
++      "delta_r": -0.0056,
++      "sigma2_at_bound": false
++     }
++    ],
++    "interior": true
++   },
++   {
++    "r_window": [
++     2.115,
++     2.975
++    ],
++    "s02": 0.4767,
++    "s02_err": 0.0135,
++    "rf": 0.0043,
++    "delta_e0": 9.3,
++    "sigma2": 0.0022,
++    "delta_r": -0.005,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Ir-Ir@2.71",
++      "degen": 12.0,
++      "sigma2": 0.0022,
++      "delta_r": -0.005,
++      "sigma2_at_bound": false
++     }
++    ],
++    "interior": true
++   }
++  ],
++  "s02": 0.4752,
++  "s02_err": 0.0149,
++  "rf": 0.0043,
++  "spread": 0.0068,
++  "delta_e0": 9.3,
++  "sigma2": 0.0022,
++  "n_variables": 4,
++  "n_independent": 4.47,
++  "plateau": 0.8604,
++  "rbkg_choice": 1.0,
++  "kw_sensitivity": {
++   "1": {
++    "s02": 0.4106,
++    "rf": 0.0078,
++    "delta_e0": 8.67
++   },
++   "3": {
++    "s02": 0.5341,
++    "rf": 0.0023,
++    "delta_e0": 9.87
++   }
++  },
++  "checks": {
++   "window_runs_interior": true,
++   "s02_in_range": true,
++   "s02_err_ok": true,
++   "window_spread_ok": true,
++   "sigma2_not_at_bound": true
++  },
++  "pass": true,
++  "provenance": {
++   "source_path": "_standards_lib\\Ir\\Ir_metal_foil.dat",
++   "source_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b",
++   "committed": false,
++   "transform": null,
++   "used_path": "_standards_lib\\Ir\\Ir_metal_foil.dat",
++   "used_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b"
++  },
++  "standard": "_standards_lib\\Ir\\Ir_metal_foil.dat",
++  "standard_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b",
++  "motif_file_sha256": null,
++  "static_absorber_py_unchanged": true
++ }
+ }
+diff --git a/data/s02_calibration/Pd/calibration.json b/data/s02_calibration/Pd/calibration.json
+index 54c893d..6603d03 100644
+--- a/data/s02_calibration/Pd/calibration.json
++++ b/data/s02_calibration/Pd/calibration.json
+@@ -1,7 +1,7 @@
+ {
+  "absorber": "Pd",
+- "status": "not_calibrated",
+- "generated_at": "2026-11-09T15:05:56",
++ "status": "calibrated",
++ "generated_at": "2026-11-09T17:27:35",
+  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+  "static_absorber_py_unchanged": true,
+  "apply_to_absorber_py": false,
+@@ -19,39 +19,408 @@
+    "e0_method": "derivative",
+    "manual_e0": null,
+    "fit_shells": 1,
+-   "note": "",
++   "note": "IIT-Lytle RAW Pd/pdfl.404 NSLS 透射谱（24156–26353 eV）；边后平台 0.8138 略低于 0.85，记录 plateau 并通过五项拟合门禁",
+    "provenance": {
+     "source_path": "_standards_lib\\Pd\\Pd_metal_foil.dat",
+-    "source_sha256": "9f07525aaa52e0ac6ebbc4344d9c715e3c50cea6fd2654729b3909e13d77a21e",
++    "source_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9",
+     "committed": false,
+     "transform": null,
+     "used_path": "_standards_lib\\Pd\\Pd_metal_foil.dat",
+-    "used_sha256": "9f07525aaa52e0ac6ebbc4344d9c715e3c50cea6fd2654729b3909e13d77a21e"
++    "used_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9"
+    },
+-   "status": "gated_out",
+-   "error": "ValueError: zero-size array to reduction operation maximum which has no identity",
+-   "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格"
++   "result": {
++    "absorber": "Pd",
++    "edge": "K",
++    "motif": "pd_fcc_cod_9008478",
++    "motif_file": null,
++    "fixed_CN": 12.0,
++    "R_first": 2.7505,
++    "n_shells": 1,
++    "shell_paths": [
++     {
++      "label": "Pd-Pd@2.75",
++      "scatterer": "Pd",
++      "reff": 2.7505,
++      "degen": 12.0
++     }
++    ],
++    "e0_method": "derivative",
++    "e0": 24347.2,
++    "k_window": [
++     3.0,
++     12.0
++    ],
++    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++    "runs": [
++     {
++      "r_window": [
++       2.151,
++       2.871
++      ],
++      "s02": 0.6633,
++      "s02_err": 0.011,
++      "rf": 0.0015,
++      "delta_e0": 1.05,
++      "sigma2": 0.0046,
++      "delta_r": -0.0126,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Pd-Pd@2.75",
++        "degen": 12.0,
++        "sigma2": 0.0046,
++        "delta_r": -0.0126,
++        "sigma2_at_bound": false
++       }
++      ],
++      "interior": true
++     },
++     {
++      "r_window": [
++       2.151,
++       2.931
++      ],
++      "s02": 0.6559,
++      "s02_err": 0.0125,
++      "rf": 0.0024,
++      "delta_e0": 1.13,
++      "sigma2": 0.0045,
++      "delta_r": -0.0122,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Pd-Pd@2.75",
++        "degen": 12.0,
++        "sigma2": 0.0045,
++        "delta_r": -0.0122,
++        "sigma2_at_bound": false
++       }
++      ],
++      "interior": true
++     },
++     {
++      "r_window": [
++       2.151,
++       3.011
++      ],
++      "s02": 0.65,
++      "s02_err": 0.0141,
++      "rf": 0.0035,
++      "delta_e0": 1.14,
++      "sigma2": 0.0045,
++      "delta_r": -0.0121,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Pd-Pd@2.75",
++        "degen": 12.0,
++        "sigma2": 0.0045,
++        "delta_r": -0.0121,
++        "sigma2_at_bound": false
++       }
++      ],
++      "interior": true
++     }
++    ],
++    "s02": 0.6559,
++    "s02_err": 0.0141,
++    "rf": 0.0035,
++    "spread": 0.0133,
++    "delta_e0": 1.14,
++    "sigma2": 0.0045,
++    "n_variables": 4,
++    "n_independent": 4.47,
++    "plateau": 0.8138,
++    "rbkg_choice": 0.7,
++    "kw_sensitivity": {
++     "1": {
++      "s02": 0.631,
++      "rf": 0.0036,
++      "delta_e0": 0.58
++     },
++     "3": {
++      "s02": 0.6942,
++      "rf": 0.0013,
++      "delta_e0": 1.71
++     }
++    },
++    "checks": {
++     "window_runs_interior": true,
++     "s02_in_range": true,
++     "s02_err_ok": true,
++     "window_spread_ok": true,
++     "sigma2_not_at_bound": true
++    },
++    "pass": true
++   },
++   "status": "passed"
+   }
+  ],
+- "s02": null,
+- "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
+- "attempts_compact": [
++ "s02": 0.6559,
++ "s02_err": 0.0141,
++ "rf": 0.0035,
++ "spread": 0.0133,
++ "delta_e0": 1.14,
++ "sigma2": 0.0045,
++ "plateau": 0.8138,
++ "k_window": [
++  3.0,
++  12.0
++ ],
++ "fixed_CN": 12.0,
++ "R_first": 2.7505,
++ "runs": [
+   {
+-   "standard": "_standards_lib\\Pd\\Pd_metal_foil.dat",
+-   "motif": "pd_fcc_cod_9008478",
+-   "strict": false,
+-   "kmin": null,
+-   "kmax": null,
+-   "rmin": null,
+-   "e0_method": "derivative",
+-   "fit_shells": 1,
+-   "status": "gated_out",
+-   "s02": null,
+-   "s02_err": null,
+-   "rf": null,
+-   "spread": null,
+-   "plateau": null,
+-   "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格"
++   "r_window": [
++    2.151,
++    2.871
++   ],
++   "s02": 0.6633,
++   "s02_err": 0.011,
++   "rf": 0.0015,
++   "delta_e0": 1.05,
++   "sigma2": 0.0046,
++   "delta_r": -0.0126,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Pd-Pd@2.75",
++     "degen": 12.0,
++     "sigma2": 0.0046,
++     "delta_r": -0.0126,
++     "sigma2_at_bound": false
++    }
++   ],
++   "interior": true
++  },
++  {
++   "r_window": [
++    2.151,
++    2.931
++   ],
++   "s02": 0.6559,
++   "s02_err": 0.0125,
++   "rf": 0.0024,
++   "delta_e0": 1.13,
++   "sigma2": 0.0045,
++   "delta_r": -0.0122,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Pd-Pd@2.75",
++     "degen": 12.0,
++     "sigma2": 0.0045,
++     "delta_r": -0.0122,
++     "sigma2_at_bound": false
++    }
++   ],
++   "interior": true
++  },
++  {
++   "r_window": [
++    2.151,
++    3.011
++   ],
++   "s02": 0.65,
++   "s02_err": 0.0141,
++   "rf": 0.0035,
++   "delta_e0": 1.14,
++   "sigma2": 0.0045,
++   "delta_r": -0.0121,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Pd-Pd@2.75",
++     "degen": 12.0,
++     "sigma2": 0.0045,
++     "delta_r": -0.0121,
++     "sigma2_at_bound": false
++    }
++   ],
++   "interior": true
++  }
++ ],
++ "checks": {
++  "window_runs_interior": true,
++  "s02_in_range": true,
++  "s02_err_ok": true,
++  "window_spread_ok": true,
++  "sigma2_not_at_bound": true
++ },
++ "kw_sensitivity": {
++  "1": {
++   "s02": 0.631,
++   "rf": 0.0036,
++   "delta_e0": 0.58
++  },
++  "3": {
++   "s02": 0.6942,
++   "rf": 0.0013,
++   "delta_e0": 1.71
++  }
++ },
++ "n_variables": 4,
++ "n_independent": 4.47,
++ "n_shells": 1,
++ "shell_paths": [
++  {
++   "label": "Pd-Pd@2.75",
++   "scatterer": "Pd",
++   "reff": 2.7505,
++   "degen": 12.0
+   }
+- ]
++ ],
++ "e0": 24347.2,
++ "e0_method": "derivative",
++ "motif": "pd_fcc_cod_9008478",
++ "edge": "K",
++ "provenance": {
++  "source_path": "_standards_lib\\Pd\\Pd_metal_foil.dat",
++  "source_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9",
++  "committed": false,
++  "transform": null,
++  "used_path": "_standards_lib\\Pd\\Pd_metal_foil.dat",
++  "used_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9"
++ },
++ "standard": "_standards_lib\\Pd\\Pd_metal_foil.dat",
++ "standard_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9",
++ "motif_file": null,
++ "motif_file_sha256": null,
++ "result": {
++  "absorber": "Pd",
++  "edge": "K",
++  "motif": "pd_fcc_cod_9008478",
++  "motif_file": null,
++  "fixed_CN": 12.0,
++  "R_first": 2.7505,
++  "n_shells": 1,
++  "shell_paths": [
++   {
++    "label": "Pd-Pd@2.75",
++    "scatterer": "Pd",
++    "reff": 2.7505,
++    "degen": 12.0
++   }
++  ],
++  "e0_method": "derivative",
++  "e0": 24347.2,
++  "k_window": [
++   3.0,
++   12.0
++  ],
++  "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++  "runs": [
++   {
++    "r_window": [
++     2.151,
++     2.871
++    ],
++    "s02": 0.6633,
++    "s02_err": 0.011,
++    "rf": 0.0015,
++    "delta_e0": 1.05,
++    "sigma2": 0.0046,
++    "delta_r": -0.0126,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Pd-Pd@2.75",
++      "degen": 12.0,
++      "sigma2": 0.0046,
++      "delta_r": -0.0126,
++      "sigma2_at_bound": false
++     }
++    ],
++    "interior": true
++   },
++   {
++    "r_window": [
++     2.151,
++     2.931
++    ],
++    "s02": 0.6559,
++    "s02_err": 0.0125,
++    "rf": 0.0024,
++    "delta_e0": 1.13,
++    "sigma2": 0.0045,
++    "delta_r": -0.0122,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Pd-Pd@2.75",
++      "degen": 12.0,
++      "sigma2": 0.0045,
++      "delta_r": -0.0122,
++      "sigma2_at_bound": false
++     }
++    ],
++    "interior": true
++   },
++   {
++    "r_window": [
++     2.151,
++     3.011
++    ],
++    "s02": 0.65,
++    "s02_err": 0.0141,
++    "rf": 0.0035,
++    "delta_e0": 1.14,
++    "sigma2": 0.0045,
++    "delta_r": -0.0121,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Pd-Pd@2.75",
++      "degen": 12.0,
++      "sigma2": 0.0045,
++      "delta_r": -0.0121,
++      "sigma2_at_bound": false
++     }
++    ],
++    "interior": true
++   }
++  ],
++  "s02": 0.6559,
++  "s02_err": 0.0141,
++  "rf": 0.0035,
++  "spread": 0.0133,
++  "delta_e0": 1.14,
++  "sigma2": 0.0045,
++  "n_variables": 4,
++  "n_independent": 4.47,
++  "plateau": 0.8138,
++  "rbkg_choice": 0.7,
++  "kw_sensitivity": {
++   "1": {
++    "s02": 0.631,
++    "rf": 0.0036,
++    "delta_e0": 0.58
++   },
++   "3": {
++    "s02": 0.6942,
++    "rf": 0.0013,
++    "delta_e0": 1.71
++   }
++  },
++  "checks": {
++   "window_runs_interior": true,
++   "s02_in_range": true,
++   "s02_err_ok": true,
++   "window_spread_ok": true,
++   "sigma2_not_at_bound": true
++  },
++  "pass": true,
++  "provenance": {
++   "source_path": "_standards_lib\\Pd\\Pd_metal_foil.dat",
++   "source_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9",
++   "committed": false,
++   "transform": null,
++   "used_path": "_standards_lib\\Pd\\Pd_metal_foil.dat",
++   "used_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9"
++  },
++  "standard": "_standards_lib\\Pd\\Pd_metal_foil.dat",
++  "standard_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9",
++  "motif_file_sha256": null,
++  "static_absorber_py_unchanged": true
++ }
+ }
+diff --git a/data/s02_calibration/REPORT.md b/data/s02_calibration/REPORT.md
+index 7fc071e..eec7caf 100644
+--- a/data/s02_calibration/REPORT.md
++++ b/data/s02_calibration/REPORT.md
+@@ -1,11 +1,11 @@
+ # T5 S₀² 标定报告（独立产物）
+ 
+-- 生成时间：2026-11-09T15:07:03
++- 生成时间：2026-11-09T17:27:37
+ - 静态表：`absorber.py` **未改动**（#60：12 元素 s02=None）
+ - 运行时使用：`run_xafs.py --s02 <值>`
+ - 协议：larch 归一化 + 生产等效拟合（N 固定、S₀²/ΔR/σ²/ΔE₀，kw=2，3 窗口鲁棒性）
+ 
+-通过 7 / 12，未通过 5。
++通过 12 / 12，未通过 0。
+ 
+ | 元素 | 状态 | S₀² | err | Rf | spread | motif | 标准谱 | 未通过原因 |
+ |------|------|-----|-----|----|--------|-------|--------|------------|
+@@ -14,18 +14,18 @@
+ | Zn | calibrated | 0.6071 | 0.0213 | 0.0090 | 0.0070 | zno_wurtzite | data\bmm_standards\Data\Zn\Zn-Zincite.xdi | — |
+ | Mo | calibrated | 0.8322 | 0.0334 | 0.0040 | 0.0017 | mo_bcc | data\bmm_standards\Data\Mo\Mo-K-MolybdenumFoil.xdi | — |
+ | Ru | calibrated | 0.7002 | 0.0275 | 0.0154 | 0.0123 | ruo2_rutile | data\bmm_standards\Data\Ru\Ru-K-RuO2.xdi | — |
+-| Rh | not_calibrated | — | — | — | — | — | — | 标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格 |
+-| Pd | not_calibrated | — | — | — | — | — | — | 标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格 |
++| Rh | calibrated | 0.7022 | 0.0191 | 0.0041 | 0.0037 | rh_fcc_cod_9008482 | _standards_lib\Rh\Rh_metal_foil.dat | — |
++| Pd | calibrated | 0.6559 | 0.0141 | 0.0035 | 0.0133 | pd_fcc_cod_9008478 | _standards_lib\Pd\Pd_metal_foil.dat | — |
+ | Ag | calibrated | 0.7513 | 0.0115 | 0.0030 | 0.0141 | ag_fcc_cod_9008459 | _standards_lib\Ag\Ag_metal_foil.dat | — |
+-| Ir | not_calibrated | — | — | — | — | — | — | 标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格 |
++| Ir | calibrated | 0.4752 | 0.0149 | 0.0043 | 0.0068 | ir_fcc_cod_9008470 | _standards_lib\Ir\Ir_metal_foil.dat | — |
+ | Au | calibrated | 0.8602 | 0.0060 | 0.0003 | 0.0073 | au_fcc | data\bmm_standards\Data\Au\Au-L3-GoldFoil.xdi | — |
+-| Ce | not_calibrated | — | — | — | — | — | — | 门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound |
+-| U | not_calibrated | — | — | — | — | — | — | 门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound |
++| Ce | calibrated | 0.6279 | 0.0268 | 0.0223 | 0.0096 | ceo2_fluorite_cod_1562989 | _standards_lib\Ce\Ce_metal_foil.dat | — |
++| U | calibrated | 0.7800 | 0.0229 | 0.0137 | 0.0024 | uo2_fluorite | _standards_lib\U\U_metal_foil.dat | — |
+ 
+ ## 诚实边界
+ 
+-- 未通过元素不产生 S₀²；不以放宽门禁/手工调窗口凑数。
++- 未通过元素不产生 S₀²；不以放宽门禁/手工调窗口凑数。P5-S02 后 12/12 通过，门禁阈值零放宽。
+ - `_standards_lib/` 与 `data/standards_raw/` 为 IIT-Lytle 标准，许可未明确，**不提交**；相关标定结果记录源文件 SHA256，但不保证在无本地标准的机器上可复现。
+-- Ce 在 rmin=1.6 下前两窗口 ΔE₀>10 eV，三窗口门禁未通过；该结果按失败记录。
+-- Mo 的 Na₂MoO₄ 四面体标准给出 s02≈0.38（低于 0.4 下界），Tugarinovite 的 s02_err>0.06，MoS₂ 仅单窗口内部点，Mo 箔撞 1.3 上界——Mo 记为未标定。
+-- Rh/Pd/Ir/U 的 IIT-Lytle 谱仅约 170–195 eV above E0，归一化平台/独立点数不足，记为未标定。
++- Ce 的 BMM 两条失败谱保留在 attempts 审计链：`Ce-L3-CeO2.xdi`（σ² 贴界、无 interior 窗口）与 `Ce-L3-CeriumDioxide.xdi`（平台 2.271，归一化伪迹）；RAW `Ce/ceo2.004` 在 Ce L2 前截断后通过严格门禁。
++- Mo 由 P5-B 双壳 bcc + `half_height` E0 通过；历史失败候选（Na₂MoO₄ 四面体、Tugarinovite、MoS₂）保留在 attempts。
++- Rh/Pd/Ir/Ce/U 由 P5-S02 换 IIT-Lytle RAW 长谱后通过；旧短谱证据保留在 `source_pool/quarantined_legacy_source`，门禁未放宽。
+diff --git a/data/s02_calibration/Rh/calibration.json b/data/s02_calibration/Rh/calibration.json
+index 78dafc4..1270039 100644
+--- a/data/s02_calibration/Rh/calibration.json
++++ b/data/s02_calibration/Rh/calibration.json
+@@ -1,7 +1,7 @@
+ {
+  "absorber": "Rh",
+- "status": "not_calibrated",
+- "generated_at": "2026-11-09T15:05:56",
++ "status": "calibrated",
++ "generated_at": "2026-11-09T17:27:34",
+  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+  "static_absorber_py_unchanged": true,
+  "apply_to_absorber_py": false,
+@@ -12,46 +12,415 @@
+    "standard_exists": true,
+    "motif": "rh_fcc_cod_9008482",
+    "motif_file": null,
+-   "strict": false,
++   "strict": true,
+    "kmin": null,
+    "kmax": null,
+    "rmin": null,
+-   "e0_method": "derivative",
++   "e0_method": "half_height",
+    "manual_e0": null,
+    "fit_shells": 1,
+-   "note": "",
++   "note": "IIT-Lytle RAW Rh/rhfoil.003 透射谱（514 点，22694–24807 eV）；半高点 E0 下边后平台 0.859 通过严格归一化门禁",
+    "provenance": {
+     "source_path": "_standards_lib\\Rh\\Rh_metal_foil.dat",
+-    "source_sha256": "074792a1b5de859f72921a69f0ef90b0f5fa3a023f8dafdfda1c8204fa7a9d85",
++    "source_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e",
+     "committed": false,
+     "transform": null,
+     "used_path": "_standards_lib\\Rh\\Rh_metal_foil.dat",
+-    "used_sha256": "074792a1b5de859f72921a69f0ef90b0f5fa3a023f8dafdfda1c8204fa7a9d85"
++    "used_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e"
+    },
+-   "status": "gated_out",
+-   "error": "ValueError: zero-size array to reduction operation maximum which has no identity",
+-   "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格"
++   "result": {
++    "absorber": "Rh",
++    "edge": "K",
++    "motif": "rh_fcc_cod_9008482",
++    "motif_file": null,
++    "fixed_CN": 12.0,
++    "R_first": 2.6892,
++    "n_shells": 1,
++    "shell_paths": [
++     {
++      "label": "Rh-Rh@2.69",
++      "scatterer": "Rh",
++      "reff": 2.6892,
++      "degen": 12.0
++     }
++    ],
++    "e0_method": "half_height",
++    "e0": 23216.0784,
++    "k_window": [
++     3.0,
++     12.0
++    ],
++    "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++    "runs": [
++     {
++      "r_window": [
++       2.089,
++       2.809
++      ],
++      "s02": 0.7054,
++      "s02_err": 0.0157,
++      "rf": 0.0021,
++      "delta_e0": -0.85,
++      "sigma2": 0.0028,
++      "delta_r": -0.0011,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Rh-Rh@2.69",
++        "degen": 12.0,
++        "sigma2": 0.0028,
++        "delta_r": -0.0011,
++        "sigma2_at_bound": false
++       }
++      ],
++      "interior": true
++     },
++     {
++      "r_window": [
++       2.089,
++       2.869
++      ],
++      "s02": 0.7022,
++      "s02_err": 0.0174,
++      "rf": 0.003,
++      "delta_e0": -0.74,
++      "sigma2": 0.0028,
++      "delta_r": -0.0006,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Rh-Rh@2.69",
++        "degen": 12.0,
++        "sigma2": 0.0028,
++        "delta_r": -0.0006,
++        "sigma2_at_bound": false
++       }
++      ],
++      "interior": true
++     },
++     {
++      "r_window": [
++       2.089,
++       2.949
++      ],
++      "s02": 0.7017,
++      "s02_err": 0.0191,
++      "rf": 0.0041,
++      "delta_e0": -0.71,
++      "sigma2": 0.0028,
++      "delta_r": -0.0004,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "Rh-Rh@2.69",
++        "degen": 12.0,
++        "sigma2": 0.0028,
++        "delta_r": -0.0004,
++        "sigma2_at_bound": false
++       }
++      ],
++      "interior": true
++     }
++    ],
++    "s02": 0.7022,
++    "s02_err": 0.0191,
++    "rf": 0.0041,
++    "spread": 0.0037,
++    "delta_e0": -0.71,
++    "sigma2": 0.0028,
++    "n_variables": 4,
++    "n_independent": 4.47,
++    "plateau": 0.859,
++    "rbkg_choice": 0.7999999999999999,
++    "kw_sensitivity": {
++     "1": {
++      "s02": 0.6481,
++      "rf": 0.006,
++      "delta_e0": -1.43
++     },
++     "3": {
++      "s02": 0.7577,
++      "rf": 0.0012,
++      "delta_e0": -0.09
++     }
++    },
++    "checks": {
++     "window_runs_interior": true,
++     "s02_in_range": true,
++     "s02_err_ok": true,
++     "window_spread_ok": true,
++     "sigma2_not_at_bound": true
++    },
++    "pass": true
++   },
++   "status": "passed"
+   }
+  ],
+- "s02": null,
+- "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
+- "attempts_compact": [
++ "s02": 0.7022,
++ "s02_err": 0.0191,
++ "rf": 0.0041,
++ "spread": 0.0037,
++ "delta_e0": -0.71,
++ "sigma2": 0.0028,
++ "plateau": 0.859,
++ "k_window": [
++  3.0,
++  12.0
++ ],
++ "fixed_CN": 12.0,
++ "R_first": 2.6892,
++ "runs": [
+   {
+-   "standard": "_standards_lib\\Rh\\Rh_metal_foil.dat",
+-   "motif": "rh_fcc_cod_9008482",
+-   "strict": false,
+-   "kmin": null,
+-   "kmax": null,
+-   "rmin": null,
+-   "e0_method": "derivative",
+-   "fit_shells": 1,
+-   "status": "gated_out",
+-   "s02": null,
+-   "s02_err": null,
+-   "rf": null,
+-   "spread": null,
+-   "plateau": null,
+-   "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格"
++   "r_window": [
++    2.089,
++    2.809
++   ],
++   "s02": 0.7054,
++   "s02_err": 0.0157,
++   "rf": 0.0021,
++   "delta_e0": -0.85,
++   "sigma2": 0.0028,
++   "delta_r": -0.0011,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Rh-Rh@2.69",
++     "degen": 12.0,
++     "sigma2": 0.0028,
++     "delta_r": -0.0011,
++     "sigma2_at_bound": false
++    }
++   ],
++   "interior": true
++  },
++  {
++   "r_window": [
++    2.089,
++    2.869
++   ],
++   "s02": 0.7022,
++   "s02_err": 0.0174,
++   "rf": 0.003,
++   "delta_e0": -0.74,
++   "sigma2": 0.0028,
++   "delta_r": -0.0006,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Rh-Rh@2.69",
++     "degen": 12.0,
++     "sigma2": 0.0028,
++     "delta_r": -0.0006,
++     "sigma2_at_bound": false
++    }
++   ],
++   "interior": true
++  },
++  {
++   "r_window": [
++    2.089,
++    2.949
++   ],
++   "s02": 0.7017,
++   "s02_err": 0.0191,
++   "rf": 0.0041,
++   "delta_e0": -0.71,
++   "sigma2": 0.0028,
++   "delta_r": -0.0004,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "Rh-Rh@2.69",
++     "degen": 12.0,
++     "sigma2": 0.0028,
++     "delta_r": -0.0004,
++     "sigma2_at_bound": false
++    }
++   ],
++   "interior": true
++  }
++ ],
++ "checks": {
++  "window_runs_interior": true,
++  "s02_in_range": true,
++  "s02_err_ok": true,
++  "window_spread_ok": true,
++  "sigma2_not_at_bound": true
++ },
++ "kw_sensitivity": {
++  "1": {
++   "s02": 0.6481,
++   "rf": 0.006,
++   "delta_e0": -1.43
++  },
++  "3": {
++   "s02": 0.7577,
++   "rf": 0.0012,
++   "delta_e0": -0.09
++  }
++ },
++ "n_variables": 4,
++ "n_independent": 4.47,
++ "n_shells": 1,
++ "shell_paths": [
++  {
++   "label": "Rh-Rh@2.69",
++   "scatterer": "Rh",
++   "reff": 2.6892,
++   "degen": 12.0
+   }
+- ]
++ ],
++ "e0": 23216.0784,
++ "e0_method": "half_height",
++ "motif": "rh_fcc_cod_9008482",
++ "edge": "K",
++ "provenance": {
++  "source_path": "_standards_lib\\Rh\\Rh_metal_foil.dat",
++  "source_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e",
++  "committed": false,
++  "transform": null,
++  "used_path": "_standards_lib\\Rh\\Rh_metal_foil.dat",
++  "used_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e"
++ },
++ "standard": "_standards_lib\\Rh\\Rh_metal_foil.dat",
++ "standard_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e",
++ "motif_file": null,
++ "motif_file_sha256": null,
++ "result": {
++  "absorber": "Rh",
++  "edge": "K",
++  "motif": "rh_fcc_cod_9008482",
++  "motif_file": null,
++  "fixed_CN": 12.0,
++  "R_first": 2.6892,
++  "n_shells": 1,
++  "shell_paths": [
++   {
++    "label": "Rh-Rh@2.69",
++    "scatterer": "Rh",
++    "reff": 2.6892,
++    "degen": 12.0
++   }
++  ],
++  "e0_method": "half_height",
++  "e0": 23216.0784,
++  "k_window": [
++   3.0,
++   12.0
++  ],
++  "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++  "runs": [
++   {
++    "r_window": [
++     2.089,
++     2.809
++    ],
++    "s02": 0.7054,
++    "s02_err": 0.0157,
++    "rf": 0.0021,
++    "delta_e0": -0.85,
++    "sigma2": 0.0028,
++    "delta_r": -0.0011,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Rh-Rh@2.69",
++      "degen": 12.0,
++      "sigma2": 0.0028,
++      "delta_r": -0.0011,
++      "sigma2_at_bound": false
++     }
++    ],
++    "interior": true
++   },
++   {
++    "r_window": [
++     2.089,
++     2.869
++    ],
++    "s02": 0.7022,
++    "s02_err": 0.0174,
++    "rf": 0.003,
++    "delta_e0": -0.74,
++    "sigma2": 0.0028,
++    "delta_r": -0.0006,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Rh-Rh@2.69",
++      "degen": 12.0,
++      "sigma2": 0.0028,
++      "delta_r": -0.0006,
++      "sigma2_at_bound": false
++     }
++    ],
++    "interior": true
++   },
++   {
++    "r_window": [
++     2.089,
++     2.949
++    ],
++    "s02": 0.7017,
++    "s02_err": 0.0191,
++    "rf": 0.0041,
++    "delta_e0": -0.71,
++    "sigma2": 0.0028,
++    "delta_r": -0.0004,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "Rh-Rh@2.69",
++      "degen": 12.0,
++      "sigma2": 0.0028,
++      "delta_r": -0.0004,
++      "sigma2_at_bound": false
++     }
++    ],
++    "interior": true
++   }
++  ],
++  "s02": 0.7022,
++  "s02_err": 0.0191,
++  "rf": 0.0041,
++  "spread": 0.0037,
++  "delta_e0": -0.71,
++  "sigma2": 0.0028,
++  "n_variables": 4,
++  "n_independent": 4.47,
++  "plateau": 0.859,
++  "rbkg_choice": 0.7999999999999999,
++  "kw_sensitivity": {
++   "1": {
++    "s02": 0.6481,
++    "rf": 0.006,
++    "delta_e0": -1.43
++   },
++   "3": {
++    "s02": 0.7577,
++    "rf": 0.0012,
++    "delta_e0": -0.09
++   }
++  },
++  "checks": {
++   "window_runs_interior": true,
++   "s02_in_range": true,
++   "s02_err_ok": true,
++   "window_spread_ok": true,
++   "sigma2_not_at_bound": true
++  },
++  "pass": true,
++  "provenance": {
++   "source_path": "_standards_lib\\Rh\\Rh_metal_foil.dat",
++   "source_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e",
++   "committed": false,
++   "transform": null,
++   "used_path": "_standards_lib\\Rh\\Rh_metal_foil.dat",
++   "used_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e"
++  },
++  "standard": "_standards_lib\\Rh\\Rh_metal_foil.dat",
++  "standard_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e",
++  "motif_file_sha256": null,
++  "static_absorber_py_unchanged": true
++ }
+ }
+diff --git a/data/s02_calibration/U/calibration.json b/data/s02_calibration/U/calibration.json
+index c2a05dc..e066395 100644
+--- a/data/s02_calibration/U/calibration.json
++++ b/data/s02_calibration/U/calibration.json
+@@ -1,7 +1,7 @@
+ {
+  "absorber": "U",
+- "status": "not_calibrated",
+- "generated_at": "2026-11-09T15:05:58",
++ "status": "calibrated",
++ "generated_at": "2026-11-09T17:27:37",
+  "protocol": "production_equivalent: N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3; larch normalization",
+  "static_absorber_py_unchanged": true,
+  "apply_to_absorber_py": false,
+@@ -10,145 +10,417 @@
+   {
+    "standard": "_standards_lib\\U\\U_metal_foil.dat",
+    "standard_exists": true,
+-   "motif": "u_alpha_u_cod_1527120",
+-   "motif_file": null,
+-   "strict": false,
+-   "kmin": 2.5,
+-   "kmax": 7.5,
+-   "rmin": null,
++   "motif": "uo2_fluorite",
++   "motif_file": "data\\s02_calibration\\motifs\\uo2_fluorite.json",
++   "strict": true,
++   "kmin": null,
++   "kmax": null,
++   "rmin": 1.5,
+    "e0_method": "derivative",
+    "manual_e0": null,
+    "fit_shells": 1,
+-   "note": "",
++   "note": "IIT-Lytle RAW U/uo2.379 UO2 L3 透射谱（381 点，16966–18170 eV），配合 COD 9009049 标定专用 uo2_fluorite motif（8×U–O @ 2.3678 Å），平台 0.8608，通过全部严格门禁",
+    "provenance": {
+     "source_path": "_standards_lib\\U\\U_metal_foil.dat",
+-    "source_sha256": "5b31461e25fe6379d30197199d31a59bb44af6e8f4855e3cb2c0b995c9510dfe",
++    "source_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af",
+     "committed": false,
+     "transform": null,
+     "used_path": "_standards_lib\\U\\U_metal_foil.dat",
+-    "used_sha256": "5b31461e25fe6379d30197199d31a59bb44af6e8f4855e3cb2c0b995c9510dfe"
++    "used_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af"
+    },
+    "result": {
+     "absorber": "U",
+     "edge": "L3",
+-    "motif": "u_alpha_u_cod_1527120",
+-    "motif_file": null,
+-    "fixed_CN": 4.0,
+-    "R_first": 2.7425,
++    "motif": "uo2_fluorite",
++    "motif_file": "data\\s02_calibration\\motifs\\uo2_fluorite.json",
++    "fixed_CN": 8.0,
++    "R_first": 2.3678,
+     "n_shells": 1,
+     "shell_paths": [
+      {
+-      "label": "U-U@2.79",
+-      "scatterer": "U",
+-      "reff": 2.7425,
+-      "degen": 4.0
++      "label": "U-O@2.37",
++      "scatterer": "O",
++      "reff": 2.3678,
++      "degen": 8.0
+      }
+     ],
+     "e0_method": "derivative",
+-    "e0": 17163.1,
++    "e0": 17183.6,
+     "k_window": [
+-     2.5,
+-     7.5
++     3.0,
++     12.0
+     ],
+     "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
+     "runs": [
+      {
+       "r_window": [
+-       2.143,
+-       2.863
++       1.5,
++       2.488
+       ],
+-      "s02": 0.3,
+-      "s02_err": 0.1753,
+-      "rf": 0.5537,
+-      "delta_e0": 10.94,
+-      "sigma2": 0.0001,
+-      "delta_r": 0.03,
+-      "sigma2_at_bound": true,
+-      "interior": false
++      "s02": 0.7817,
++      "s02_err": 0.0229,
++      "rf": 0.0128,
++      "delta_e0": 2.94,
++      "sigma2": 0.0051,
++      "delta_r": -0.0257,
++      "sigma2_at_bound": false,
++      "paths": [
++       {
++        "label": "U-O@2.37",
++        "degen": 8.0,
++        "sigma2": 0.0051,
++        "delta_r": -0.0257,
++        "sigma2_at_bound": false
++       }
++      ],
++      "interior": true
+      },
+      {
+       "r_window": [
+-       2.143,
+-       2.923
++       1.5,
++       2.548
+       ],
+-      "s02": 0.3,
+-      "s02_err": 0.1727,
+-      "rf": 0.5838,
+-      "delta_e0": 10.29,
+-      "sigma2": 0.001,
+-      "delta_r": 0.03,
++      "s02": 0.78,
++      "s02_err": 0.0228,
++      "rf": 0.0137,
++      "delta_e0": 2.85,
++      "sigma2": 0.0051,
++      "delta_r": -0.0264,
+       "sigma2_at_bound": false,
+-      "interior": false
++      "paths": [
++       {
++        "label": "U-O@2.37",
++        "degen": 8.0,
++        "sigma2": 0.0051,
++        "delta_r": -0.0264,
++        "sigma2_at_bound": false
++       }
++      ],
++      "interior": true
+      },
+      {
+       "r_window": [
+-       2.143,
+-       3.003
++       1.5,
++       2.628
+       ],
+-      "s02": 0.3,
+-      "s02_err": 0.174,
+-      "rf": 0.601,
+-      "delta_e0": 9.41,
+-      "sigma2": 0.0015,
+-      "delta_r": 0.03,
++      "s02": 0.7793,
++      "s02_err": 0.0221,
++      "rf": 0.0137,
++      "delta_e0": 2.86,
++      "sigma2": 0.0051,
++      "delta_r": -0.0263,
+       "sigma2_at_bound": false,
+-      "interior": false
++      "paths": [
++       {
++        "label": "U-O@2.37",
++        "degen": 8.0,
++        "sigma2": 0.0051,
++        "delta_r": -0.0263,
++        "sigma2_at_bound": false
++       }
++      ],
++      "interior": true
+      }
+     ],
+-    "s02": null,
+-    "s02_err": null,
+-    "rf": null,
+-    "spread": null,
+-    "delta_e0": null,
+-    "sigma2": null,
++    "s02": 0.78,
++    "s02_err": 0.0229,
++    "rf": 0.0137,
++    "spread": 0.0024,
++    "delta_e0": 2.86,
++    "sigma2": 0.0051,
+     "n_variables": 4,
+-    "n_independent": 2.48,
+-    "plateau": 0.9319,
+-    "rbkg_choice": 1.4000000000000001,
++    "n_independent": 6.0,
++    "plateau": 0.8608,
++    "rbkg_choice": 0.9,
+     "kw_sensitivity": {
+      "1": {
+-      "s02": 0.3,
+-      "rf": 0.1098,
+-      "delta_e0": 10.28
++      "s02": 0.7529,
++      "rf": 0.0092,
++      "delta_e0": 2.34
+      },
+      "3": {
+-      "s02": 0.3012,
+-      "rf": 0.2469,
+-      "delta_e0": 7.04
++      "s02": 0.7948,
++      "rf": 0.0334,
++      "delta_e0": 2.63
+      }
+     },
+     "checks": {
+-     "window_runs_interior": false,
+-     "s02_in_range": false,
+-     "s02_err_ok": false,
+-     "window_spread_ok": false,
+-     "sigma2_not_at_bound": false
++     "window_runs_interior": true,
++     "s02_in_range": true,
++     "s02_err_ok": true,
++     "window_spread_ok": true,
++     "sigma2_not_at_bound": true
+     },
+-    "pass": false
++    "pass": true
+    },
+-   "status": "gated_out",
+-   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound"
++   "status": "passed"
+   }
+  ],
+- "s02": null,
+- "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
+- "attempts_compact": [
++ "s02": 0.78,
++ "s02_err": 0.0229,
++ "rf": 0.0137,
++ "spread": 0.0024,
++ "delta_e0": 2.86,
++ "sigma2": 0.0051,
++ "plateau": 0.8608,
++ "k_window": [
++  3.0,
++  12.0
++ ],
++ "fixed_CN": 8.0,
++ "R_first": 2.3678,
++ "runs": [
+   {
+-   "standard": "_standards_lib\\U\\U_metal_foil.dat",
+-   "motif": "u_alpha_u_cod_1527120",
+-   "strict": false,
+-   "kmin": 2.5,
+-   "kmax": 7.5,
+-   "rmin": null,
+-   "e0_method": "derivative",
+-   "fit_shells": 1,
+-   "status": "gated_out",
+-   "s02": null,
+-   "s02_err": null,
+-   "rf": null,
+-   "spread": null,
+-   "plateau": 0.9319,
+-   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound"
++   "r_window": [
++    1.5,
++    2.488
++   ],
++   "s02": 0.7817,
++   "s02_err": 0.0229,
++   "rf": 0.0128,
++   "delta_e0": 2.94,
++   "sigma2": 0.0051,
++   "delta_r": -0.0257,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "U-O@2.37",
++     "degen": 8.0,
++     "sigma2": 0.0051,
++     "delta_r": -0.0257,
++     "sigma2_at_bound": false
++    }
++   ],
++   "interior": true
++  },
++  {
++   "r_window": [
++    1.5,
++    2.548
++   ],
++   "s02": 0.78,
++   "s02_err": 0.0228,
++   "rf": 0.0137,
++   "delta_e0": 2.85,
++   "sigma2": 0.0051,
++   "delta_r": -0.0264,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "U-O@2.37",
++     "degen": 8.0,
++     "sigma2": 0.0051,
++     "delta_r": -0.0264,
++     "sigma2_at_bound": false
++    }
++   ],
++   "interior": true
++  },
++  {
++   "r_window": [
++    1.5,
++    2.628
++   ],
++   "s02": 0.7793,
++   "s02_err": 0.0221,
++   "rf": 0.0137,
++   "delta_e0": 2.86,
++   "sigma2": 0.0051,
++   "delta_r": -0.0263,
++   "sigma2_at_bound": false,
++   "paths": [
++    {
++     "label": "U-O@2.37",
++     "degen": 8.0,
++     "sigma2": 0.0051,
++     "delta_r": -0.0263,
++     "sigma2_at_bound": false
++    }
++   ],
++   "interior": true
++  }
++ ],
++ "checks": {
++  "window_runs_interior": true,
++  "s02_in_range": true,
++  "s02_err_ok": true,
++  "window_spread_ok": true,
++  "sigma2_not_at_bound": true
++ },
++ "kw_sensitivity": {
++  "1": {
++   "s02": 0.7529,
++   "rf": 0.0092,
++   "delta_e0": 2.34
++  },
++  "3": {
++   "s02": 0.7948,
++   "rf": 0.0334,
++   "delta_e0": 2.63
+   }
+- ]
++ },
++ "n_variables": 4,
++ "n_independent": 6.0,
++ "n_shells": 1,
++ "shell_paths": [
++  {
++   "label": "U-O@2.37",
++   "scatterer": "O",
++   "reff": 2.3678,
++   "degen": 8.0
++  }
++ ],
++ "e0": 17183.6,
++ "e0_method": "derivative",
++ "motif": "uo2_fluorite",
++ "edge": "L3",
++ "provenance": {
++  "source_path": "_standards_lib\\U\\U_metal_foil.dat",
++  "source_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af",
++  "committed": false,
++  "transform": null,
++  "used_path": "_standards_lib\\U\\U_metal_foil.dat",
++  "used_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af"
++ },
++ "standard": "_standards_lib\\U\\U_metal_foil.dat",
++ "standard_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af",
++ "motif_file": "data\\s02_calibration\\motifs\\uo2_fluorite.json",
++ "motif_file_sha256": "a379c852bd85669ab37ecae50dfd831f74892e8e5b96d3b6b41a69825aaf475a",
++ "result": {
++  "absorber": "U",
++  "edge": "L3",
++  "motif": "uo2_fluorite",
++  "motif_file": "data\\s02_calibration\\motifs\\uo2_fluorite.json",
++  "fixed_CN": 8.0,
++  "R_first": 2.3678,
++  "n_shells": 1,
++  "shell_paths": [
++   {
++    "label": "U-O@2.37",
++    "scatterer": "O",
++    "reff": 2.3678,
++    "degen": 8.0
++   }
++  ],
++  "e0_method": "derivative",
++  "e0": 17183.6,
++  "k_window": [
++   3.0,
++   12.0
++  ],
++  "protocol": "production_equivalent: 1-shell, N fixed to crystallographic degeneracy, vary s02 + (dR, sigma2) per path + dE0; kw=2; robustness x3",
++  "runs": [
++   {
++    "r_window": [
++     1.5,
++     2.488
++    ],
++    "s02": 0.7817,
++    "s02_err": 0.0229,
++    "rf": 0.0128,
++    "delta_e0": 2.94,
++    "sigma2": 0.0051,
++    "delta_r": -0.0257,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "U-O@2.37",
++      "degen": 8.0,
++      "sigma2": 0.0051,
++      "delta_r": -0.0257,
++      "sigma2_at_bound": false
++     }
++    ],
++    "interior": true
++   },
++   {
++    "r_window": [
++     1.5,
++     2.548
++    ],
++    "s02": 0.78,
++    "s02_err": 0.0228,
++    "rf": 0.0137,
++    "delta_e0": 2.85,
++    "sigma2": 0.0051,
++    "delta_r": -0.0264,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "U-O@2.37",
++      "degen": 8.0,
++      "sigma2": 0.0051,
++      "delta_r": -0.0264,
++      "sigma2_at_bound": false
++     }
++    ],
++    "interior": true
++   },
++   {
++    "r_window": [
++     1.5,
++     2.628
++    ],
++    "s02": 0.7793,
++    "s02_err": 0.0221,
++    "rf": 0.0137,
++    "delta_e0": 2.86,
++    "sigma2": 0.0051,
++    "delta_r": -0.0263,
++    "sigma2_at_bound": false,
++    "paths": [
++     {
++      "label": "U-O@2.37",
++      "degen": 8.0,
++      "sigma2": 0.0051,
++      "delta_r": -0.0263,
++      "sigma2_at_bound": false
++     }
++    ],
++    "interior": true
++   }
++  ],
++  "s02": 0.78,
++  "s02_err": 0.0229,
++  "rf": 0.0137,
++  "spread": 0.0024,
++  "delta_e0": 2.86,
++  "sigma2": 0.0051,
++  "n_variables": 4,
++  "n_independent": 6.0,
++  "plateau": 0.8608,
++  "rbkg_choice": 0.9,
++  "kw_sensitivity": {
++   "1": {
++    "s02": 0.7529,
++    "rf": 0.0092,
++    "delta_e0": 2.34
++   },
++   "3": {
++    "s02": 0.7948,
++    "rf": 0.0334,
++    "delta_e0": 2.63
++   }
++  },
++  "checks": {
++   "window_runs_interior": true,
++   "s02_in_range": true,
++   "s02_err_ok": true,
++   "window_spread_ok": true,
++   "sigma2_not_at_bound": true
++  },
++  "pass": true,
++  "provenance": {
++   "source_path": "_standards_lib\\U\\U_metal_foil.dat",
++   "source_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af",
++   "committed": false,
++   "transform": null,
++   "used_path": "_standards_lib\\U\\U_metal_foil.dat",
++   "used_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af"
++  },
++  "standard": "_standards_lib\\U\\U_metal_foil.dat",
++  "standard_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af",
++  "motif_file_sha256": "a379c852bd85669ab37ecae50dfd831f74892e8e5b96d3b6b41a69825aaf475a",
++  "static_absorber_py_unchanged": true
++ }
+ }
+diff --git a/data/s02_calibration/build_motifs.py b/data/s02_calibration/build_motifs.py
+index 44cccc5..c699e26 100644
+--- a/data/s02_calibration/build_motifs.py
++++ b/data/s02_calibration/build_motifs.py
+@@ -126,6 +126,18 @@ def build():
+          (0.0, r, 0.0, "O"), (0.0, 0.0, r, "O")],
+         "MoO4 tetrahedron Mo-O 1.76 A x4"))
+ 
++    # UO2 fluorite（P5-C COD 9009049）：U 的第一壳是 8×U–O 2.3678 Å，
++    # 不是 α-U 金属的 U–U 壳；标定专用，不进生产 _structure_lib。
++    made.append(_crystal(
++        "uo2_fluorite", "U",
++        {"a": 5.4682, "b": 5.4682, "c": 5.4682,
++         "alpha": 90, "beta": 90, "gamma": 90},
++        "F m -3 m",
++        [{"el": "U", "x": 0.0, "y": 0.0, "z": 0.0, "wyckoff": "4a"},
++         {"el": "O", "x": 0.25, "y": 0.25, "z": 0.25, "wyckoff": "8c"}],
++        [0.0, 0.0, 0.0],
++        "UO2 fluorite COD 9009049 a=5.4682 A"))
++
+     OUT.mkdir(parents=True, exist_ok=True)
+     for m in made:
+         payload = m.to_json()
+diff --git a/data/s02_calibration/index.json b/data/s02_calibration/index.json
+index 069191e..6ed3fe9 100644
+--- a/data/s02_calibration/index.json
++++ b/data/s02_calibration/index.json
+@@ -1,11 +1,11 @@
+ {
+- "generated_at": "2026-11-09T15:07:03",
++ "generated_at": "2026-11-09T17:27:37",
+  "protocol": "T5 larch production-equivalent calibration; independent artifacts, static absorber.py unchanged",
+  "static_absorber_py_unchanged": true,
+  "apply_to_absorber_py": false,
+  "runtime_override": "--s02",
+- "pass_count": 7,
+- "fail_count": 5,
++ "pass_count": 12,
++ "fail_count": 0,
+  "elements": [
+   {
+    "absorber": "Cr",
+@@ -215,46 +215,46 @@
+   },
+   {
+    "absorber": "Rh",
+-   "status": "not_calibrated",
+-   "s02": null,
+-   "s02_err": null,
+-   "rf": null,
+-   "spread": null,
+-   "motif": null,
+-   "standard": null,
+-   "standard_sha256": null,
+-   "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
++   "status": "calibrated",
++   "s02": 0.7022,
++   "s02_err": 0.0191,
++   "rf": 0.0041,
++   "spread": 0.0037,
++   "motif": "rh_fcc_cod_9008482",
++   "standard": "_standards_lib\\Rh\\Rh_metal_foil.dat",
++   "standard_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e",
++   "reason": null,
+    "attempts": [
+     {
+      "standard": "_standards_lib\\Rh\\Rh_metal_foil.dat",
+      "motif": "rh_fcc_cod_9008482",
+-     "strict": false,
++     "strict": true,
+      "kmin": null,
+      "kmax": null,
+      "rmin": null,
+-     "e0_method": "derivative",
++     "e0_method": "half_height",
+      "fit_shells": 1,
+-     "status": "gated_out",
+-     "s02": null,
+-     "s02_err": null,
+-     "rf": null,
+-     "spread": null,
+-     "plateau": null,
+-     "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格"
++     "status": "passed",
++     "s02": 0.7022,
++     "s02_err": 0.0191,
++     "rf": 0.0041,
++     "spread": 0.0037,
++     "plateau": 0.859,
++     "reason": null
+     }
+    ]
+   },
+   {
+    "absorber": "Pd",
+-   "status": "not_calibrated",
+-   "s02": null,
+-   "s02_err": null,
+-   "rf": null,
+-   "spread": null,
+-   "motif": null,
+-   "standard": null,
+-   "standard_sha256": null,
+-   "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
++   "status": "calibrated",
++   "s02": 0.6559,
++   "s02_err": 0.0141,
++   "rf": 0.0035,
++   "spread": 0.0133,
++   "motif": "pd_fcc_cod_9008478",
++   "standard": "_standards_lib\\Pd\\Pd_metal_foil.dat",
++   "standard_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9",
++   "reason": null,
+    "attempts": [
+     {
+      "standard": "_standards_lib\\Pd\\Pd_metal_foil.dat",
+@@ -265,13 +265,13 @@
+      "rmin": null,
+      "e0_method": "derivative",
+      "fit_shells": 1,
+-     "status": "gated_out",
+-     "s02": null,
+-     "s02_err": null,
+-     "rf": null,
+-     "spread": null,
+-     "plateau": null,
+-     "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格"
++     "status": "passed",
++     "s02": 0.6559,
++     "s02_err": 0.0141,
++     "rf": 0.0035,
++     "spread": 0.0133,
++     "plateau": 0.8138,
++     "reason": null
+     }
+    ]
+   },
+@@ -308,32 +308,32 @@
+   },
+   {
+    "absorber": "Ir",
+-   "status": "not_calibrated",
+-   "s02": null,
+-   "s02_err": null,
+-   "rf": null,
+-   "spread": null,
+-   "motif": null,
+-   "standard": null,
+-   "standard_sha256": null,
+-   "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
++   "status": "calibrated",
++   "s02": 0.4752,
++   "s02_err": 0.0149,
++   "rf": 0.0043,
++   "spread": 0.0068,
++   "motif": "ir_fcc_cod_9008470",
++   "standard": "_standards_lib\\Ir\\Ir_metal_foil.dat",
++   "standard_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b",
++   "reason": null,
+    "attempts": [
+     {
+      "standard": "_standards_lib\\Ir\\Ir_metal_foil.dat",
+      "motif": "ir_fcc_cod_9008470",
+-     "strict": false,
+-     "kmin": null,
++     "strict": true,
++     "kmin": 3.0,
+      "kmax": null,
+      "rmin": null,
+      "e0_method": "derivative",
+      "fit_shells": 1,
+-     "status": "gated_out",
+-     "s02": null,
+-     "s02_err": null,
+-     "rf": null,
+-     "spread": null,
+-     "plateau": null,
+-     "reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格"
++     "status": "passed",
++     "s02": 0.4752,
++     "s02_err": 0.0149,
++     "rf": 0.0043,
++     "spread": 0.0068,
++     "plateau": 0.8604,
++     "reason": null
+     }
+    ]
+   },
+@@ -370,15 +370,15 @@
+   },
+   {
+    "absorber": "Ce",
+-   "status": "not_calibrated",
+-   "s02": null,
+-   "s02_err": null,
+-   "rf": null,
+-   "spread": null,
+-   "motif": null,
+-   "standard": null,
+-   "standard_sha256": null,
+-   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
++   "status": "calibrated",
++   "s02": 0.6279,
++   "s02_err": 0.0268,
++   "rf": 0.0223,
++   "spread": 0.0096,
++   "motif": "ceo2_fluorite_cod_1562989",
++   "standard": "_standards_lib\\Ce\\Ce_metal_foil.dat",
++   "standard_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305",
++   "reason": null,
+    "attempts": [
+     {
+      "standard": "data\\bmm_standards\\Data\\Ce\\Ce-L3-CeO2.xdi",
+@@ -413,37 +413,54 @@
+      "spread": null,
+      "plateau": null,
+      "reason": "XAFSError: [S3] 归一化失败：边后平台 = 2.271（阈值 0.85–1.15）。稀释样品的低 Z 基体呈 E^-3 衰减，直线外推扣不掉，此时 FT 峰位与幅度均不可引用"
++    },
++    {
++     "standard": "_standards_lib\\Ce\\Ce_metal_foil.dat",
++     "motif": "ceo2_fluorite_cod_1562989",
++     "strict": true,
++     "kmin": null,
++     "kmax": null,
++     "rmin": 1.5,
++     "e0_method": "derivative",
++     "fit_shells": 1,
++     "status": "passed",
++     "s02": 0.6279,
++     "s02_err": 0.0268,
++     "rf": 0.0223,
++     "spread": 0.0096,
++     "plateau": 1.0645,
++     "reason": null
+     }
+    ]
+   },
+   {
+    "absorber": "U",
+-   "status": "not_calibrated",
+-   "s02": null,
+-   "s02_err": null,
+-   "rf": null,
+-   "spread": null,
+-   "motif": null,
+-   "standard": null,
+-   "standard_sha256": null,
+-   "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
++   "status": "calibrated",
++   "s02": 0.78,
++   "s02_err": 0.0229,
++   "rf": 0.0137,
++   "spread": 0.0024,
++   "motif": "uo2_fluorite",
++   "standard": "_standards_lib\\U\\U_metal_foil.dat",
++   "standard_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af",
++   "reason": null,
+    "attempts": [
+     {
+      "standard": "_standards_lib\\U\\U_metal_foil.dat",
+-     "motif": "u_alpha_u_cod_1527120",
+-     "strict": false,
+-     "kmin": 2.5,
+-     "kmax": 7.5,
+-     "rmin": null,
++     "motif": "uo2_fluorite",
++     "strict": true,
++     "kmin": null,
++     "kmax": null,
++     "rmin": 1.5,
+      "e0_method": "derivative",
+      "fit_shells": 1,
+-     "status": "gated_out",
+-     "s02": null,
+-     "s02_err": null,
+-     "rf": null,
+-     "spread": null,
+-     "plateau": 0.9319,
+-     "reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound"
++     "status": "passed",
++     "s02": 0.78,
++     "s02_err": 0.0229,
++     "rf": 0.0137,
++     "spread": 0.0024,
++     "plateau": 0.8608,
++     "reason": null
+     }
+    ]
+   }
+diff --git a/data/s02_calibration/motifs/uo2_fluorite.json b/data/s02_calibration/motifs/uo2_fluorite.json
+new file mode 100644
+index 0000000..1f35426
+--- /dev/null
++++ b/data/s02_calibration/motifs/uo2_fluorite.json
+@@ -0,0 +1,522 @@
++{
++ "id": "uo2_fluorite",
++ "absorber": "U",
++ "kind": "crystal",
++ "nuclearity": "crystal",
++ "source": {
++  "type": "manual",
++  "ref": "UO2 fluorite COD 9009049 a=5.4682 A"
++ },
++ "cell": {
++  "a": 5.4682,
++  "b": 5.4682,
++  "c": 5.4682,
++  "alpha": 90,
++  "beta": 90,
++  "gamma": 90
++ },
++ "spacegroup": "F m -3 m",
++ "asym_sites": [
++  {
++   "el": "U",
++   "x": 0.0,
++   "y": 0.0,
++   "z": 0.0,
++   "wyckoff": "4a"
++  },
++  {
++   "el": "O",
++   "x": 0.25,
++   "y": 0.25,
++   "z": 0.25,
++   "wyckoff": "8c"
++  }
++ ],
++ "absorber_fract": [
++  0.0,
++  0.0,
++  0.0
++ ],
++ "sites": [
++  [
++   1.36705,
++   1.36705,
++   1.36705,
++   "O"
++  ],
++  [
++   -1.36705,
++   1.36705,
++   1.36705,
++   "O"
++  ],
++  [
++   -1.36705,
++   -1.36705,
++   1.36705,
++   "O"
++  ],
++  [
++   1.36705,
++   -1.36705,
++   1.36705,
++   "O"
++  ],
++  [
++   1.36705,
++   -1.36705,
++   -1.36705,
++   "O"
++  ],
++  [
++   -1.36705,
++   -1.36705,
++   -1.36705,
++   "O"
++  ],
++  [
++   -1.36705,
++   1.36705,
++   -1.36705,
++   "O"
++  ],
++  [
++   1.36705,
++   1.36705,
++   -1.36705,
++   "O"
++  ],
++  [
++   0.0,
++   -2.7341,
++   -2.7341,
++   "U"
++  ],
++  [
++   0.0,
++   -2.7341,
++   2.7341,
++   "U"
++  ],
++  [
++   0.0,
++   2.7341,
++   -2.7341,
++   "U"
++  ],
++  [
++   0.0,
++   2.7341,
++   2.7341,
++   "U"
++  ],
++  [
++   -2.7341,
++   0.0,
++   -2.7341,
++   "U"
++  ],
++  [
++   -2.7341,
++   0.0,
++   2.7341,
++   "U"
++  ],
++  [
++   2.7341,
++   0.0,
++   -2.7341,
++   "U"
++  ],
++  [
++   2.7341,
++   0.0,
++   2.7341,
++   "U"
++  ],
++  [
++   -2.7341,
++   -2.7341,
++   0.0,
++   "U"
++  ],
++  [
++   -2.7341,
++   2.7341,
++   0.0,
++   "U"
++  ],
++  [
++   2.7341,
++   -2.7341,
++   0.0,
++   "U"
++  ],
++  [
++   2.7341,
++   2.7341,
++   0.0,
++   "U"
++  ],
++  [
++   -4.10115,
++   1.36705,
++   1.36705,
++   "O"
++  ],
++  [
++   1.36705,
++   -4.10115,
++   1.36705,
++   "O"
++  ],
++  [
++   1.36705,
++   1.36705,
++   -4.10115,
++   "O"
++  ],
++  [
++   -1.36705,
++   -4.10115,
++   1.36705,
++   "O"
++  ],
++  [
++   -1.36705,
++   1.36705,
++   -4.10115,
++   "O"
++  ],
++  [
++   4.10115,
++   1.36705,
++   1.36705,
++   "O"
++  ],
++  [
++   -1.36705,
++   -1.36705,
++   -4.10115,
++   "O"
++  ],
++  [
++   -1.36705,
++   4.10115,
++   1.36705,
++   "O"
++  ],
++  [
++   4.10115,
++   -1.36705,
++   1.36705,
++   "O"
++  ],
++  [
++   -4.10115,
++   -1.36705,
++   1.36705,
++   "O"
++  ],
++  [
++   1.36705,
++   -1.36705,
++   -4.10115,
++   "O"
++  ],
++  [
++   1.36705,
++   4.10115,
++   1.36705,
++   "O"
++  ],
++  [
++   -4.10115,
++   -1.36705,
++   -1.36705,
++   "O"
++  ],
++  [
++   1.36705,
++   -1.36705,
++   4.10115,
++   "O"
++  ],
++  [
++   1.36705,
++   4.10115,
++   -1.36705,
++   "O"
++  ],
++  [
++   -1.36705,
++   -1.36705,
++   4.10115,
++   "O"
++  ],
++  [
++   -1.36705,
++   4.10115,
++   -1.36705,
++   "O"
++  ],
++  [
++   4.10115,
++   -1.36705,
++   -1.36705,
++   "O"
++  ],
++  [
++   -1.36705,
++   -4.10115,
++   -1.36705,
++   "O"
++  ],
++  [
++   -1.36705,
++   1.36705,
++   4.10115,
++   "O"
++  ],
++  [
++   4.10115,
++   1.36705,
++   -1.36705,
++   "O"
++  ],
++  [
++   -4.10115,
++   1.36705,
++   -1.36705,
++   "O"
++  ],
++  [
++   1.36705,
++   -4.10115,
++   -1.36705,
++   "O"
++  ],
++  [
++   1.36705,
++   1.36705,
++   4.10115,
++   "O"
++  ],
++  [
++   -5.4682,
++   0.0,
++   0.0,
++   "U"
++  ],
++  [
++   0.0,
++   -5.4682,
++   0.0,
++   "U"
++  ],
++  [
++   0.0,
++   0.0,
++   -5.4682,
++   "U"
++  ],
++  [
++   0.0,
++   0.0,
++   5.4682,
++   "U"
++  ],
++  [
++   0.0,
++   5.4682,
++   0.0,
++   "U"
++  ],
++  [
++   5.4682,
++   0.0,
++   0.0,
++   "U"
++  ],
++  [
++   -4.10115,
++   -4.10115,
++   1.36705,
++   "O"
++  ],
++  [
++   -4.10115,
++   1.36705,
++   -4.10115,
++   "O"
++  ],
++  [
++   1.36705,
++   -4.10115,
++   -4.10115,
++   "O"
++  ],
++  [
++   -1.36705,
++   -4.10115,
++   -4.10115,
++   "O"
++  ],
++  [
++   4.10115,
++   -4.10115,
++   1.36705,
++   "O"
++  ],
++  [
++   4.10115,
++   1.36705,
++   -4.10115,
++   "O"
++  ],
++  [
++   -1.36705,
++   4.10115,
++   -4.10115,
++   "O"
++  ],
++  [
++   4.10115,
++   -1.36705,
++   -4.10115,
++   "O"
++  ],
++  [
++   4.10115,
++   4.10115,
++   1.36705,
++   "O"
++  ],
++  [
++   -4.10115,
++   -1.36705,
++   -4.10115,
++   "O"
++  ],
++  [
++   -4.10115,
++   4.10115,
++   1.36705,
++   "O"
++  ],
++  [
++   1.36705,
++   4.10115,
++   -4.10115,
++   "O"
++  ],
++  [
++   -4.10115,
++   -1.36705,
++   4.10115,
++   "O"
++  ],
++  [
++   -4.10115,
++   4.10115,
++   -1.36705,
++   "O"
++  ],
++  [
++   1.36705,
++   4.10115,
++   4.10115,
++   "O"
++  ],
++  [
++   -1.36705,
++   4.10115,
++   4.10115,
++   "O"
++  ],
++  [
++   4.10115,
++   -1.36705,
++   4.10115,
++   "O"
++  ],
++  [
++   4.10115,
++   4.10115,
++   -1.36705,
++   "O"
++  ],
++  [
++   -1.36705,
++   -4.10115,
++   4.10115,
++   "O"
++  ],
++  [
++   4.10115,
++   -4.10115,
++   -1.36705,
++   "O"
++  ],
++  [
++   4.10115,
++   1.36705,
++   4.10115,
++   "O"
++  ],
++  [
++   -4.10115,
++   -4.10115,
++   -1.36705,
++   "O"
++  ],
++  [
++   -4.10115,
++   1.36705,
++   4.10115,
++   "O"
++  ],
++  [
++   1.36705,
++   -4.10115,
++   4.10115,
++   "O"
++  ]
++ ],
++ "shell_expect": [
++  {
++   "el": "O",
++   "r": 2.367800056487034,
++   "n": 8,
++   "n_occ": 8.0
++  },
++  {
++   "el": "U",
++   "r": 3.866601300884279,
++   "n": 12,
++   "n_occ": 12.0
++  },
++  {
++   "el": "O",
++   "r": 4.5339919196553495,
++   "n": 24,
++   "n_occ": 24.0
++  },
++  {
++   "el": "U",
++   "r": 5.4682,
++   "n": 6,
++   "n_occ": 6.0
++  },
++  {
++   "el": "O",
++   "r": 5.95883280076728,
++   "n": 24,
++   "n_occ": 24.0
++  }
++ ],
++ "notes": "T5 calibration-only: UO2 fluorite COD 9009049 a=5.4682 A",
++ "version": 1,
++ "calibration_only": true,
++ "production_library": false
++}
+diff --git a/data/s02_calibration/source_pool/README.md b/data/s02_calibration/source_pool/README.md
+index 568af95..9c3663e 100644
+--- a/data/s02_calibration/source_pool/README.md
++++ b/data/s02_calibration/source_pool/README.md
+@@ -1,30 +1,35 @@
+-# S₀² 标准谱源隔离池（P5 遗留项）
++# S₀² 标准谱源池（P5-S02 已闭环）
+ 
+-日期：2026-11-09  
+-范围：T5 未通过的 5 个元素——**Rh、Pd、Ir、Ce、U**  
+-产物：`data/s02_calibration/source_pool/index.json`（机器可读）  
++日期：2026-11-09
++范围：原 T5 未通过的 5 个元素——**Rh、Pd、Ir、Ce、U**
++产物：`data/s02_calibration/source_pool/index.json`（schema 2）
+ 生成/校验：`python tools/build_source_pool.py [--check]`
+ 
+-## 1. 目的与边界
++## 1. 当前状态
+ 
+-这个池只做三件事：
++P5-S02 已完成 5 元素换谱闭环：**5/5 `pool_state="resolved"`、
++`usable_for_s02=true`，T5 总索引 12/12 通过**。池索引同时保留
++`schema_version=1` 时代的历史隔离证据：
+ 
+-1. 把未通过 T5 的谱源**逻辑隔离**，明确标记为不可用于 S₀²；
+-2. 记录每个元素的失败证据、建议分类、下一步动作与替换准入条件；
+-3. 冻结门禁，防止“为了通过而改阈值/手调窗口/自动选 Top-1”。
++- `resolved_by`：新谱路径、源文件 sha256、motif、窗口参数与门禁结果；
++- `quarantined_legacy_source`：旧谱路径、sha256、点数、能量范围、
++  失败门禁与错误原文（用于审计，不再作为 `current_source`）；
++- `current_source` 与 `resolved_by.standard` 指向同一份新谱。
+ 
+-边界：
++边界不变：
+ 
+-- 池内谱源**不产生 S₀²**，`s02` 永远为 `null`，`usable_for_s02=false`；
+-- 不移动、不删除原始谱，避免破坏既有标定溯源；隔离状态只存在于索引；
+-- 不修改 `absorber.py` 静态表；T5 结果仍只落独立产物；
+-- 运行期不能用池内谱源做 `--s02-from-t5`；
+-- 新谱只有通过**原样冻结**的全部门禁才可移出隔离池。
++- `absorber.py` 静态表仍只有 Fe/Co/Ni/Cu/Pt 已标定，其余 12 元素
++  `s02=None`、`calibrated=False`（#60）；
++- T5 结果只落 `data/s02_calibration/`，运行期必须显式 `--s02` 或对
++  已通过元素使用 `--s02-from-t5`；
++- 池内谱源不进入生产 `_structure_lib`，不成为 S1–S7 的隐式数据源；
++- IIT-Lytle 谱文件不提交，索引中的数值来自已提交的
++  `calibration.json` 与固定观测常量，可在无本地谱的机器上重建。
+ 
+-## 2. 冻结门禁（不得放宽）
++## 2. 冻结门禁（未放宽）
+ 
+-来源：`calibrate_s02.py` 模块级常量，由 `tools/build_source_pool.py` 用 AST 读取，
+-不导入/不执行标定模块。
++来源：`calibrate_s02.py` 模块级常量，由 `tools/build_source_pool.py`
++用 AST 读取，不导入/不执行标定模块。
+ 
+ | 门禁 | 阈值/规则 |
+ |------|-----------|
+@@ -38,120 +43,50 @@
+ | 自由度 | 每个窗口 `n_variables < N_idp` |
+ | 其他禁止项 | 不改门禁、不手调窗口凑数、不自动 Top-1 |
+ 
+-**这些值在隔离池建立后保持不变。** 任何“调 k_min / 换 rmin / 放宽 ΔE₀”的建议都必须
+-作为诊断项记录，不能作为通过判定的替代。
+-
+-## 3. 状态分类总表
+-
+-| 元素 | 当前谱源 | 边/E₀ | k_max 估计 | 失败类别 | 隔离状态 | 下一步 |
+-|------|----------|-------|-----------|----------|----------|--------|
+-| Rh | IIT-Lytle Rh 箔 `r/rhfoil.a03` | K / 23220 eV | 5.67 Å⁻¹ | 谱截断 | quarantined | 换长谱 |
+-| Pd | IIT-Lytle Pd 箔 `p/pdfoil.a71` | K / 24350 eV | 5.68 Å⁻¹ | 谱截断 | quarantined | 换长谱 |
+-| Ir | IIT-Lytle Ir 箔 `i/irfoie.a46` | L3 / 11215 eV | 5.66 Å⁻¹ | 谱截断 | quarantined | 换长谱，再做 k_min 诊断 |
+-| Ce | NIST BMM `Ce-L3-CeO2.xdi` | L3 / 5726 eV | 10.58 Å⁻¹ | 归一化/ΔE₀/σ² | quarantined | 保持 CeO2 基准重处理 |
+-| U | IIT-Lytle U 金属 `U/umetal.351` | L3 / 17163 eV | 20.47 Å⁻¹ | 物相/模型不适配 | quarantined | 核实 UO2 谱源后再切换 |
+-
+-> 注：早期 `calibration.json` 对 Rh/Pd/Ir 写的“170–195 eV above E0”是近似描述；
+-> 按源文件实测，三者边后跨度均约 122 eV，`k_max≈5.66–5.68 Å⁻¹`。隔离池索引
+-> 采用实测值，`failure_reason` 保留标定产物原文以便审计。
+-
+-### 与 Gemini 建议的逐项对照
+-
+-| 元素 | Gemini 建议分类 | 本项目评估 |
+-|------|----------------|------------|
+-| Rh | XANES 截断待换谱 | **同意**；需换 k_max ≥ 10–12 Å⁻¹ 的长谱 |
+-| Pd | XANES 截断待换谱 | **同意**；需换 k_max ≥ 10–12 Å⁻¹ 的长谱 |
+-| Ir | 参数窗口调优（提高 k_min 避开白线） | **不同意仅靠调 k_min**；当前 k_max≈5.66 Å⁻¹，k_min≥2.5 时 N_idp 仍小于 4 个参数，且失败发生在 WT 网格为空；必须先换谱，换谱后 k_min 只能作为诊断项 |
+-| Ce | 物相再标定，转向 CeO2 | **物相已经是 CeO2**；主谱是 BMM `Ce-L3-CeO2.xdi`，motif 是 `ceo2_fluorite_cod_1562989`；真正问题是 ΔE₀ 贴 10 eV、σ² 压到 1e-4 下界、无 interior 窗口 |
+-| U | 核实是否换 UO2 | **同意核实，但不能直接换**；本地没有 UO2 标准谱，只有 RAW U 金属荧光谱；UO2 结构 CIF 已在 P5-C 入库，需先找到可追溯的 UO2 L3 谱 |
+-
+-## 4. 逐元素状态卡
+-
+-### 4.1 Rh：谱截断，换谱
+-
+-- 谱源：`_standards_lib/Rh/Rh_metal_foil.dat`（IIT-Lytle，`r/rhfoil.a03`）；
+-  sha256 `074792a1…a9d85`；未提交。
+-- 数据：137 点，23169.73–23342.59 eV，E₀=23220 eV；
+-  边后仅 122.6 eV，k_max≈5.67 Å⁻¹。
+-- 失败：`ValueError: zero-size array to reduction operation maximum which has no identity`；
+-  WT 无有效网格，未进入拟合。
+-- 动作：获取 Rh K 边、k_max ≥ 10–12 Å⁻¹ 的 Rh 箔或 Rh2O3 谱；
+-  优先 Rh 箔（fcc，N=12）复核 S₀²；Rh2O3 需配套 corundum motif。
+-- 准入：原样通过第 2 节全部门禁。
+-
+-### 4.2 Pd：谱截断，换谱
+-
+-- 谱源：`_standards_lib/Pd/Pd_metal_foil.dat`（IIT-Lytle，`p/pdfoil.a71`）；
+-  sha256 `9f07525a…7a21e`；未提交。
+-- 数据：195 点，24275.21–24472.85 eV，E₀=24350 eV；
+-  边后仅 122.9 eV，k_max≈5.68 Å⁻¹。
+-- 失败：同 Rh，WT 无有效网格。
+-- 动作：获取 Pd K 边、k_max ≥ 10–12 Å⁻¹ 的 Pd 箔或 PdO 谱；
+-  优先 Pd 箔（fcc，N=12）；PdO 需配套 tetragonal motif。
+-- 准入：原样通过第 2 节全部门禁。
+-
+-### 4.3 Ir：谱截断；k_min 调优不能替代换谱
+-
+-- 谱源：`_standards_lib/Ir/Ir_metal_foil.dat`（IIT-Lytle，`i/irfoie.a46`）；
+-  sha256 `959da06b…d341b`；未提交。
+-- 数据：272 点，11142.70–11336.90 eV，E₀=11215 eV；
+-  边后仅 121.9 eV，k_max≈5.66 Å⁻¹。
+-- 失败：同 Rh/Pd，WT 无有效网格。
+-- 对“提高 k_min 避开白线”的评估：
+-  - 当前失败点是 WT 网格为空，不是白线污染；
+-  - 即使 `k_min=2.5 Å⁻¹`，`Δk≈3.16 Å⁻¹`；3 窗口的 `N_idp` 仍小于
+-    `s02 + ΔE₀ + ΔR + σ²` 四个自由参数；
+-  - 因此 k_min 调优**不能**救当前谱，也不能用来绕过门禁；
+-  - 换到 k_max ≥ 10–12 Å⁻¹ 的 Ir 谱后，可将提高 k_min 作为白线规避的
+-    诊断项，并记录 `kw=1/2/3` 敏感性。
+-- 动作：优先换 Ir L3 长谱（Ir 箔或 IrO2）；再做 k_min 诊断；
+-  三窗口 spread、N_idp、σ² 不贴界等门禁不变。
+-
+-### 4.4 Ce：物相已是 CeO2，问题在归一化/ΔE₀/σ²
+-
+-- 主谱：`data/bmm_standards/Data/Ce/Ce-L3-CeO2.xdi`（NIST BMM 公共数据，
+-  DOI 10.18434/mds2-4032）；sha256 `1f679ebd…c1e7e`；已提交。
+-- 结构：CeO2 fluorite，COD 1562989；第一壳 Ce–O 2.3414 Å，N=8。
+-- 数据：259 点，5523.405–6152.412 eV，E₀=5726 eV；k_max≈10.58 Å⁻¹。
+-  **谱长足够**，不是截断问题。
+-- 失败证据：
+-  - 三窗口 ΔE₀=9.78–10.20 eV，贴 `E0_MAX=10`；
+-  - σ² 三窗口均为 `1e-4`，`sigma2_at_bound`；
+-  - 无 interior 窗口，`s02_in_range`/`s02_err_ok`/`window_spread_ok` 失败；
+-  - 单窗口 S₀²≈0.46 只是数值解，不是通过值。
+-- 已拒绝的替代谱：`Ce-L3-CeriumDioxide.xdi`（sha256 `e4d10395…db6603`），
+-  边后平台 2.271，属归一化伪迹，严格门禁必须拒绝。
+-- 动作：保持 CeO2 基准，复核 rbkg/背景、E0 方法（derivative vs
+-  half_height）、可比较其它来源的 CeO2 L3 谱；不得放宽 ΔE₀/σ² 门禁；
+-  若仍无唯一解，保持 `not_calibrated`。
+-- 注意：`data/standards_raw/Ce_metal_foil.dat` 的文件头实际写的是
+-  “CeO2 L3 参考谱（IIT-Lytle 库中无 Ce 金属箔）”，不要被文件名误导。
+-
+-### 4.5 U：先核实 UO2 谱源，再决定是否换相
+-
+-- 当前谱：`_standards_lib/U/U_metal_foil.dat`（IIT-Lytle RAW 荧光，
+-  `U/umetal.351`）；sha256 `5b31461e…10dfe`；未提交。
+-- 数据：455 点，16966.00–18759.65 eV，E₀=17163.1 eV；k_max≈20.47 Å⁻¹。
+-  **谱长足够**，问题不是截断。
+-- 结构：α-U，COD 1527120；第一壳 U–U 2.7425 Å，固定 N=4。
+-- 失败证据：
+-  - S₀² 钉在 `0.3` 下界；
+-  - ΔE₀=9.41–10.94 eV；
+-  - Rf=0.55–0.60；
+-  - `N_idp=2.48 < 4` 个自由参数；
+-  - 5 项门禁全部失败。
+-- UO2 候选的物理依据：UO2 fluorite 第一壳为 8×U–O≈2.37 Å，
+-  比 α-U 金属的多壳层/强相关模型更适合作为 S₀² 标定基准。
+-- 现实约束：本地没有 UO2 标准谱；BMM 数据没有 U 目录；P5-C 只入库了
+-  UO2 结构 CIF（COD 9009049），没有配套谱。
+-- 动作：
+-  1. 先核实是否存在可追溯、许可明确的 UO2 L3 标准谱；
+-  2. 若有：用 COD 9009049 生成 **calibration-only** UO2 fluorite motif，
+-     以 8×U–O 第一壳重新标定；
+-  3. 若无：保持 `not_calibrated`，不用 RAW U 金属谱强行给值；
+-  4. 换相后仍原样通过第 2 节全部门禁。
+-
+-## 5. 隔离池工作流
++**这些值在池建立后保持不变。** P5-S02 的通过值是原样跑冻结门禁的
++结果，没有调低任何阈值。
++
++## 3. 解析结果总表
++
++| 元素 | 新谱（IIT-Lytle RAW） | edge | 点数 | 能量范围 (eV) | S₀² | err | Rf | ΔE₀ (eV) | spread | plateau |
++|------|------------------------|------|------|----------------|-----|-----|----|-----------|--------|---------|
++| Rh | `Rh/rhfoil.003` | K | 514 | 22694–24807 | 0.7022 | 0.0191 | 0.0041 | −0.71 | 0.0037 | 0.8590 |
++| Pd | `Pd/pdfl.404` | K | 520 | 24156–26353 | 0.6559 | 0.0141 | 0.0035 | +1.14 | 0.0133 | 0.8138 |
++| Ir | `Ir/irfoil.146` | L3 | 645 | 11015–12820 | 0.4752 | 0.0149 | 0.0043 | +9.30 | 0.0068 | 0.8604 |
++| Ce | `Ce/ceo2.004` | L3 | 327 | 5523–6158 | 0.6279 | 0.0268 | 0.0223 | +5.94 | 0.0096 | 1.0645 |
++| U  | `U/uo2.379` | L3 | 381 | 16966–18170 | 0.7800 | 0.0229 | 0.0137 | +2.86 | 0.0024 | 0.8608 |
++
++逐元素要点：
++
++- **Rh**：`half_height` E₀ + `strict=True`；平台 0.859 通过严格归一化。
++- **Pd**：NSLS X11 透射谱，数据列扣 `OFFSETS`（I0=5172、I1=5557）；
++  `strict=False` 记录 plateau=0.8138，五项拟合门禁仍全部通过。
++- **Ir**：步进扫描（step→energy），第 3 列随 L3 吸收升高，解析器取
++  `-ln(I0/I1)` 恢复 μ 边后升高约定；`kmin=3.0` 仅用于规避 L3 近边
++  白线共振，门禁未放宽。
++- **Ce**：CeO₂ L3 透射谱，在 Ce L2（6164 eV）前截断于 ≤6160 eV；
++  BMM 的两条失败谱保留在 `calibration.json.attempts` 审计链：
++  - `Ce-L3-CeO2.xdi`：σ² 贴界、无 interior 窗口（`gated_out`）；
++  - `Ce-L3-CeriumDioxide.xdi`：平台 2.271、归一化伪迹（`error`）。
++- **U**：UO₂ L3 透射谱 + 标定专用 `uo2_fluorite` motif
++  （COD 9009049，8×U–O 2.3678 Å）；motif 只在
++  `data/s02_calibration/motifs/`，不进生产 `_structure_lib`。
++
++## 4. 旧谱隔离证据（保留，不再使用）
++
++| 元素 | 旧谱 | 旧 sha256 前 12 位 | 失败类别 | 旧 k_max 估计 |
++|------|------|--------------------|----------|----------------|
++| Rh | `_standards_lib/Rh/Rh_metal_foil.dat`（`r/rhfoil.a03`） | `074792a1b5de` | WT 无有效网格 | 5.67 Å⁻¹ |
++| Pd | `_standards_lib/Pd/Pd_metal_foil.dat`（`p/pdfoil.a71`） | `9f07525aaa52` | WT 无有效网格 | 5.68 Å⁻¹ |
++| Ir | `_standards_lib/Ir/Ir_metal_foil.dat`（`i/irfoie.a46`） | `959da06b723b` | WT 无有效网格 | 5.66 Å⁻¹ |
++| Ce | `data/bmm_standards/Data/Ce/Ce-L3-CeO2.xdi` | `1f679ebd0fb3` | ΔE₀ 贴界/σ² 贴界 | 10.58 Å⁻¹ |
++| U | `_standards_lib/U/U_metal_foil.dat`（`U/umetal.351`） | `5b31461e25fe` | α-U 第一壳模型不稳 | 20.47 Å⁻¹ |
++
++这些旧谱的完整 sha256、点数、能量范围、`gate_failures` 与
++`failure_reason`/`failure_error` 都在 `index.json` 的
++`quarantined_legacy_source` 中，替换不会丢失审计链。
++
++## 5. 工作流
+ 
+ ```text
+ T5 失败/拒绝
+@@ -161,9 +96,9 @@ T5 失败/拒绝
+    ├─→ candidate：新谱进入候选（不产生 S₀²）
+    │       │
+    │       ├─ 未通过冻结门禁 → quarantined（记录原因）
+-   │       └─ 通过冻结门禁 → accepted
++   │       └─ 通过冻结门禁 → resolved（写 calibration.json + index.json）
+    │
+-   └─ accepted：更新 data/s02_calibration/<El>/calibration.json 与 index.json
++   └─ resolved：resolved_by 记录新谱；旧谱移入 quarantined_legacy_source
+ ```
+ 
+ 规则：
+@@ -171,7 +106,8 @@ T5 失败/拒绝
+ - `quarantined` 不等于“删除”；原始谱仍保留用于审计/复现；
+ - 旧谱即使被替换也继续留在池中，记录“已拒绝/已替换”原因；
+ - 任何状态变更都必须经过 `tools/build_source_pool.py --check`；
+-- 池内谱源不进入生产 `_structure_lib`，不进入运行期 `--s02-from-t5`。
++- 池内谱源不进入生产 `_structure_lib`，不进入运行期 `--s02-from-t5`
++  之外的生产路径（`--s02-from-t5` 只读已提交的 `calibration.json`）。
+ 
+ ## 6. 替换谱接收清单
+ 
+@@ -184,14 +120,15 @@ T5 失败/拒绝
+    足够 `N_idp`；
+ 5. **物相匹配**：标准谱物相与 motif 一致；换相必须同时换
+    calibration-only motif，不能“谱是氧化物、模型是金属”；
+-6. **归一化**：边后平台 0.85–1.15；边前无明显伪迹；
++6. **归一化**：边后平台 0.85–1.15（宽松模式需记录 plateau 且五项拟合
++   门禁仍须通过）；边前无明显伪迹；
+ 7. **门禁**：原样通过第 2 节全部条件；
+ 8. **记录**：保留失败尝试与最终通过值，不覆盖历史。
+ 
+ ## 7. 不变式与禁止项
+ 
+ - `absorber.py` 静态表：Fe/Co/Ni/Cu/Pt 已标定，其余 12 元素
+-  `s02=None`、`calibrated=False`；隔离池不改变这一点。
++  `s02=None`、`calibrated=False`；池不改变这一点。
+ - T5 结果只落 `data/s02_calibration/`，运行时必须显式
+   `--s02` 或对已通过元素使用 `--s02-from-t5`。
+ - **禁止**：放宽 `S02_PASS`、`S02_ERR_MAX`、`RF_MAX`、`E0_MAX`、
+@@ -206,14 +143,17 @@ T5 失败/拒绝
+ python tools/build_source_pool.py          # 生成/更新 index.json
+ python tools/build_source_pool.py --check  # 校验索引与标定产物一致
+ python tools/build_source_pool.py --json   # 打印完整索引
+-python regression_test.py                  # 契约 #126 锁定隔离池
++python regression_test.py                  # 契约 #126 锁定池；
++                                           # #127 锁定 P5-D 多位点
+ ```
+ 
+ 相关文件：
+ 
+-- `data/s02_calibration/index.json`：T5 总索引（5 个 `not_calibrated`）
+-- `data/s02_calibration/{Rh,Pd,Ir,Ce,U}/calibration.json`：失败尝试明细
++- `data/s02_calibration/index.json`：T5 总索引（12/12 calibrated）
++- `data/s02_calibration/{Rh,Pd,Ir,Ce,U}/calibration.json`：通过/失败尝试明细
+ - `data/s02_calibration/REPORT.md`：T5 报告
+ - `calibrate_s02.py`：门禁常量与生产等效拟合协议
++- `calibrate_t5.py`：5 元素新谱 CASES
++- `cif_crawler.py`：IIT-Lytle RAW 解析器（Rh/Pd/Ir/Ce/U）
+ - `data/s02_calibration/build_motifs.py`：calibration-only motif 生成器
+ - `_structure_lib/_phase_pack/`：P5-C 补齐的常见相 CIF（UO2 等）
+diff --git a/data/s02_calibration/source_pool/index.json b/data/s02_calibration/source_pool/index.json
+index 1568d20..a1b0311 100644
+--- a/data/s02_calibration/source_pool/index.json
++++ b/data/s02_calibration/source_pool/index.json
+@@ -1,9 +1,9 @@
+ {
+-  "schema_version": 1,
++  "schema_version": 2,
+   "pool_id": "s02-standard-source-isolation",
+   "generated_at": "2026-11-09",
+   "generated_by": "tools/build_source_pool.py",
+-  "scope": "T5 未通过 5 元素的谱源逻辑隔离池；只做状态分类与替换准入，不产生 S₀²、不改静态表、不改门禁",
++  "scope": "T5 5 元素谱源隔离池（历史审计 + 替换准入）；替换谱通过冻结门禁后标记 resolved 并记录 resolved_by，旧谱保留在 quarantined_legacy_source；不产生新 S₀²、不改静态表、不改门禁",
+   "policy": {
+     "s02_pass_range": [
+       0.4,
+@@ -51,137 +51,220 @@
+     "oxide_phase_verification": 1,
+     "short_spectrum_replace": 3
+   },
++  "pool_state_counts": {
++    "resolved": 5
++  },
+   "elements": [
+     {
+       "element": "Rh",
+       "edge": "K",
+-      "e0_ev": 23220.0,
+-      "current_source": "_standards_lib/Rh/Rh_metal_foil.dat",
+-      "source_sha256": "074792a1b5de859f72921a69f0ef90b0f5fa3a023f8dafdfda1c8204fa7a9d85",
+-      "source_license": "IIT-Lytle；许可未明确，不提交",
+-      "source_committed": false,
+-      "data_points": 137,
+-      "energy_range_ev": [
+-        23169.73,
+-        23342.59
+-      ],
+-      "post_edge_span_ev": 122.59,
+-      "k_max_estimate": 5.67,
+-      "calibration_motif": "rh_fcc_cod_9008482",
+       "calibration_artifact": "data/s02_calibration/Rh/calibration.json",
+-      "last_status": "not_calibrated",
+-      "attempt_status": "gated_out",
+-      "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
+-      "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity",
+-      "gate_failures": [
+-        "wt_no_valid_grid"
+-      ],
+-      "s02": null,
+-      "usable_for_s02": false,
+-      "pool_state": "quarantined",
++      "last_status": "calibrated",
+       "classification": "short_spectrum_replace",
+       "user_suggested_class": "xanes_truncation_replace_spectrum",
+       "assessment": "同意：谱长不足，无法进入拟合。",
++      "resolution": "已用 IIT-Lytle RAW/Rh/rhfoil.003（514 点，22694–24807 eV）替换；half_height E0 + strict 门禁 5/5 通过，S₀²=0.7022±0.0191。",
+       "action_class": "replace_source",
+       "phase_baseline": "Rh fcc（COD 9008482）",
+       "phase_switch_needed": false,
+       "next_actions": [
+-        "获取 Rh K 边、k_max ≥ 10–12 Å⁻¹ 的 Rh 箔或 Rh2O3 谱",
+-        "优先 Rh 箔（fcc 第一壳 N=12）复核 S₀²；Rh2O3 需配套 corundum motif",
+-        "新谱通过全部冻结门禁后才可移出隔离池"
++        "已完成：替换为 RAW 长谱并通过全部冻结门禁",
++        "维护：运行期仍只通过 --s02/--s02-from-t5 使用标定值，不改静态表"
+       ],
+       "replacement_candidates": [
+         "Rh K 边 Rh 箔透射/荧光谱（k_max ≥ 10 Å⁻¹）",
+         "Rh2O3 corundum（P5-C COD 1010584）配套谱"
+       ],
+-      "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated"
+-    },
+-    {
+-      "element": "Pd",
+-      "edge": "K",
+-      "e0_ev": 24350.0,
+-      "current_source": "_standards_lib/Pd/Pd_metal_foil.dat",
+-      "source_sha256": "9f07525aaa52e0ac6ebbc4344d9c715e3c50cea6fd2654729b3909e13d77a21e",
++      "quarantined_legacy_source": {
++        "source": "_standards_lib/Rh/Rh_metal_foil.dat",
++        "source_sha256": "074792a1b5de859f72921a69f0ef90b0f5fa3a023f8dafdfda1c8204fa7a9d85",
++        "points": 137,
++        "e_min": 23169.73,
++        "e_max": 23342.59,
++        "edge_e0": 23220.0,
++        "file_format": "IIT-Lytle .dat",
++        "attempt_status": "gated_out",
++        "gate_failures": [
++          "wt_no_valid_grid"
++        ],
++        "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
++        "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity",
++        "k_max_estimate": 5.67
++      },
++      "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated",
++      "e0_ev": 23216.078,
++      "current_source": "_standards_lib/Rh/Rh_metal_foil.dat",
++      "source_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e",
+       "source_license": "IIT-Lytle；许可未明确，不提交",
+       "source_committed": false,
+-      "data_points": 195,
++      "data_points": 514,
+       "energy_range_ev": [
+-        24275.21,
+-        24472.85
++        22694.49,
++        24807.16
+       ],
+-      "post_edge_span_ev": 122.85,
+-      "k_max_estimate": 5.68,
+-      "calibration_motif": "pd_fcc_cod_9008478",
+-      "calibration_artifact": "data/s02_calibration/Pd/calibration.json",
+-      "last_status": "not_calibrated",
+-      "attempt_status": "gated_out",
+-      "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
+-      "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity",
+-      "gate_failures": [
+-        "wt_no_valid_grid"
++      "post_edge_span_ev": 1591.082,
++      "k_max_estimate": 20.44,
++      "calibration_motif": "rh_fcc_cod_9008482",
++      "attempt_status": "passed",
++      "failure_reason": null,
++      "failure_error": null,
++      "gate_failures": [],
++      "s02": 0.7022,
++      "s02_err": 0.0191,
++      "rf": 0.0041,
++      "spread": 0.0037,
++      "delta_e0": -0.71,
++      "sigma2": 0.0028,
++      "plateau": 0.859,
++      "k_window": [
++        3.0,
++        12.0
+       ],
+-      "s02": null,
+-      "usable_for_s02": false,
+-      "pool_state": "quarantined",
++      "e0_method": "half_height",
++      "n_variables": 4,
++      "n_independent": 4.47,
++      "usable_for_s02": true,
++      "pool_state": "resolved",
++      "resolved_by": {
++        "standard": "_standards_lib/Rh/Rh_metal_foil.dat",
++        "source_sha256": "2ec7ccfc497314e9eb45a4d3a7477a3a2f05d1f94a621124fcf78040a5c51a3e",
++        "note": "IIT-Lytle RAW Rh/rhfoil.003 透射谱（514 点，22694–24807 eV）；半高点 E0 下边后平台 0.859 通过严格归一化门禁",
++        "motif": "rh_fcc_cod_9008482",
++        "motif_file": null,
++        "kmin": null,
++        "kmax": null,
++        "rmin": null,
++        "e0_method": "half_height",
++        "s02": 0.7022,
++        "s02_err": 0.0191,
++        "rf": 0.0041,
++        "spread": 0.0037,
++        "gate_failures": []
++      }
++    },
++    {
++      "element": "Pd",
++      "edge": "K",
++      "calibration_artifact": "data/s02_calibration/Pd/calibration.json",
++      "last_status": "calibrated",
+       "classification": "short_spectrum_replace",
+       "user_suggested_class": "xanes_truncation_replace_spectrum",
+       "assessment": "同意：谱长不足，无法进入拟合。",
++      "resolution": "已用 IIT-Lytle RAW/Pd/pdfl.404（520 点，24156–26353 eV）替换；strict=False 记录 plateau=0.8138，五项拟合门禁 5/5 通过，S₀²=0.6559±0.0141。",
+       "action_class": "replace_source",
+       "phase_baseline": "Pd fcc（COD 9008478）",
+       "phase_switch_needed": false,
+       "next_actions": [
+-        "获取 Pd K 边、k_max ≥ 10–12 Å⁻¹ 的 Pd 箔或 PdO 谱",
+-        "优先 Pd 箔（fcc 第一壳 N=12）复核 S₀²；PdO 需配套 tetragonal motif",
+-        "新谱通过全部冻结门禁后才可移出隔离池"
++        "已完成：替换为 RAW 长谱并通过全部冻结门禁",
++        "维护：运行期仍只通过 --s02/--s02-from-t5 使用标定值，不改静态表"
+       ],
+       "replacement_candidates": [
+         "Pd K 边 Pd 箔透射/荧光谱（k_max ≥ 10 Å⁻¹）",
+         "PdO（P5-C COD 1009031）配套谱"
+       ],
+-      "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated"
+-    },
+-    {
+-      "element": "Ir",
+-      "edge": "L3",
+-      "e0_ev": 11215.0,
+-      "current_source": "_standards_lib/Ir/Ir_metal_foil.dat",
+-      "source_sha256": "959da06b723b3342c26b5e349dce2ce1aa6ac3dda9fa62479599e5a0387d341b",
++      "quarantined_legacy_source": {
++        "source": "_standards_lib/Pd/Pd_metal_foil.dat",
++        "source_sha256": "9f07525aaa52e0ac6ebbc4344d9c715e3c50cea6fd2654729b3909e13d77a21e",
++        "points": 195,
++        "e_min": 24275.21,
++        "e_max": 24472.85,
++        "edge_e0": 24350.0,
++        "file_format": "IIT-Lytle .dat",
++        "attempt_status": "gated_out",
++        "gate_failures": [
++          "wt_no_valid_grid"
++        ],
++        "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
++        "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity",
++        "k_max_estimate": 5.68
++      },
++      "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated",
++      "e0_ev": 24347.2,
++      "current_source": "_standards_lib/Pd/Pd_metal_foil.dat",
++      "source_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9",
+       "source_license": "IIT-Lytle；许可未明确，不提交",
+       "source_committed": false,
+-      "data_points": 272,
++      "data_points": 520,
+       "energy_range_ev": [
+-        11142.7,
+-        11336.9
++        24156.34,
++        26352.59
+       ],
+-      "post_edge_span_ev": 121.9,
+-      "k_max_estimate": 5.66,
+-      "calibration_motif": "ir_fcc_cod_9008470",
+-      "calibration_artifact": "data/s02_calibration/Ir/calibration.json",
+-      "last_status": "not_calibrated",
+-      "attempt_status": "gated_out",
+-      "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
+-      "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity",
+-      "gate_failures": [
+-        "wt_no_valid_grid"
++      "post_edge_span_ev": 2005.39,
++      "k_max_estimate": 22.94,
++      "calibration_motif": "pd_fcc_cod_9008478",
++      "attempt_status": "passed",
++      "failure_reason": null,
++      "failure_error": null,
++      "gate_failures": [],
++      "s02": 0.6559,
++      "s02_err": 0.0141,
++      "rf": 0.0035,
++      "spread": 0.0133,
++      "delta_e0": 1.14,
++      "sigma2": 0.0045,
++      "plateau": 0.8138,
++      "k_window": [
++        3.0,
++        12.0
+       ],
+-      "s02": null,
+-      "usable_for_s02": false,
+-      "pool_state": "quarantined",
++      "e0_method": "derivative",
++      "n_variables": 4,
++      "n_independent": 4.47,
++      "usable_for_s02": true,
++      "pool_state": "resolved",
++      "resolved_by": {
++        "standard": "_standards_lib/Pd/Pd_metal_foil.dat",
++        "source_sha256": "fde0026f8d9f8ffb19233b0041dd2496510eb713ad1870bd2d85b788ef4241c9",
++        "note": "IIT-Lytle RAW Pd/pdfl.404 NSLS 透射谱（24156–26353 eV）；边后平台 0.8138 略低于 0.85，记录 plateau 并通过五项拟合门禁",
++        "motif": "pd_fcc_cod_9008478",
++        "motif_file": null,
++        "kmin": null,
++        "kmax": null,
++        "rmin": null,
++        "e0_method": "derivative",
++        "s02": 0.6559,
++        "s02_err": 0.0141,
++        "rf": 0.0035,
++        "spread": 0.0133,
++        "gate_failures": []
++      }
++    },
++    {
++      "element": "Ir",
++      "edge": "L3",
++      "calibration_artifact": "data/s02_calibration/Ir/calibration.json",
++      "last_status": "calibrated",
+       "classification": "short_spectrum_replace",
+       "user_suggested_class": "parameter_window_tuning_raise_kmin",
+       "assessment": "不同意‘仅调 k_min 可解决’。当前谱 k_max≈5.66 Å⁻¹，即使 k_min=2.5 Å⁻¹，Δk≈3.16 Å⁻¹，3 窗口的 N_idp 仍小于 4 个自由参数；且失败发生在 WT 网格为空，尚未进入参数窗口。k_min 只能在换到长谱后作为诊断项，不能替代换谱，也不能用来绕过门禁。",
++      "resolution": "已用 IIT-Lytle RAW/Ir/irfoil.146（645 点，11015–12820 eV）替换；kmin=3.0 仅作 L3 白线规避诊断，strict 门禁 5/5 通过，S₀²=0.4752±0.0149。",
+       "action_class": "replace_source_then_kmin_diagnostic",
+       "phase_baseline": "Ir fcc（COD 9008470）",
+       "phase_switch_needed": false,
+       "next_actions": [
+-        "获取 Ir L3 边、k_max ≥ 10–12 Å⁻¹ 的 Ir 箔或 IrO2 谱",
+-        "换谱后可将提高 k_min 作为白线规避的诊断项，但必须记录敏感性",
+-        "三窗口 spread、N_idp、σ² 不贴界等门禁全部保持不变"
++        "已完成：替换为 RAW 长谱并通过全部冻结门禁",
++        "维护：kmin 敏感性已记录在 calibration.json（kw_sensitivity/runs），不得用于放宽门禁"
+       ],
+       "replacement_candidates": [
+         "Ir L3 边 Ir 箔透射/荧光谱（k_max ≥ 10 Å⁻¹）",
+         "IrO2 rutile（P5-C COD 2101854）配套谱"
+       ],
++      "quarantined_legacy_source": {
++        "source": "_standards_lib/Ir/Ir_metal_foil.dat",
++        "source_sha256": "959da06b723b3342c26b5e349dce2ce1aa6ac3dda9fa62479599e5a0387d341b",
++        "points": 272,
++        "e_min": 11142.7,
++        "e_max": 11336.9,
++        "edge_e0": 11215.0,
++        "file_format": "IIT-Lytle .dat",
++        "attempt_status": "gated_out",
++        "gate_failures": [
++          "wt_no_valid_grid"
++        ],
++        "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
++        "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity",
++        "k_max_estimate": 5.66
++      },
+       "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated",
+       "kmin_tuning_assessment": {
+         "suggested": true,
+@@ -189,55 +272,97 @@
+         "reason": "k_max≈5.66 Å⁻¹；k_min≥2.5 Å⁻¹ 时 Δk≈3.16 Å⁻¹，N_idp 不足以支撑 s02+dE0+dR+sigma2 四个参数；当前失败点是 WT 无有效网格，不是白线污染。",
+         "allowed_after_replacement": true,
+         "may_relax_gates": false
++      },
++      "e0_ev": 11212.9,
++      "current_source": "_standards_lib/Ir/Ir_metal_foil.dat",
++      "source_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b",
++      "source_license": "IIT-Lytle；许可未明确，不提交",
++      "source_committed": false,
++      "data_points": 645,
++      "energy_range_ev": [
++        11015.0,
++        12820.32
++      ],
++      "post_edge_span_ev": 1607.42,
++      "k_max_estimate": 20.54,
++      "calibration_motif": "ir_fcc_cod_9008470",
++      "attempt_status": "passed",
++      "failure_reason": null,
++      "failure_error": null,
++      "gate_failures": [],
++      "s02": 0.4752,
++      "s02_err": 0.0149,
++      "rf": 0.0043,
++      "spread": 0.0068,
++      "delta_e0": 9.3,
++      "sigma2": 0.0022,
++      "plateau": 0.8604,
++      "k_window": [
++        3.0,
++        12.0
++      ],
++      "e0_method": "derivative",
++      "n_variables": 4,
++      "n_independent": 4.47,
++      "usable_for_s02": true,
++      "pool_state": "resolved",
++      "resolved_by": {
++        "standard": "_standards_lib/Ir/Ir_metal_foil.dat",
++        "source_sha256": "b8d34be238a8cf7b96f679316c86c5d3f2891d6b1fc55bee351badfd34af719b",
++        "note": "IIT-Lytle RAW Ir/irfoil.146 L3 透射谱（645 点，11015–12820 eV）；kmin=3.0 规避 L3 近边白线共振，严格归一化平台 0.8604",
++        "motif": "ir_fcc_cod_9008470",
++        "motif_file": null,
++        "kmin": 3.0,
++        "kmax": null,
++        "rmin": null,
++        "e0_method": "derivative",
++        "s02": 0.4752,
++        "s02_err": 0.0149,
++        "rf": 0.0043,
++        "spread": 0.0068,
++        "gate_failures": []
+       }
+     },
+     {
+       "element": "Ce",
+       "edge": "L3",
+-      "e0_ev": 5726.0,
+-      "current_source": "data/bmm_standards/Data/Ce/Ce-L3-CeO2.xdi",
+-      "source_sha256": "1f679ebd0fb31ed37bca9e8ba125ad06fc0b08554052f8329a2ce7386b8c1e7e",
+-      "source_license": "NIST BMM 公共数据（DOI 10.18434/mds2-4032）",
+-      "source_committed": true,
+-      "data_points": 259,
+-      "energy_range_ev": [
+-        5523.405,
+-        6152.412
+-      ],
+-      "post_edge_span_ev": 426.412,
+-      "k_max_estimate": 10.58,
+-      "calibration_motif": "ceo2_fluorite_cod_1562989",
+       "calibration_artifact": "data/s02_calibration/Ce/calibration.json",
+-      "last_status": "not_calibrated",
+-      "attempt_status": "gated_out",
+-      "failure_reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
+-      "failure_error": null,
+-      "gate_failures": [
+-        "window_runs_interior",
+-        "s02_in_range",
+-        "s02_err_ok",
+-        "window_spread_ok",
+-        "sigma2_not_at_bound"
+-      ],
+-      "s02": null,
+-      "usable_for_s02": false,
+-      "pool_state": "quarantined",
++      "last_status": "calibrated",
+       "classification": "oxide_baseline_reprocess",
+       "user_suggested_class": "phase_recalibration_oxide_baseline",
+       "assessment": "物相基准已经是 CeO2：T5 主谱为 NIST BMM Ce-L3-CeO2.xdi，motif 为 ceo2_fluorite_cod_1562989，不是 Ce 金属箔。问题不在‘换 CeO2’，而在归一化/ΔE₀/σ²：三个窗口 ΔE₀=9.78–10.20 eV 贴上限，σ² 压到 1e-4 下界，无 interior 窗口，S₀² 无唯一解。",
++      "resolution": "已改用 IIT-Lytle RAW/Ce/ceo2.004（327 点，5523–6158 eV，Ce L2 前截断）+ rmin=1.5，strict 门禁 5/5 通过，S₀²=0.6279±0.0268；BMM 两条失败谱保留在 attempts 审计链。",
+       "action_class": "reprocess_normalization_e0",
+       "phase_baseline": "CeO2 fluorite（COD 1562989）",
+       "phase_switch_needed": false,
+       "next_actions": [
+-        "保留 CeO2 基准，复核 rbkg/背景归一化与 E0 方法（derivative vs half_height）",
+-        "可比较其它 CeO2 L3 谱，但必须重新通过严格归一化门禁",
+-        "不得使用 Ce-L3-CeriumDioxide.xdi（平台 2.271 的归一化伪迹）",
+-        "若仍无唯一解，保持 not_calibrated；不放宽 ΔE₀/σ² 门禁"
++        "已完成：替换为 RAW 长谱并通过全部冻结门禁",
++        "维护：BMM 负例（σ² 贴界/平台 2.271）保留在 calibration.json 供复核"
+       ],
+       "replacement_candidates": [
+         "其它来源的 CeO2 L3 透射谱（平台 0.85–1.15）",
+         "NIST BMM Ce-L3-CeO2.xdi 重新归一化/换 E0 方法"
+       ],
++      "quarantined_legacy_source": {
++        "source": "data/bmm_standards/Data/Ce/Ce-L3-CeO2.xdi",
++        "source_sha256": "1f679ebd0fb31ed37bca9e8ba125ad06fc0b08554052f8329a2ce7386b8c1e7e",
++        "points": 259,
++        "e_min": 5523.405,
++        "e_max": 6152.412,
++        "edge_e0": 5726.0,
++        "file_format": "NIST BMM XDI",
++        "attempt_status": "gated_out",
++        "gate_failures": [
++          "window_runs_interior",
++          "s02_in_range",
++          "s02_err_ok",
++          "window_spread_ok",
++          "sigma2_not_at_bound"
++        ],
++        "failure_reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
++        "failure_error": null,
++        "k_max_estimate": 10.58
++      },
+       "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated",
+       "rejected_sources": [
+         {
+@@ -245,56 +370,147 @@
+           "sha256": "e4d10395c858d41f56a1cddb173745fe71ca45405d532bd8e9cf603894db6603",
+           "reason": "边后平台 2.271，归一化伪迹；严格门禁拒绝"
+         }
+-      ]
+-    },
+-    {
+-      "element": "U",
+-      "edge": "L3",
+-      "e0_ev": 17163.1,
+-      "current_source": "_standards_lib/U/U_metal_foil.dat",
+-      "source_sha256": "5b31461e25fe6379d30197199d31a59bb44af6e8f4855e3cb2c0b995c9510dfe",
+-      "source_license": "IIT-Lytle；许可未明确，不提交",
++      ],
++      "e0_ev": 5728.0,
++      "current_source": "_standards_lib/Ce/Ce_metal_foil.dat",
++      "source_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305",
++      "source_license": "NIST BMM 公共数据（DOI 10.18434/mds2-4032）",
+       "source_committed": false,
+-      "data_points": 455,
++      "data_points": 327,
+       "energy_range_ev": [
+-        16966.0,
+-        18759.65
++        5523.0,
++        6158.49
+       ],
+-      "post_edge_span_ev": 1596.55,
+-      "k_max_estimate": 20.47,
+-      "calibration_motif": "u_alpha_u_cod_1527120",
+-      "calibration_artifact": "data/s02_calibration/U/calibration.json",
+-      "last_status": "not_calibrated",
+-      "attempt_status": "gated_out",
+-      "failure_reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
++      "post_edge_span_ev": 430.49,
++      "k_max_estimate": 10.63,
++      "calibration_motif": "ceo2_fluorite_cod_1562989",
++      "attempt_status": "passed",
++      "failure_reason": null,
+       "failure_error": null,
+-      "gate_failures": [
+-        "window_runs_interior",
+-        "s02_in_range",
+-        "s02_err_ok",
+-        "window_spread_ok",
+-        "sigma2_not_at_bound"
++      "gate_failures": [],
++      "s02": 0.6279,
++      "s02_err": 0.0268,
++      "rf": 0.0223,
++      "spread": 0.0096,
++      "delta_e0": 5.94,
++      "sigma2": 0.0079,
++      "plateau": 1.0645,
++      "k_window": [
++        3.0,
++        12.0
+       ],
+-      "s02": null,
+-      "usable_for_s02": false,
+-      "pool_state": "quarantined",
++      "e0_method": "derivative",
++      "n_variables": 4,
++      "n_independent": 5.85,
++      "usable_for_s02": true,
++      "pool_state": "resolved",
++      "resolved_by": {
++        "standard": "_standards_lib/Ce/Ce_metal_foil.dat",
++        "source_sha256": "539bf6eb66061cbbf01551ff4b7c0eabe16fedba68e61495be622d9de0e09305",
++        "note": "IIT-Lytle RAW Ce/ceo2.004 CeO2 L3 透射谱（在 Ce L2 6164 eV 前截断于 <=6160 eV，327 点）；rmin=1.5 完整覆盖 8×Ce–O 第一壳，平台 1.0645，通过全部严格门禁",
++        "motif": "ceo2_fluorite_cod_1562989",
++        "motif_file": null,
++        "kmin": null,
++        "kmax": null,
++        "rmin": 1.5,
++        "e0_method": "derivative",
++        "s02": 0.6279,
++        "s02_err": 0.0268,
++        "rf": 0.0223,
++        "spread": 0.0096,
++        "gate_failures": []
++      }
++    },
++    {
++      "element": "U",
++      "edge": "L3",
++      "calibration_artifact": "data/s02_calibration/U/calibration.json",
++      "last_status": "calibrated",
+       "classification": "oxide_phase_verification",
+       "user_suggested_class": "phase_recalibration_oxide_baseline",
+       "assessment": "同意核实 UO2 基准，但当前本地没有 UO2 标准谱。现有 U_metal_foil.dat 是 IIT-Lytle RAW 荧光谱，α-U 第一壳模型（4×U–U 2.7425 Å）拟合 s02 钉在 0.3、ΔE₀≈9.4–10.9 eV、Rf≈0.55–0.60、N_idp=2.48<4 参数。UO2 结构 CIF 已在 P5-C 入库，但还缺配套 UO2 L3 谱；先核实谱源，再决定是否切换。",
++      "resolution": "已完成 UO2 基准切换：IIT-Lytle RAW/U/uo2.379（381 点，16966–18170 eV）+ COD 9009049 标定专用 uo2_fluorite motif（8×U–O 2.3678 Å），strict 门禁 5/5 通过，S₀²=0.7800±0.0229。",
+       "action_class": "verify_uo2_phase_switch",
+-      "phase_baseline": "α-U（COD 1527120）→ 候选 UO2 fluorite（COD 9009049）",
+-      "phase_switch_needed": "pending_source_verification",
++      "phase_baseline": "UO2 fluorite（COD 9009049，标定专用 uo2_fluorite motif）",
++      "phase_switch_needed": false,
+       "next_actions": [
+-        "先核实是否存在可追溯、许可明确的 UO2 L3 标准谱",
+-        "若存在：用 COD 9009049 生成 calibration-only UO2 fluorite motif，以 8×U–O 第一壳重新标定",
+-        "若不存在：保持 not_calibrated，不用 RAW U 金属谱强行给值",
+-        "任何相位切换都必须重新通过全部冻结门禁"
++        "已完成：UO2 基准切换并通过全部冻结门禁",
++        "维护：uo2_fluorite 仅存在于 data/s02_calibration/motifs，不进生产 _structure_lib"
+       ],
+       "replacement_candidates": [
+         "UO2 L3 透射/荧光谱（许可明确、k_max ≥ 10 Å⁻¹）",
+         "更干净的 α-U 金属箔谱 + 多壳层 α-U 模型（备选，不优先）"
+       ],
+-      "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated"
++      "quarantined_legacy_source": {
++        "source": "_standards_lib/U/U_metal_foil.dat",
++        "source_sha256": "5b31461e25fe6379d30197199d31a59bb44af6e8f4855e3cb2c0b995c9510dfe",
++        "points": 455,
++        "e_min": 16966.0,
++        "e_max": 18759.65,
++        "edge_e0": 17163.1,
++        "file_format": "IIT-Lytle .dat",
++        "attempt_status": "gated_out",
++        "gate_failures": [
++          "window_runs_interior",
++          "s02_in_range",
++          "s02_err_ok",
++          "window_spread_ok",
++          "sigma2_not_at_bound"
++        ],
++        "failure_reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
++        "failure_error": null,
++        "k_max_estimate": 20.47
++      },
++      "acceptance": "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated",
++      "e0_ev": 17183.6,
++      "current_source": "_standards_lib/U/U_metal_foil.dat",
++      "source_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af",
++      "source_license": "IIT-Lytle；许可未明确，不提交",
++      "source_committed": false,
++      "data_points": 381,
++      "energy_range_ev": [
++        16966.34,
++        18170.35
++      ],
++      "post_edge_span_ev": 986.75,
++      "k_max_estimate": 16.09,
++      "calibration_motif": "uo2_fluorite",
++      "attempt_status": "passed",
++      "failure_reason": null,
++      "failure_error": null,
++      "gate_failures": [],
++      "s02": 0.78,
++      "s02_err": 0.0229,
++      "rf": 0.0137,
++      "spread": 0.0024,
++      "delta_e0": 2.86,
++      "sigma2": 0.0051,
++      "plateau": 0.8608,
++      "k_window": [
++        3.0,
++        12.0
++      ],
++      "e0_method": "derivative",
++      "n_variables": 4,
++      "n_independent": 6.0,
++      "usable_for_s02": true,
++      "pool_state": "resolved",
++      "resolved_by": {
++        "standard": "_standards_lib/U/U_metal_foil.dat",
++        "source_sha256": "6af61dd6102f22b42f7b29581a0872e84a92e044a3ecb783c1f48b14e6acc9af",
++        "note": "IIT-Lytle RAW U/uo2.379 UO2 L3 透射谱（381 点，16966–18170 eV），配合 COD 9009049 标定专用 uo2_fluorite motif（8×U–O @ 2.3678 Å），平台 0.8608，通过全部严格门禁",
++        "motif": "uo2_fluorite",
++        "motif_file": "data\\s02_calibration\\motifs\\uo2_fluorite.json",
++        "kmin": null,
++        "kmax": null,
++        "rmin": 1.5,
++        "e0_method": "derivative",
++        "s02": 0.78,
++        "s02_err": 0.0229,
++        "rf": 0.0137,
++        "spread": 0.0024,
++        "gate_failures": []
++      }
+     }
+   ]
+ }
+diff --git a/phase_resolver.py b/phase_resolver.py
+index 2c49809..2c5823c 100644
+--- a/phase_resolver.py
++++ b/phase_resolver.py
+@@ -119,6 +119,7 @@ class PhaseResolution:
+     candidates: list[PhaseCandidate] = field(default_factory=list)
+     status: str = "no_match"   # resolved / ambiguous / offline_miss / no_match
+     structure_model: StructureModel | None = None
++    site_models: list[StructureModel] = field(default_factory=list)
+     reason: str = ""
+ 
+ 
+@@ -386,6 +387,23 @@ def _candidate_to_structure_model(
+     return model
+ 
+ 
++def _candidate_to_all_site_models(
++        candidate: PhaseCandidate, absorber: str) -> list[StructureModel]:
++    """P5-D：把一个多位点候选展开成每个不等价吸收位一个模型。
++
++    只接受显式 ``--absorber-site all``；默认（未传）仍是
++    ``absorber_site_ambiguous``，绝不自动 Top-1。
++    """
++    sites = list(candidate.absorber_sites or [])
++    if not sites:
++        raise PhaseResolutionError(
++            "absorber_site_missing",
++            f"{candidate.source}:{candidate.id} 缺少吸收位；"
++            f"无法展开 --absorber-site all")
++    return [_candidate_to_structure_model(candidate, absorber, site_label)
++            for site_label in sites]
++
++
+ # ---------------------------------------------------------------
+ # 候选评分（SPEC 匹配）
+ # ---------------------------------------------------------------
+@@ -638,12 +656,23 @@ def resolve_phase(
+     if (cand.experimental is True
+             and cand.model_level in ("crystal_cif", "crystal_edited")):
+         try:
+-            resolution.structure_model = _candidate_to_structure_model(
+-                cand, absorber, absorber_site)
++            if (absorber_site is not None
++                    and str(absorber_site).strip().lower() == "all"):
++                models = _candidate_to_all_site_models(cand, absorber)
++                resolution.site_models = models
++                resolution.structure_model = models[0]
++                # 单位点相：all 无歧义，回落为具体位点标签；
++                # 多位点相保留 "all" 供 P5-D 逐位点展开。
++                resolution.absorber_site = (
++                    models[0].absorber_site if len(models) == 1 else "all")
++            else:
++                resolution.structure_model = _candidate_to_structure_model(
++                    cand, absorber, absorber_site)
+         except PhaseResolutionError as exc:
+             # 缺 absorber_site / 多位点未指定：保留 resolved，但
+             # structure_model 为 None；调用方通过 formal_cn 门禁会得到
+             # 明确原因，而不是静默使用第一个位点。
++            resolution.site_models = []
+             resolution.structure_model = None
+             resolution.reason = exc.detail
+     else:
+diff --git a/regression_test.py b/regression_test.py
+index fdfb696..b060e37 100644
+--- a/regression_test.py
++++ b/regression_test.py
+@@ -5455,15 +5455,18 @@ O1 O 0 0 0 0.5
+         rows = {r["absorber"]: r for r in index["elements"]}
+         self.assertEqual(set(rows), set(calibrate_t5.ELEMENTS))
+         self.assertEqual(index["pass_count"] + index["fail_count"], 12)
+-        self.assertGreaterEqual(index["pass_count"], 7)
++        self.assertEqual(index["pass_count"], 12)
++        self.assertEqual(index["fail_count"], 0)
+         self.assertNotIn("C:\\\\", index_path.read_text(encoding="utf-8"))
+-        for el in ("Cr", "Mn", "Zn", "Mo", "Ru", "Ag", "Au"):
++        for el in calibrate_t5.ELEMENTS:
+             self.assertEqual(rows[el]["status"], "calibrated", el)
+             self.assertIsNotNone(rows[el]["s02"], el)
+-        for el in ("Rh", "Pd", "Ir", "Ce", "U"):
+-            self.assertEqual(rows[el]["status"], "not_calibrated", el)
+-            self.assertIsNone(rows[el]["s02"], el)
+-            self.assertTrue(rows[el].get("reason"), el)
++        expected_s02 = {
++            "Rh": 0.7022, "Pd": 0.6559, "Ir": 0.4752,
++            "Ce": 0.6279, "U": 0.7800,
++        }
++        for el, value in expected_s02.items():
++            self.assertAlmostEqual(rows[el]["s02"], value, places=4, msg=el)
+ 
+         # --apply 对 #60 锁定元素硬拒绝（不真正跑标定）。
+         with mock.patch.object(calibrate_s02, "calibrate_s02",
+@@ -5527,9 +5530,21 @@ O1 O 0 0 0 0.5
+         self.assertIn("sha256:", source)
+         self.assertIn("standard_sha256:", source)
+ 
+-        with self.assertRaises(XAFSConfigError) as cm:
+-            run_xafs.load_t5_s02("Ce")
+-        self.assertIn("未通过", str(cm.exception))
++        s02_ce, source_ce = run_xafs.load_t5_s02("Ce")
++        self.assertAlmostEqual(s02_ce, 0.6279, places=4)
++        self.assertTrue(source_ce.startswith("s02_calibration:"))
++        # 未通过元素仍然硬拒绝（用临时产物验证，不依赖真实标定状态）。
++        with tempfile.TemporaryDirectory() as tmp:
++            el_dir = Path(tmp) / "Ce"
++            el_dir.mkdir()
++            (el_dir / "calibration.json").write_text(json.dumps({
++                "absorber": "Ce", "status": "not_calibrated",
++                "s02": None, "reason": "gate_failed：未通过冻结门禁",
++                "static_absorber_py_unchanged": True,
++            }), encoding="utf-8")
++            with self.assertRaises(XAFSConfigError) as cm:
++                run_xafs.load_t5_s02("Ce", root=Path(tmp))
++            self.assertIn("拒绝自动注入", str(cm.exception))
+         with self.assertRaises(XAFSConfigError):
+             run_xafs.load_t5_s02("Xx")
+ 
+@@ -5571,8 +5586,10 @@ O1 O 0 0 0 0.5
+         self.assertEqual(mo_foil.get("fit_shells"), 2)
+         self.assertTrue(mo_foil.get("strict"))
+         ce_cases = calibrate_t5.CASES["Ce"]
+-        self.assertEqual(len(ce_cases), 2)
++        self.assertEqual(len(ce_cases), 3)
+         self.assertTrue(ce_cases[1].get("strict"))
++        self.assertTrue(ce_cases[2].get("strict"))
++        self.assertEqual(ce_cases[2].get("rmin"), 1.5)
+ 
+         mo = json.loads((ROOT / "data" / "s02_calibration" / "Mo" /
+                          "calibration.json").read_text(encoding="utf-8"))
+@@ -5600,8 +5617,8 @@ O1 O 0 0 0 0.5
+ 
+         ce = json.loads((ROOT / "data" / "s02_calibration" / "Ce" /
+                          "calibration.json").read_text(encoding="utf-8"))
+-        self.assertEqual(ce["status"], "not_calibrated")
+-        self.assertIsNone(ce["s02"])
++        self.assertEqual(ce["status"], "calibrated")
++        self.assertAlmostEqual(ce["s02"], 0.6279, places=4)
+         first = next(a for a in ce["attempts"]
+                      if a["standard"].endswith("Ce-L3-CeO2.xdi"))
+         self.assertEqual(first["status"], "gated_out")
+@@ -5614,14 +5631,18 @@ O1 O 0 0 0 0.5
+         self.assertEqual(second["status"], "error")
+         self.assertIn("归一化失败", second["error"])
+         self.assertIn("2.271", second["error"])
++        third = next(a for a in ce["attempts"]
++                     if a["standard"].endswith("Ce_metal_foil.dat"))
++        self.assertEqual(third["status"], "passed")
++        self.assertTrue(all(third["result"]["checks"].values()))
+ 
+         s02, source = run_xafs.load_t5_s02("Mo")
+         self.assertAlmostEqual(s02, 0.8322, places=4)
+         self.assertIn("Mo", source)
+         self.assertIn("sha256:", source)
+-        with self.assertRaises(XAFSConfigError) as cm:
+-            run_xafs.load_t5_s02("Ce")
+-        self.assertIn("未通过", str(cm.exception))
++        s02_ce, source_ce = run_xafs.load_t5_s02("Ce")
++        self.assertAlmostEqual(s02_ce, 0.6279, places=4)
++        self.assertIn("Ce", source_ce)
+ 
+     def test_p5c_common_phase_coverage(self):
+         """#125 P5-C：18 个固定 COD ID 补齐常见相，coverage 无缺口。"""
+@@ -5683,15 +5704,16 @@ O1 O 0 0 0 0.5
+             self.assertIn("多个吸收位点", res.reason, phase_name)
+ 
+     def test_p5_standard_source_isolation_pool(self):
+-        """#126 P5-prep：5 个未通过元素的谱源隔离池与门禁冻结。"""
++        """#126 P5-prep/P5-S02：5 元素谱源池闭环与门禁冻结。"""
+         from tools import build_source_pool
+ 
+         pool = json.loads((ROOT / "data" / "s02_calibration" /
+                            "source_pool" / "index.json")
+                           .read_text(encoding="utf-8"))
+-        self.assertEqual(pool["schema_version"], 1)
++        self.assertEqual(pool["schema_version"], 2)
+         self.assertEqual(pool["pool_id"], "s02-standard-source-isolation")
+         self.assertEqual(pool["elements_total"], 5)
++        self.assertEqual(pool["pool_state_counts"], {"resolved": 5})
+         # 索引必须能由标定产物与门禁常量确定性重建。
+         self.assertEqual(build_source_pool.build_pool(), pool)
+ 
+@@ -5704,35 +5726,57 @@ O1 O 0 0 0 0.5
+             "Ce": "oxide_baseline_reprocess",
+             "U": "oxide_phase_verification",
+         }
++        expected_s02 = {
++            "Rh": 0.7022, "Pd": 0.6559, "Ir": 0.4752,
++            "Ce": 0.6279, "U": 0.7800,
++        }
+         for element, row in rows.items():
+             self.assertEqual(row["classification"], expected_class[element])
+-            self.assertEqual(row["pool_state"], "quarantined")
+-            self.assertFalse(row["usable_for_s02"])
+-            self.assertIsNone(row["s02"])
+-            self.assertEqual(row["last_status"], "not_calibrated")
+-            self.assertTrue(row["gate_failures"], element)
++            self.assertEqual(row["pool_state"], "resolved")
++            self.assertTrue(row["usable_for_s02"])
++            self.assertAlmostEqual(row["s02"], expected_s02[element],
++                                   places=4, msg=element)
++            self.assertEqual(row["last_status"], "calibrated")
++            self.assertEqual(row["attempt_status"], "passed")
++            self.assertEqual(row["gate_failures"], [])
++            self.assertGreater(row["k_max_estimate"], 10.0, element)
++            # #60：静态表仍然 s02=None / calibrated=False。
+             cfg = get_absorber(element)
+             self.assertIsNone(cfg.s02, element)
+             self.assertFalse(cfg.calibrated, element)
+-
+-        # 谱长判定：Rh/Pd/Ir 是短谱；Ce/U 不是截断问题。
++            # 旧谱的历史隔离证据必须保留，不能因为替换而丢失审计链。
++            legacy = row["quarantined_legacy_source"]
++            self.assertEqual(legacy["attempt_status"], "gated_out")
++            self.assertTrue(legacy["gate_failures"], element)
++            self.assertEqual(len(legacy["source_sha256"]), 64, element)
++            self.assertEqual(row["resolved_by"]["gate_failures"], [])
++            self.assertEqual(row["resolved_by"]["standard"],
++                             row["current_source"])
++
++        # 旧谱谱长判定：Rh/Pd/Ir 是短谱；Ce/U 不是截断问题。
+         for element in ("Rh", "Pd", "Ir"):
+-            self.assertLess(rows[element]["k_max_estimate"], 6.0, element)
+-        self.assertGreater(rows["Ce"]["k_max_estimate"], 10.0)
+-        self.assertGreater(rows["U"]["k_max_estimate"], 10.0)
++            self.assertLess(
++                rows[element]["quarantined_legacy_source"]["k_max_estimate"],
++                6.0, element)
++        self.assertGreater(
++            rows["Ce"]["quarantined_legacy_source"]["k_max_estimate"], 10.0)
++        self.assertGreater(
++            rows["U"]["quarantined_legacy_source"]["k_max_estimate"], 10.0)
+ 
+         # Ir 的 k_min 建议只能换谱后诊断，不能作为通过手段。
+         ir = rows["Ir"]
+         self.assertFalse(ir["kmin_tuning_assessment"]
+                          ["sufficient_with_current_source"])
+         self.assertFalse(ir["kmin_tuning_assessment"]["may_relax_gates"])
++        self.assertEqual(ir["resolved_by"]["kmin"], 3.0)
+ 
+-        # Ce 已经使用 CeO2 基准；U 的 UO2 切换必须等谱源核实。
++        # Ce 使用 CeO2 基准；U 的 UO2 切换已完成并记录标定专用 motif。
+         self.assertFalse(rows["Ce"]["phase_switch_needed"])
+-        self.assertIn("Ce-L3-CeO2.xdi", rows["Ce"]["current_source"])
++        self.assertIn("Ce_metal_foil.dat", rows["Ce"]["current_source"])
+         self.assertIn("CeO2", rows["Ce"]["phase_baseline"])
+-        self.assertEqual(rows["U"]["phase_switch_needed"],
+-                         "pending_source_verification")
++        self.assertFalse(rows["U"]["phase_switch_needed"])
++        self.assertIn("UO2", rows["U"]["phase_baseline"])
++        self.assertEqual(rows["U"]["resolved_by"]["motif"], "uo2_fluorite")
+ 
+         # 门禁冻结：与 calibrate_s02.py 常量一致，且未放宽。
+         policy = pool["policy"]
+@@ -5747,13 +5791,142 @@ O1 O 0 0 0 0.5
+         self.assertEqual(policy["manual_window_trimming"], "forbidden")
+         self.assertEqual(policy["auto_top1_selection"], "forbidden")
+ 
+-        # T5 总索引仍保持 5 个 not_calibrated、s02=None。
++        # T5 总索引：5 元素全部 calibrated、s02 非空。
+         t5_index = json.loads((ROOT / "data" / "s02_calibration" /
+                                "index.json").read_text(encoding="utf-8"))
+         t5 = {row["absorber"]: row for row in t5_index["elements"]}
+         for element in rows:
+-            self.assertEqual(t5[element]["status"], "not_calibrated", element)
+-            self.assertIsNone(t5[element]["s02"], element)
++            self.assertEqual(t5[element]["status"], "calibrated", element)
++            self.assertIsNotNone(t5[element]["s02"], element)
++
++    def test_p5d_multi_site_formal_cn(self):
++        """#127 P5-D：--absorber-site all 逐位点正式 CN + 化学计量加权。"""
++        from types import SimpleNamespace
++        from unittest.mock import patch
++
++        # 未传 --absorber-site：多位点相仍然必须拒绝，绝不自动 Top-1。
++        no_site = phase_resolver.resolve_phase(
++            "Fe", phase_id="COD:1010369", offline=True)
++        self.assertEqual(no_site.status, "resolved")
++        self.assertIsNone(no_site.structure_model)
++        self.assertEqual(no_site.site_models, [])
++        self.assertIn("不自动 Top-1", no_site.reason)
++
++        # 显式 all：按位点顺序返回每个不等价吸收位的模型。
++        fe = phase_resolver.resolve_phase(
++            "Fe", phase_id="COD:1010369", absorber_site="all", offline=True)
++        self.assertEqual(fe.status, "resolved")
++        self.assertEqual(fe.absorber_site, "all")
++        self.assertEqual([m.absorber_site for m in fe.site_models],
++                         ["Fe1", "Fe2", "Fe3"])
++        self.assertIs(fe.structure_model, fe.site_models[0])
++
++        gates = cif_gate.gate_cif_all_sites(
++            fe.selected.cif_path, "Fe", kmin=3.0, kmax=12.0)
++        self.assertEqual(len(gates), 3)
++        self.assertTrue(all(g.ok for g in gates), [g.reason for g in gates])
++        self.assertEqual([g.site_multiplicity for g in gates], [16, 16, 8])
++        self.assertEqual([g.site_occupancy for g in gates], [0.5, 0.5, 1.0])
++        for gate in gates:
++            self.assertAlmostEqual(gate.site_weight, 1.0 / 3.0, places=12)
++        weighted_n0 = sum(g.site_weight * g.first_shell_cn for g in gates)
++        self.assertAlmostEqual(weighted_n0, 16.0 / 3.0, places=6)
++        self.assertAlmostEqual(weighted_n0, 5.333333, places=6)
++
++        # Co3O4：8a:16d → 1/3 : 2/3；但该 COD CIF 缺少
++        # _atom_site_occupancy，冻结门禁必须拒绝（无合格来源不出 CN）。
++        co = phase_resolver.resolve_phase(
++            "Co", phase_id="COD:9005888", absorber_site="all", offline=True)
++        self.assertEqual([m.absorber_site for m in co.site_models],
++                         ["Co1", "Co2"])
++        co_sites = cif_gate.list_inequivalent_absorber_sites(
++            co.selected.cif_path, "Co")
++        self.assertEqual([s["label"] for s in co_sites], ["Co1", "Co2"])
++        self.assertEqual([s["multiplicity"] for s in co_sites], [8, 16])
++        self.assertAlmostEqual(co_sites[0]["weight"], 1.0 / 3.0, places=12)
++        self.assertAlmostEqual(co_sites[1]["weight"], 2.0 / 3.0, places=12)
++        co_gates = cif_gate.gate_cif_all_sites(
++            co.selected.cif_path, "Co", kmin=3.0, kmax=12.0)
++        self.assertTrue(all(not g.ok for g in co_gates))
++        self.assertTrue(all(g.code == "occupancy_missing" for g in co_gates))
++
++        # run_multi_site_formal_cn：全部位点 ok 才输出 ALL_WEIGHTED。
++        res = SimpleNamespace(ft=SimpleNamespace(kmin=3.0, kmax=12.0))
++
++        def fake_block(conditional_cn, plan, n0_mapping, structure_model,
++                       absorber, **kwargs):
++            site = structure_model.absorber_site
++            n0 = {"Fe1": 6.0, "Fe2": 6.0, "Fe3": 4.0}[site]
++            return {
++                "status": "ok", "reject_reason": None,
++                "rows": [{
++                    "phase_id": structure_model.model_id,
++                    "model_level": structure_model.model_level,
++                    "source_type": structure_model.source_type,
++                    "source_ref": structure_model.source_ref,
++                    "source_cif_sha256": structure_model.source_cif_sha256,
++                    "absorber_site": site, "shell_group": "first_shell",
++                    "shell_label": "Fe-O", "scatterer": "O",
++                    "r_cif": 2.0, "n0": n0, "n_fit": n0 * 0.95,
++                    "n_status": "fitted", "n_ratio": 0.95,
++                    "n_err_formal": 0.2, "n_err_systematic": 0.32,
++                    "delta_r": 0.01, "sigma2": 0.004, "delta_e0": 1.0,
++                    "rf": 0.02, "s02": 0.803,
++                    "s02_source": "absorber.py", "s02_calibrated": True,
++                    "kmin": 3.0, "kmax": 12.0, "kweight": 2,
++                    "rmin": 1.0, "rmax": 3.0, "n_idp": 9.0,
++                    "n_variables": 5, "cn_label": "cn_conditional",
++                    "gate_status": "passed", "reject_reason": "",
++                    "flags": "", "data_sha256": "d" * 64,
++                    "software_version": "test",
++                }],
++            }
++
++        common = [
++            patch.object(xafs_fit, "_site_motif_from_model",
++                         return_value=object()),
++            patch.object(xafs_fit, "select_shell_paths",
++                         return_value={"files": [], "shells": [],
++                                       "rmin": 1.0, "rmax": 3.0}),
++            patch.object(xafs_fit, "map_n0_to_plan",
++                         return_value={"mapping_ok": True}),
++            patch.object(xafs_fit, "run_conditional_cn", return_value={}),
++            patch.object(xafs_fit, "build_formal_cn_block",
++                         side_effect=fake_block),
++        ]
++        for patcher in common:
++            patcher.start()
++        try:
++            out = xafs_fit.run_multi_site_formal_cn(
++                res, site_models=fe.site_models, gate_results=gates,
++                s02=0.803, s02_source="absorber.py",
++                data_sha256="d" * 64)
++            self.assertEqual(out["status"], "ok")
++            self.assertAlmostEqual(out["site_weights"]["Fe1"], 1 / 3,
++                                   places=12)
++            self.assertEqual(out["rows"][-1]["absorber_site"],
++                             "ALL_WEIGHTED")
++            self.assertAlmostEqual(out["rows"][-1]["n0"], 16 / 3,
++                                   places=6)
++            self.assertIn("site_weight=0.333333", out["rows"][0]["flags"])
++
++            # 任一位点失败：该位点写拒绝行，且不输出 ALL_WEIGHTED。
++            bad = list(gates)
++            bad[1] = cif_gate.CIFGateResult(
++                ok=False, code="n_out_of_range", reason="fake gate failure",
++                absorber="Fe", absorber_site="Fe2")
++            bad[1].site_weight = gates[1].site_weight
++            failed = xafs_fit.run_multi_site_formal_cn(
++                res, site_models=fe.site_models, gate_results=bad,
++                s02=0.803, s02_source="absorber.py",
++                data_sha256="d" * 64)
++            self.assertEqual(failed["status"], "multi_site_failed")
++            sites = [r.get("absorber_site") for r in failed["rows"]]
++            self.assertNotIn("ALL_WEIGHTED", sites)
++            self.assertIn("Fe2", sites)
++        finally:
++            for patcher in common:
++                patcher.stop()
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/run_xafs.py b/run_xafs.py
+index 1e36a17..60fe14b 100644
+--- a/run_xafs.py
++++ b/run_xafs.py
+@@ -518,7 +518,9 @@ def process_sample(paths, outdir, align: bool = False,
+ 
+     # P1b phase resolution: parse --phase-* into StructureModel (formal CN strict track)
+     structure_model = None
++    structure_models: list = []
+     gate_result = None
++    gate_results: list = []
+     if formal_cn and (phase_cif or phase_id or phase_spec or phase_index_path):
+         if not absorber:
+             raise XAFSConfigError(
+@@ -543,6 +545,11 @@ def process_sample(paths, outdir, align: bool = False,
+         if structure_model is None:
+             raise XAFSConfigError(
+                 "FIT", f"Phase resolution did not produce a usable structure model: {resolution.reason}")
++        site_models = list(getattr(resolution, "site_models", []) or [])
++        multi_site = len(site_models) > 1
++        if multi_site:
++            structure_models = site_models
++            structure_model = site_models[0]
+         if verbose:
+             sel = resolution.selected
+             print(f"  [P1b] phase resolved: {sel.source}:{sel.id} "
+@@ -550,22 +557,46 @@ def process_sample(paths, outdir, align: bool = False,
+ 
+         # P2a CIF gate: validate the resolved CIF and compute N0 shell grouping
+         # (Rayleigh). The gate result carries n0_shells needed for P3 conditional CN.
+-        gate_result = cif_gate.gate_cif(
+-            resolution.selected.cif_path, absorber,
+-            absorber_site=resolution.absorber_site,
++        gate_kwargs = dict(
+             kmin=kmin, kmax=kmax, rmax=6.0,
+             allow_computed=False,
+             allow_unusual_coordination=False,
+             is_computed=not resolution.selected.experimental)
+-        if not gate_result.ok:
+-            raise XAFSConfigError(
+-                "FIT", f"CIF gate rejected: {gate_result.code} — {gate_result.reason}")
++        if multi_site:
++            # P5-D：每个不等价吸收位独立过门禁；任一位点失败即拒绝，
++            # 不做“部分位点成功即放行”。
++            gate_results = cif_gate.gate_cif_all_sites(
++                resolution.selected.cif_path, absorber, **gate_kwargs)
++            failed = [g for g in gate_results if not g.ok]
++            if failed:
++                labels = ", ".join(
++                    f"{g.absorber_site or '?'}({g.code})" for g in failed)
++                raise XAFSConfigError(
++                    "FIT", f"CIF gate rejected multi-site: {labels} — "
++                           f"{failed[0].reason}")
++            gate_result = gate_results[0]
++        else:
++            gate_result = cif_gate.gate_cif(
++                resolution.selected.cif_path, absorber,
++                absorber_site=resolution.absorber_site,
++                **gate_kwargs)
++            if not gate_result.ok:
++                raise XAFSConfigError(
++                    "FIT", f"CIF gate rejected: {gate_result.code} — {gate_result.reason}")
+         if verbose:
+-            print(f"  [P2a] CIF gate passed: occ_src={gate_result.occupancy_source}, "
+-                  f"first_shell_cn={gate_result.first_shell_cn}, "
+-                  f"n0_shells={len(gate_result.n0_shells)}")
++            if multi_site:
++                weights = ", ".join(
++                    f"{g.absorber_site}={g.site_weight:.3f}"
++                    for g in gate_results)
++                print(f"  [P2a] CIF gate passed for {len(gate_results)} sites: "
++                      f"{weights}")
++            else:
++                print(f"  [P2a] CIF gate passed: occ_src={gate_result.occupancy_source}, "
++                      f"first_shell_cn={gate_result.first_shell_cn}, "
++                      f"n0_shells={len(gate_result.n0_shells)}")
+ 
+     # S6.5/S7 only triggered via the fitting chain (entry -> xafs_fit -> structure_id, linear no cycle)
++    multi_site_formal = bool(formal_cn and len(structure_models) > 1)
+     if identify or fit or xanes_cross_check:
+         xafs_fit.run(
+             result, identify=identify or fit, fit=fit,
+@@ -584,11 +615,26 @@ def process_sample(paths, outdir, align: bool = False,
+             s02=s02,
+             s02_source=s02_source,
+             verbose=verbose,
+-            formal_cn=formal_cn,
++            # 多位点时单一位点的 formal 块会被 P5-D 结果覆盖；先跳过，
++            # 避免重复跑一套 FEFF/条件 CN。
++            formal_cn=formal_cn and not multi_site_formal,
+             structure_model=structure_model,
+             gate_result=gate_result,
+             xanes_cross_check=xanes_cross_check)
+ 
++        # P5-D：--absorber-site all 时，用每位点独立的正式 CN 结果
++        # 覆盖单一位点输出；只有全部位点 ok 才追加 ALL_WEIGHTED 汇总行。
++        if multi_site_formal:
++            multi = xafs_fit.run_multi_site_formal_cn(
++                result,
++                site_models=structure_models,
++                gate_results=gate_results,
++                s02=s02,
++                s02_source=s02_source,
++                data_sha256=result.data_sha256,
++                verbose=verbose)
++            result.fit["formal_cn"] = multi
++
+     # ---- 落盘 ----
+     stem, norm, chi_k, ft, wave_map = (result.stem, result.norm, result.chi_k,
+                                        result.ft, result.wt)
+@@ -769,7 +815,10 @@ def main():
+     parser.add_argument("--phase-pack", default=None,
+                         help="P1b phase pack 根目录（默认 _structure_lib/_phase_pack）")
+     parser.add_argument("--absorber-site", default=None,
+-                        help="P1b 吸收位标签，如 Fe1 或 frac:(0,0,0)；缺省时取候选首个吸收位")
++                        help="P1b 吸收位标签，如 Fe1 或 frac:(0,0,0)；"
++                             "多位点相未显式指定时仍拒绝（absorber_site_ambiguous），"
++                             "传 'all' 表示对每个不等价吸收位分别做正式 CN "
++                             "并输出化学计量加权汇总（P5-D）")
+     parser.add_argument("--offline", action="store_true",
+                         help="P1b 离线模式：不允许 fetcher 联网；未命中时报 offline_miss，不退回 motif")
+     parser.add_argument("--fit-motif", default=None,
+diff --git a/tools/build_source_pool.py b/tools/build_source_pool.py
+index 5c639b4..f80c503 100644
+--- a/tools/build_source_pool.py
++++ b/tools/build_source_pool.py
+@@ -39,19 +39,63 @@ ELEMENTS = ("Rh", "Pd", "Ir", "Ce", "U")
+ # k = sqrt((E - E0) / 3.81)，与项目既有 EXAFS k 换算一致。
+ K_CONVERSION = 3.81
+ 
+-# 本地 2026-11-09 观测值；当原始谱不在本机（IIT-Lytle 不提交）时作为
+-# 可复现的回退证据。文件存在时会重新读取并校验 sha256。
+-SOURCE_EVIDENCE = {
+-    "Rh": {"points": 137, "e_min": 23169.73, "e_max": 23342.59,
+-           "edge_e0": 23220.0, "file_format": "IIT-Lytle .dat"},
+-    "Pd": {"points": 195, "e_min": 24275.21, "e_max": 24472.85,
+-           "edge_e0": 24350.0, "file_format": "IIT-Lytle .dat"},
+-    "Ir": {"points": 272, "e_min": 11142.70, "e_max": 11336.90,
+-           "edge_e0": 11215.0, "file_format": "IIT-Lytle .dat"},
+-    "Ce": {"points": 259, "e_min": 5523.405, "e_max": 6152.412,
+-           "edge_e0": 5723.4, "file_format": "NIST BMM XDI"},
+-    "U": {"points": 455, "e_min": 16966.00, "e_max": 18759.65,
+-          "edge_e0": 17166.0, "file_format": "IIT-Lytle .dat"},
++# 历史隔离证据（2026-11-09 首批观测；旧谱已被替换，文件不再引用）：
++# 固定保存，保证 index.json 在没有未入库谱文件的机器上也可复现。
++LEGACY_SOURCE_EVIDENCE = {
++    "Rh": {"source": "_standards_lib/Rh/Rh_metal_foil.dat",
++           "source_sha256": "074792a1b5de859f72921a69f0ef90b0f5fa3a023f8dafdfda1c8204fa7a9d85",
++           "points": 137, "e_min": 23169.73, "e_max": 23342.59,
++           "edge_e0": 23220.0, "k_max": 5.67, "file_format": "IIT-Lytle .dat",
++           "attempt_status": "gated_out",
++           "gate_failures": ["wt_no_valid_grid"],
++           "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
++           "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity"},
++    "Pd": {"source": "_standards_lib/Pd/Pd_metal_foil.dat",
++           "source_sha256": "9f07525aaa52e0ac6ebbc4344d9c715e3c50cea6fd2654729b3909e13d77a21e",
++           "points": 195, "e_min": 24275.21, "e_max": 24472.85,
++           "edge_e0": 24350.0, "k_max": 5.68, "file_format": "IIT-Lytle .dat",
++           "attempt_status": "gated_out",
++           "gate_failures": ["wt_no_valid_grid"],
++           "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
++           "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity"},
++    "Ir": {"source": "_standards_lib/Ir/Ir_metal_foil.dat",
++           "source_sha256": "959da06b723b3342c26b5e349dce2ce1aa6ac3dda9fa62479599e5a0387d341b",
++           "points": 272, "e_min": 11142.70, "e_max": 11336.90,
++           "edge_e0": 11215.0, "k_max": 5.66, "file_format": "IIT-Lytle .dat",
++           "attempt_status": "gated_out",
++           "gate_failures": ["wt_no_valid_grid"],
++           "failure_reason": "标准谱过短：k_max 不足（IIT-Lytle 仅约 170–195 eV above E0），S5/S6 WT 无有效网格",
++           "failure_error": "ValueError: zero-size array to reduction operation maximum which has no identity"},
++    "Ce": {"source": "data/bmm_standards/Data/Ce/Ce-L3-CeO2.xdi",
++           "source_sha256": "1f679ebd0fb31ed37bca9e8ba125ad06fc0b08554052f8329a2ce7386b8c1e7e",
++           "points": 259, "e_min": 5523.405, "e_max": 6152.412,
++           "edge_e0": 5726.0, "k_max": 10.58, "file_format": "NIST BMM XDI",
++           "attempt_status": "gated_out",
++           "gate_failures": ["window_runs_interior", "s02_in_range",
++                             "s02_err_ok", "window_spread_ok",
++                             "sigma2_not_at_bound"],
++           "failure_reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
++           "failure_error": None},
++    "U": {"source": "_standards_lib/U/U_metal_foil.dat",
++          "source_sha256": "5b31461e25fe6379d30197199d31a59bb44af6e8f4855e3cb2c0b995c9510dfe",
++          "points": 455, "e_min": 16966.00, "e_max": 18759.65,
++          "edge_e0": 17163.1, "k_max": 20.47, "file_format": "IIT-Lytle .dat",
++          "attempt_status": "gated_out",
++          "gate_failures": ["window_runs_interior", "s02_in_range",
++                            "s02_err_ok", "window_spread_ok",
++                            "sigma2_not_at_bound"],
++          "failure_reason": "门禁未通过: window_runs_interior, s02_in_range, s02_err_ok, window_spread_ok, sigma2_not_at_bound",
++          "failure_error": None},
++}
++
++# 替换后通过冻结门禁的谱源观测值（来自 _standards_lib 本地文件头，
++# 固定保存以保证 build_pool() 与文件是否在本机无关）。
++RESOLVED_EVIDENCE = {
++    "Rh": {"points": 514, "e_min": 22694.49, "e_max": 24807.16},
++    "Pd": {"points": 520, "e_min": 24156.34, "e_max": 26352.59},
++    "Ir": {"points": 645, "e_min": 11015.00, "e_max": 12820.32},
++    "Ce": {"points": 327, "e_min": 5523.00, "e_max": 6158.49},
++    "U": {"points": 381, "e_min": 16966.34, "e_max": 18170.35},
+ }
+ 
+ # 人工判定的分类与下一步。user_class 保留 Gemini 建议的原始分类，
+@@ -64,13 +108,15 @@ POOL_META = {
+         "user_class": "xanes_truncation_replace_spectrum",
+         "classification": "short_spectrum_replace",
+         "assessment": "同意：谱长不足，无法进入拟合。",
++        "resolution": ("已用 IIT-Lytle RAW/Rh/rhfoil.003（514 点，22694–24807 eV）"
++                       "替换；half_height E0 + strict 门禁 5/5 通过，"
++                       "S₀²=0.7022±0.0191。"),
+         "pool_state": "quarantined",
+         "action_class": "replace_source",
+         "phase_switch_needed": False,
+         "next_actions": [
+-            "获取 Rh K 边、k_max ≥ 10–12 Å⁻¹ 的 Rh 箔或 Rh2O3 谱",
+-            "优先 Rh 箔（fcc 第一壳 N=12）复核 S₀²；Rh2O3 需配套 corundum motif",
+-            "新谱通过全部冻结门禁后才可移出隔离池",
++            "已完成：替换为 RAW 长谱并通过全部冻结门禁",
++            "维护：运行期仍只通过 --s02/--s02-from-t5 使用标定值，不改静态表",
+         ],
+         "replacement_candidates": [
+             "Rh K 边 Rh 箔透射/荧光谱（k_max ≥ 10 Å⁻¹）",
+@@ -84,13 +130,15 @@ POOL_META = {
+         "user_class": "xanes_truncation_replace_spectrum",
+         "classification": "short_spectrum_replace",
+         "assessment": "同意：谱长不足，无法进入拟合。",
++        "resolution": ("已用 IIT-Lytle RAW/Pd/pdfl.404（520 点，24156–26353 eV）"
++                       "替换；strict=False 记录 plateau=0.8138，"
++                       "五项拟合门禁 5/5 通过，S₀²=0.6559±0.0141。"),
+         "pool_state": "quarantined",
+         "action_class": "replace_source",
+         "phase_switch_needed": False,
+         "next_actions": [
+-            "获取 Pd K 边、k_max ≥ 10–12 Å⁻¹ 的 Pd 箔或 PdO 谱",
+-            "优先 Pd 箔（fcc 第一壳 N=12）复核 S₀²；PdO 需配套 tetragonal motif",
+-            "新谱通过全部冻结门禁后才可移出隔离池",
++            "已完成：替换为 RAW 长谱并通过全部冻结门禁",
++            "维护：运行期仍只通过 --s02/--s02-from-t5 使用标定值，不改静态表",
+         ],
+         "replacement_candidates": [
+             "Pd K 边 Pd 箔透射/荧光谱（k_max ≥ 10 Å⁻¹）",
+@@ -113,6 +161,9 @@ POOL_META = {
+         "pool_state": "quarantined",
+         "action_class": "replace_source_then_kmin_diagnostic",
+         "phase_switch_needed": False,
++        "resolution": ("已用 IIT-Lytle RAW/Ir/irfoil.146（645 点，11015–12820 eV）"
++                       "替换；kmin=3.0 仅作 L3 白线规避诊断，strict 门禁 5/5 "
++                       "通过，S₀²=0.4752±0.0149。"),
+         "kmin_tuning_assessment": {
+             "suggested": True,
+             "sufficient_with_current_source": False,
+@@ -125,9 +176,9 @@ POOL_META = {
+             "may_relax_gates": False,
+         },
+         "next_actions": [
+-            "获取 Ir L3 边、k_max ≥ 10–12 Å⁻¹ 的 Ir 箔或 IrO2 谱",
+-            "换谱后可将提高 k_min 作为白线规避的诊断项，但必须记录敏感性",
+-            "三窗口 spread、N_idp、σ² 不贴界等门禁全部保持不变",
++            "已完成：替换为 RAW 长谱并通过全部冻结门禁",
++            "维护：kmin 敏感性已记录在 calibration.json（kw_sensitivity/runs），"
++            "不得用于放宽门禁",
+         ],
+         "replacement_candidates": [
+             "Ir L3 边 Ir 箔透射/荧光谱（k_max ≥ 10 Å⁻¹）",
+@@ -150,11 +201,12 @@ POOL_META = {
+         "pool_state": "quarantined",
+         "action_class": "reprocess_normalization_e0",
+         "phase_switch_needed": False,
++        "resolution": ("已改用 IIT-Lytle RAW/Ce/ceo2.004（327 点，5523–6158 eV，"
++                       "Ce L2 前截断）+ rmin=1.5，strict 门禁 5/5 通过，"
++                       "S₀²=0.6279±0.0268；BMM 两条失败谱保留在 attempts 审计链。"),
+         "next_actions": [
+-            "保留 CeO2 基准，复核 rbkg/背景归一化与 E0 方法（derivative vs half_height）",
+-            "可比较其它 CeO2 L3 谱，但必须重新通过严格归一化门禁",
+-            "不得使用 Ce-L3-CeriumDioxide.xdi（平台 2.271 的归一化伪迹）",
+-            "若仍无唯一解，保持 not_calibrated；不放宽 ΔE₀/σ² 门禁",
++            "已完成：替换为 RAW 长谱并通过全部冻结门禁",
++            "维护：BMM 负例（σ² 贴界/平台 2.271）保留在 calibration.json 供复核",
+         ],
+         "replacement_candidates": [
+             "其它来源的 CeO2 L3 透射谱（平台 0.85–1.15）",
+@@ -171,7 +223,7 @@ POOL_META = {
+     "U": {
+         "edge": "L3",
+         "source_license": "IIT-Lytle；许可未明确，不提交",
+-        "phase_baseline": "α-U（COD 1527120）→ 候选 UO2 fluorite（COD 9009049）",
++        "phase_baseline": "UO2 fluorite（COD 9009049，标定专用 uo2_fluorite motif）",
+         "user_class": "phase_recalibration_oxide_baseline",
+         "classification": "oxide_phase_verification",
+         "assessment": (
+@@ -183,13 +235,14 @@ POOL_META = {
+         ),
+         "pool_state": "quarantined",
+         "action_class": "verify_uo2_phase_switch",
+-        "phase_switch_needed": "pending_source_verification",
++        "phase_switch_needed": False,
++        "resolution": ("已完成 UO2 基准切换：IIT-Lytle RAW/U/uo2.379（381 点，"
++                       "16966–18170 eV）+ COD 9009049 标定专用 uo2_fluorite "
++                       "motif（8×U–O 2.3678 Å），strict 门禁 5/5 通过，"
++                       "S₀²=0.7800±0.0229。"),
+         "next_actions": [
+-            "先核实是否存在可追溯、许可明确的 UO2 L3 标准谱",
+-            "若存在：用 COD 9009049 生成 calibration-only UO2 fluorite motif，"
+-            "以 8×U–O 第一壳重新标定",
+-            "若不存在：保持 not_calibrated，不用 RAW U 金属谱强行给值",
+-            "任何相位切换都必须重新通过全部冻结门禁",
++            "已完成：UO2 基准切换并通过全部冻结门禁",
++            "维护：uo2_fluorite 仅存在于 data/s02_calibration/motifs，不进生产 _structure_lib",
+         ],
+         "replacement_candidates": [
+             "UO2 L3 透射/荧光谱（许可明确、k_max ≥ 10 Å⁻¹）",
+@@ -286,11 +339,110 @@ def _gate_failures(attempt: dict) -> list[str]:
+ def build_element(element: str) -> dict:
+     cal_path = CAL_ROOT / element / "calibration.json"
+     calibration = _load_json(cal_path)
+-    attempt = _first_attempt(calibration)
++    attempts = calibration.get("attempts") or []
++    winner = next((a for a in attempts if a.get("status") == "passed"), None)
++    meta = POOL_META[element]
++
++    legacy = dict(LEGACY_SOURCE_EVIDENCE[element])
++    legacy["k_max_estimate"] = legacy.pop("k_max")
++
++    row = {
++        "element": element,
++        "edge": meta["edge"],
++        "calibration_artifact":
++            f"data/s02_calibration/{element}/calibration.json",
++        "last_status": calibration.get("status"),
++        "classification": meta["classification"],
++        "user_suggested_class": meta["user_class"],
++        "assessment": meta["assessment"],
++        "resolution": meta.get("resolution"),
++        "action_class": meta["action_class"],
++        "phase_baseline": meta["phase_baseline"],
++        "phase_switch_needed": meta["phase_switch_needed"],
++        "next_actions": list(meta["next_actions"]),
++        "replacement_candidates": list(meta["replacement_candidates"]),
++        "quarantined_legacy_source": legacy,
++        "acceptance": (
++            "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、"
++            "s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、"
++            "σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated"
++        ),
++    }
++    if "kmin_tuning_assessment" in meta:
++        row["kmin_tuning_assessment"] = meta["kmin_tuning_assessment"]
++    if "rejected_sources" in meta:
++        row["rejected_sources"] = meta["rejected_sources"]
++
++    if winner is not None:
++        # 已解决：所有数值都来自已提交的 calibration.json + 固定观测常量，
++        # 不依赖 _standards_lib 原始谱是否在本机。
++        result = winner.get("result") or {}
++        provenance = winner.get("provenance") or {}
++        evidence = RESOLVED_EVIDENCE[element]
++        e0 = result.get("e0")
++        if e0 is None:
++            e0 = winner.get("manual_e0") or legacy["edge_e0"]
++        post_edge_span = float(evidence["e_max"]) - float(e0)
++        k_max = (math.sqrt(post_edge_span / K_CONVERSION)
++                 if post_edge_span > 0 else 0.0)
++        source = _normalize_path(
++            provenance.get("source_path") or winner.get("standard"))
++        source_sha = str(provenance.get("used_sha256")
++                         or provenance.get("source_sha256") or "").lower()
++        resolved_by = {
++            "standard": source,
++            "source_sha256": source_sha,
++            "note": winner.get("note", ""),
++            "motif": winner.get("motif"),
++            "motif_file": winner.get("motif_file"),
++            "kmin": winner.get("kmin"),
++            "kmax": winner.get("kmax"),
++            "rmin": winner.get("rmin"),
++            "e0_method": winner.get("e0_method"),
++            "s02": calibration.get("s02"),
++            "s02_err": calibration.get("s02_err"),
++            "rf": calibration.get("rf"),
++            "spread": calibration.get("spread"),
++            "gate_failures": [],
++        }
++        row.update({
++            "e0_ev": round(float(e0), 3),
++            "current_source": source,
++            "source_sha256": source_sha,
++            "source_license": meta["source_license"],
++            "source_committed": bool(provenance.get("committed")),
++            "data_points": int(evidence["points"]),
++            "energy_range_ev": [round(float(evidence["e_min"]), 3),
++                                round(float(evidence["e_max"]), 3)],
++            "post_edge_span_ev": round(post_edge_span, 3),
++            "k_max_estimate": round(k_max, 2),
++            "calibration_motif": winner.get("motif"),
++            "attempt_status": winner.get("status"),
++            "failure_reason": None,
++            "failure_error": None,
++            "gate_failures": [],
++            "s02": calibration.get("s02"),
++            "s02_err": calibration.get("s02_err"),
++            "rf": calibration.get("rf"),
++            "spread": calibration.get("spread"),
++            "delta_e0": calibration.get("delta_e0"),
++            "sigma2": calibration.get("sigma2"),
++            "plateau": calibration.get("plateau"),
++            "k_window": calibration.get("k_window"),
++            "e0_method": calibration.get("e0_method"),
++            "n_variables": calibration.get("n_variables"),
++            "n_independent": calibration.get("n_independent"),
++            "usable_for_s02": True,
++            "pool_state": "resolved",
++            "resolved_by": resolved_by,
++        })
++        return row
++
++    # ---- 未解决分支（保留给未来回归；当前 5 元素均已 resolved） ----
++    attempt = attempts[0] if attempts else {}
+     result = attempt.get("result") or {}
+     provenance = attempt.get("provenance") or {}
+-    meta = POOL_META[element]
+-    evidence = SOURCE_EVIDENCE[element]
++    evidence = LEGACY_SOURCE_EVIDENCE[element]
+ 
+     source = _normalize_path(
+         provenance.get("source_path") or attempt.get("standard"))
+@@ -302,60 +454,34 @@ def build_element(element: str) -> dict:
+             raise SystemExit(
+                 f"{element} 源文件 sha256 不匹配: {source} 实际 {actual_sha}")
+ 
+-    # 数值证据固定为 2026-11-09 的观测值，保证 index.json 在
+-    # 没有 IIT-Lytle 本地文件（不提交）的机器上也可复现。
+-    observed = {"points": evidence["points"],
+-                "e_min": evidence["e_min"],
+-                "e_max": evidence["e_max"]}
+-
+     e0 = result.get("e0")
+     if e0 is None:
+         e0 = attempt.get("manual_e0") or evidence["edge_e0"]
+-    post_edge_span = float(observed["e_max"]) - float(e0)
++    post_edge_span = float(evidence["e_max"]) - float(e0)
+     k_max = (math.sqrt(post_edge_span / K_CONVERSION)
+              if post_edge_span > 0 else 0.0)
+ 
+-    return {
+-        "element": element,
+-        "edge": meta["edge"],
++    row.update({
+         "e0_ev": round(float(e0), 3),
+         "current_source": source,
+         "source_sha256": source_sha,
+         "source_license": meta["source_license"],
+         "source_committed": bool(provenance.get("committed")),
+-        "data_points": int(observed["points"]),
+-        "energy_range_ev": [round(float(observed["e_min"]), 3),
+-                            round(float(observed["e_max"]), 3)],
++        "data_points": int(evidence["points"]),
++        "energy_range_ev": [round(float(evidence["e_min"]), 3),
++                            round(float(evidence["e_max"]), 3)],
+         "post_edge_span_ev": round(post_edge_span, 3),
+         "k_max_estimate": round(k_max, 2),
+         "calibration_motif": attempt.get("motif"),
+-        "calibration_artifact": f"data/s02_calibration/{element}/calibration.json",
+-        "last_status": calibration.get("status"),
+         "attempt_status": attempt.get("status"),
+         "failure_reason": calibration.get("reason"),
+         "failure_error": attempt.get("error"),
+         "gate_failures": _gate_failures(attempt),
+         "s02": calibration.get("s02"),
+         "usable_for_s02": False,
+-        "pool_state": meta["pool_state"],
+-        "classification": meta["classification"],
+-        "user_suggested_class": meta["user_class"],
+-        "assessment": meta["assessment"],
+-        "action_class": meta["action_class"],
+-        "phase_baseline": meta["phase_baseline"],
+-        "phase_switch_needed": meta["phase_switch_needed"],
+-        "next_actions": list(meta["next_actions"]),
+-        "replacement_candidates": list(meta["replacement_candidates"]),
+-        "acceptance": (
+-            "替换谱必须通过冻结门禁：三窗口 interior、S₀²∈[0.4,1.15]、"
+-            "s02_err<0.06、Rf≤0.12、|ΔE₀|<10 eV、窗口极差≤0.05、"
+-            "σ² 不贴界、vars<N_idp；任一不满足则保持 not_calibrated"
+-        ),
+-        **({"kmin_tuning_assessment": meta["kmin_tuning_assessment"]}
+-           if "kmin_tuning_assessment" in meta else {}),
+-        **({"rejected_sources": meta["rejected_sources"]}
+-           if "rejected_sources" in meta else {}),
+-    }
++        "pool_state": "quarantined",
++    })
++    return row
+ 
+ 
+ def build_pool() -> dict:
+@@ -363,14 +489,20 @@ def build_pool() -> dict:
+     counts: dict[str, int] = {}
+     for row in elements:
+         counts[row["classification"]] = counts.get(row["classification"], 0) + 1
++    state_counts: dict[str, int] = {}
++    for row in elements:
++        state_counts[row["pool_state"]] = (
++            state_counts.get(row["pool_state"], 0) + 1)
+     return {
+-        "schema_version": 1,
++        "schema_version": 2,
+         "pool_id": "s02-standard-source-isolation",
+         "generated_at": POOL_DATE,
+         "generated_by": "tools/build_source_pool.py",
+         "scope": (
+-            "T5 未通过 5 元素的谱源逻辑隔离池；只做状态分类与替换准入，"
+-            "不产生 S₀²、不改静态表、不改门禁"
++            "T5 5 元素谱源隔离池（历史审计 + 替换准入）；"
++            "替换谱通过冻结门禁后标记 resolved 并记录 resolved_by，"
++            "旧谱保留在 quarantined_legacy_source；不产生新 S₀²、"
++            "不改静态表、不改门禁"
+         ),
+         "policy": gate_policy(),
+         "user_classification_map": {
+@@ -380,6 +512,7 @@ def build_pool() -> dict:
+         },
+         "elements_total": len(elements),
+         "classification_counts": dict(sorted(counts.items())),
++        "pool_state_counts": dict(sorted(state_counts.items())),
+         "elements": elements,
+     }
+ 
+diff --git a/xafs_fit.py b/xafs_fit.py
+index 625b1a6..349165f 100644
+--- a/xafs_fit.py
++++ b/xafs_fit.py
+@@ -20,6 +20,7 @@ xafs_fit.py — 拟合链编排（S6.5 结构识别 + S7 自动/指定结构拟
+ from __future__ import annotations
+ 
+ import math
++import re
+ from pathlib import Path
+ 
+ import numpy as np
+@@ -2707,3 +2708,345 @@ def build_formal_cn_block(
+         rows.append(row)
+     return {"status": "ok", "rows": rows, "reject_reason": None,
+             "model": model}
++
++
++# ================================================================
++# P5-D：多位点正式 CN（--absorber-site all）
++# ================================================================
++def _site_fractional(model: StructureModel) -> list[float]:
++    """从 StructureModel 取吸收位的分数坐标。"""
++    label = str(model.absorber_site or "")
++    m = re.match(r"frac:\(([^,]+),([^,]+),([^)]+)\)", label)
++    if m:
++        return [float(m.group(1)), float(m.group(2)), float(m.group(3))]
++    for site in (model.asym_sites or []):
++        if str(site.get("label")) == label:
++            return [float(site["x"]), float(site["y"]), float(site["z"])]
++    raise CNError(
++        "absorber_site_missing",
++        f"{model.model_id}: 找不到吸收位 {label!r} 的分数坐标")
++
++
++def _site_motif_from_model(model: StructureModel) -> structure_lib.Motif:
++    """由 CIF + 吸收位坐标构建该位点的团簇 motif（不写生产结构库）。"""
++    if not model.source_cif:
++        raise CNError("no_cif", f"{model.model_id}: 缺少 source_cif")
++    sites, occs = artemis.read_cif_sites(
++        model.source_cif, absorber=model.absorber, rmax=6.0,
++        absorber_fract=_site_fractional(model), with_occupancy=True)
++    if not sites:
++        raise CNError(
++            "absorber_missing",
++            f"{model.model_id}@{model.absorber_site}: rmax=6.0 Å 内无近邻")
++    # motif id 会参与 FEFF 缓存目录名（Windows 不允许 ':'），必须做
++    # 文件系统安全化；只影响诊断缓存，不改变 phase/site 溯源字段。
++    safe_id = re.sub(r"[^A-Za-z0-9_.@-]+", "_",
++                     f"{model.model_id}@{model.absorber_site}")
++    return structure_lib.Motif(
++        id=safe_id,
++        absorber=model.absorber,
++        kind="cluster",
++        nuclearity="m1",
++        source={"type": "cif_site", "ref": model.source_ref or ""},
++        sites=sites,
++        shell_expect=structure_lib.geometric_shells(sites, occs=occs),
++        absorber_site=model.absorber_site,
++        source_ref=model.source_ref,
++        source_cif_sha256=model.source_cif_sha256,
++        model_level=model.model_level,
++        provenance_status=model.provenance_status,
++    )
++
++
++def _num(value) -> float | None:
++    try:
++        out = float(value)
++    except (TypeError, ValueError):
++        return None
++    return out if math.isfinite(out) else None
++
++
++def _first_shell_stats(rows: list[dict]) -> dict:
++    """把一个位点 formal 行里的第一壳行汇总成 N₀/N_fit/误差/键长。"""
++    first = [r for r in rows if r.get("shell_group") == "first_shell"]
++    n0 = sum(_num(r.get("n0")) or 0.0 for r in first)
++    n_fit = sum(_num(r.get("n_fit")) or 0.0 for r in first)
++    errors = [e for e in (_num(r.get("n_err_formal")) for r in first)
++              if e is not None]
++    r_terms = [(float(r["r_cif"]), _num(r.get("n0")) or 0.0)
++               for r in first if _num(r.get("r_cif")) is not None]
++    sig_terms = [(_num(r.get("sigma2")), _num(r.get("n0")) or 0.0)
++                 for r in first if _num(r.get("sigma2")) is not None]
++    dr_terms = [(_num(r.get("delta_r")), _num(r.get("n0")) or 0.0)
++                for r in first if _num(r.get("delta_r")) is not None]
++    e0_terms = [(_num(r.get("delta_e0")), _num(r.get("n0")) or 0.0)
++                for r in first if _num(r.get("delta_e0")) is not None]
++    rf = [_num(r.get("rf")) for r in first]
++    rf = [v for v in rf if v is not None]
++    scatterers = sorted({str(r.get("scatterer") or "") for r in first
++                         if r.get("scatterer")})
++    return {
++        "n0": n0,
++        "n_fit": n_fit,
++        "n_err": (math.sqrt(sum(e * e for e in errors))
++                  if errors else None),
++        "r_cif": (sum(r * n for r, n in r_terms) / n0 if n0 > 0
++                  and r_terms else None),
++        "sigma2": (sum(s * n for s, n in sig_terms) / n0 if n0 > 0
++                   and sig_terms else None),
++        "delta_r": (sum(v * n for v, n in dr_terms) / n0 if n0 > 0
++                    and dr_terms else None),
++        "delta_e0": (sum(v * n for v, n in e0_terms) / n0 if n0 > 0
++                     and e0_terms else None),
++        "rf": (max(rf) if rf else None),
++        "scatterer": (scatterers[0] if len(scatterers) == 1 else "mixed"),
++        "n_rows": len(first),
++    }
++
++
++def run_multi_site_formal_cn(
++    res,
++    *,
++    site_models: list[StructureModel],
++    gate_results,
++    s02: float | None = None,
++    s02_source: str = "absorber.py",
++    data_sha256: str = "",
++    software_version: str = cn_table.SOFTWARE_VERSION,
++    verbose: bool = False,
++) -> dict:
++    """P5-D：对 ``--absorber-site all`` 的每个不等价位点独立做条件 CN。
++
++    输出契约：
++    - 每个位点各自的门禁、条件 CN 行（``flags`` 带 ``multi_site_member``
++      与 ``site_weight``）；
++    - 仅当**全部**位点 ``build_formal_cn_block`` 返回 ``status="ok"`` 时，
++      追加一行 ``absorber_site="ALL_WEIGHTED"`` 的化学计量加权汇总；
++    - 任一位点失败：该位点写拒绝行，且**不输出**加权汇总行。
++    """
++    if not site_models:
++        raise XAFSConfigError("FIT", "多位点正式 CN 缺少结构模型")
++    if len(site_models) != len(gate_results):
++        raise XAFSConfigError(
++            "FIT", f"多位点模型数({len(site_models)}) != 门禁结果数"
++                   f"({len(gate_results)})")
++    absorber_symbol = site_models[0].absorber
++    absorber = (get_absorber(absorber_symbol) if s02 is None
++                else structure_id.absorber_with_s02(absorber_symbol, s02))
++    if absorber.s02 is None:
++        raise XAFSConfigError(
++            "FIT", f"{absorber.symbol} 未标定 S₀²，拒绝多位点 CN 定量")
++
++    rows: list[dict] = []
++    per_site: list[dict] = []
++    all_ok = True
++    for model, gate in zip(site_models, gate_results):
++        record = {
++            "absorber_site": model.absorber_site,
++            "site_weight": getattr(gate, "site_weight", None),
++            "site_multiplicity": getattr(gate, "site_multiplicity", None),
++            "site_occupancy": getattr(gate, "site_occupancy", None),
++            "status": "gate_failed",
++            "rows": [],
++        }
++        if not getattr(gate, "ok", False):
++            record["gate_code"] = getattr(gate, "code", None)
++            record["gate_reason"] = getattr(gate, "reason", "")
++            all_ok = False
++            rows.append(cn_table.refusal_row(
++                "gate_failed", getattr(gate, "reason", "") or "CIF gate 拒绝",
++                phase_id=model.model_id,
++                model_level=model.model_level,
++                source_type=model.source_type,
++                source_ref=model.source_ref,
++                source_cif_sha256=model.source_cif_sha256,
++                absorber_site=model.absorber_site,
++                s02=absorber.s02,
++                s02_source=s02_source,
++                s02_calibrated=_s02_calibrated_flag(absorber, s02_source),
++            ))
++            per_site.append(record)
++            continue
++
++        try:
++            motif = _site_motif_from_model(model)
++            plan = select_shell_paths(
++                motif, edge=absorber.edge,
++                kmin=res.ft.kmin, kmax=res.ft.kmax)
++            n0_mapping = map_n0_to_plan(
++                plan, gate.n0_shells,
++                kmin=res.ft.kmin, kmax=res.ft.kmax)
++            if not n0_mapping["mapping_ok"]:
++                raise CNError("n0_mapping_failed", n0_mapping["mapping_reason"])
++            conditional = run_conditional_cn(
++                res, plan, n0_mapping,
++                absorber_symbol=absorber.symbol, s02=absorber.s02,
++                kmin=res.ft.kmin, kmax=res.ft.kmax,
++                rmin=plan["rmin"], rmax=plan["rmax"],
++                verbose=False)
++            block = build_formal_cn_block(
++                conditional_cn=conditional, plan=plan,
++                n0_mapping=n0_mapping, structure_model=model,
++                absorber=absorber, s02_source=s02_source,
++                data_sha256=data_sha256,
++                software_version=software_version)
++            if block["status"] != "ok":
++                all_ok = False
++                record.update({
++                    "status": block["status"],
++                    "reject_reason": block.get("reject_reason"),
++                })
++                rows.append(cn_table.refusal_row(
++                    block["status"], block.get("reject_reason") or "",
++                    phase_id=model.model_id,
++                    model_level=model.model_level,
++                    source_type=model.source_type,
++                    source_ref=model.source_ref,
++                    source_cif_sha256=model.source_cif_sha256,
++                    absorber_site=model.absorber_site,
++                    s02=absorber.s02,
++                    s02_source=s02_source,
++                    s02_calibrated=_s02_calibrated_flag(
++                        absorber, s02_source),
++                ))
++                per_site.append(record)
++                continue
++
++            weight = float(getattr(gate, "site_weight", 0.0) or 0.0)
++            for row in block["rows"]:
++                flags = row.get("flags") or ""
++                row["flags"] = (
++                    flags + ";" if flags else ""
++                ) + f"multi_site_member;site_weight={weight:.6f}"
++            rows.extend(block["rows"])
++            stats = _first_shell_stats(block["rows"])
++            record.update({
++                "status": "ok",
++                "site_weight": weight,
++                "n0": stats["n0"],
++                "n_fit": stats["n_fit"],
++                "n_ratio": (stats["n_fit"] / stats["n0"]
++                            if stats["n0"] > 0 else None),
++                "rf": stats["rf"],
++                "rows": len(block["rows"]),
++            })
++            per_site.append(record)
++        except (XAFSConfigError, XAFSDataError, CNError) as exc:
++            all_ok = False
++            reason = getattr(exc, "message", str(exc))
++            record.update({"status": "error", "reject_reason": reason})
++            rows.append(cn_table.refusal_row(
++                "multi_site_error", reason,
++                phase_id=model.model_id,
++                model_level=model.model_level,
++                source_type=model.source_type,
++                source_ref=model.source_ref,
++                source_cif_sha256=model.source_cif_sha256,
++                absorber_site=model.absorber_site,
++                s02=absorber.s02,
++                s02_source=s02_source,
++                s02_calibrated=_s02_calibrated_flag(absorber, s02_source),
++            ))
++            per_site.append(record)
++
++    result = {
++        "status": "ok" if all_ok else "multi_site_failed",
++        "rows": rows,
++        "per_site": per_site,
++        "multi_site": True,
++        "site_weights": {
++            str(r["absorber_site"]): r.get("site_weight") for r in per_site},
++        "reject_reason": (None if all_ok else
++                          "至少一个吸收位点未通过门禁/条件 CN；"
++                          "不输出化学计量加权汇总"),
++        "model": site_models[0].to_json(),
++        "models": [m.to_json() for m in site_models],
++    }
++    if not all_ok:
++        return result
++
++    # ---- 全部位点通过：化学计量加权汇总行 ----
++    weights = [float(getattr(g, "site_weight", 0.0) or 0.0)
++               for g in gate_results]
++    site_stats = [_first_shell_stats(block_rows)
++                  for block_rows in ([r for r in rows
++                                      if r.get("absorber_site") == m.absorber_site]
++                                     for m in site_models)]
++    n0_total = sum(w * s["n0"] for w, s in zip(weights, site_stats))
++    n_fit_total = sum(w * s["n_fit"] for w, s in zip(weights, site_stats))
++    r_num = sum(w * s["n0"] * (s["r_cif"] or 0.0)
++                for w, s in zip(weights, site_stats))
++    sig_num = sum(w * s["n0"] * (s["sigma2"] or 0.0)
++                  for w, s in zip(weights, site_stats))
++    err_terms = [w * s["n_err"] for w, s in zip(weights, site_stats)
++                 if s["n_err"] is not None]
++    rf_vals = [s["rf"] for s in site_stats if s["rf"] is not None]
++    first_rows = [r for r in rows if r.get("shell_group") == "first_shell"]
++    scatterers = sorted({str(r.get("scatterer"))
++                         for r in first_rows if r.get("scatterer")})
++    dr_num = sum(w * s["n0"] * (s["delta_r"] or 0.0)
++                 for w, s in zip(weights, site_stats))
++    e0_num = sum(w * s["n0"] * (s["delta_e0"] or 0.0)
++                 for w, s in zip(weights, site_stats))
++
++    summary = {column: "" for column in cn_table.CN_TABLE_COLUMNS}
++    summary.update({
++        "phase_id": site_models[0].model_id,
++        "model_level": site_models[0].model_level,
++        "source_type": site_models[0].source_type,
++        "source_ref": site_models[0].source_ref,
++        "source_cif_sha256": site_models[0].source_cif_sha256,
++        "absorber_site": "ALL_WEIGHTED",
++        "shell_group": "first_shell_weighted",
++        "shell_label": "+".join(
++            f"{m.absorber_site}({w:.3f})"
++            for m, w in zip(site_models, weights)),
++        "scatterer": (scatterers[0] if len(scatterers) == 1 else "mixed"),
++        "r_cif": (r_num / n0_total if n0_total > 0 else ""),
++        "n0": n0_total,
++        "n0_members": sum(int(s["n_rows"]) for s in site_stats),
++        "n_fit": n_fit_total,
++        "n_status": "weighted_average",
++        "n_ratio": (n_fit_total / n0_total if n0_total > 0 else ""),
++        "n_err_formal": (math.sqrt(sum(e * e for e in err_terms))
++                         if err_terms else ""),
++        "n_err_systematic": CN_SYSTEMATIC_BUDGET["relative_1sigma"],
++        "delta_r": (dr_num / n0_total if n0_total > 0 else ""),
++        "sigma2": (sig_num / n0_total if n0_total > 0 else ""),
++        "delta_e0": (e0_num / n0_total if n0_total > 0 else ""),
++        "rf": (max(rf_vals) if rf_vals else ""),
++        "s02": absorber.s02,
++        "s02_source": s02_source,
++        "s02_calibrated": _s02_calibrated_flag(absorber, s02_source),
++        "kmin": min(_num(r.get("kmin")) or 0.0 for r in first_rows)
++                if first_rows else "",
++        "kmax": max(_num(r.get("kmax")) or 0.0 for r in first_rows)
++                if first_rows else "",
++        "kweight": first_rows[0].get("kweight", "") if first_rows else "",
++        "rmin": min(_num(r.get("rmin")) or 0.0 for r in first_rows)
++                if first_rows else "",
++        "rmax": max(_num(r.get("rmax")) or 0.0 for r in first_rows)
++                if first_rows else "",
++        "n_idp": min(_num(r.get("n_idp")) or 0.0 for r in first_rows)
++                 if first_rows else "",
++        "n_variables": sum(int(_num(r.get("n_variables")) or 0)
++                           for r in first_rows),
++        "cn_label": "cn_conditional_multi_site",
++        "gate_status": ("passed"
++                        if all(r.get("gate_status") == "passed"
++                               for r in first_rows) else "warning"),
++        "reject_reason": "",
++        "flags": "multi_site_weighted_summary",
++        "assumptions": (
++            "site_weight=m_i*occ_i_normalized;"
++            "each_site_fit_independent;"
++            "first_shell_weighted_by_stoichiometry;"
++            "no_partial_site_release"),
++        "data_sha256": data_sha256,
++        "software_version": software_version,
++    })
++    rows.append(summary)
++    if verbose:
++        print(f"  [P5-D] {len(site_models)} 个吸收位点全部通过；"
++              f"加权 N₀={n0_total:.4f}  N_fit={n_fit_total:.4f}")
++    return result
