@@ -4115,6 +4115,61 @@ Ru1 Ru 0.5 0.5 0.5 0.3
         fit = pf.load_fit(self._disclosure_payload())
         self.assertEqual(pf.validate_cn_disclosure(fit), [])
 
+    def test_cn_disclosure_large_delta_e0_is_advisory_only(self):
+        """CN 披露标准：|Delta E0| > 5 eV 只提示，不阻断。"""
+        payload = self._disclosure_payload()
+        payload["fit"]["delta_e0"] = 8.0
+        self.assertEqual(cn_disclosure.check_fit_payload(payload), [])
+        notes = cn_disclosure.delta_e0_warnings(payload)
+        self.assertEqual(len(notes), 1)
+        self.assertIn("large", notes[0].lower())
+        self.assertIn("absorption-edge shift", notes[0].lower())
+
+    def test_cn_disclosure_delta_e0_threshold(self):
+        """CN 披露标准：5 eV 边界与负值都要判断。"""
+        payload = self._disclosure_payload()
+        for value, expected in ((5.0, 0), (5.01, 1), (-8.0, 1), (0.0, 0)):
+            payload["fit"]["delta_e0"] = value
+            self.assertEqual(
+                len(cn_disclosure.delta_e0_warnings(payload)), expected,
+                msg=f"delta_e0={value}")
+
+    def test_cn_disclosure_cli_advisory_does_not_fail(self):
+        """CN 披露标准：CLI 对大 Delta E0 返回 0，并打印 NOTE。"""
+        import contextlib
+        import io
+
+        payload = self._disclosure_payload()
+        payload["fit"]["delta_e0"] = 8.0
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "fit.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = cn_disclosure.main([str(path)])
+        self.assertEqual(code, 0)
+        output = buf.getvalue()
+        self.assertIn("[NOTE]", output)
+        self.assertIn("large", output.lower())
+
+    def test_paper_figures_cn_table_includes_delta_e0_advisory(self):
+        """CN 表：大 Delta E0 写入 Disclosure warnings 与 CSV advisory 列。"""
+        import paper_figures as pf
+
+        fit = pf.load_fit(self._disclosure_payload())
+        self.assertIsNotNone(fit)
+        fit.delta_e0 = 8.0
+        with tempfile.TemporaryDirectory() as tmp:
+            md = pf.write_cn_markdown(fit, tmp, stem="cn_table")
+            csv_path = pf.write_cn_csv(fit, tmp, stem="cn_table")
+            md_text = md.read_text(encoding="utf-8")
+            csv_text = csv_path.read_text(encoding="utf-8-sig")
+        self.assertIn("Disclosure warnings", md_text)
+        self.assertIn("advisory, non-blocking", md_text)
+        self.assertIn("large |Delta E0|", md_text)
+        self.assertIn("disclosure_advisories", csv_text)
+        self.assertIn("large |Delta E0|", csv_text)
+
     # ------------------------------------------------------------
     # 79–82. P0b：motif provenance 升级
     # ------------------------------------------------------------

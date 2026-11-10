@@ -93,7 +93,9 @@ import athena           # noqa: E402
 import xafs_pipeline    # noqa: E402
 from absorber import get_absorber  # noqa: E402
 from xafs_core import FitResult, PipelineResult  # noqa: E402
-from cn_disclosure import check_fit_payload, cif_status  # noqa: E402
+from cn_disclosure import (  # noqa: E402
+    DELTA_E0_COMFORT_EV, check_fit_payload, cif_status,
+    delta_e0_warnings)
 
 # 控制台默认 GBK，打印 Å / σ² / Δ 会直接崩；入口统一改成 UTF-8。
 for _stream in (sys.stdout, sys.stderr):
@@ -467,6 +469,16 @@ def fit_result_to_json(
             rec["n_status"] = "fixed"
         paths.append(rec)
     kweights = list(getattr(fit, "kweights", None) or (2,))
+    flags_out = dict(flags or {})
+    if abs(float(fit.delta_e0)) > DELTA_E0_COMFORT_EV:
+        flags_out.setdefault("large_delta_e0", True)
+        flags_out.setdefault(
+            "delta_e0_advisory",
+            f"|Delta E0| = {abs(fit.delta_e0):.2f} eV > "
+            f"{DELTA_E0_COMFORT_EV:.0f} eV; check the FEFF path energy zero, "
+            "experimental E0 convention, and model completeness; do not "
+            "report it as an absorption-edge shift without independent "
+            "XANES evidence.")
     return {
         "sample": sample,
         "mode": "paper",
@@ -490,7 +502,7 @@ def fit_result_to_json(
                                    else "not_stated"),
         "diagnostic_only": bool(diagnostic_only),
         "cn_systematics": cn_systematics or {},
-        "flags": flags or {},
+        "flags": flags_out,
         "structure": (_normalize_structure(structure, Path.cwd())
                       if structure else {}),
     }
@@ -762,13 +774,9 @@ def cn_rows(fit: FitData) -> list[dict]:
     return rows
 
 
-def validate_cn_disclosure(fit: FitData) -> list[str]:
-    """检查 CN 输出是否达到项目披露标准；只报告缺口，不改数值。
-
-    规则见 ``docs/CN_REPORTING_STANDARD.md``。空列表表示最低披露要求
-    已满足；任何问题都只影响报告文字/门禁，不影响拟合结果。
-    """
-    payload = {
+def _disclosure_payload(fit: FitData) -> dict:
+    """构造披露检查器使用的 payload；不读取外部文件。"""
+    return {
         "structure": fit.structure,
         "path_files": list(fit.path_files or []),
         "cn_status": fit.cn_status,
@@ -788,7 +796,25 @@ def validate_cn_disclosure(fit: FitData) -> list[str]:
             "r_factor": fit.r_factor,
         },
     }
-    return check_fit_payload(payload)
+
+
+def validate_cn_disclosure(fit: FitData) -> list[str]:
+    """检查 CN 输出是否达到项目披露标准；只报告缺口，不改数值。
+
+    规则见 ``docs/CN_REPORTING_STANDARD.md``。空列表表示最低披露要求
+    已满足；任何问题都只影响报告文字/门禁，不影响拟合结果。
+    """
+    return check_fit_payload(_disclosure_payload(fit))
+
+
+def validate_cn_advisories(fit: FitData) -> list[str]:
+    """返回非阻断披露提示（当前为大 ``|Delta E0|``）。
+
+    这些提示不会让 ``validate_cn_disclosure`` 失败，也不会触发
+    ``--strict-disclosure``；它们只进入 CN 表的 Disclosure warnings
+    和 CSV 的 advisory 列。
+    """
+    return delta_e0_warnings(_disclosure_payload(fit))
 
 
 def _structure_fields(fit: FitData) -> list[tuple[str, str]]:
@@ -873,6 +899,10 @@ def _cn_footnote(fit: FitData, *, compact: bool = False) -> str:
     if fit.diagnostic_only and "diagnostic" not in status.lower():
         status += "; diagnostic only, not for formal CN"
     lines = [line1, line2, status]
+    if abs(fit.delta_e0) > DELTA_E0_COMFORT_EV:
+        lines.append(
+            f"Large |$\\Delta E_0$| = {abs(fit.delta_e0):.2f} eV: "
+            "check FEFF/E0 zero and model completeness; not an edge shift.")
     if not compact:
         lines.append("Errors are formal only. See the fit JSON for the "
                      "full parameter set and correlation matrix.")
@@ -958,11 +988,12 @@ def write_cn_csv(fit: FitData, out: str | Path, stem: str = "cn_table") -> Path:
         "model_level", "absorber_site", "provenance_status",
         "cif_status", "cif_file", "cif_sha256",
         "feff_inputs", "feff_input_sha256",
-        "disclosure_status", "disclosure_issues",
+        "disclosure_status", "disclosure_issues", "disclosure_advisories",
     ]
     budget = (fit.cn_systematics or {}).get("relative_1sigma")
     s = fit.structure or {}
     disclosure_issues = validate_cn_disclosure(fit)
+    disclosure_advisories = validate_cn_advisories(fit)
     struct_cols = [
         s.get("source_type") or "", s.get("source_ref") or "",
         s.get("phase_id") or "", s.get("model_level") or "",
@@ -972,6 +1003,7 @@ def write_cn_csv(fit: FitData, out: str | Path, stem: str = "cn_table") -> Path:
         "; ".join(str(x) for x in (s.get("feff_input_sha256") or []) if x),
         ("warn" if disclosure_issues else "ok"),
         "; ".join(disclosure_issues),
+        "; ".join(disclosure_advisories),
     ]
     with open(path, "w", encoding="utf-8-sig", newline="") as fh:
         writer = csv.writer(fh)
@@ -1009,9 +1041,12 @@ def write_cn_markdown(fit: FitData, out: str | Path,
     if notes:
         lines += ["", "**Notes**", ""] + notes
     issues = validate_cn_disclosure(fit)
-    if issues:
+    advisories = validate_cn_advisories(fit)
+    if issues or advisories:
         lines += ["", "**Disclosure warnings**", ""]
         lines += [f"- {issue}" for issue in issues]
+        lines += [f"- (advisory, non-blocking) {note}"
+                  for note in advisories]
     lines += ["", "**Structure / CIF provenance**", "",
               "| Field | Value |", "|---|---|"]
     for label, value in _structure_fields(fit):
@@ -1429,6 +1464,8 @@ def make_paper_figure(
             "请确认 fit JSON 含 path_files，或传 fit_path_files。")
 
     disclosure_issues = validate_cn_disclosure(fit_data) if has_fit else []
+    disclosure_advisories = (validate_cn_advisories(fit_data)
+                             if has_fit else [])
     if disclosure_issues:
         if strict_disclosure:
             raise ValueError(
@@ -1438,6 +1475,10 @@ def make_paper_figure(
             print("[paper] CN disclosure warnings:")
             for issue in disclosure_issues:
                 print(f"        - {issue}")
+    if disclosure_advisories and verbose:
+        print("[paper] CN disclosure advisories (non-blocking):")
+        for note in disclosure_advisories:
+            print(f"        - {note}")
 
     # ---- 画布 ----
     if has_fit:

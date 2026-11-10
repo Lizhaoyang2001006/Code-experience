@@ -103,6 +103,9 @@ python cn_disclosure.py fit1.json fit2.json --warn-only
 
 - 返回码 1 表示存在披露缺口；`--warn-only` 只打印、不返回失败。
 - 只读 JSON，不重新拟合、不修改数值、不猜结构。
+- `|Delta E0| > 5 eV` 只打印 `[NOTE]` 非阻断提示，不改变返回码；
+  项目硬门禁仍是 `|Delta E0| < 15 eV`。该提示要求检查 FEFF 路径
+  能量零点、实验 E0 约定和模型完整性，不能直接写成吸收边位移。
 
 ### 5.2 在 Python 中检查
 
@@ -112,6 +115,8 @@ import paper_figures as pf
 fit = pf.load_fit("sample_fit.json")
 for issue in pf.validate_cn_disclosure(fit):
     print("WARN:", issue)
+for note in pf.validate_cn_advisories(fit):
+    print("NOTE:", note)   # 非阻断；当前为大 |Delta E0|
 ```
 
 ### 5.3 出图时强制门禁
@@ -123,8 +128,10 @@ python paper_figures.py --sample sample_mu.dat --absorber M `
 
 - 默认只打印警告，保持历史行为。
 - `--strict-disclosure` 在披露不完整时直接报错；交付论文图建议开启。
-- `*_cn_table.md` 会写出 `Disclosure warnings` 段。
-- `*_cn_table.csv` 末尾有 `disclosure_status` 和 `disclosure_issues` 两列。
+- `*_cn_table.md` 会写出 `Disclosure warnings` 段；非阻断提示标为
+  `(advisory, non-blocking)`。
+- `*_cn_table.csv` 末尾有 `disclosure_status`、`disclosure_issues` 和
+  `disclosure_advisories` 三列；`disclosure_status` 只反映阻断缺口。
 
 ## 6. 交付清单
 

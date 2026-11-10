@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 """cn_disclosure.py — CN 输出披露标准检查（项目级）
 
-本模块把 Pt1/CeO2@CeO2 案例中总结出的 CN 报告要求固化成可执行检查：
+本模块把 XAFS CN 报告中总结出的通用披露要求固化成可执行检查：
 
 - 结构与 CIF 来源必须写清；没有 CIF 时显式声明 ``cif=None``；
 - 构造团簇必须给出构造方法，不能用无关 CIF 顶替；
 - 必须披露 S0^2、Delta E0、k/R 窗口、kweight、N_idp、变量数、Rf；
 - 必须给出 CN 状态与系统误差预算；
-- 诊断级 CN 不能伪装成正式 CN。
+- 诊断级 CN 不能伪装成正式 CN；
+- ``|Delta E0| > 5 eV`` 只给非阻断提示：检查 FEFF 路径零点、实验 E0
+  约定和模型完整性，不要直接当成吸收边位移；不改变披露检查的通过/失败。
 
 检查器只读 fit JSON，不重新拟合、不修改任何数值，也不猜测结构。
 它可以独立运行，也可以被 ``paper_figures.py`` 调用。
@@ -40,6 +42,10 @@ _FIT_FIELDS = (
 
 # 每条路径必须能读到的数值字段。
 _PATH_FIELDS = ("N", "R", "sigma2")
+
+# |Delta E0| 超过这个值只给非阻断提示，不改变披露门禁。
+# 5 eV 是 EXAFS 拟合的经验舒适区；项目硬门禁仍是 |Delta E0| < 15 eV。
+DELTA_E0_COMFORT_EV = 5.0
 
 
 def _cif_path(structure: dict) -> str | None:
@@ -223,13 +229,47 @@ def check_fit_payload(payload: dict) -> list[str]:
     return issues
 
 
-def _print_report(path: Path, issues: list[str]) -> None:
+def delta_e0_warnings(payload: dict) -> list[str]:
+    """返回非阻断的 Delta E0 提示，不参与 `check_fit_payload` 的失败判定。
+
+    ``|Delta E0| > 5 eV`` 时提示：检查 FEFF 路径能量零点、实验 E0
+    约定和模型完整性，不要直接当成吸收边位移。项目硬门禁仍是
+    ``|Delta E0| < 15 eV``。
+    """
+    if not isinstance(payload, dict):
+        return []
+    f = payload.get("fit")
+    if not isinstance(f, dict):
+        f = payload
+    value = f.get("delta_e0")
+    if value is None:
+        value = payload.get("delta_e0")
+    if value is None:
+        return []
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return []
+    if abs(value) <= DELTA_E0_COMFORT_EV:
+        return []
+    return [
+        f"large |Delta E0| = {abs(value):.2f} eV (> "
+        f"{DELTA_E0_COMFORT_EV:.0f} eV): check the FEFF path energy zero, "
+        "experimental E0 convention, and model completeness; do not report "
+        "it as an absorption-edge shift without independent XANES evidence."
+    ]
+
+
+def _print_report(path: Path, issues: list[str],
+                  advisories: list[str] | None = None) -> None:
     if issues:
         print(f"[WARN] {path}")
         for issue in issues:
             print(f"  - {issue}")
     else:
         print(f"[OK]   {path}")
+    for advisory in advisories or []:
+        print(f"  [NOTE] {advisory}")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -254,7 +294,8 @@ def main(argv: list[str] | None = None) -> int:
             failed = True
             continue
         issues = check_fit_payload(payload)
-        _print_report(path, issues)
+        advisories = delta_e0_warnings(payload)
+        _print_report(path, issues, advisories)
         failed = failed or bool(issues)
     if failed and not args.warn_only:
         return 1
