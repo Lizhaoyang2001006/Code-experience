@@ -437,7 +437,8 @@ def _s8_wt_sweep(res: PipelineResult, outdir, made):
     made.append(png)
     csv_path = Path(outdir) / "wt_sweep.csv"
     _write_wt_sweep_csv(sweep["rows"], csv_path)
-    made.append(csv_path)
+    # CSV 是配套数据，不计入 made（调用方按 PNG 张数打印，避免“9 张”实为
+    # 8 图 + 1 CSV 的误导）。
 
 
 def write_wt_sweep(res: PipelineResult, outdir, stem: str | None = None):
@@ -652,7 +653,7 @@ STAGES = (_s1, _s2, _s3, _s4, _s5, _s6, _s7_ft_wt_joint, _s8_wt_sweep)
 
 
 def write_diagnostics(res: PipelineResult, outdir) -> list:
-    """逐阶段画诊断图，返回生成的 PNG 路径列表。"""
+    """逐阶段画诊断图，返回生成的 PNG 路径列表（配套 CSV 另落盘）。"""
     _style()
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)

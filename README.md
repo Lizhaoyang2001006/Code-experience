@@ -230,12 +230,29 @@ python run_xafs.py <谱文件> --absorber Fe --config xafs.yaml
 S1.5–S3 之间插入中值滑窗（窗口=5）+ MAD 门禁（阈值=3×MAD），默认关闭。
 实测 lepidocrocite 替换 79 个离群点，E0/edge_step/Rbkg 结果与未去毛刺一致。
 
-### FT–WT 联合诊断图（`s7_ft_wt_joint.png`）
-`--diagnostics` 现输出 9 个阶段产物（原 6 张 + 联合图 + S8 WT 对比图/CSV）。
-左图 `|χ(R)|` 标注 FT 第一峰 r1；右图 WT contour 叠加水平线 R=r1 与垂直线
-k=k_wt，交点标出，直接回答「这个 FT 峰主要来自哪个 k」。对标 Larch-WT 的
-交互诊断，避免 WT 在多壳分支间 argmax 跳壳（Fe3O4 实测：Booth 校正把低 k
-抬高 7% 后 WT 峰从 2.60 跳到 1.42，FT 峰纹丝不动；联合图可肉眼核对）。
+### FT–WT 联合诊断图（`diagnostics/s7_ft_wt_joint.png`）
+该图属于**显式诊断产物**，默认不生成，`--figure-pack` 也不包含它。
+需要在命令中加 `--diagnostics`：
+
+```powershell
+# 报告入口
+python xafs_report.py sample.xdi --absorber Fe --fit-motif lepidocrocite --diagnostics -o xafs_out/demo
+
+# 通用入口
+python run_xafs.py sample.xdi --absorber Fe --identify --fit --diagnostics -o xafs_out/demo
+```
+
+输出目录为 `<outdir>/diagnostics/`。两个入口都生成 9 张 PNG：
+`s1_raw_scans.png`、`s2_e0.png`、`s3_normalization.png`、`s4_rbkg.png`、
+`s5_chik_chir.png`、`s5b_backft.png`、`s6_wavelet.png`、
+`s7_ft_wt_joint.png`、`s8_wt_sweep.png`，以及配套 `wt_sweep.csv`
+（9 行：σ × kweight 的峰位/幅度/相对 FT 偏移）。
+
+`s7_ft_wt_joint.png` 左图 `|χ(R)|` 标注 FT 第一峰 r1；右图 WT contour
+叠加水平线 R=r1 与垂直线 k=k_wt，交点标出，直接回答「这个 FT 峰主要
+来自哪个 k」。对标 Larch-WT 的交互诊断，避免 WT 在多壳分支间 argmax
+跳壳（Fe3O4 实测：Booth 校正把低 k 抬高 7% 后 WT 峰从 2.60 跳到 1.42，
+FT 峰纹丝不动；联合图可肉眼核对）。
 
 ### 多 kweight / σ 的 WT 对比（S8，`--wt-sweep`）
 `xafs_diagnostics.wt_sweep` 在 FT 第一峰 ±0.5 Å 锚定下扫描 σ∈{1.0,1.5,2.0}

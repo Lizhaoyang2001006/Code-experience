@@ -130,6 +130,7 @@ ax.set_title("Table S1. Fe K-edge EXAFS curve-fitting parameters for ...",
 | `<stem>_xanes.csv` | 逐点 | energy_eV, mu, pre_edge_line, mu_norm |
 | `<stem>_chik.csv` | 逐点 | k_inv_A, chi, k2chi |
 | `<stem>_chir.csv` | 逐点 | R_A, chi_R_re, chi_R_im, magnitude |
+| `<stem>_chiq.csv` | 逐点 | q_inv_A, chiq_re, chiq_im, chiq_mag（第一壳反 FT） |
 | `<stem>_wavelet.csv` | 矩阵 | 首行 `k\R` + R 值；每行 k 值 + 该 k 下各 R 的 W（4 位小数，与 `WaveletMap.magnitude` 同向） |
 | `<stem>_fit_table.csv` | 表格 | 与 PNG 同构 7 列（粘贴友好；P6.6 起不再另出重复的 TSV） |
 | `<stem>_indicators.csv` | 汇总 | indicator, value, unit, 说明 |
@@ -144,11 +145,12 @@ structure_status/coverage_ok（S6.5 判定与覆盖审计）、
 
 ## 输出位置与命名
 
-`xafs_out\<stem>\`（默认；`-o/--outdir` 可改），一次共 11 个文件
-+ 可选诊断图 6 张（`diagnostics\`）：
-`_xas.png`、`_fit_table.png/.csv/.txt`、`_indicators.csv`、
-`_mu.csv`、`_xanes.csv`、`_chik.csv`、`_chir.csv`、`_wavelet.csv`、
-`_structure_id.json`、`_fit.json`。
+`xafs_out\<stem>\`（默认；`-o/--outdir` 可改），默认含 HTML 与调窗器：
+`_xas.png`、`_fit_table.png`、`_fit_table.csv`、`_indicators.csv`、
+`_mu.csv`、`_xanes.csv`、`_chik.csv`、`_chir.csv`、`_chiq.csv`、
+`_wavelet.csv`、`_structure_id.json`、`_fit.json`、`_meta.json`、
+`_report.html`、`_window_tuner.html`。
+可选诊断图 9 张 + `wt_sweep.csv`（`--diagnostics`，`diagnostics\`）。
 入口：`python xafs_report.py <文件...> --absorber Fe`（通用）；
 无文件参数或 `--demo` 运行内置 lepidocrocite + Fe 箔示例。
 FEFF 结果缓存在 `_feff_cache\`，重复运行不重算。

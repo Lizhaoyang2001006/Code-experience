@@ -428,8 +428,9 @@ python xafs_report.py <谱文件> --absorber Fe --config xafs.yaml --no-strict
 S1.5–S3 之间插入中值滑窗（窗口=5）+ MAD 门禁（阈值=3×MAD），默认关闭。
 实测 lepidocrocite 替换 79 个离群点，E0/edge_step/Rbkg 结果与未去毛刺一致。
 
-### FT–WT 联合诊断图（`s7_ft_wt_joint.png`）
-`--diagnostics` 现输出 7 张阶段图（原 6 张 + 联合图）。左图 `|χ(R)|` 标注
+### FT–WT 联合诊断图（`diagnostics/s7_ft_wt_joint.png`）
+`--diagnostics`（默认关闭）输出 9 张阶段图：`s1`–`s8` 八个阶段
++ `s5b_backft.png`，另附 `wt_sweep.csv`。左图 `|χ(R)|` 标注
 FT 第一峰 r1；右图 WT contour 叠加水平线 R=r1 与垂直线 k=k_wt，交点标出，
 直接回答「这个 FT 峰主要来自哪个 k」。对标 Larch-WT 的交互诊断，避免
 WT 在多壳分支间 argmax 跳壳（Fe3O4 实测：Booth 校正把低 k 抬高 7% 后

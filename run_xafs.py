@@ -882,8 +882,13 @@ def process_sample(paths, outdir, align: bool = False,
     if diagnostics:
         made = xafs_diagnostics.write_diagnostics(result,
                                                   outdir / "diagnostics")
+        # 与 xafs_report 入口一致：补反 FT 实验/模型 q 空间对比图。
+        bft_png, _, _ = xafs_diagnostics.write_back_ft_comparison(
+            result, result.fit, outdir / "diagnostics")
+        made.append(bft_png)
         if verbose:
-            print(f"  [诊断] {len(made)} 张阶段图 → {outdir / 'diagnostics'}")
+            print(f"  [诊断] {len(made)} 张阶段图 "
+                  f"+ wt_sweep.csv → {outdir / 'diagnostics'}")
 
     # ---- B14-2 审稿级诊断：相移校正真键长 / 二维 χ² 等高线 ----
     if phase_correct or chi2_contour:
@@ -931,7 +936,8 @@ def main():
                         help="边后平台不在 0.85–1.15 时是否中断（默认中断；"
                              "--no-strict 降级为警告，供已知厚样/标样使用）")
     parser.add_argument("--diagnostics", action="store_true",
-                        help="输出 S1–S6 各阶段诊断图（<outdir>/diagnostics/）")
+                        help="输出 S1–S8 各阶段诊断图（含 FT–WT 联合与 WT "
+                             "扫描；<outdir>/diagnostics/）")
     parser.add_argument("--figure-pack", action="store_true",
                         help="P6.5 生成催化剂结构总图包：Figure1 结构总图 + "
                              "Figure2 置信/过程仪表盘 + 逐面板 CSV")

@@ -120,12 +120,14 @@ res = xafs_pipeline.process_sample(files, align=True, absorber="Fe", strict=Fals
 # strict=False：降级为警告（已知标样如厚 Fe 箔平台 0.79 用）。
 ```
 
-逐阶段诊断图（每阶段一张 PNG，只读 PipelineResult 不重算）：
+逐阶段诊断图（`--diagnostics`；每阶段一张 PNG，只读 PipelineResult 不重算）：
 
 ```python
 import xafs_diagnostics
 xafs_diagnostics.write_diagnostics(res, outdir / "diagnostics")
-# s1_raw_scans / s2_e0 / s3_normalization / s4_rbkg / s5_chik_chir / s6_wavelet
+# s1_raw_scans / s2_e0 / s3_normalization / s4_rbkg / s5_chik_chir /
+# s6_wavelet / s7_ft_wt_joint / s8_wt_sweep（+ wt_sweep.csv）
+# 入口层另加 s5b_backft.png（实验/模型 q 空间对比）
 ```
 
 需要逐步调用时的底层签名与陷阱见
@@ -204,18 +206,21 @@ fit    = artemis.fit_r_space(chi_k, ft, datfiles, rmin, rmax, kmin=3.0,
 `export_indicators`（数据）。**优先复用该模块，不要从零写图。**
 逐面板规格见 [references/figure-spec.md](references/figure-spec.md)。
 
-一次运行产出（`xafs_out\<sample>_report\`，共 11 个文件 + 诊断图 6 张）：
+一次运行产出（`xafs_out\<sample>_report\`；默认含 HTML 与调窗器，
+`--no-html` / `--no-window-tuner` 会相应减少文件）：
 
 | 文件 | 内容 |
 |------|------|
 | `<stem>_xas.png` | 五联图；(a) 标注**吸收边 + E₀**（如 Fe K-edge）；(b) 标注**白线**；(d)(e) 标注**壳层归属**（Fe–O / Fe–Fe，未相位修正的 R） |
 | `<stem>_fit_table.png` | CN 拟合参数表（Table S 风格） |
-| `<stem>_fit_table.csv` / `.txt` | 同表：utf-8-sig CSV + 制表符 TSV（粘贴 Word/Excel 自动成表） |
+| `<stem>_fit_table.csv` | 同表：utf-8-sig CSV（P6.6 起不再生成重复的 `.txt`） |
+| `<stem>_chiq.csv` | 第一壳反 FT χ(q)：q、Re、Im、|χ(q)| |
+| `<stem>_meta.json` | 参数/门禁/决策/结构识别台账 |
 | `<stem>_indicators.csv` | **关键物理指标汇总**（元素/边/E₀/边跳变/白线/Rbkg/k 窗口/相位修正状态/WT 壳层位置/S₀²/ΔE₀/R-factor/各壳层 N,R,σ²）——读图猜测的终结者 |
 | `<stem>_mu.csv` `_xanes.csv` `_chik.csv` `_chir.csv` | (a)–(d) 面板逐点数据 |
-| `<stem>_wavelet.csv` | (e) W(R,k) 矩阵（行=R，列=k） |
-| `structure_id.json` | S6.5 结构识别：候选排序 score/ΔE0、并列候选、未解释峰清单 |
-| `diagnostics/` | S1–S6 各阶段诊断图 6 张（只读 PipelineResult，不重算） |
+| `<stem>_wavelet.csv` | (e) W(R,k) 矩阵（行=k，列=R；与 run_xafs 一致） |
+| `<stem>_structure_id.json` | S6.5 结构识别：全量候选排序 score/ΔE0、并列候选、未解释峰清单 |
+| `diagnostics/` | `--diagnostics` 时输出 S1–S8 诊断图 9 张 + `wt_sweep.csv`（只读 PipelineResult，不重算） |
 
 **导出三铁律**：①每张图必有对应 CSV；②WT 面板必标壳层线+峰标记
 （`larch_wt.locate_shell` 定峰）；③indicators.csv 必含"元素+边"、
