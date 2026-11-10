@@ -353,6 +353,45 @@ python xafs_report.py sample.xdi --absorber Fe --fit --figure-pack
 （图面只画前 6 个），并带 `nuclearity/score_mag` 列。图包只读已有
 输出，不重新拟合、不改变任何判定；`--operando` 不支持单结构总图。
 
+### 通用论文主图（`paper_figures.py`）
+`xafs_figure_pack.py` 面向“已有输出目录的完整图包”；`paper_figures.py`
+只做论文主图 + CN 拟合表，适合跨体系复用：
+
+```powershell
+python paper_figures.py --sample sample_mu.dat --absorber Fe --edge K `
+  --ref "Fe foil=foil_mu.dat" `
+  --kmin 3 --kmax 12 --kweight 3 --rbkg 1.3 `
+  --guide "Fe-O=<本图峰位>" --guide "Fe-Fe=<本图峰位>" `
+  --fit-json sample_fit.json --out paper_out
+```
+
+有 `--fit-json` 时输出六面板 (a) XANES (b) kⁿχ(k) (c) |FT| (d) R 空间
+拟合 (e) k 空间拟合 (f) CN 表，并另出 `*_cn_table.{png,csv,md}` 与
+`*_ft.csv`；无拟合时只出 (a)–(c)。模块不绑定元素/边/壳层：标线由
+`--guide LABEL=X` 或 `LABEL=X..Y` 传入，S₀²、E0、拟合窗口原样读取，
+不重新拟合。CN 表逐行标注 formal / diagnostic / upper limit /
+σ² at bound，诊断级配位数不会被写成正式值。图注、CN 表、CSV 与 fit JSON
+会同时披露本次拟合采用的**结构与 CIF 来源**（结构类型、来源描述、phase ID、
+吸收位点、CIF 路径与 SHA256、FEFF 输入与 SHA256）。若拟合用的是手工构造
+团簇而非 CIF 派生相，输出会明确写 `CIF: none (no CIF used)`，不会拿无关
+CIF 顶替。可用 `--structure-json` 传入或覆盖 provenance；模块 docstring
+内是最小调用示例；本机 Pt 案例的完整产物和可复现脚本在
+`xafs_out/Pt1CeO2-flu_paper/`（分析产物不入库），通用检查表见
+`xafs_out/Pt1CeO2-flu_analysis/lessons_learned.md`。
+
+当前目录缺少 `data/standards_raw/`、`_standards_lib/` 或需要补齐 COD CIF 时，
+先运行构建期爬虫：
+
+```powershell
+python cif_crawler.py --all    # T3/T4 CIF + T5 金属箔标准谱
+python cif_crawler.py --t5     # 只补标准谱
+```
+
+T3/T4 会优先复用 `data/cif_raw/` 的已验证 CIF，缺失才联网取 COD；T5 从
+IIT-Lytle 下载 12 个元素的标准谱并写入 `_standards_lib/`。这些是本机构建
+资产，已在 `.gitignore` 中，不随仓库提交。运行期相解析仍以本地 cache /
+phase pack 为主；`--offline` 可显式禁止外部 fetcher。
+
 ### 批处理输出目录
 `--batch-dir` 的输出优先级：显式 `-o` > 配置文件 `batch.outdir` >
 默认 `xafs_out_batch`。
