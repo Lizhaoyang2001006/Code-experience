@@ -99,7 +99,8 @@ agent 从中提取处理参数（Rbkg/k 窗口…），不让用户翻译物理�
    当前已标定：Fe=0.803 / Co=0.7308 / Ni=0.7795 / Cu=0.8670 / Pt=0.8075（L3）；
    Fe 于 2026-11-10 用 BMM Fe-K-IronFoil.xdi 单壳 half_height 重标定
    0.6566（3 窗口极差 0.0205；IIT-Lytle 5 µm 箔交叉 0.6335）——
-   该值只用于金属 Fe 交叉检查，不替换氧化物价态锚定的生产值 0.803）
+   该值只用于金属 Fe 交叉检查（`--chemical-state metal`），
+   不替换氧化物价态锚定的生产值 0.803）
 3. 该元素结构假设（CIF / 文献坐标 / 构造团簇）
    → 见 [references/structure-identification.md](references/structure-identification.md)
 
@@ -198,7 +199,8 @@ fit    = artemis.fit_r_space(chi_k, ft, datfiles, rmin, rmax, kmin=3.0,
    Fe 箔单壳重标定（2026-11-10，交叉检查）：BMM Fe-K-IronFoil.xdi,
    half_height, S₀²=0.6566（极差 0.0205）；生产单壳 N=7.93±0.49,
    R=2.517 Å, Rf=0.0219, ΔE₀=+9.66 eV。**该值只适用于金属 Fe**；
-   氧化物验收仍用 0.803（0.6566 会使 Fe-O N 高约 22%）。
+   金属链用 `--chemical-state metal --fit-rmax 2.60`；氧化物验收仍用
+   0.803（0.6566 会使 Fe-O N 高约 22%）。
    （历史 0.803 口径的箔复核值：Rbkg=0.80，N=6.8/7.6, R=2.446/2.821,
    R-factor 0.0036, ΔE0=+0.64 eV。）
 

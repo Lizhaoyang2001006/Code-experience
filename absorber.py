@@ -102,3 +102,71 @@ def get_absorber(symbol: str) -> AbsorberConfig:
             "absorber", f"元素 {symbol} 未收录。已收录: {sorted(ABSORBERS)}。"
                         f"新元素需按 absorber.py 头注的三步流程接入")
     return ABSORBERS[key]
+
+
+# 化学态多态：静态表 ``s02`` 仍是默认生产值；只有显式选择化学态时才
+# 返回态特异值。当前仅 Fe 金属相有真实箔交叉标定（0.6566），氧化物/
+# 羟基氧化物继续沿用默认 0.803。新增态必须通过 calibrate_s02.py 门禁。
+S02_CHEMICAL_STATES: dict[str, dict[str, float]] = {
+    "Fe": {"metal": 0.6566},
+}
+
+
+def resolve_s02(symbol: str, chemical_state: str | None = None) -> float | None:
+    """解析元素 S₀²；``chemical_state=None`` 等同 ``get_absorber().s02``。
+
+    化学态仅作显式 opt-in，不修改静态表（零退化）。未知态、或该元素
+    没有对应态标定时抛 ``XAFSConfigError``，不静默退回默认值。
+    """
+    cfg = get_absorber(symbol)
+    if chemical_state is None:
+        return cfg.s02
+    state = str(chemical_state).strip().lower()
+    states = S02_CHEMICAL_STATES.get(cfg.symbol, {})
+    if state not in states:
+        available = ", ".join(sorted(states)) or "无"
+        raise XAFSConfigError(
+            "absorber",
+            f"{cfg.symbol} 没有化学态 {chemical_state!r} 的 S₀² 标定；"
+            f"可用化学态: {available}。未标定元素请显式传 --s02")
+    return states[state]
+
+
+def resolve_s02_spec(symbol: str, spec: str | None
+                     ) -> tuple[float | None, str | None]:
+    """解析 CLI 化学态表达式，返回 ``(s02, source)``。
+
+    支持两种写法：
+    - ``metal``：全局态，应用到当前元素；无该态标定则报错；
+    - ``Fe=metal,Co=metal``：逐元素映射，当前元素未列出时返回
+      ``(None, None)``，由调用方继续走 T5/静态表优先级。
+    """
+    if spec is None or not str(spec).strip():
+        return None, None
+    text = str(spec).strip()
+    cfg = get_absorber(symbol)
+    if "=" not in text:
+        return (resolve_s02(cfg.symbol, text),
+                f"chemical_state:{cfg.symbol}={text.strip().lower()}")
+    mapping: dict[str, str] = {}
+    for part in text.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "=" not in part:
+            raise XAFSConfigError(
+                "absorber",
+                f"--chemical-state 混用格式: {text!r}；请统一用 "
+                f"'metal' 或 'Fe=metal,Co=metal'")
+        key, state = part.split("=", 1)
+        try:
+            el = get_absorber(key).symbol
+        except XAFSConfigError:
+            raise XAFSConfigError(
+                "absorber", f"--chemical-state 未知元素: {key!r}") from None
+        mapping[el] = state.strip().lower()
+    state = mapping.get(cfg.symbol)
+    if state is None:
+        return None, None
+    return (resolve_s02(cfg.symbol, state),
+            f"chemical_state:{cfg.symbol}={state}")

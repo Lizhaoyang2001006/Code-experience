@@ -63,7 +63,8 @@ python xafs_report.py
 - 未在 absorber.py 标定 S₀² 的新元素：拒绝 CN 定量；可用运行时
   `--s02 <值>` 显式覆盖，或对 T5 已通过元素用 `--s02-from-t5`
   从独立产物读取（现有 Fe/Co/Ni/Cu/Pt 均已标定；T5 产物见下文，
-  不写静态表）；
+  不写静态表）；Fe 金属相用 `--chemical-state metal`（0.6566），
+  Fe 氧化物/羟基氧化物保持默认 0.803；
 - `--fit-weights`（仅 `kind="mixture"`）：固定每路径晶体学简并度，
   用 softmax 放开各组分权重（恒正、和=1），输出 `mixture_weights`
   `[{group, weight, weight_err}]`。此时表里的 `N` 是**有效简并度
@@ -95,7 +96,7 @@ python xafs_report.py
 | `calibrate_s02.py` | 标定 S₀²（金属箔/氧化物标样，生产等效协议；`--motif-file` 用标定专用结构） |
 | `calibrate_t5.py` | T5 批量标定 12 元素，产物落 `data/s02_calibration/`（不改静态表） |
 | `absorber.py` | 吸收元素配置表（边能量/S₀²/kmax），元素泛化唯一入口 |
-| `regression_test.py` | 134 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝、P5-C 18 个常见相 COD 补齐/coverage 无缺口、P5-prep 标准谱源隔离池/5 元素门禁冻结、P5-D 多位点正式 CN、P6 phase pack 44/44 门禁、P6.1 单晶位正式 CN 与诊断库解耦、P6.2 边界入口对齐、P6.3 双入口配置/operando 守卫、P6.4 参数/门禁/决策/摘要台账与打印开关、P6.5 催化剂结构图包/逐面板 CSV/数据包、P6.6 双入口产物对齐/图包分层瘦身/q 空间与全量结构候选落盘） |
+| `regression_test.py` | 135 项契约回归测试（B1–B4 基线、B5 复数小波/元素 k 标尺、B6 多扫描离群剔除/XANES 自吸收/边前分峰、B7 各向同性晶格约束/部分占据 CIF/C4 与 g(R)、B8 多数据集联合拟合与爱因斯坦模型、B9 配置全键/C4 降级/σ_μ/SNR/MCA/.prj/白线面积、B10 MBACK/chi_std/PCA SPOIL/MCR-ALS、B11 相移 FT-WT/异核共占位/关联 Debye/BVS、B12 三空间拟合/AIC-BIC/双吸收边 ΔE₀/SAC-DAC、B13 SAC/DAC 动态 Motif 与 Hamilton F 检验/异核双分支 path_links、B14 Mini-GDS 化学计量约束/相移校正与 χ² 等高线/关联 Debye 联合精修、B15 Operando 时间序列、B16 Athena Perl .prj 与 Co/Ni/Cu/Pt 催化结构库、B17 纳米粒径反演/双金属合金 Cowley SRO、B18 Rayleigh 分辨护栏/运行时 --s02、B19 原位 EXAFS 序列联合精修、B20 电催化氧化物/羟基氧化物库与真实 BMM 标样盲测、化学态 S₀² 多态（Fe metal 0.6566）、P4+ CIF 抓取/条件 CN/T7 多元素/T8 联合校验、P5-A T5 产物完整性/--only 增量合并/--s02-from-t5 溯源、P5-B Mo 双壳 bcc/Ce σ² 压界拒绝、P5-C 18 个常见相 COD 补齐/coverage 无缺口、P5-prep 标准谱源隔离池/5 元素门禁冻结、P5-D 多位点正式 CN、P6 phase pack 44/44 门禁、P6.1 单晶位正式 CN 与诊断库解耦、P6.2 边界入口对齐、P6.3 双入口配置/operando 守卫、P6.4 参数/门禁/决策/摘要台账与打印开关、P6.5 催化剂结构图包/逐面板 CSV/数据包、P6.6 双入口产物对齐/图包分层瘦身/q 空间与全量结构候选落盘） |
 | `xafs_provenance.py` | P6.4 输出台账：参数来源、门禁命中、决策轨迹、结果摘要（只记录，不判定） |
 | `xafs_figure_pack.py` | P6.5/P6.6 图包后处理：Figure 1–4 总图、表格图、`figures/panels/` 逐面板 CSV、`figures/data/` 跨面板汇总；默认不重复渲染单面板（只读已有输出，不重新拟合） |
 | `run_ci.py` | 跨平台 CI：编译 + 契约回归 + 可选压力测试，输出 ci_report.json/md |
@@ -121,12 +122,20 @@ python xafs_report.py
 `fe_bcc` 第一壳 N=8 固定，E0=half_height，3 窗口
 S₀²=0.6471/0.6566/0.6676（极差 0.0205），Rf≤0.0422，ΔE₀≈+8.9 eV，
 门禁 5/5；IIT-Lytle 5 µm Fe 箔独立交叉检查 0.6335（极差 0.02）。
-生产单壳拟合（`--fit-rmax 2.60 --s02 0.6566`）回收 N=7.93±0.49
+生产单壳拟合（`--fit-rmax 2.60 --chemical-state metal`）回收 N=7.93±0.49
 （晶体学 8）、R=2.517 Å、Rf=0.0219。**该值只对单壳 bcc 模型成立**：
 默认双壳拟合会把 N 抬到 11.5/13.4。它不能直接替代生产值 0.803——
 0.803 是氧化物价态验收锚定的跨材料折中值（原始流程不可复原），改用
 0.6566 会使 Fe 氧化物/羟基氧化物 CN 高约 22%（lepidocrocite 第一壳
-N≈7.8）。金属 Fe 研究用 `--s02 0.6566`；氧化物 CN 保持默认 0.803。
+N≈7.8）。金属 Fe 研究用 `--chemical-state metal`（等价 `--s02 0.6566`，
+来源记为 `chemical_state:Fe=metal`）；氧化物 CN 保持默认 0.803。
+
+金属 Fe 生产链示例：
+
+```powershell
+python xafs_report.py foil.xdi --absorber Fe --fit-motif fe_bcc \
+  --chemical-state metal --fit-rmax 2.60
+```
 
 **T5 独立标定产物（12 个未标定元素，2026-11-09）：**
 
@@ -172,7 +181,11 @@ python run_xafs.py Cr-K-Cr2O3.xdi --absorber Cr --s02-from-t5 --identify --fit
 - `--s02-from-t5`：从 `data/s02_calibration/<元素>/calibration.json` 读取
   T5 已通过元素的 S₀²；只接受 `status="calibrated"` 且
   `static_absorber_py_unchanged=True` 的产物，未通过元素明确拒绝。
-  优先级 `--multi-element-s02` > 全局 `--s02` > T5 产物。
+  优先级 `--multi-element-s02` > 全局 `--s02` > `--chemical-state`
+  > T5 产物 > 静态表。
+- `--chemical-state`：化学态 S₀² 多态，支持 `metal` 或
+  `Fe=metal,Co=metal`。当前仅 Fe 金属相有交叉标定 0.6566；默认
+  生产值仍为 0.803，静态表只读。未列出的逐元素映射继续走 T5/静态表。
 - `--xanes-cross-check`：归一化平台、边步、E0 导数双峰、白线可靠性与位置、
   K 边极端 CN–白线对比、荧光自吸收风险；只写警告到
   `<stem>_meta.json.xanes_cross_check`，`affects_cn_reliable=False`，
@@ -303,7 +316,7 @@ FT 内核嵌进页面，浏览器里拖 kmin/kmax/kweight/dk，实时看 `|χ(R)
 
 ### CI 自动化回归
 ```powershell
-python run_ci.py            # 编译 + 134 项契约回归
+python run_ci.py            # 编译 + 135 项契约回归
 python run_ci.py --stress   # 额外跑 Co/Ni/Cu/NiO 压力测试
 ```
 产物 `ci_report.json` / `ci_report.md`；任一步失败即非零退出。
@@ -915,7 +928,8 @@ Ni–O 6.67/2.0698 Å、Ni–Ni 7.64/3.1255 Å）；CuO top1=`cuo_tenorite`
   `calibrate_s02.py` 模块注释：N 固定晶体学、生产等效拟合、3 窗口鲁棒性
   门禁、kw 敏感性只记录不门禁）。S₀² 跨管线不可移植；Fe 的 0.803 是
   氧化物价态锚定的跨材料折中值，BMM 箔单壳重标定 0.6566 只适用于
-  金属 Fe（氧化物 CN 用 0.6566 会高约 22%）。
+  金属 Fe（氧化物 CN 用 0.6566 会高约 22%）；金属链显式
+  `--chemical-state metal`。
 - **形式误差 ≠ 绝对精度**。`N_err` 只来自最小二乘协方差；S₀² 传递、
   代表路径/壳层合并、N–σ²–ΔE₀ 相关和归一化偏差会带来约 ±20–40%
   的系统误差。输出里的 `cn_reliable` 和 `cn_systematic_budget` 必须一起看。

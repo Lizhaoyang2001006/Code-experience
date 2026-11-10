@@ -249,7 +249,7 @@ python calibrate_s02.py ... --force     # 覆盖已有标定值（重标定是�
   0.6566 只对单壳 bcc 模型成立；默认双壳 fit 会把 N 抬到 11.5/13.4，
   金属箔定量须 `--fit-rmax 2.60`。**该值只适用于金属 Fe**：生产值
   0.803 保留为氧化物价态锚定；0.6566 会使 Fe 氧化物 CN 高约 22%，
-  需要金属口径时显式 `--s02 0.6566`。
+  需要金属口径时显式 `--chemical-state metal`（等价 `--s02 0.6566`）。
 - 标定结果存 `xafs_out/_cal_<elem>/calibration.json`（runs/kw 诊断/门禁全留档）。
 - **describe_paths 返回的 file 是相对文件名**（feff0001.dat），拼路径
   必须加 FEFF 工作目录，否则 feffpath() 抛 "not found"。
@@ -366,6 +366,7 @@ fit_r_space(chi_k, ft, datfiles, rmin, rmax, kmin=3.0, kmax=12.0,
 ### 诊断脚本模板（临时文件 _diag.py，跑完删）
 ```python
 from absorber import get_absorber        # s02 一律查标定表，不再硬编码
+# 金属 Fe 显式化学态：resolve_s02("Fe", "metal") -> 0.6566；默认仍 0.803
 for name, kmax, files, vn in configs:
     ft = athena.ft_to_r_space(chi_k.k, chi_k.chi, None, 3.0, kmax, 2)
     fit = artemis.fit_r_space(chi_k, ft, files, 1.0, 3.9,

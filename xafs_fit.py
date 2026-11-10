@@ -982,12 +982,14 @@ def write_rdf_csv(path, rdf: dict):
 def _s02_calibrated_flag(absorber, s02_source: str | None) -> bool:
     """正式表 S₀² 是否来自“已标定”来源。
 
-    静态表已标定（absorber.calibrated=True）或 T5 独立标定产物
-    （``s02_calibration:`` 前缀）都算已标定；普通 ``--s02`` 手填值
-    仍为 False。这不改变 #60 的静态表约束。
+    静态表已标定（absorber.calibrated=True）、T5 独立标定产物
+    （``s02_calibration:`` 前缀）或化学态标定（``chemical_state:``
+    前缀）都算已标定；普通 ``--s02`` 手填值仍为 False。
+    这不改变 #60 的静态表约束。
     """
     return (bool(getattr(absorber, "calibrated", False))
-            or str(s02_source or "").startswith("s02_calibration:"))
+            or str(s02_source or "").startswith("s02_calibration:")
+            or str(s02_source or "").startswith("chemical_state:"))
 
 
 def _formal_cn_meta(formal_cn: bool, structure_model: StructureModel | None,

@@ -605,8 +605,8 @@ gates.structure_id.action=library_miss_l1_fallback
 
 - 参数/门禁/决策/摘要台账：`xafs_provenance.py`
 - 催化剂结构图包：`xafs_figure_pack.py`
-- 契约：`regression_test.py` 第 `#132` 项（台账）、`#133` 项（图包）
-  与 `#134` 项（双入口产物对齐/图包分层瘦身）
-- 当前契约基线：134 项（P6.6 收尾后）
+- 契约：`regression_test.py` 第 `#132` 项（台账）、`#133` 项（图包）、
+  `#134` 项（双入口产物对齐/图包分层瘦身）与化学态 S₀² 多态契约
+- 当前契约基线：135 项（化学态多态新增后）
 - 软件版本：`xafs-cn-p4plus`
-- 门禁常量冻结：`absorber.py` 静态 S₀² 表、`calibrate_s02.py` 门禁、44 条 phase pack 均未改动
+- 门禁常量冻结：`absorber.py` 静态 S₀² 表、`calibrate_s02.py` 门禁、44 条 phase pack 均未改动（化学态映射为显式 opt-in，不写静态表）

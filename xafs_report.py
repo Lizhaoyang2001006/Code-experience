@@ -71,7 +71,7 @@ import xafs_provenance  # noqa: E402
 import xafs_figure_pack  # noqa: E402
 import xafs_window_tuner  # noqa: E402
 import structure_id     # noqa: E402
-from absorber import get_absorber    # noqa: E402
+from absorber import get_absorber, resolve_s02_spec    # noqa: E402
 from xafs_core import XAFSConfigError, XAFSDataError  # noqa: E402
 
 # 同 run_xafs：GBK 控制台无法编码 Å/σ²/S₀²/α，--help 会直接崩。
@@ -1444,6 +1444,10 @@ def main(argv=None):
     parser.add_argument("--s02-from-t5", action="store_true",
                         help="P5 从 data/s02_calibration/<El>/calibration.json "
                              "加载通过冻结门禁的独立 S₀²（显式 --s02 优先）")
+    parser.add_argument("--chemical-state", default=None,
+                        help="化学态 S₀² 多态：'metal' 或 'Fe=metal'；"
+                             "当前仅 Fe 金属相有交叉标定 0.6566（默认生产值"
+                             "仍为 0.803）；显式 --s02 优先")
     parser.add_argument("--xanes-cross-check", action="store_true",
                         help="T8 XANES–EXAFS 联合软校验：白线/边步/归一化"
                              "异常时警告；不改变 cn_reliable/正式 CN")
@@ -1938,6 +1942,13 @@ def main(argv=None):
         eff_absorber, _ = run_xafs.detect_absorber(args.files[0])
     s02_val = args.s02
     s02_source = "--s02 runtime override" if s02_val is not None else None
+    if s02_val is None and args.chemical_state:
+        if not eff_absorber:
+            raise XAFSConfigError(
+                "FIT", "启用 --chemical-state 但无法判定吸收元素；"
+                       "请显式给 --absorber")
+        s02_val, s02_source = resolve_s02_spec(eff_absorber,
+                                               args.chemical_state)
     if s02_val is None and args.s02_from_t5:
         import run_xafs
         if not eff_absorber:
@@ -2112,7 +2123,8 @@ def main(argv=None):
         "rbkg": ("cli" if getattr(args, "rbkg", None) is not None
                  else "auto"),
     }
-    if s02_source and "calibration" in str(s02_source).lower():
+    if s02_source and ("calibration" in str(s02_source).lower()
+                       or str(s02_source).startswith("chemical_state:")):
         source_overrides["s02"] = "calibrated"
     elif s02_source:
         source_overrides["s02"] = "runtime_override"

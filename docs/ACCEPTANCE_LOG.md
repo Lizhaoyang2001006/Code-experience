@@ -1614,10 +1614,11 @@ crawler 入库后按同一三扫描命令重跑，上述 r_factor/N/R 与 fit_ta
 
 ### 16.3 生产单壳验证（S₀²=0.6566）
 
-- 命令：
-  `python xafs_report.py "data\bmm_standards\Data\Fe\Fe-K-IronFoil.xdi" --absorber Fe --no-strict --fit-motif fe_bcc --fit-rmax 2.60 --e0-method half_height --no-html --no-window-tuner`
+- 命令（推荐 `--chemical-state metal`，与 `--s02 0.6566` 等价）：
+  `python xafs_report.py "data\bmm_standards\Data\Fe\Fe-K-IronFoil.xdi" --absorber Fe --no-strict --fit-motif fe_bcc --fit-rmax 2.60 --e0-method half_height --chemical-state metal --no-html --no-window-tuner`
 - 结果：Fe-Fe@2.48 `N=7.933±0.489`（晶体学 8）、`R=2.517 Å`、
-  `σ²=0.0028`、`Rf=0.02187`、`ΔE₀=+9.66 eV`，`s02_source=absorber.py`。
+  `σ²=0.0028`、`Rf=0.02187`、`ΔE₀=+9.66 eV`，
+  `s02_source=chemical_state:Fe=metal`。
 - 默认双壳（不传 `--fit-rmax`）在 0.6566 下给出 N=11.513/13.381，
   说明该标定只对单壳 bcc 模型成立。
 
@@ -1628,7 +1629,8 @@ crawler 入库后按同一三扫描命令重跑，上述 r_factor/N/R 与 fit_ta
   偏高约 22%，验收基线退化。
 - 因此：`absorber.py` 生产值保持 **0.803**；0.6566 作为
   **金属 Fe 专用交叉值**写入注释与文档，金属箔研究用
-  `--s02 0.6566 --fit-rmax 2.60`。
+  `--chemical-state metal --fit-rmax 2.60`（等价旧写法
+  `--s02 0.6566`）。
 - `calibrate_s02.py` 协议与门禁常量未改；`absorber.py` 其余 12 个
   未标定元素仍 `s02=None, calibrated=False`。
 
@@ -1640,10 +1642,33 @@ crawler 入库后按同一三扫描命令重跑，上述 r_factor/N/R 与 fit_ta
 
 ### 16.6 测试与提交
 
-- `regression_test.py`：**134 项 OK**（341.1 s，exit 0），含默认
+- `regression_test.py`：**135 项 OK**（305.4 s，exit 0），含默认
   LEPIDO 第一壳 `N≈6.35` 零退化断言；标定契约断言 Fe=0.803。
-- 数值算法测试显式固定 `s02=0.803`，隔离静态标定值与拟合算法。
+- 新增 `test_chemical_state_s02_polymorphism`：化学态解析、CLI 优先级、
+  逐元素映射与来源标记；显式固定 `s02=0.803` 的算法测试保持隔离。
 - 提交仅含代码/文档；`_standards_lib/`、`data/standards_raw/`、
   `logs/`、`patches/` 未提交，根目录 `lepidocrocite.cif` 保留。
+
+### 16.7 化学态多态与补丁归档（2026-11-10）
+
+- **化学态 S₀²（显式 opt-in，不改默认值）**：
+  - `absorber.py` 新增 `S02_CHEMICAL_STATES = {"Fe": {"metal": 0.6566}}`、
+    `resolve_s02(symbol, chemical_state=None)` 与
+    `resolve_s02_spec(symbol, spec)`；未知态/无该态标定显式报错，
+    不静默退回默认值。
+  - `xafs_report.py` / `run_xafs.py` 新增 `--chemical-state`，支持
+    `metal` 与 `Fe=metal,Co=metal`；优先级：显式 `--s02` /
+    `--multi-element-s02` > `--chemical-state` > `--s02-from-t5` >
+    静态表。逐元素映射未列出的元素继续走后续优先级。
+  - 来源记为 `chemical_state:Fe=metal`；`xafs_fit._s02_calibrated_flag`
+    将其视为已标定来源。静态表仍只读（Fe=0.803）。
+  - 实测：Fe 箔 `--chemical-state metal --fit-rmax 2.60` 得到
+    S₀²=0.6566、N=7.933±0.489、R=2.517 Å、Rf=0.0219。
+- **补丁灾备**：`patches/` 仍在 `.gitignore`（普通 `git clean -fd`
+  不会删，但 `-fdx` 会）。已将全部补丁推送到远端孤立分支
+  `patch/P6-archive`（commit `05c402b`，含 P4+ ~ P6.6 与
+  `patches/README.md`）；恢复命令
+  `git checkout patch/P6-archive -- patches/`。主分支构建/回归
+  不依赖该分支。
 
 

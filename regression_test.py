@@ -65,8 +65,9 @@ P4+ 新增：
     - P5-C 固定 COD ID 补齐 18 个常见相 / coverage 无缺口
     - P5-prep 标准谱源隔离池 / 5 个未通过元素门禁冻结
 
-当前共 126 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约及 P4+
-CIF 抓取/条件 CN/T7/T8/P5-A/P5-B/P5-C/P5-prep 契约）。
+当前共 135 项契约回归（B1-1 至 B20-1，外加 P0a–P4 正式 CN 契约、P4+
+CIF 抓取/条件 CN/T7/T8/P5-A/P5-B/P5-C/P5-prep 契约，以及 Fe 化学态
+S₀² 多态契约）。
 
 运行:
     python regression_test.py
@@ -3701,6 +3702,55 @@ Ru1 Ru 0.5 0.5 0.5 0.3
                 res_au, identify=False, fit=True, absorber_symbol="Au",
                 s02=1.5, verbose=False)
         self.assertIn("s02", xafs_config.DEFAULTS)
+
+    # ------------------------------------------------------------
+    # 化学态 S₀² 多态（Fe 金属交叉值 opt-in）
+    # ------------------------------------------------------------
+    def test_chemical_state_s02_polymorphism(self):
+        """化学态 S₀²：Fe 金属 0.6566，默认生产值 0.803 不变。"""
+        from types import SimpleNamespace
+        from absorber import resolve_s02
+        import run_xafs
+
+        self.assertEqual(get_absorber("Fe").s02, 0.803)
+        self.assertEqual(resolve_s02("Fe"), 0.803)
+        self.assertEqual(resolve_s02("Fe", "metal"), 0.6566)
+        self.assertEqual(resolve_s02("Fe", "METAL"), 0.6566)
+        with self.assertRaises(XAFSConfigError):
+            resolve_s02("Fe", "oxide")
+        with self.assertRaises(XAFSConfigError):
+            resolve_s02("Au", "metal")
+        self.assertEqual(get_absorber("Fe").s02, 0.803,
+                         "化学态解析不得修改静态表")
+
+        # CLI 优先级：显式 --s02 > 化学态 > T5 > 静态表。
+        args = SimpleNamespace(s02=None, s02_from_t5=False,
+                               chemical_state="metal", absorber="Fe")
+        val, src = run_xafs._resolve_s02_for_paths(args, ["dummy.dat"])
+        self.assertEqual(val, 0.6566)
+        self.assertEqual(src, "chemical_state:Fe=metal")
+        args.s02 = 0.9
+        val, src = run_xafs._resolve_s02_for_paths(args, ["dummy.dat"])
+        self.assertEqual(val, 0.9)
+        self.assertEqual(src, "--s02 runtime override")
+
+        # 逐元素映射：未列出的元素返回 (None, None)，多元素批处理不误伤。
+        args_map = SimpleNamespace(s02=None, s02_from_t5=False,
+                                   chemical_state="Fe=metal", absorber="Cu")
+        self.assertEqual(
+            run_xafs._resolve_s02_for_paths(args_map, ["dummy.dat"]),
+            (None, None))
+        args_map.absorber = "Fe"
+        self.assertEqual(
+            run_xafs._resolve_s02_for_paths(args_map, ["dummy.dat"]),
+            (0.6566, "chemical_state:Fe=metal"))
+
+        # 来源标记：化学态值视为已标定，普通手填 --s02 不算（用未标定
+        # 元素隔离静态表 calibrated=True 的影响）。
+        self.assertTrue(xafs_fit._s02_calibrated_flag(
+            get_absorber("Cr"), "chemical_state:Cr=metal"))
+        self.assertFalse(xafs_fit._s02_calibrated_flag(
+            get_absorber("Cr"), "--s02 runtime override"))
 
     # ------------------------------------------------------------
     # B19-1 原位序列 EXAFS 联合精修

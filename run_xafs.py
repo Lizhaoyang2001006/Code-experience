@@ -208,13 +208,29 @@ def load_t5_s02(element, root=None) -> tuple[float, str]:
 
 
 def _resolve_s02_for_paths(args, paths, absorber_hint=None):
-    """按 CLI 优先级解析 S₀²：显式 --s02 > --s02-from-t5 > 静态表。
+    """按 CLI 优先级解析 S₀²：显式 --s02 > --chemical-state
+    > --s02-from-t5 > 静态表。
 
     返回 ``(s02, source)``；未启用任何覆盖时返回 ``(None, None)``，
     由 ``xafs_fit`` 沿用 absorber.py 静态表。
     """
     if getattr(args, "s02", None) is not None:
         return float(args.s02), "--s02 runtime override"
+    state_spec = getattr(args, "chemical_state", None)
+    if state_spec:
+        hint = absorber_hint if absorber_hint is not None \
+            else getattr(args, "absorber", None)
+        if hint:
+            element = _normalize_element(hint)
+        else:
+            element, _source = detect_absorber(paths[0])
+        if element is None:
+            raise XAFSConfigError(
+                "absorber", f"{Path(paths[0]).name}: 启用 --chemical-state "
+                             f"但无法判定吸收元素；请显式给 --absorber")
+        s02, source = absorber_mod.resolve_s02_spec(element, state_spec)
+        if s02 is not None:
+            return s02, source
     if not getattr(args, "s02_from_t5", False):
         return None, None
     hint = absorber_hint if absorber_hint is not None \
@@ -805,7 +821,8 @@ def process_sample(paths, outdir, align: bool = False,
             "e0": "cli" if manual_e0 is not None else "auto",
             "rbkg": "cli" if rbkg is not None else "auto",
         }
-        if s02_source and "calibration" in str(s02_source).lower():
+        if s02_source and ("calibration" in str(s02_source).lower()
+                           or str(s02_source).startswith("chemical_state:")):
             source_overrides["s02"] = "calibrated"
         elif s02_source:
             source_overrides["s02"] = "runtime_override"
@@ -1006,6 +1023,11 @@ def main():
                              "读取 T5 独立标定值；仅接受 status=calibrated "
                              "的元素，未通过元素明确拒绝；显式 --s02/"
                              "--multi-element-s02 优先。不修改静态表")
+    parser.add_argument("--chemical-state", default=None,
+                        help="化学态 S₀² 多态：'metal' 或 'Fe=metal'；"
+                             "当前仅 Fe 金属相有交叉标定 0.6566（默认生产值"
+                             "仍为 0.803）；优先级 --s02/--multi-element-s02 "
+                             "> --chemical-state > --s02-from-t5 > 静态表")
     parser.add_argument("--hetero-cocupancy", action="store_true",
                         help="B13-2 异核共占位双分支精修：对 motif.cif_file 中"
                              "occ<1 的异核位点拆成逐元素路径并共享 ΔR/σ²"
@@ -1419,14 +1441,17 @@ def main():
             parser.error("--multi-element 没有可处理文件")
 
         def _run_one_element(fpath, element, sub_out):
-            # 优先级：--multi-element-s02 > 全局 --s02 > T5 独立标定产物。
+            # 优先级：--multi-element-s02 > 全局 --s02 > 化学态 > T5。
             s02_val = multi_s02.get(element)
             s02_src = (f"--multi-element-s02 ({element})"
                        if s02_val is not None else None)
             if s02_val is None and args.s02 is not None:
                 s02_val = args.s02
                 s02_src = "--s02 runtime override"
-            elif s02_val is None and args.s02_from_t5:
+            if s02_val is None and args.chemical_state:
+                s02_val, s02_src = absorber_mod.resolve_s02_spec(
+                    element, args.chemical_state)
+            if s02_val is None and args.s02_from_t5:
                 s02_val, s02_src = load_t5_s02(element)
             return process_sample(
                 [fpath], sub_out, align=args.align, absorber=element,
