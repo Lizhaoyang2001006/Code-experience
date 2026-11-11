@@ -1,6 +1,0 @@
- dac_Fe_Co_2.50_N4_2.00                                 Feff 6L.02  potph 4.12
- Abs   Z=26 Rmt= 1.031 Rnm= 1.412 K shell
- Pot 1 Z=27 Rmt= 1.030 Rnm= 1.409
- Pot 2 Z= 7 Rmt= 1.000 Rnm= 1.356
- Gam_ch=1.325E+00 H-L exch
- Mu=-2.997E+00 kf=1.794E+00 Vint=-1.526E+01 Rs_int= 2.021
