@@ -1,68 +1,65 @@
-# AGENTS.md — XAFS 项目 agent 入口
+# AGENTS.md — 自动化 Agent 与开发审查硬约束规范
 
-本文件面向新加入的 AI agent。开始任何 XAFS 处理前，先确认工作目录是项目根目录，并阅读：
+> **适用对象**：所有参与本项目代码编写、重构、审查的 AI Agent（大语言模型）、自动化脚本及核心开发者。  
+> **核心宪法**：**物理守恒高于拟合残差；遇到异常如实降级，严禁放宽门禁掩盖失败；严禁破坏向后兼容与基线一致性。**
 
-1. `README.md`（能力、CLI、数值基准）
-2. `.trae/skills/xafs-pipeline-report/SKILL.md`（执行流程与交互规范）
-3. `.trae/skills/xafs-pipeline-report/references/pipeline-reference.md`（参数与门禁）
-4. `docs/CN_REPORTING_STANDARD.md`（CN 报告、结构/CIF 披露与状态分级）
+---
 
-## 工作方式
+## 一、 五大绝对不可逾越的硬约束红线（Zero-Tolerance Rules）
 
-- 默认先做 S1–S6：读谱、E0、归一化、背景扣除、FT、结构识别。
-- 先把 E0、边步、Rbkg、第一壳位置、结构候选给用户确认，再做 S7 定量拟合。
-- 吸收元素或边不确定时先问用户，不要猜。
-- 用户给原始谱文件时，先确认文件存在、格式（XDI / Athena `.prj` / 普通 dat）和吸收元素。
-- 输出统一写到 `xafs_out/<样品名>/`，不要覆盖已有结果。
-- CN 输出必须披露结构/CIF 来源、拟合参数和逐壳层状态；交付前运行
-  `python cn_disclosure.py <fit.json>`，或用 `paper_figures.py --strict-disclosure`。
-- 修改代码、提交、推送前先征得用户同意；不要擅自 `git clean`。
+### 红线 1：12 个锁定元素常量绝对不可动
+* 文件位置：`absorber.py` 的静态元素定义表；
+* **锁定元素清单**：`Cr, Mn, Zn, Mo, Ru, Rh, Pd, Ag, Ir, Au, Ce, U`；
+* **硬约束要求**：上述 12 个元素的静态定义必须严格保持 `s02=None, calibrated=False`。严禁任何 Agent 擅自填入经验默认值或试图放宽验证；Fe 氧化物生产值锁定为 `0.803`，严禁替换；
+* **优先级秩序**：$S_0^2$ 解析链必须严格遵循 `CLI显式 (--s02)` > `--chemical-state` > `--s02-from-t5` > `absorber.py 静态表`。
 
-## CLI 入口
+### 红线 2：门禁常量不可放宽，拟合失败必须如实降级
+* **严禁放宽常量**：
+  * 全谱拟合可信门限：$R\text{-factor} \le 0.08$（红灯硬拦截，绝不可放大至 0.10 以上）；
+  * 吸收零点偏移门限：$|\Delta E_0| \le 15.0\text{ eV}$（拦截非物理发散）；
+  * 结构识别评分：`CONFIDENT_SCORE = 0.16`、`CONFIDENT_MARGIN = 0.03`；
+  * 边后归一化平台：严格处于 $[0.85, 1.15]$ 区间；
+  * 荧光自吸收硬红线：浓样 $\Delta\mu \ge 1.0$ 未校正自吸收时，强制触发 `cn_gate=True`，关闭 CN 宣称（`cn_reliable=False`）。
+* **处理准则**：当拟合指标超出上述合理范围时，**唯一合规操作是如实标记不可靠并降级（退守 L1 第一壳层）**。严禁 Agent 通过“调宽门限参数、修改常量容差”来换取表面的拟合通过。
 
-单文件报告：
+### 红线 3：自由度与独立点数物理红线（Stern 规则）
+* 拟合前必须严格校验自由变量数与独立数据点数关系：
+  $$N_{\text{idp}} \approx \frac{2\Delta k\Delta R}{\pi} + 2$$
+* 自由度冗余约束：建议 $N_{\text{var}} \le \frac{2}{3} N_{\text{idp}}$，严格禁止 $N_{\text{var}} \ge N_{\text{idp}}$；
+* 在 `select_shell_paths` 中超出自由度预算的高阶壳层必须自动截断并记入 `truncated`，严禁 Agent 解除截断。
 
-```powershell
-python xafs_report.py <文件> --absorber <元素> -o xafs_out/<样品名>
-```
+### 红线 4：多壳层 $\Delta E_0$ 全局单一变量绑定
+* 在多壳层拟合时，所有路径必须绑定全局单一 $\Delta E_0$（1 个独立自由变量）；
+* 严禁将各壳层的 $\Delta E_0$ 独立放开拟合，防止光电子动量与键长 $R$ 发生虚假数值耦合。
 
-批量 / 结构识别 / 拟合：
+### 红线 5：零退化与 CI 基线逐位一致
+* 任何代码改动、重构或优化，必须保证 `run_ci.py` 与 `regression_test.py` 全绿通过；
+* 标准标样（如 Lepidocrocite、Fe foil）的基准拟合结果、指标导出数值必须保持历史逐位一致，不可发生数值漂移；
+* 所有输出文件落盘逻辑必须保持防静默覆盖机制，保留用户既有分析记录。
 
-```powershell
-python run_xafs.py <文件> --absorber <元素> -o xafs_out/<样品名>
-python run_xafs.py <文件> --absorber <元素> --fit -o xafs_out/<样品名>
-python run_xafs.py <文件> --absorber <元素> --fit --fit-motif <motif> --allow-ambiguous -o xafs_out/<样品名>
-```
+---
 
-多元素批处理：
+## 二、 模块架构分工与修改边界
 
-```powershell
-python run_xafs.py a.xdi b.xdi --multi-element -o xafs_out/batch
-```
+| 模块文件 | 核心职责 | Agent 修改边界与注意事项 |
+|:---|:---|:---|
+| `run_xafs.py` | CLI 入口、参数解析、管线调度、产物落盘 | 仅允许增加参数别名或辅助开关，不得破坏既有默认参数行为；必须支持向后兼容。 |
+| `xafs_pipeline.py` | S1-S6 预处理主干编排 | 严格保证数据处理流的确定性，各阶段数据矩阵必须有严格的非空和有效值校验。 |
+| `structure_id.py` | S6.5 结构指纹识别与分类 | 识别阈值 0.16 与 margin 0.03 严禁修改；未解释显著峰强制降级为 partial。 |
+| `structure_lib.py` | 结构库检索与动态催化 Motif 生成 | 动态 SAC/DAC/Alloy 缓存应使用哈希隔离，不得污染主库静态索引。 |
+| `xafs_fit.py` | S7 Artemis 拟合编排与物理诊断 | 壳层合并容差固定为 0.20 Å；权重拟合严格基于 Softmax；反常参数必须降级。 |
+| `artemis.py` | 空间拟合底层数值求解引擎 | 协方差、雅可比矩阵求逆与相关系数计算必须保持数值稳定，不随意更改阻尼因子。 |
+| `xafs_report.py` | 绘图与多格式报表导出 | 必须明确区分 FT 表观峰位与拟合真实键长 $R$，表格中严禁输出未修正峰位。 |
 
-其他常用参数：`--fit-weights`（混合相权重）、`--fit-rmax`、`--e0-method half_height`、`--xanes-cross-check`、`--diagnostics`、`--figure-pack`、`--operando`。参数以 `--help` 为准。
+---
 
-## S₀² 规则（重要）
+## 三、 提交审查前自检清单（Pre-flight Checklist）
 
-优先级：显式 `--s02` / `--multi-element-s02` > `--chemical-state` > `--s02-from-t5` > `absorber.py` 静态表。
+在完成任何代码修改、生成 PR 或向用户汇报前，Agent 必须在内心依次打勾核验：
 
-- Fe 氧化物 / 羟基氧化物：默认 `Fe=0.803`，不要替换。
-- 金属 Fe：`--chemical-state metal`（0.6566；等价旧写法 `--s02 0.6566`），并配 `--fit-rmax 2.60` 做单壳 bcc。
-- T5 已标定元素：`--s02-from-t5`（只接受 `status=calibrated` 且 `static_absorber_py_unchanged=true` 的产物）。
-- 其他未标定元素：显式 `--s02`，或先跑 `calibrate_t5.py` / `calibrate_s02.py`。
-
-## 硬约束
-
-- 不修改 `absorber.py` 的静态 S₀² 表；12 个锁定元素保持 `s02=None`、`calibrated=False`。
-- 不放宽 `calibrate_s02.py` 的冻结门禁常量。
-- 不把 `_standards_lib/`、`data/standards_raw/`、`logs/`、`patches/` 加入 Git（IIT-Lytle 再分发许可 / 本地产物）。
-- `data/s02_calibration/` 是已通过产物；重新标定用 `calibrate_t5.py --only ...`，不要手改 JSON。
-- 拟合失败或门禁不通过时，如实报告并降级，不要通过放宽门禁“修好”。
-
-## 常用自检
-
-```powershell
-python env_check.py
-python run_ci.py            # 编译 + 135 项回归
-python cif_crawler.py --t5  # 重建本地 T5 标准谱（产物不入库）
-```
+- [ ] 是否未修改 `absorber.py` 中的 12 个锁定元素（保持 `s02=None`）？
+- [ ] 是否未放宽任何 $R\text{-factor}$、$\Delta E_0$、结构评分或自吸收门禁阈值？
+- [ ] 拟合失败时是否已如实降级退守 L1，而非掩盖错误？
+- [ ] 多壳层拟合是否依然保持全局唯一 $\Delta E_0$ 绑定？
+- [ ] 本地运行 `python run_ci.py` 是否 100% 通过且无回归退化？
+- [ ] 报表输出是否严格区分了表观 FT 峰位与相位修正键长 $R$？

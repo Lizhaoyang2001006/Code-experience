@@ -534,6 +534,9 @@ _CATALYTIC_DICT_KEYS = {
             "ligand_bond"},
     "alloy": {"type", "partner", "x_partner", "r_aa", "r_ab",
               "n_total", "lattice"},
+    "algo": {"type", "host", "surface", "anchor", "site", "replace",
+             "dopant", "center", "buckling", "disorder", "twist", "rcut",
+             "local_cif"},
 }
 
 # 第一配位壳方向（单位向量）。fcc/hcp 用立方八面体 12 方向，
@@ -572,6 +575,95 @@ def _finalize_dynamic_motif(motif: Motif, payload: dict) -> Motif:
         json.dumps(motif.to_json(), ensure_ascii=False, indent=2),
         encoding="utf-8")
     return motif
+
+
+def build_algorithmic_catalytic_motif(absorber: str, spec: dict) -> Motif:
+    """v2.0 晶体库驱动与纯算术畸变催化 Motif 构建器（免 DFT 毫秒级生成）。"""
+    import catalytic_builder as cb
+    import math
+    import numpy as np
+
+    sym = str(absorber).capitalize()
+    host = str(spec.get("host", "TiO2"))
+    local_cif = spec.get("local_cif")
+    surface = spec.get("surface")
+    anchor = spec.get("anchor", sym)
+    site_type = str(spec.get("site", "bridge")).lower()
+    replace_el = spec.get("replace")
+    dopant_el = spec.get("dopant", sym)
+    center_el = spec.get("center", sym)
+    buckling_z = float(spec.get("buckling", 0.0))
+    disorder_sigma = float(spec.get("disorder", 0.0))
+    twist_angle = float(spec.get("twist", 0.0))
+    rcut = float(spec.get("rcut", 5.0))
+
+    np.random.seed(42)
+
+    # 1. 获取母体晶体
+    if local_cif and Path(local_cif).exists():
+        model = cb.parse_cif_simple(Path(local_cif))
+    else:
+        key = "tio2_rutile"
+        f_low = host.lower()
+        if "zsm" in f_low: key = "zsm5_model"
+        elif "co" in f_low or center_el.lower() == "co": key = "co3o4"
+        elif "ceo2" in f_low: key = "ceo2"
+        elif "anatase" in f_low: key = "tio2_anatase"
+        proto = cb.BUILTIN_PROTOTYPES.get(key, cb.BUILTIN_PROTOTYPES["tio2_rutile"])
+        model = cb.CrystalModel(proto["cell"], proto["atoms"])
+
+    # 2. 超胞扩建
+    supercell = model.build_supercell(nx=2, ny=2, nz=2)
+
+    # 3. 几何寻位与缺陷
+    if surface:
+        anchor_pos = cb.find_surface_anchoring_site(supercell, site_type=site_type, anchor_atom=anchor)
+        center_atom = anchor
+        center_pos = anchor_pos
+        cluster_atoms = supercell + [(anchor, anchor_pos[0], anchor_pos[1], anchor_pos[2])]
+    elif replace_el:
+        doped_atoms, d_pos = cb.apply_bulk_doping(supercell, replace_el=replace_el, dopant_el=dopant_el)
+        center_atom = dopant_el
+        center_pos = d_pos
+        cluster_atoms = doped_atoms
+    else:
+        center_atom = center_el
+        c_candidates = [(math.sqrt(x**2+y**2+z**2), np.array([x, y, z])) for el, x, y, z in supercell if el == center_atom]
+        c_candidates.sort(key=lambda item: item[0])
+        center_pos = c_candidates[0][1] if c_candidates else np.array([0.0, 0.0, 0.0])
+        cluster_atoms = supercell
+
+    # 4. 微扰注入
+    distorted = cb.inject_parameterized_distortions(cluster_atoms, center_pos, buckling_z=buckling_z,
+                                                    disorder_sigma=disorder_sigma, twist_angle=twist_angle)
+
+    # 5. 截取局域点阵并原点对齐 (0,0,0)
+    sites = []
+    for el, x, y, z in distorted:
+        r = math.sqrt((x - center_pos[0])**2 + (y - center_pos[1])**2 + (z - center_pos[2])**2)
+        if 0.001 < r <= rcut:
+            sites.append([round(float(x - center_pos[0]), 5), round(float(y - center_pos[1]), 5), round(float(z - center_pos[2]), 5), el])
+
+    sites.sort(key=lambda s: math.sqrt(s[0]**2 + s[1]**2 + s[2]**2))
+    payload = {
+        "type": "algo", "absorber": sym, "host": host, "surface": surface,
+        "anchor": anchor, "site": site_type, "replace": replace_el,
+        "dopant": dopant_el, "buckling": buckling_z, "disorder": disorder_sigma,
+        "twist": twist_angle, "rcut": rcut
+    }
+    motif_id = f"algo_{sym}_{host.replace(' ', '_')}"
+    if surface: motif_id += f"_s{surface.replace(' ', '')}_{site_type}"
+    if replace_el: motif_id += f"_rep{replace_el}"
+    if buckling_z != 0.0: motif_id += f"_b{buckling_z:.2f}"
+    if disorder_sigma != 0.0: motif_id += f"_d{disorder_sigma:.2f}"
+
+    motif = Motif(
+        id=motif_id, absorber=sym, kind="cluster", nuclearity="mononuclear",
+        source={"type": "algorithmic_v2", "host": host, "surface": surface},
+        sites=sites,
+        notes=f"v2.0 纯算法催化构型：母体={host}，微扰(buckling={buckling_z}, disorder={disorder_sigma})"
+    )
+    return _finalize_dynamic_motif(motif, payload)
 
 
 def build_sac_motif(
@@ -784,7 +876,7 @@ def _catalytic_from_dict(absorber: str, spec: dict) -> Motif:
     if not isinstance(spec, dict):
         raise XAFSConfigError("motif", f"催化模型必须是字典，收到 {type(spec).__name__}")
     kind = str(spec.get("type", "sac")).strip().lower()
-    if kind not in ("sac", "dac", "alloy"):
+    if kind not in ("sac", "dac", "alloy", "algo"):
         raise XAFSConfigError(
             "motif", f"催化模型 type={kind!r} 只支持 sac / dac / alloy")
     unknown = set(spec) - _CATALYTIC_DICT_KEYS[kind]
@@ -803,6 +895,8 @@ def _catalytic_from_dict(absorber: str, spec: dict) -> Motif:
             r_ab=(None if spec.get("r_ab") is None else float(spec["r_ab"])),
             n_total=int(spec.get("n_total", 12)),
             lattice=str(spec.get("lattice", "fcc")))
+    if kind == "algo":
+        return build_algorithmic_catalytic_motif(absorber, spec)
     if kind == "sac":
         axial = spec.get("axial")
         return build_sac_motif(
@@ -835,6 +929,39 @@ def _parse_catalytic_string(spec: str, absorber: str | None = None) -> dict:
         kind, body = "dac", text[4:]
     elif low.startswith("alloy:"):
         return _parse_alloy_string(absorber, text[6:], spec)
+    elif low.startswith("algo:"):
+        out = {"type": "algo"}
+        tokens = [t.strip() for t in text[5:].split(",") if t.strip()]
+        for tok in tokens:
+            if "=" in tok:
+                k, v = tok.split("=", 1)
+                k = k.strip().lower()
+                v = v.strip()
+                if k in ("buckling", "buckling_z", "buckling-z"):
+                    out["buckling"] = float(v)
+                elif k in ("disorder", "disorder_sigma", "disorder-sigma"):
+                    out["disorder"] = float(v)
+                elif k in ("twist", "twist_angle", "twist-angle"):
+                    out["twist"] = float(v)
+                elif k in ("rcut", "r_cut"):
+                    out["rcut"] = float(v)
+                elif k == "host":
+                    out["host"] = v
+                elif k == "surface":
+                    out["surface"] = v
+                elif k == "anchor":
+                    out["anchor"] = v.capitalize()
+                elif k in ("site", "site_type", "site-type"):
+                    out["site"] = v.lower()
+                elif k == "replace":
+                    out["replace"] = v.capitalize()
+                elif k == "dopant":
+                    out["dopant"] = v.capitalize()
+                elif k == "center":
+                    out["center"] = v.capitalize()
+                elif k in ("local_cif", "cif"):
+                    out["local_cif"] = v
+        return out
     else:
         raise XAFSConfigError(
             "motif", "催化模型字符串必须以 'sac:' / 'dac:' / 'alloy:' "
