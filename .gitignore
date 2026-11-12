@@ -24,3 +24,6 @@ patches/
 _structure_lib/_dynamic_cache/sac_67ee250afb79/
 
 # 运行时动态 motif 缓存（可重建，不随仓库提交）_structure_lib/_dynamic_cache/
+
+# Local experimental raw data (do not upload)
+ data/raw/
